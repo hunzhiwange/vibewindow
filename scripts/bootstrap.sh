@@ -58,7 +58,7 @@ Examples:
   ./bootstrap.sh --docker
 
   # Remote one-liner
-  curl -fsSL https://raw.githubusercontent.com/doyouhaobaby/vibe-window/main/scripts/bootstrap.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/hunzhiwange/vibewindow/main/scripts/bootstrap.sh | bash
 
 Environment:
   VIBEWINDOW_CONTAINER_CLI     Container CLI command (default: docker; auto-fallback: podman)
@@ -1021,7 +1021,7 @@ run_docker_bootstrap() {
   local -a container_run_user_args container_run_namespace_args
   local -a container_extra_run_args container_extra_env_args docker_build_args daemon_cmd
   docker_image="${VIBEWINDOW_DOCKER_IMAGE:-vibewindow-bootstrap:local}"
-  fallback_image="ghcr.io/doyouhaobaby/vibe-window:latest"
+  fallback_image="ghcr.io/hunzhiwange/vibewindow:latest"
   docker_build_features="${VIBEWINDOW_DOCKER_CARGO_FEATURES:-}"
   docker_browser_runtime_mode="${VIBEWINDOW_DOCKER_BROWSER_RUNTIME:-auto}"
   docker_browser_sidecar_name="${VIBEWINDOW_DOCKER_BROWSER_SIDECAR_NAME:-vibewindow-browser-webdriver}"
@@ -1273,7 +1273,7 @@ MSG
 SCRIPT_PATH="${BASH_SOURCE[0]:-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" >/dev/null 2>&1 && pwd || pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd || pwd)"
-REPO_URL="https://github.com/doyouhaobaby/vibe-window.git"
+REPO_URL="https://github.com/hunzhiwange/vibewindow.git"
 ORIGINAL_ARG_COUNT=$#
 GUIDED_MODE="auto"
 

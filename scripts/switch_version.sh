@@ -15,6 +15,8 @@ This follows the version bump shape from task/commit:
 
 It updates these package manifests:
   crates/vw-acp/Cargo.toml
+  crates/vw-agent/Cargo.toml
+  crates/vw-api-types/Cargo.toml
   crates/vw-cli/Cargo.toml
   crates/vw-config-types/Cargo.toml
   crates/vw-desktop/Cargo.toml
@@ -25,6 +27,7 @@ It updates these package manifests:
   crates/vw-webview/Cargo.toml
 
 It also updates matching package entries in Cargo.lock.
+It also updates local path dependency version constraints between VibeWindow crates.
 
 Examples:
   scripts/switch_version.sh 0.1.10
@@ -109,48 +112,22 @@ update_manifest_version() {
   fi
 }
 
-ensure_publish_false() {
+update_local_path_dependency_versions() {
   local file="$1"
+  local version="$2"
   local tmp_file
   tmp_file="$(mktemp)"
 
-  if awk '
-    BEGIN {
-      in_package = 0
-      saw_publish = 0
+  if awk -v version="$version" '
+    /^[[:alnum:]_-]+[[:space:]]*=[[:space:]]*\{[^\n]*path[[:space:]]*=[[:space:]]*"\.\.\/[^"]+"[^\n]*version[[:space:]]*=/ {
+      sub(/version[[:space:]]*=[[:space:]]*"[^"]+"/, "version = \"" version "\"")
     }
-    /^\[package\][[:space:]]*$/ {
-      in_package = 1
-      saw_publish = 0
-      print
-      next
-    }
-    /^\[/ && $0 !~ /^\[package\][[:space:]]*$/ {
-      if (in_package && saw_publish == 0) {
-        print "publish = false"
-      }
-      in_package = 0
-    }
-    in_package && /^publish[[:space:]]*=/ {
-      if (saw_publish == 0) {
-        print "publish = false"
-      }
-      saw_publish = 1
-      next
-    }
-    {
-      print
-    }
-    END {
-      if (in_package && saw_publish == 0) {
-        print "publish = false"
-      }
-    }
+    { print }
   ' "$file" > "$tmp_file"; then
     write_tmp "$tmp_file" "$file"
   else
     rm -f "$tmp_file"
-    die "Failed to ensure publish=false in $file"
+    die "Failed to update local path dependency versions in $file"
   fi
 }
 
@@ -238,6 +215,8 @@ validate_version "$VERSION"
 
 MANIFEST_FILES=(
   "crates/vw-acp/Cargo.toml"
+  "crates/vw-agent/Cargo.toml"
+  "crates/vw-api-types/Cargo.toml"
   "crates/vw-cli/Cargo.toml"
   "crates/vw-config-types/Cargo.toml"
   "crates/vw-desktop/Cargo.toml"
@@ -249,8 +228,10 @@ MANIFEST_FILES=(
 )
 
 LOCK_PACKAGE_NAMES=(
-  "fig2json"
+  "vw-fig2json"
   "vw-acp"
+  "vw-agent"
+  "vw-api-types"
   "vw-cli"
   "vw-config-types"
   "vw-desktop"
@@ -263,11 +244,9 @@ LOCK_PACKAGE_NAMES=(
 for manifest in "${MANIFEST_FILES[@]}"; do
   [[ -f "$manifest" ]] || die "Missing manifest: $manifest"
   update_manifest_version "$manifest" "$VERSION"
+  update_local_path_dependency_versions "$manifest" "$VERSION"
   echo "[$SCRIPT_NAME] Updated $manifest -> $VERSION"
 done
-
-ensure_publish_false "crates/vw-figma-json/Cargo.toml"
-echo "[$SCRIPT_NAME] Ensured crates/vw-figma-json/Cargo.toml has publish = false"
 
 LOCK_NAMES_CSV="$(IFS=,; printf '%s' "${LOCK_PACKAGE_NAMES[*]}")"
 update_lockfile_versions "$VERSION" "$LOCK_NAMES_CSV"

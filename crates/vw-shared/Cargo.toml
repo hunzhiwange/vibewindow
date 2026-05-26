@@ -1,8 +1,11 @@
 [package]
 name = "vw-shared"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
-publish = false
+repository = "https://github.com/hunzhiwange/vibewindow"
+homepage = "https://github.com/hunzhiwange/vibewindow"
+description = "Shared utilities for VibeWindow crates"
+license = "MIT"
 
 [dependencies]
 anyhow = "1"

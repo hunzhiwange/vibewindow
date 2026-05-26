@@ -12,14 +12,10 @@ allow-dirty = ["ci"]
 # Default to not distributing packages unless they explicitly opt in.
 dist = false
 # The installers to generate for each app
-installers = ["shell", "powershell", "npm"]
-# Enable this after creating the tap repository.
-# installers = ["shell", "powershell", "npm", "homebrew"]
-# tap = "doyouhaobaby/homebrew-tap"
+installers = ["shell", "powershell", "npm", "homebrew"]
+tap = "hunzhiwange/homebrew-tap"
 # Publish jobs to run in CI
-publish-jobs = ["npm"]
-# Enable this after creating the tap repository.
-# publish-jobs = ["homebrew", "npm"]
+publish-jobs = ["homebrew", "npm", "./publish-crates"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "aarch64-pc-windows-msvc", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
 # Match the previous release profile's feature selection.

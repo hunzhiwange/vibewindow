@@ -1,0 +1,53 @@
+# Publishes VibeWindow crates to crates.io.
+#
+# This is triggered by cargo-dist during the release publish step.
+name: PublishCrates
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+
+jobs:
+  cargo-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - run: cargo publish -p vw-api-types --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - run: cargo publish -p vw-fig2json --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - run: cargo publish -p vw-shared --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - run: cargo publish -p vw-config-types --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - run: cargo publish -p vw-gateway-client --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - run: cargo publish -p vw-acp --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - run: cargo publish -p vw-provider-resolver --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - run: cargo publish -p vw-agent --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - run: cargo publish -p vw-cli --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - run: cargo publish -p vw-webview --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      - run: cargo publish -p vw-desktop --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}

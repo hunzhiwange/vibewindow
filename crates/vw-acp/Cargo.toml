@@ -1,9 +1,11 @@
 [package]
 name = "vw-acp"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
-publish = false
-repository = "https://github.com/doyouhaobaby/vibe-window"
+repository = "https://github.com/hunzhiwange/vibewindow"
+homepage = "https://github.com/hunzhiwange/vibewindow"
+description = "Agent Client Protocol bridge for VibeWindow"
+license = "MIT"
 
 [package.metadata.dist]
 dist = true
@@ -26,5 +28,5 @@ time = { version = "0.3", features = ["formatting", "parsing"] }
 tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "process", "rt", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-util = { version = "0.7.18", features = ["compat"] }
 tracing = "0.1"
-vw-api-types = { path = "../vw-api-types" }
-vw-shared = { path = "../vw-shared", features = ["shell-tokio"] }
+vw-api-types = { path = "../vw-api-types", version = "0.2.2" }
+vw-shared = { path = "../vw-shared", version = "0.2.2", features = ["shell-tokio"] }

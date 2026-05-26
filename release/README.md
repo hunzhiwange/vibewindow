@@ -14,7 +14,7 @@ Release publishing is driven by cargo-dist and GitHub Actions.
 ## Required GitHub Secrets
 
 - `NPM_TOKEN`: required for publishing the generated npm installer package.
-- `HOMEBREW_TAP_TOKEN`: optional later; required only after creating `doyouhaobaby/homebrew-tap` and uncommenting the Homebrew publish blocks.
+- `HOMEBREW_TAP_TOKEN`: optional later; required only after creating `hunzhiwange/homebrew-tap` and uncommenting the Homebrew publish blocks.
 - `MACOS_SIGN_P12`, `MACOS_SIGN_PASSWORD`, `MACOS_SIGN_IDENTITY`, `KEYCHAIN_PASSWORD`: optional macOS signing inputs.
 - `MACOS_NOTARY_KEY`, `MACOS_NOTARY_KEY_ID`, `MACOS_NOTARY_ISSUER_ID`, `MACOS_NOTARY_KEYCHAIN_PROFILE`: optional notarization inputs.
 
