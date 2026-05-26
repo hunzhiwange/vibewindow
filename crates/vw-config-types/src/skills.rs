@@ -1,0 +1,48 @@
+//! 技能加载配置模块。
+//!
+//! 本模块定义技能提示注入方式及开放技能目录的开关，供运行时决定如何发现和拼装
+//! 技能内容。
+
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+/// 技能提示注入模式。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SkillsPromptInjectionMode {
+    /// 以紧凑形式注入技能提示。
+    #[default]
+    Compact,
+    /// 以完整形式注入技能提示。
+    Full,
+}
+
+/// 解析技能提示注入模式字符串。
+pub fn parse_skills_prompt_injection_mode(raw: &str) -> Option<SkillsPromptInjectionMode> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "full" => Some(SkillsPromptInjectionMode::Full),
+        "compact" => Some(SkillsPromptInjectionMode::Compact),
+        _ => None,
+    }
+}
+
+/// 技能系统配置。
+///
+/// 用于控制开放技能目录是否启用，以及提示注入使用紧凑模式还是完整模式。
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+pub struct SkillsConfig {
+    /// 是否启用开放技能目录。
+    #[serde(default)]
+    pub open_skills_enabled: bool,
+
+    /// 开放技能目录路径。
+    #[serde(default)]
+    pub open_skills_dir: Option<String>,
+
+    /// 技能提示注入模式。
+    #[serde(default)]
+    pub prompt_injection_mode: SkillsPromptInjectionMode,
+}
+#[cfg(test)]
+#[path = "skills_tests.rs"]
+mod skills_tests;

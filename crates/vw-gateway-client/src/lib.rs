@@ -1,0 +1,106 @@
+//! 网关客户端封装。
+//!
+//! 本 crate 负责为桌面端、CLI 与其他调用方提供统一的网关访问层，覆盖：
+//! - 普通 HTTP JSON 接口请求
+//! - 聊天流式 SSE 接口消费
+//! - 会话、项目、文件、桌面设置等常用业务 API
+//! - 网关端点与认证参数的统一描述
+//! - 向上层透出稳定的请求/响应类型别名
+//!
+//! # 模块划分
+//!
+//! - `client`: 对外暴露的主客户端实现
+//! - `endpoint`: 网关地址与认证模型
+//! - `http`: 通用请求、日志与错误处理辅助函数
+//! - `session`: 会话相关类型导出
+//! - `stream`: 流式聊天请求与 SSE 事件解析
+//!
+//! # 设计目标
+//!
+//! - 对上层屏蔽具体 HTTP 细节
+//! - 保持错误文本稳定，便于直接展示
+//! - 尽量复用 vw-api-types 中的类型定义，减少重复建模
+//! - 同时兼容异步与少量阻塞调用场景
+
+mod client;
+mod endpoint;
+mod http;
+mod session;
+mod stream;
+
+#[cfg(test)]
+mod tests;
+
+/// 桌面端可用外部应用状态的精简传输对象。
+///
+/// 该结构会把原始 JSON 响应规整为更适合 UI 层消费的字段。
+pub use client::{
+    DesktopSkillCatalogEntryDto, DesktopSkillDetailDto, DesktopSkillPathDto,
+    ExternalAppsStateDto,
+    PendingPermissionReplyDto, PendingPermissionRequestDto, PendingPermissionToolDto,
+};
+/// 网关 HTTP 与流式接口的统一客户端入口。
+///
+/// 调用方通常只需要持有这个类型，即可访问本 crate 暴露的大部分能力。
+pub use client::GatewayClient;
+/// Provider 列表接口的响应结构。
+///
+/// 包含全部 provider、默认路由与已连接 provider 三部分信息。
+pub use client::ProviderListResponse;
+pub use vw_api_types::tool::{
+    GatewayRedisCommandRequest, GatewayRedisCommandResponse, GatewayRedisConfigBundle,
+    GatewayRedisConnectionConfig, GatewayRedisConnectionTestResponse,
+    GatewayRedisKeyAnalysis, GatewayRedisKeyAnalysisRequest, GatewayRedisKeyCreateRequest,
+    GatewayRedisConnectionUpsertBody, GatewayRedisDeleteResponse, GatewayRedisHistoryListQuery,
+    GatewayRedisHistoryPage, GatewayRedisHistoryRecord, GatewayRedisImportResponse,
+    GatewayRedisInfoEntry, GatewayRedisKeyListQuery, GatewayRedisKeyPage,
+    GatewayRedisKeyspaceStat, GatewayRedisRuntimeOverview, GatewayRedisSettings,
+    GatewayRedisSettingsUpdateBody, GatewayRedisToolState,
+};
+/// 网关认证参数与基础端点配置。
+///
+/// 用于描述请求应发送到哪个网关实例，以及需要附加哪些认证信息。
+pub use endpoint::{GatewayAuth, GatewayEndpoint};
+/// 会话相关请求与响应类型。
+///
+/// 这些类型直接复用 `vw-api-types` 中的定义，避免调用方重复依赖多个 crate。
+pub use session::{
+    GatewaySessionCreateBody, GatewaySessionDiffQuery, GatewaySessionForkBody,
+    GatewaySessionMessageListQuery, GatewaySessionPatchBody, GatewaySessionPatchTime,
+    GatewaySessionResetBody, GatewaySessionScopeBody, GatewaySessionSummarizeBody,
+    GatewaySessionTitleGenerateBody, GatewaySessionTitleGenerateResponse, GatewaySessionTodoItem,
+    GatewaySessionTodoPutBody,
+};
+#[allow(deprecated)]
+/// 兼容旧命名的会话类型别名。
+///
+/// 仅用于平滑迁移旧调用点，新代码应优先使用 `Gateway*` 前缀类型。
+pub use session::{
+    SessionCreateBody, SessionDiffQuery, SessionForkBody, SessionMessageListQuery,
+    SessionPatchBody, SessionPatchTime, SessionResetBody, SessionSummarizeBody, SessionTodoItem,
+    SessionTodoPutBody,
+};
+#[allow(deprecated)]
+/// 兼容旧命名的流式聊天类型别名。
+///
+/// 仅用于保留旧 API 兼容性。
+pub use stream::{ChatStreamEvent, ChatStreamRequest};
+/// 流式聊天请求与事件类型。
+///
+/// 对应网关 `/v1/chat/stream` 接口的请求体与事件枚举。
+pub use stream::{
+    GatewayChatStepFinishEvent, GatewayChatStepStartEvent, GatewayChatStreamEvent,
+    GatewayChatStreamRequest, GatewayChatUsage, GatewayTypedChatStreamEvent,
+    normalize_chat_stream_event,
+};
+/// 对外透出共享的 API 类型定义。
+///
+/// 方便上层从单一依赖入口访问完整的接口类型集合。
+pub use vw_api_types;
+pub use vw_api_types::project::{
+    ListProjectChangeRecordsRequest, ListProjectChangeRecordsResponse, ProjectChangeRecordDto,
+};
+pub use vw_api_types::workflow::{
+    WorkflowNodeRunDto, WorkflowNodeRunStatus, WorkflowRunRequest, WorkflowRunResponse,
+    WorkflowRunStatus,
+};

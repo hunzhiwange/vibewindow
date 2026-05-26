@@ -1,0 +1,611 @@
+//! 会话摘要模块
+//!
+//! 本模块提供会话变更统计和消息摘要生成功能。
+//! 主要职责包括：
+//! - 计算会话中的文件变更差异（新增、删除行数）
+//! - 为用户消息生成标题摘要
+//! - 管理会话级别的差异存储和事件发布
+
+use crate::app::agent::agent;
+use crate::app::agent::bus;
+use crate::app::agent::project::instance;
+use crate::app::agent::provider::provider;
+use crate::app::agent::snapshot;
+use crate::app::agent::storage;
+use crate::app::agent::util::log;
+use std::sync::LazyLock;
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value, json};
+use std::fmt;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+
+/// 模块日志记录器
+///
+/// 用于记录摘要生成过程中的关键事件，如标题生成结果。
+static LOGGER: LazyLock<log::Logger> = LazyLock::new(|| {
+    log::create(Some({
+        let mut m = Map::new();
+        m.insert("service".to_string(), Value::String("session.summary".to_string()));
+        m
+    }))
+});
+
+/// 摘要模块错误类型
+///
+/// 封装了会话摘要生成过程中可能发生的各类错误。
+#[derive(Debug)]
+pub enum Error {
+    /// 会话相关错误
+    Session(super::session::Error),
+    /// 快照差异计算错误
+    Snapshot(snapshot::Error),
+    /// LLM 调用错误（用于生成标题）
+    Llm(super::llm::Error),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::Session(e) => write!(f, "{}", e),
+            Error::Snapshot(e) => write!(f, "{}", e),
+            Error::Llm(e) => write!(f, "{}", e),
+        }
+    }
+}
+
+/// 实现 std::error::Error trait，支持错误链式传递
+impl std::error::Error for Error {}
+
+/// 从会话错误转换
+impl From<super::session::Error> for Error {
+    fn from(value: super::session::Error) -> Self {
+        Error::Session(value)
+    }
+}
+
+/// 从快照错误转换
+impl From<snapshot::Error> for Error {
+    fn from(value: snapshot::Error) -> Self {
+        Error::Snapshot(value)
+    }
+}
+
+/// 从 LLM 错误转换
+impl From<super::llm::Error> for Error {
+    fn from(value: super::llm::Error) -> Self {
+        Error::Llm(value)
+    }
+}
+
+/// 从存储错误转换，包装为会话存储错误
+impl From<storage::Error> for Error {
+    fn from(value: storage::Error) -> Self {
+        Error::Session(super::session::Error::Storage(value))
+    }
+}
+
+/// 摘要生成输入参数
+///
+/// 指定需要进行摘要生成的会话和消息。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SummarizeInput {
+    /// 会话唯一标识符
+    #[serde(rename = "sessionID")]
+    pub session_id: String,
+    /// 消息唯一标识符
+    #[serde(rename = "messageID")]
+    pub message_id: String,
+}
+
+/// 差异查询输入参数
+///
+/// 用于查询指定会话的文件变更差异。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiffInput {
+    /// 会话唯一标识符
+    #[serde(rename = "sessionID")]
+    pub session_id: String,
+    /// 可选的消息唯一标识符，用于筛选特定消息范围的差异
+    #[serde(rename = "messageID")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<String>,
+}
+
+/// 获取实例目录的可选值
+///
+/// 返回当前项目实例的目录路径，若为空则返回 None。
+fn instance_directory_opt() -> Option<String> {
+    let d = instance::directory();
+    if d.is_empty() { None } else { Some(d) }
+}
+
+/// 获取工作树路径
+///
+/// 返回当前实例的工作树路径，若为空则返回当前目录 "."。
+fn worktree_path() -> PathBuf {
+    let wt = instance::worktree();
+    if wt.is_empty() { PathBuf::from(".") } else { PathBuf::from(wt) }
+}
+
+/// 生成会话和消息摘要
+///
+/// 该函数执行两个层级的摘要生成：
+/// 1. 会话级摘要：统计整个会话的文件变更（新增/删除行数、文件数）
+/// 2. 消息级摘要：为指定用户消息生成标题和关联的文件差异
+///
+/// # 参数
+///
+/// * `input` - 摘要输入参数，包含会话ID和消息ID
+///
+/// # 返回值
+///
+/// 成功返回 `Ok(())`，失败返回相应的错误类型
+///
+/// # 错误
+///
+/// - 会话数据读取失败
+/// - 快照差异计算失败
+/// - LLM 标题生成失败
+pub async fn summarize(input: SummarizeInput) -> Result<(), Error> {
+    // 获取会话中的所有消息
+    let mut all = super::message::messages(&input.session_id, None).await?;
+    // 按消息ID排序，确保时序正确
+    all.sort_by(|a, b| a.info.id().cmp(b.info.id()));
+
+    // 执行会话级摘要
+    summarize_session(&input.session_id, &all).await?;
+    // 执行消息级摘要
+    summarize_message(&input.session_id, &input.message_id, &all).await?;
+    Ok(())
+}
+
+/// 生成会话级摘要
+///
+/// 计算会话中所有文件变更的统计数据，并更新会话摘要信息。
+///
+/// # 参数
+///
+/// * `session_id` - 会话唯一标识符
+/// * `messages` - 会话中的所有消息列表
+///
+/// # 处理流程
+///
+/// 1. 计算所有消息涉及的文件差异
+/// 2. 统计总新增行数、删除行数和文件数
+/// 3. 更新会话的摘要字段
+/// 4. 持久化差异数据到存储
+/// 5. 发布差异变更事件
+async fn summarize_session(
+    session_id: &str,
+    messages: &[super::message::WithParts],
+) -> Result<(), Error> {
+    // 计算文件差异
+    let diffs = compute_diff_inner(messages)?;
+    // 统计总新增行数
+    let additions: i64 = diffs.iter().map(|x| x.additions).sum();
+    // 统计总删除行数
+    let deletions: i64 = diffs.iter().map(|x| x.deletions).sum();
+    // 统计变更文件数
+    let files: i64 = diffs.len() as i64;
+
+    // 更新会话摘要信息
+    let _ = super::session::update(session_id, |draft| {
+        draft.summary = Some(super::session::Summary { additions, deletions, files, diffs: None });
+    })
+    .await?;
+
+    // 持久化差异数据
+    storage::write(&["session_diff", session_id], &diffs).await?;
+    // 发布差异变更事件，通知订阅者
+    let _ = bus::publish(
+        super::session::event::DIFF,
+        json!({ "sessionID": session_id, "diff": diffs }),
+        instance_directory_opt(),
+    );
+    Ok(())
+}
+
+/// 生成消息级摘要
+///
+/// 为指定的用户消息生成详细摘要，包括文件差异和标题。
+/// 如果消息尚未有标题，会调用 LLM 生成一个简洁的标题。
+///
+/// # 参数
+///
+/// * `session_id` - 会话唯一标识符
+/// * `message_id` - 目标用户消息的唯一标识符
+/// * `messages` - 会话中的所有消息列表
+///
+/// # 处理流程
+///
+/// 1. 筛选出目标消息及其关联的助手回复
+/// 2. 计算这些消息涉及的文件差异
+/// 3. 更新消息的文件差异摘要
+/// 4. 若消息无标题，使用 LLM 生成标题
+async fn summarize_message(
+    session_id: &str,
+    message_id: &str,
+    messages: &[super::message::WithParts],
+) -> Result<(), Error> {
+    // 筛选相关消息：目标消息本身及其子消息（助手回复）
+    let related = messages
+        .iter()
+        .filter(|m| {
+            // 包含目标消息本身
+            if m.info.id() == message_id {
+                return true;
+            }
+            // 包含以该消息为父消息的助手回复
+            match &m.info {
+                super::message::Info::Assistant(a) => a.parent_id == message_id,
+                _ => false,
+            }
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+
+    // 查找目标用户消息
+    let mut msg_with_parts = related.iter().find(|m| m.info.id() == message_id).cloned();
+    let Some(msg_with_parts) = msg_with_parts.take() else { return Ok(()) };
+
+    // 确保目标消息是用户消息
+    let super::message::Info::User(user) = msg_with_parts.info.clone() else { return Ok(()) };
+    let mut user = *user;
+
+    // 计算相关消息的文件差异
+    let diffs = compute_diff_inner(&related)?;
+
+    // 初始化或更新消息摘要
+    let mut summary = user.summary.clone().unwrap_or(super::message::FileDiffSummary {
+        title: None,
+        body: None,
+        diffs: Vec::new(),
+    });
+    summary.diffs = diffs;
+    user.summary = Some(summary);
+
+    // 持久化消息更新
+    super::message::update_message(&super::message::Info::User(Box::new(user.clone()))).await?;
+
+    // 提取消息的文本内容（排除合成消息）
+    let text_part = msg_with_parts.parts.iter().find_map(|p| match p {
+        super::message::Part::Text(t) if t.synthetic != Some(true) => Some(t.text.clone()),
+        _ => None,
+    });
+
+    // 若消息尚无标题，使用 LLM 生成
+    if user.summary.as_ref().and_then(|s| s.title.as_ref()).is_none() {
+        let Some(text) = text_part else { return Ok(()) };
+
+        // 获取标题生成代理配置
+        let Some(agent_info) = agent::get("title").await else { return Ok(()) };
+
+        // 确定使用的模型：优先使用代理配置的模型，否则使用小型模型或原模型
+        let model = if let Some(m) = agent::resolve_model_ref(&agent_info).as_ref() {
+            provider::get_model(&m.provider_id, &m.model_id).await.ok()
+        } else {
+            if let Some(sm) = provider::get_small_model(&user.model.provider_id).await {
+                Some(sm)
+            } else {
+                provider::get_model(&user.model.provider_id, &user.model.model_id).await.ok()
+            }
+        };
+        let Some(model) = model else { return Ok(()) };
+
+        // 构建 LLM 代理信息
+        let llm_agent = super::llm::AgentInfo {
+            name: "title".to_string(),
+            mode: agent_info.mode.clone(),
+            prompt: agent_info.system_prompt.clone(),
+            temperature: agent_info.temperature,
+            top_p: agent_info.top_p,
+            options: agent_info.options.clone(),
+            permission: agent::permission_rules("title").await.unwrap_or_default(),
+        };
+
+        // 构造提示内容
+        let content = format!(
+            "\n              The following is the text to summarize:\n              <text>\n              {}\n              </text>\n            ",
+            text
+        );
+
+        // 收集 LLM 输出
+        let out = Arc::new(Mutex::new(String::new()));
+        let out2 = out.clone();
+
+        // 调用 LLM 流式生成标题
+        super::llm::stream(
+            super::llm::StreamInput {
+                agent: llm_agent,
+                user: user.clone(),
+                tools: Default::default(),
+                model,
+                small: true,
+                messages: vec![json!({ "role": "user", "content": content })],
+                abort: None,
+                session_id: session_id.to_string(),
+                system: Vec::new(),
+                retries: 3,
+            },
+            move |event| match event {
+                // 累积生成的文本片段
+                super::llm::StreamEvent::Delta(d) => {
+                    if let Ok(mut s) = out2.lock() {
+                        s.push_str(&d);
+                    }
+                }
+                // 忽略其他事件类型
+                super::llm::StreamEvent::ReasoningDelta(_) => {}
+                super::llm::StreamEvent::ToolCalls(_) => {}
+                super::llm::StreamEvent::FullMessages(_) => {}
+                super::llm::StreamEvent::Done { .. } => {}
+                super::llm::StreamEvent::Error(_) => {}
+            },
+        )
+        .await?;
+
+        // 提取并清理生成的标题
+        let title = out.lock().unwrap_or_else(|e| e.into_inner()).trim().to_string();
+
+        // 若生成了有效标题，更新消息
+        if !title.is_empty() {
+            if let Some(s) = user.summary.as_mut() {
+                s.title = Some(title.clone());
+            }
+            // 记录标题生成日志
+            LOGGER.info("title", Some(extra([("title", Value::String(title))])));
+            // 持久化消息更新
+            super::message::update_message(&super::message::Info::User(Box::new(user))).await?;
+        }
+    }
+
+    Ok(())
+}
+
+/// 获取会话的文件变更差异
+///
+/// 从存储中读取指定会话的文件差异列表，并处理 Git 路径转义。
+///
+/// # 参数
+///
+/// * `input` - 差异查询输入参数，包含会话ID
+///
+/// # 返回值
+///
+/// 返回文件差异列表，若无数据则返回空列表
+///
+/// # 处理细节
+///
+/// Git 在输出含特殊字符的文件路径时会使用 C 风格的转义格式（如 `"test\303\251.txt"`），
+/// 本函数会自动检测并解码这些转义序列，确保返回正确的文件路径。
+pub async fn diff(input: DiffInput) -> Vec<snapshot::FileDiff> {
+    // 从存储读取差异数据，失败则返回空列表
+    let diffs = storage::read::<Vec<snapshot::FileDiff>>(&["session_diff", &input.session_id])
+        .await
+        .unwrap_or_default();
+
+    // 处理 Git 路径转义
+    let next = diffs
+        .iter()
+        .map(|item| {
+            let file = unquote_git_path(&item.file);
+            if file == item.file {
+                item.clone()
+            } else {
+                let mut cloned = item.clone();
+                cloned.file = file;
+                cloned
+            }
+        })
+        .collect::<Vec<_>>();
+
+    // 若有路径变更，更新存储
+    let changed = next.iter().zip(diffs.iter()).any(|(a, b)| a.file != b.file);
+    if changed {
+        let _ = storage::write(&["session_diff", &input.session_id], &next).await;
+    }
+    next
+}
+
+/// 计算消息列表的文件差异
+///
+/// 分析消息中的快照信息，计算从第一个快照到最后一个快照之间的文件变更。
+///
+/// # 参数
+///
+/// * `input` - 消息及其部件列表
+///
+/// # 返回值
+///
+/// 成功返回文件差异列表，失败返回错误
+pub fn compute_diff(input: &[super::message::WithParts]) -> Result<Vec<snapshot::FileDiff>, Error> {
+    Ok(compute_diff_inner(input)?)
+}
+
+/// 计算消息列表的文件差异（内部实现）
+///
+/// 遍历消息列表，提取步骤开始（StepStart）和步骤结束（StepFinish）中的快照引用，
+/// 然后调用快照模块计算两个快照之间的完整差异。
+///
+/// # 参数
+///
+/// * `messages` - 消息及其部件列表
+///
+/// # 返回值
+///
+/// 成功返回文件差异列表，若无有效快照对则返回空列表
+///
+/// # 处理逻辑
+///
+/// 1. 从消息中提取第一个 StepStart 的快照作为起始点
+/// 2. 提取最后一个 StepFinish 的快照作为结束点
+/// 3. 计算两个快照之间的文件差异
+fn compute_diff_inner(
+    messages: &[super::message::WithParts],
+) -> Result<Vec<snapshot::FileDiff>, snapshot::Error> {
+    // 起始快照引用
+    let mut from: Option<String> = None;
+    // 结束快照引用
+    let mut to: Option<String> = None;
+
+    // 遍历消息提取快照引用
+    for item in messages {
+        // 查找第一个 StepStart 中的快照作为起始点
+        if from.is_none() {
+            for part in &item.parts {
+                if let super::message::Part::StepStart(p) = part {
+                    if let Some(s) = p.snapshot.as_ref() {
+                        from = Some(s.clone());
+                        break;
+                    }
+                }
+            }
+        }
+        // 查找最后一个 StepFinish 中的快照作为结束点
+        for part in &item.parts {
+            if let super::message::Part::StepFinish(p) = part {
+                if let Some(s) = p.snapshot.as_ref() {
+                    to = Some(s.clone());
+                }
+            }
+        }
+    }
+
+    // 若找到了有效的快照对，计算完整差异
+    if let (Some(from), Some(to)) = (from, to) {
+        let worktree = worktree_path();
+        return snapshot::diff_full(&worktree, &from, &to);
+    }
+    Ok(Vec::new())
+}
+
+/// 解码 Git 路径中的转义序列
+///
+/// Git 在输出含特殊字符（如空格、非 ASCII 字符）的文件路径时，
+/// 会使用 C 风格的双引号包裹和转义序列。此函数将其还原为原始路径。
+///
+/// # 参数
+///
+/// * `input` - 可能包含转义序列的文件路径
+///
+/// # 返回值
+///
+/// 解码后的原始文件路径
+///
+/// # 支持的转义序列
+///
+/// - 八进制转义：`\ooo`（如 `\303\251` 表示 UTF-8 字节序列）
+/// - 特殊字符：`\n`（换行）、`\r`（回车）、`\t`（制表符）等
+/// - 字面量：`\\`（反斜杠）、`\"`（双引号）
+///
+/// # 示例
+///
+/// - 输入 `"test\303\251.txt"` -> 输出 `"testé.txt"`
+/// - 输入 `"path with spaces"` -> 输出 `"path with spaces"`
+/// - 输入 `normal_path.txt` -> 输出 `normal_path.txt`（无变化）
+fn unquote_git_path(input: &str) -> String {
+    let s = input.trim();
+
+    // 检查是否为双引号包裹的路径
+    if !s.starts_with('"') || !s.ends_with('"') || s.len() < 2 {
+        return input.to_string();
+    }
+
+    // 提取引号内的内容
+    let body = &s[1..s.len() - 1];
+    let mut bytes: Vec<u8> = Vec::new();
+    let chars: Vec<char> = body.chars().collect();
+    let mut i = 0usize;
+
+    // 逐字符解析转义序列
+    while i < chars.len() {
+        let c = chars[i];
+
+        // 非转义字符直接编码
+        if c != '\\' {
+            let mut buf = [0u8; 4];
+            let out = c.encode_utf8(&mut buf);
+            bytes.extend_from_slice(out.as_bytes());
+            i += 1;
+            continue;
+        }
+
+        // 处理转义序列
+        let next = chars.get(i + 1).copied();
+        let Some(next) = next else {
+            // 反斜杠后无字符，保留反斜杠
+            bytes.push(b'\\');
+            i += 1;
+            continue;
+        };
+
+        // 处理八进制转义（\ooo 形式，最多3位）
+        if next >= '0' && next <= '7' {
+            let mut j = i + 1;
+            let mut oct = String::new();
+            // 收集最多3个八进制数字
+            while j < chars.len() && oct.len() < 3 {
+                let ch = chars[j];
+                if ch < '0' || ch > '7' {
+                    break;
+                }
+                oct.push(ch);
+                j += 1;
+            }
+            // 解析八进制数为字节
+            if let Ok(v) = u8::from_str_radix(&oct, 8) {
+                bytes.push(v);
+                i = i + 1 + oct.len();
+                continue;
+            }
+        }
+
+        // 处理特殊字符转义
+        let escaped = match next {
+            'n' => '\n',       // 换行
+            'r' => '\r',       // 回车
+            't' => '\t',       // 制表符
+            'b' => '\u{0008}', // 退格
+            'f' => '\u{000c}', // 换页
+            'v' => '\u{000b}', // 垂直制表符
+            '\\' => '\\',      // 反斜杠
+            '"' => '"',        // 双引号
+            other => other,    // 其他字符保留原样
+        };
+        let mut buf = [0u8; 4];
+        let out = escaped.encode_utf8(&mut buf);
+        bytes.extend_from_slice(out.as_bytes());
+        i += 2;
+    }
+
+    // 将字节序列转换为字符串，处理无效 UTF-8
+    String::from_utf8(bytes)
+        .unwrap_or_else(|e| String::from_utf8_lossy(&e.into_bytes()).to_string())
+}
+
+/// 构造日志额外字段映射
+///
+/// 将键值对数组转换为 JSON Map，用于日志记录。
+///
+/// # 类型参数
+///
+/// * `N` - 键值对数量
+///
+/// # 参数
+///
+/// * `pairs` - 键值对数组
+///
+/// # 返回值
+///
+/// 包含所有键值对的 JSON Map
+fn extra<const N: usize>(pairs: [(&'static str, Value); N]) -> Map<String, Value> {
+    let mut m = Map::new();
+    for (k, v) in pairs {
+        m.insert(k.to_string(), v);
+    }
+    m
+}
+#[cfg(test)]
+#[path = "summary_tests.rs"]
+mod summary_tests;

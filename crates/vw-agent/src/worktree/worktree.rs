@@ -1,0 +1,36 @@
+//! Git Worktree 管理模块
+//!
+//! 本模块按职责拆分为类型、事件、命名规则、原生实现细节和公开操作，
+//! 保持 `worktree::...` 外部接口不变。
+
+#[path = "worktree_event.rs"]
+pub mod event;
+
+#[path = "worktree_naming.rs"]
+mod naming;
+#[cfg(not(target_arch = "wasm32"))]
+#[path = "worktree_native.rs"]
+mod native;
+#[path = "worktree_ops.rs"]
+mod ops;
+#[path = "worktree_types.rs"]
+mod types;
+
+pub use ops::{create, list_directories, remove, reset};
+pub use types::{CreateInput, Error, Info, RemoveInput, ResetInput};
+
+#[cfg(test)]
+#[path = "worktree_event_tests.rs"]
+mod worktree_event_tests;
+#[cfg(test)]
+#[path = "worktree_naming_tests.rs"]
+mod worktree_naming_tests;
+#[cfg(test)]
+#[path = "worktree_native_tests.rs"]
+mod worktree_native_tests;
+#[cfg(test)]
+#[path = "worktree_ops_tests.rs"]
+mod worktree_ops_tests;
+#[cfg(test)]
+#[path = "worktree_types_tests.rs"]
+mod worktree_types_tests;

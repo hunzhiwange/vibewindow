@@ -1,0 +1,10 @@
+请分析这个代码库，并创建一个 AGENTS.md 文件，包含：
+1. 构建/检查/测试命令（尤其是如何运行单个测试）
+2. 代码风格指南（包括 import、格式化、类型、命名规范、错误处理等）
+
+你创建的文件会提供给在本仓库中执行任务的编程智能体（例如你自己）使用。长度控制在大约 150 行。
+如果存在 Cursor 规则（.cursor/rules/ 或 .cursorrules）或 Copilot 规则（.github/copilot-instructions.md），也请一并纳入。
+
+如果 ${path} 里已经有 AGENTS.md，请改进它。
+
+$ARGUMENTS

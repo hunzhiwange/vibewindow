@@ -1,0 +1,36 @@
+//! 会话领域模块入口，集中声明会话运行、提示词、状态同步和 UI 持久化相关子模块。
+
+/// 声明 compaction 子模块，保持当前领域的职责拆分清晰。
+pub mod compaction;
+/// 声明 instruction 子模块，保持当前领域的职责拆分清晰。
+pub mod instruction;
+/// 声明 llm 子模块，保持当前领域的职责拆分清晰。
+pub mod llm;
+/// 声明 message 子模块，保持当前领域的职责拆分清晰。
+pub mod message;
+/// 声明 processor 子模块，保持当前领域的职责拆分清晰。
+pub mod processor;
+/// 声明 prompt 子模块，保持当前领域的职责拆分清晰。
+pub mod prompt;
+/// 声明 retry 子模块，保持当前领域的职责拆分清晰。
+pub mod retry;
+/// 声明 revert 子模块，保持当前领域的职责拆分清晰。
+pub mod revert;
+/// 声明 session 子模块，保持当前领域的职责拆分清晰。
+pub mod session;
+/// 声明 status 子模块，保持当前领域的职责拆分清晰。
+pub mod status;
+/// 声明 summary 子模块，保持当前领域的职责拆分清晰。
+pub mod summary;
+/// 声明 system 子模块，保持当前领域的职责拆分清晰。
+pub mod system;
+/// 声明 title 子模块，保持当前领域的职责拆分清晰。
+pub mod title;
+/// 声明 todo 子模块，保持当前领域的职责拆分清晰。
+pub mod todo;
+/// 声明 ui_config 子模块，保持当前领域的职责拆分清晰。
+pub mod ui_config;
+/// 声明 ui_store 子模块，保持当前领域的职责拆分清晰。
+pub mod ui_store;
+/// 声明 ui_types 子模块，保持当前领域的职责拆分清晰。
+pub mod ui_types;

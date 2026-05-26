@@ -1,0 +1,90 @@
+//! 观测后端工厂的配置解析测试。
+//!
+//! 本文件验证公开配置值到具体 `Observer` 实现的映射关系，尤其是未知后端、
+//! 空字符串和未启用 feature 时的安全回退行为。
+
+use super::*;
+
+#[test]
+fn factory_none_returns_noop() {
+    let cfg = ObservabilityConfig { backend: "none".into(), ..ObservabilityConfig::default() };
+    assert_eq!(create_observer(&cfg).name(), "noop");
+}
+
+#[test]
+fn factory_noop_returns_noop() {
+    let cfg = ObservabilityConfig { backend: "noop".into(), ..ObservabilityConfig::default() };
+    assert_eq!(create_observer(&cfg).name(), "noop");
+}
+
+#[test]
+fn factory_log_returns_log() {
+    let cfg = ObservabilityConfig { backend: "log".into(), ..ObservabilityConfig::default() };
+    assert_eq!(create_observer(&cfg).name(), "log");
+}
+
+#[test]
+fn factory_prometheus_returns_prometheus() {
+    let cfg =
+        ObservabilityConfig { backend: "prometheus".into(), ..ObservabilityConfig::default() };
+    assert_eq!(create_observer(&cfg).name(), "prometheus");
+}
+
+#[test]
+fn factory_otel_returns_otel() {
+    let cfg = ObservabilityConfig {
+        backend: "otel".into(),
+        otel_endpoint: Some("http://127.0.0.1:19999".into()),
+        otel_service_name: Some("test".into()),
+        ..ObservabilityConfig::default()
+    };
+    let expected = if cfg!(feature = "observability-otel") { "otel" } else { "noop" };
+    // OTEL feature 未启用时显式回退到 noop，避免配置存在却隐式创建不可用 exporter。
+    assert_eq!(create_observer(&cfg).name(), expected);
+}
+
+#[test]
+fn factory_opentelemetry_alias() {
+    let cfg = ObservabilityConfig {
+        backend: "opentelemetry".into(),
+        otel_endpoint: Some("http://127.0.0.1:19999".into()),
+        otel_service_name: Some("test".into()),
+        ..ObservabilityConfig::default()
+    };
+    let expected = if cfg!(feature = "observability-otel") { "otel" } else { "noop" };
+    assert_eq!(create_observer(&cfg).name(), expected);
+}
+
+#[test]
+fn factory_otlp_alias() {
+    let cfg = ObservabilityConfig {
+        backend: "otlp".into(),
+        otel_endpoint: Some("http://127.0.0.1:19999".into()),
+        otel_service_name: Some("test".into()),
+        ..ObservabilityConfig::default()
+    };
+    let expected = if cfg!(feature = "observability-otel") { "otel" } else { "noop" };
+    assert_eq!(create_observer(&cfg).name(), expected);
+}
+
+#[test]
+fn factory_unknown_falls_back_to_noop() {
+    let cfg =
+        ObservabilityConfig { backend: "xyzzy_unknown".into(), ..ObservabilityConfig::default() };
+    assert_eq!(create_observer(&cfg).name(), "noop");
+}
+
+#[test]
+fn factory_empty_string_falls_back_to_noop() {
+    let cfg = ObservabilityConfig { backend: String::new(), ..ObservabilityConfig::default() };
+    assert_eq!(create_observer(&cfg).name(), "noop");
+}
+
+#[test]
+fn factory_garbage_falls_back_to_noop() {
+    let cfg = ObservabilityConfig {
+        backend: "xyzzy_garbage_123".into(),
+        ..ObservabilityConfig::default()
+    };
+    assert_eq!(create_observer(&cfg).name(), "noop");
+}

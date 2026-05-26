@@ -1,0 +1,202 @@
+//! 搜索面板组件模块
+//!
+//! 本模块提供全局搜索功能的 UI 组件，用于在应用程序中快速查找和导航到：
+//! - 文件
+//! - 项目
+//! - 历史会话
+//!
+//! # 功能特性
+//!
+//! - 实时搜索：根据用户输入的搜索文本即时过滤结果
+//! - 不区分大小写的匹配
+//! - 分类展示：将搜索结果按类型分组显示
+//! - 结果限制：每种类型的搜索结果最多显示 8 条，避免列表过长
+//!
+//! # 使用方式
+//!
+//! ```ignore
+//! use crate::app::components::search_panel;
+//!
+//! let search_ui = search_panel::view(&app);
+//! ```
+
+use iced::widget::{button, column, container, scrollable, text};
+use iced::{Background, Color, Element, Length};
+
+use crate::app::{App, Message, message};
+
+/// 构建搜索面板视图
+///
+/// 根据应用程序当前状态中的搜索文本，生成包含匹配结果的 UI 元素。
+/// 搜索范围包括：
+/// - 当前项目的文件列表
+/// - 最近的打开项目
+/// - 历史会话记录
+///
+/// # 参数
+///
+/// - `app`: 应用程序状态的不可变引用，包含搜索文本和各类数据源
+///
+/// # 返回值
+///
+/// 返回一个 `Element` 类型的 UI 组件，包含：
+/// - 空容器：当搜索文本为空或仅包含空白字符时
+/// - 可滚动的结果列表：包含按类型分组的搜索结果按钮
+///
+/// # 搜索逻辑
+///
+/// 1. 首先对搜索文本进行 trim 处理，去除首尾空白
+/// 2. 如果搜索文本为空，返回空容器
+/// 3. 对每种数据源进行不区分大小写的子串匹配
+/// 4. 每种类型的匹配结果限制为 8 条
+///
+/// # 示例
+///
+/// ```ignore
+/// // 在主视图更新中调用
+/// fn update_view(app: &App) -> Element<Message> {
+///     // 当搜索面板激活时
+///     if app.show_search_panel {
+///         search_panel::view(app)
+///     } else {
+///         // 其他视图...
+///     }
+/// }
+/// ```
+pub fn view(app: &App) -> Element<'_, Message> {
+    // 获取并清理搜索文本
+    let q = app.search_text.trim();
+
+    // 如果搜索文本为空，返回一个尺寸收缩的空容器
+    // 这样可以避免在用户尚未输入任何内容时显示空白面板
+    if q.is_empty() {
+        return container(column![]).width(Length::Shrink).height(Length::Shrink).into();
+    }
+
+    // 创建主要内容列，设置子元素间距为 8 像素
+    let mut content = column![].spacing(8);
+
+    // ========== 文件搜索部分 ==========
+    let files = app.cached_search_panel_file_results();
+
+    // 如果有匹配的文件，添加到结果列表
+    if !files.is_empty() {
+        // 添加"文件"分组标题
+        content = content.push(text("文件"));
+
+        // 为每个匹配的文件创建按钮
+        for f in files {
+            let btn = button(text(f.clone()))
+                .on_press(Message::Search(message::SearchMessage::SelectFile(f.clone())))
+                .style(|_theme, status| {
+                    // 定义按钮的基础背景色（白色，完全不透明）
+                    let base = Background::Color(Color::from_rgba8(255, 255, 255, 1.0));
+                    // 定义悬停/按下状态的背景色（浅灰色）
+                    let hover = Background::Color(Color::from_rgba8(240, 240, 240, 1.0));
+
+                    // 根据按钮状态返回不同的样式
+                    iced::widget::button::Style {
+                        background: Some(match status {
+                            iced::widget::button::Status::Hovered => hover,
+                            iced::widget::button::Status::Pressed => hover,
+                            _ => base,
+                        }),
+                        // 设置圆角边框（半径 6.0）
+                        border: iced::Border {
+                            width: 0.0,
+                            color: Color::TRANSPARENT,
+                            radius: 6.0.into(),
+                        },
+                        ..Default::default()
+                    }
+                });
+            content = content.push(btn);
+        }
+    }
+
+    // ========== 项目搜索部分 ==========
+    // 在最近打开的项目中搜索
+    let projects = app
+        .recent_projects
+        .iter()
+        .filter(|p| p.to_lowercase().contains(&q.to_lowercase()))
+        .take(8)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    // 如果有匹配的项目，添加到结果列表
+    if !projects.is_empty() {
+        // 添加"项目"分组标题
+        content = content.push(text("项目"));
+
+        // 为每个匹配的项目创建按钮
+        for p in projects {
+            let btn = button(text(p.clone()))
+                .on_press(Message::Search(message::SearchMessage::SelectProject(p)))
+                .style(|_theme, status| {
+                    // 定义按钮样式（与文件按钮相同的视觉风格）
+                    let base = Background::Color(Color::from_rgba8(255, 255, 255, 1.0));
+                    let hover = Background::Color(Color::from_rgba8(240, 240, 240, 1.0));
+                    iced::widget::button::Style {
+                        background: Some(match status {
+                            iced::widget::button::Status::Hovered => hover,
+                            iced::widget::button::Status::Pressed => hover,
+                            _ => base,
+                        }),
+                        border: iced::Border {
+                            width: 0.0,
+                            color: Color::TRANSPARENT,
+                            radius: 6.0.into(),
+                        },
+                        ..Default::default()
+                    }
+                });
+            content = content.push(btn);
+        }
+    }
+
+    // ========== 会话搜索部分 ==========
+    // 在历史会话中搜索
+    let sessions = app
+        .sessions
+        .iter()
+        .filter(|s| s.title.to_lowercase().contains(&q.to_lowercase()))
+        .take(8)
+        .map(|s| (s.id.clone(), s.title.clone())) // 提取会话 ID 和标题
+        .collect::<Vec<_>>();
+
+    // 如果有匹配的会话，添加到结果列表
+    if !sessions.is_empty() {
+        // 添加"历史会话"分组标题
+        content = content.push(text("历史会话"));
+
+        // 为每个匹配的会话创建按钮
+        for (id, title) in sessions {
+            let btn = button(text(title))
+                .on_press(Message::Search(message::SearchMessage::SelectSession(id)))
+                .style(|_theme, status| {
+                    // 定义按钮样式（与其他类别保持一致的视觉风格）
+                    let base = Background::Color(Color::from_rgba8(255, 255, 255, 1.0));
+                    let hover = Background::Color(Color::from_rgba8(240, 240, 240, 1.0));
+                    iced::widget::button::Style {
+                        background: Some(match status {
+                            iced::widget::button::Status::Hovered => hover,
+                            iced::widget::button::Status::Pressed => hover,
+                            _ => base,
+                        }),
+                        border: iced::Border {
+                            width: 0.0,
+                            color: Color::TRANSPARENT,
+                            radius: 6.0.into(),
+                        },
+                        ..Default::default()
+                    }
+                });
+            content = content.push(btn);
+        }
+    }
+
+    // 将内容包装在可滚动容器中返回
+    // 使用 Length::Shrink 让容器尺寸根据内容自动调整
+    scrollable(container(content).width(Length::Shrink).padding(0)).height(Length::Shrink).into()
+}

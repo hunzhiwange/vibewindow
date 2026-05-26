@@ -1,0 +1,456 @@
+//! Todo 工具视图组件
+//!
+//! 本模块提供聊天面板中 Todo 相关工具的 UI 视图渲染功能。
+
+use iced::widget::{Space, button, column, container, mouse_area, row, scrollable, text};
+use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
+
+use crate::app::assets::Icon;
+use crate::app::components::animated_text::animated_gradient_text_color;
+use crate::app::components::chat_panel::utils::{
+    bold_font, chat_context_menu, chat_context_target_key, chat_scroll_direction,
+    chat_secondary_text_color, eye_icon_button_style, eye_icon_svg_style, icon_svg,
+    simplified_block_style, truncate_chars,
+};
+use crate::app::components::input_panel::todo_panel::read_todos_for_panel;
+use crate::app::components::overlays::PointBelowOverlay;
+use crate::app::components::widgets::RightClickArea;
+use crate::app::{App, Message, message};
+use vw_shared::todo::Todo;
+
+use super::tool_meta::tool_emoji;
+use super::{ToolTextTarget, canonical_tool_name, selected_chat_text_for_target, tool_text_editor};
+
+pub(super) fn tool_expanded(app: &App, key: u64, _is_running: bool) -> bool {
+    _is_running || app.chat_tool_expanded.contains(&key)
+}
+
+fn todo_tool_header<'a>(
+    app: &'a App,
+    msg_idx: usize,
+    tool_idx: usize,
+    emoji: &'static str,
+    detail_raw: String,
+    label: String,
+    meta: Element<'a, Message>,
+    is_running: bool,
+    expanded: bool,
+) -> Element<'a, Message> {
+    let key = ((msg_idx as u64) << 32) | (tool_idx as u64);
+    let is_hovered = app.chat_tool_hovered_idx == Some(key);
+    let now_ms = crate::app::time::now_ms();
+    let title = text(label).size(14).font(bold_font()).style(move |theme: &Theme| {
+        let color = if is_running {
+            animated_gradient_text_color(theme, now_ms, true)
+        } else {
+            Some(chat_secondary_text_color(theme))
+        };
+        iced::widget::text::Style { color }
+    });
+    let _ = emoji;
+    let detail_btn = button(
+        icon_svg(Icon::Eye)
+            .width(Length::Fixed(10.0))
+            .height(Length::Fixed(10.0))
+            .style(eye_icon_svg_style),
+    )
+    .padding([2, 4])
+    .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
+    .on_press(Message::Chat(message::ChatMessage::OpenToolDetail(msg_idx, tool_idx, detail_raw)));
+    let detail_slot: Element<'a, Message> =
+        if is_hovered { detail_btn.into() } else { Space::new().width(Length::Fixed(22.0)).into() };
+    let toggle_btn = button(
+        icon_svg(if expanded { Icon::ChevronUp } else { Icon::ChevronDown })
+            .width(Length::Fixed(10.0))
+            .height(Length::Fixed(10.0))
+            .style(|theme: &Theme, _status| iced::widget::svg::Style {
+                color: Some(chat_secondary_text_color(theme)),
+            }),
+    )
+    .padding([1, 3])
+    .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
+    .on_press(Message::Chat(message::ChatMessage::ToggleTool(msg_idx, tool_idx)));
+    mouse_area(
+        container(
+            row![
+                title,
+                meta,
+                row![toggle_btn, detail_slot].spacing(2).align_y(Alignment::Center),
+                container(Space::new()).width(Length::Fill)
+            ]
+            .spacing(4)
+            .align_y(Alignment::Center),
+        )
+        .width(Length::Fill),
+    )
+    .on_enter(Message::Chat(message::ChatMessage::ToolHover(msg_idx, tool_idx)))
+    .on_exit(Message::Chat(message::ChatMessage::ToolHoverLeave))
+    .into()
+}
+
+fn todo_meta_pill<'a>(label: String) -> Element<'a, Message> {
+    container(text(label).size(11))
+        .padding([2, 8])
+        .style(|theme: &Theme| {
+            let ext = theme.extended_palette();
+            let bg = ext.background.strong.color.scale_alpha(0.20);
+            iced::widget::container::Style {
+                background: Some(Background::Color(bg)),
+                border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 999.0.into() },
+                text_color: Some(chat_secondary_text_color(theme)),
+                ..Default::default()
+            }
+        })
+        .into()
+}
+
+fn todo_summary_pill<'a>(summary_text: String) -> Element<'a, Message> {
+    container(text(summary_text).size(12))
+        .padding([1, 8])
+        .style(|theme: &Theme| {
+            let ext = theme.extended_palette();
+            let is_dark = theme.palette().background.r
+                + theme.palette().background.g
+                + theme.palette().background.b
+                < 1.5;
+            let bg = if is_dark {
+                ext.background.strong.color.scale_alpha(0.26)
+            } else {
+                ext.background.weak.color.scale_alpha(0.7)
+            };
+            iced::widget::container::Style {
+                background: Some(Background::Color(bg)),
+                border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 999.0.into() },
+                text_color: Some(chat_secondary_text_color(theme)),
+                ..Default::default()
+            }
+        })
+        .into()
+}
+
+pub fn tool_todowrite_compact_view<'a>(
+    app: &'a App,
+    msg_idx: usize,
+    tool_idx: usize,
+    visible: &str,
+) -> Option<Element<'a, Message>> {
+    let (first, rest) = visible.split_once('\n')?;
+    let tool_name = canonical_tool_name(first.trim().strip_prefix("tool ")?.trim());
+    if tool_name != "todowrite" {
+        return None;
+    }
+
+    let v = serde_json::from_str::<serde_json::Value>(rest.trim()).ok()?;
+    let tool_status = v.get("status").and_then(|s| s.as_str()).unwrap_or("");
+    let is_error = matches!(tool_status, "error" | "denied");
+    let is_completed = tool_status == "completed";
+    let is_running = tool_status == "running";
+
+    let merge = v
+        .get("input")
+        .and_then(|i| i.as_str())
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(s.trim()).ok())
+        .and_then(|vv| vv.get("merge").and_then(|m| m.as_bool()))
+        .unwrap_or(false);
+
+    let todos = v
+        .get("input")
+        .and_then(|i| i.as_str())
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(s.trim()).ok())
+        .and_then(|vv| vv.get("todos").cloned())
+        .and_then(|vv| vv.as_array().cloned())
+        .unwrap_or_default();
+
+    let todos_list: Vec<(String, String)> = todos
+        .iter()
+        .map(|t| {
+            let status = t.get("status").and_then(|s| s.as_str()).unwrap_or("").trim().to_string();
+            let content = t
+                .get("content")
+                .and_then(|c| c.as_str())
+                .unwrap_or("（无内容）")
+                .trim()
+                .to_string();
+            (status, content)
+        })
+        .collect();
+
+    let emoji = tool_emoji("todowrite");
+    let label = if is_error {
+        "更新任务失败".to_string()
+    } else if is_completed {
+        if merge { "任务已更新".to_string() } else { "任务已写入".to_string() }
+    } else if is_running {
+        "写任务中".to_string()
+    } else {
+        "更新任务中".to_string()
+    };
+
+    let key = ((msg_idx as u64) << 32) | (tool_idx as u64);
+    let expanded = tool_expanded(app, key, is_running);
+    let context_key = chat_context_target_key(msg_idx, Some(tool_idx));
+    let context_menu_open = app.chat_context_menu_target == Some(context_key);
+    let context_menu_anchor = app.chat_context_menu_pos.unwrap_or((12.0, 26.0));
+    let selected_context_text = selected_chat_text_for_target(app, context_key);
+
+    let head_with_hover = todo_tool_header(
+        app,
+        msg_idx,
+        tool_idx,
+        emoji,
+        visible.to_string(),
+        label,
+        todo_meta_pill(if todos_list.is_empty() {
+            "-".to_string()
+        } else {
+            format!("{} 项", todos_list.len())
+        }),
+        is_running,
+        expanded,
+    );
+
+    if !expanded {
+        return Some(
+            container(head_with_hover)
+                .padding([0, 0])
+                .width(Length::Fill)
+                .style(simplified_block_style)
+                .into(),
+        );
+    }
+
+    let mut content = column![head_with_hover].spacing(8);
+
+    if is_error {
+        let err_full = v
+            .get("error")
+            .and_then(|e| e.as_str())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        if !err_full.trim().is_empty() {
+            let err_view = tool_text_editor(
+                app,
+                ToolTextTarget::ToolCardText { msg_idx, tool_idx, text_idx: 0 },
+                "Noto Sans CJK SC",
+                14.0,
+                false,
+                true,
+            )
+            .unwrap_or_else(|| {
+                let short = truncate_chars(err_full.trim(), 160);
+                container(text(short).size(14).style(|theme: &Theme| iced::widget::text::Style {
+                    color: Some(theme.extended_palette().danger.base.color.scale_alpha(0.9)),
+                }))
+                .width(Length::Fill)
+                .into()
+            });
+            content = content.push(err_view);
+        }
+    }
+
+    if !todos_list.is_empty() {
+        let todo_count = todos_list.len();
+        let mut list = column![].spacing(6);
+        let mut context_lines = Vec::new();
+
+        for (status, content_text) in todos_list {
+            let symbol = match status.as_str() {
+                "completed" => "✓",
+                "in_progress" => "·",
+                _ => "○",
+            };
+            context_lines.push(format!("{} {}", symbol, content_text));
+            list = list.push(
+                row![
+                    text(symbol).size(14).style(|theme: &Theme| iced::widget::text::Style {
+                        color: Some(chat_secondary_text_color(theme)),
+                    }),
+                    text(content_text).size(14).style(|theme: &Theme| iced::widget::text::Style {
+                        color: Some(chat_secondary_text_color(theme)),
+                    })
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center),
+            );
+        }
+
+        let body_content: Element<'a, Message> = container(list).width(Length::Fill).into();
+
+        const MAX_TODO_HEIGHT: f32 = 180.0;
+        const TODO_SCROLL_THRESHOLD: usize = 6;
+        const TODO_SCROLLBAR_GUTTER: f32 = 12.0;
+
+        let body_content = container(body_content).width(Length::Fill).padding(iced::Padding {
+            top: 6.0,
+            right: TODO_SCROLLBAR_GUTTER,
+            bottom: 8.0,
+            left: 8.0,
+        });
+
+        let body: Element<'a, Message> = if todo_count > TODO_SCROLL_THRESHOLD {
+            scrollable(body_content)
+                .direction(chat_scroll_direction())
+                .height(Length::Fixed(MAX_TODO_HEIGHT))
+                .into()
+        } else {
+            scrollable(body_content)
+                .direction(chat_scroll_direction())
+                .height(Length::Shrink)
+                .into()
+        };
+        let body: Element<'a, Message> = RightClickArea::new(
+            body,
+            Box::new({
+                let text = selected_context_text.unwrap_or_else(|| context_lines.join("\n"));
+                move |point| {
+                    Message::Chat(message::ChatMessage::OpenMessageContextMenu {
+                        target: context_key,
+                        x: point.x,
+                        y: point.y,
+                        text: text.clone(),
+                    })
+                }
+            }),
+        )
+        .preserve_on_right_click()
+        .into();
+        let body: Element<'a, Message> = if let Some(menu) = chat_context_menu(context_menu_open) {
+            PointBelowOverlay::new(body, menu)
+                .show(true)
+                .anchor(iced::Point::new(context_menu_anchor.0, context_menu_anchor.1))
+                .gap(0.0)
+                .on_close(Message::Chat(message::ChatMessage::CloseMessageContextMenu))
+                .into()
+        } else {
+            body
+        };
+        content = content.push(container(body).width(Length::Fill));
+    }
+
+    Some(
+        container(content).padding([0, 0]).width(Length::Fill).style(simplified_block_style).into(),
+    )
+}
+
+pub fn tool_todos_view<'a>(
+    app: &'a App,
+    msg_idx: usize,
+    tool_idx: usize,
+    visible: &str,
+) -> Option<Element<'a, Message>> {
+    let (first, rest) = visible.split_once('\n')?;
+    let tool_name = canonical_tool_name(first.trim().strip_prefix("tool ")?.trim());
+    if tool_name != "todoread" {
+        return None;
+    }
+
+    let v = serde_json::from_str::<serde_json::Value>(rest.trim()).ok()?;
+    let output = v.get("output")?.as_str()?;
+    let parsed: Option<Vec<Todo>> = serde_json::from_str::<Vec<Todo>>(output.trim()).ok();
+    let (mut todos, load_error) = match parsed {
+        Some(todos) => (todos, None),
+        None => read_todos_for_panel(app)?,
+    };
+
+    let parse_id = |id: &str| id.parse::<u64>().ok();
+    todos.sort_by(|a, b| match (parse_id(&a.id), parse_id(&b.id)) {
+        (Some(ai), Some(bi)) => ai.cmp(&bi),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => a.id.cmp(&b.id),
+    });
+
+    let total = todos.len();
+    let done = todos.iter().filter(|t| t.status == "completed").count();
+    let is_running = todos.iter().any(|t| t.status == "in_progress");
+    let key = ((msg_idx as u64) << 32) | (tool_idx as u64);
+    let expanded = tool_expanded(app, key, is_running);
+
+    let header = todo_tool_header(
+        app,
+        msg_idx,
+        tool_idx,
+        tool_emoji("todoread"),
+        visible.to_string(),
+        "读取当前任务".to_string(),
+        todo_summary_pill(if total == 0 {
+            "任务未开始".to_string()
+        } else {
+            format!("{}/{} 任务完成", done, total)
+        }),
+        is_running,
+        expanded,
+    );
+
+    if !expanded {
+        return Some(
+            container(header)
+                .padding([0, 0])
+                .width(Length::Fill)
+                .style(simplified_block_style)
+                .into(),
+        );
+    }
+
+    let mut items = column![].spacing(8);
+
+    if let Some(msg) = load_error {
+        let err_view = text(msg).size(14).style(|theme: &Theme| iced::widget::text::Style {
+            color: Some(theme.extended_palette().danger.base.color),
+        });
+        items = items.push(err_view);
+    } else if todos.is_empty() {
+    } else {
+        let mut list = column![].spacing(6);
+
+        for todo in &todos {
+            let symbol = match todo.status.as_str() {
+                "completed" => "✓",
+                "in_progress" => "·",
+                _ => "○",
+            };
+            list = list.push(
+                row![
+                    text(symbol).size(14).style(|theme: &Theme| iced::widget::text::Style {
+                        color: Some(chat_secondary_text_color(theme)),
+                    }),
+                    text(todo.content.clone()).size(14).style(|theme: &Theme| {
+                        iced::widget::text::Style { color: Some(chat_secondary_text_color(theme)) }
+                    })
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center),
+            );
+        }
+
+        let list_view: Element<'a, Message> = container(list).width(Length::Fill).into();
+        items = items.push(list_view);
+    }
+
+    const MAX_TODO_HEIGHT: f32 = 180.0;
+    const TODO_SCROLL_THRESHOLD: usize = 6;
+    const TODO_SCROLLBAR_GUTTER: f32 = 12.0;
+
+    let list_content = container(items).width(Length::Fill).padding(iced::Padding {
+        top: 6.0,
+        right: TODO_SCROLLBAR_GUTTER,
+        bottom: 8.0,
+        left: 8.0,
+    });
+
+    let list = if total > TODO_SCROLL_THRESHOLD {
+        scrollable(list_content)
+            .direction(chat_scroll_direction())
+            .height(Length::Fixed(MAX_TODO_HEIGHT))
+    } else {
+        scrollable(list_content).direction(chat_scroll_direction()).height(Length::Shrink)
+    };
+
+    Some(
+        container(column![header, list].spacing(8))
+            .padding([0, 0])
+            .width(Length::Fill)
+            .style(simplified_block_style)
+            .into(),
+    )
+}

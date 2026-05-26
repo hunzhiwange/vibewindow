@@ -1,0 +1,26 @@
+//! 汇总 App 的分片实现模块。
+//! 本模块作为实现层入口，保持主应用类型的行为按领域拆分。
+
+use super::*;
+
+pub(super) use crate::app::components;
+pub(super) use crate::app::config;
+pub(super) use crate::app::message;
+pub(super) use crate::app::models;
+pub(super) use crate::app::views;
+pub(super) use crate::app::{
+    AgentRequest, App, AppTab, CookieConfig, DiffTheme, FocusArea, Message, RecentProjectMeta,
+    Screen, SettingsTab, Shell, TerminalState, TerminalTheme, load_recent_projects,
+    load_recent_projects_meta,
+};
+
+mod agent_stream;
+mod app_basic;
+mod app_init;
+mod app_subscription;
+mod app_update;
+mod app_view;
+mod app_view_modals;
+mod app_view_status;
+#[cfg(test)]
+mod tests;

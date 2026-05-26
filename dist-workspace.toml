@@ -1,0 +1,44 @@
+[workspace]
+members = ["cargo:."]
+
+# Config for 'dist'
+[dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.30.1"
+# CI backends to support
+ci = "github"
+# Allow release.yml to keep project-specific packaging steps.
+allow-dirty = ["ci"]
+# Default to not distributing packages unless they explicitly opt in.
+dist = false
+# The installers to generate for each app
+installers = ["shell", "powershell", "npm"]
+# Enable this after creating the tap repository.
+# installers = ["shell", "powershell", "npm", "homebrew"]
+# tap = "doyouhaobaby/homebrew-tap"
+# Publish jobs to run in CI
+publish-jobs = ["npm"]
+# Enable this after creating the tap repository.
+# publish-jobs = ["homebrew", "npm"]
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "aarch64-pc-windows-msvc", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+# Match the previous release profile's feature selection.
+all-features = true
+# Build only the selected release packages instead of the whole workspace.
+precise-builds = true
+# Path that installers should place binaries in
+install-path = "CARGO_HOME"
+# Where to host releases
+hosting = "github"
+# Whether to install an updater program
+install-updater = false
+
+[dist.dependencies.apt]
+pkg-config = { version = "*", targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"] }
+libfontconfig1-dev = { version = "*", targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"] }
+libgtk-3-dev = { version = "*", targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"] }
+"libwebkit2gtk-4.1-dev" = { version = "*", targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"] }
+libxkbcommon-dev = { version = "*", targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"] }
+
+[dist.github-custom-runners]
+aarch64-pc-windows-msvc = "windows-2022"

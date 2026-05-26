@@ -1,0 +1,162 @@
+[package]
+name = "vw-agent"
+version = "0.1.0"
+edition = "2024"
+publish = false
+autotests = false
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1.89"
+base64 = "0.22"
+chacha20poly1305 = "0.10.1"
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10.4"
+clap = { version = "4.5", features = ["derive"] }
+clap_complete = "4.5"
+console = { version = "0.16" }
+cron = "0.15"
+directories = "5"
+futures-util = "0.3.32"
+glob = "0.3"
+getrandom = "0.2"
+hex = "0.4"
+hmac = "0.12.1"
+html2md = "0.2.15"
+iced = { version = "0.14", features = ["tokio"] }
+image = "0.25.9"
+include_dir = "0.7"
+libc = "0.2"
+mail-parser = "0.11"
+mime_guess = "2.0.5"
+nanohtml2text = "0.2.1"
+once_cell = "1"
+parking_lot = "0.12"
+pdf-extract = "0.10.0"
+pulldown-cmark = "0.9"
+prometheus = "0.13"
+rand = "0.8"
+regex = "1"
+rust-embed = "8.11.0"
+rustls-pki-types = "1.14.0"
+schemars = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_ignored = "0.1.14"
+serde_json = "1"
+serde_yaml = "0.9"
+sha2 = "0.10"
+shell-words = "1.1"
+shellexpand = "3.1"
+similar = "2"
+strsim = "0.10"
+thiserror = "2.0.18"
+time = { version = "0.3", features = ["formatting"] }
+toml = "0.8"
+tokio-util = { version = "0.7.18", features = ["compat"] }
+tower-http = { version = "0.6", features = ["limit", "timeout", "cors"] }
+tracing = "0.1"
+tree-sitter = { version = "0.24", optional = true }
+tree-sitter-bash = { version = "0.23", optional = true }
+unicode-width = "0.1"
+urlencoding = "2.1"
+uuid = { version = "1.11", features = ["v4", "js"] }
+walkdir = "2"
+webpki-roots = "0.26"
+web-time = "1.1.0"
+vw-config-types = { path = "../vw-config-types" }
+vw-gateway-client = { path = "../vw-gateway-client" }
+vw-api-types = { path = "../vw-api-types" }
+vw-acp = { path = "../vw-acp" }
+vw-provider-resolver = { path = "../vw-provider-resolver" }
+vw-shared = { path = "../vw-shared", features = ["shell-tokio"] }
+agent-client-protocol = { version = "0.10.4", features = ["unstable_session_usage", "unstable_session_resume"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+aisdk = { version = "0.6.1", package = "vibewindow-aisdk", features = ["full"] }
+async-imap = { version = "0.11", features = ["runtime-tokio"], default-features = false }
+axum = { version = "0.8.8", features = ["json", "ws", "macros"] }
+crossterm = "0.29"
+dialoguer = "0.11"
+fantoccini = { version = "0.22.1", optional = true, default-features = false, features = ["rustls-tls"] }
+git2 = { version = "0.18", default-features = false, features = ["https", "ssh", "ssh_key_from_memory", "vendored-libgit2", "vendored-openssl"] }
+hostname = "0.4"
+lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "hostname", "pool", "rustls-tls"] }
+matrix-sdk = { version = "0.16.0", optional = true, default-features = false, features = ["rustls-tls", "e2e-encryption", "automatic-room-key-forwarding", "sqlite", "markdown"] }
+mysql = { version = "27.0.0", optional = true }
+nostr-sdk = { version = "0.37", features = ["nip04", "nip59"] }
+nusb = "0.2.2"
+opentelemetry = { version = "0.31.0", optional = true }
+opentelemetry-otlp = { version = "0.31.0", optional = true }
+opentelemetry_sdk = { version = "0.31.0", optional = true }
+portable-pty = "0.9"
+postgres = { version = "0.19.12", optional = true, features = ["with-chrono-0_4"] }
+probe-rs = { version = "0.31.0", optional = true }
+prost = { version = "0.14.3", optional = true }
+qrcode = { version = "0.14", optional = true }
+ratatui = "0.30.0"
+reqwest = { version = "0.12", default-features = false, features = ["multipart", "stream", "socks", "blocking", "json", "rustls-tls-webpki-roots"] }
+reqwest-eventsource = "0.6.0"
+redis = { version = "0.29", default-features = false, features = ["tls-rustls", "cluster", "sentinel"] }
+ring = "0.17.14"
+rmcp = { version = "0.8.0", features = ["server", "transport-io", "transport-child-process", "client", "transport-sse-client-reqwest", "transport-streamable-http-client-reqwest", "auth"] }
+rustls = { version = "0.23.37", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+rustyline = "17.0"
+tempfile = "3"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time", "process", "signal"] }
+tokio-postgres-rustls = { version = "0.13.0", optional = true }
+tokio-rustls = { version = "0.26.4", default-features = false, features = ["ring", "logging", "tls12"] }
+tokio-serial = "5.4.5"
+tokio-stream = { version = "0.1.18", features = ["fs", "sync"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
+wa-rs = { version = "0.2.0", optional = true, default-features = false, features = ["tokio-native", "tokio-transport", "ureq-client"] }
+wa-rs-binary = { version = "0.2.0", optional = true }
+wa-rs-core = { version = "0.2.0", optional = true }
+wa-rs-proto = { version = "0.2.0", optional = true }
+wa-rs-tokio-transport = { version = "0.2.0", optional = true }
+wa-rs-ureq-http = { version = "0.2.0", optional = true }
+wasmi = { version = "1.0.9", optional = true }
+which = { version = "6.0" }
+
+[target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
+rusqlite = { version = "0.37.0", features = ["bundled"] }
+
+[target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]
+rusqlite = "0.37.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console = "0.16"
+console_error_panic_hook = "0.1"
+console_log = "1"
+fern = "0.7"
+getrandom = { version = "0.2", features = ["js"] }
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+js-sys = { version = "0.3", default-features = false }
+reqwest = { version = "0.12", features = ["json", "multipart", "stream"] }
+tokio = { version = "1", features = ["sync", "macros", "time", "rt", "process", "signal"] }
+tokio-stream = { version = "0.1.18", features = ["sync"] }
+wasm-bindgen = "=0.2.105"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", default-features = false, features = ["Window"] }
+
+[features]
+default = ["rag-pdf", "firecrawl", "web-fetch-html2md", "web-fetch-plaintext", "shell-ast"]
+"browser-native" = ["dep:fantoccini"]
+"rag-pdf" = []
+firecrawl = []
+"web-fetch-html2md" = []
+"web-fetch-plaintext" = []
+probe = ["dep:probe-rs"]
+memory-postgres = ["dep:postgres", "dep:tokio-postgres-rustls"]
+memory-mariadb = ["dep:mysql"]
+observability-otel = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp"]
+runtime-wasm = ["dep:wasmi"]
+sandbox-bubblewrap = []
+sandbox-landlock = []
+shell-ast = ["dep:tree-sitter", "dep:tree-sitter-bash"]
+channel-lark = ["dep:prost"]
+channel-matrix = ["dep:matrix-sdk"]
+whatsapp-web = ["dep:wa-rs", "dep:wa-rs-core", "dep:wa-rs-binary", "dep:wa-rs-proto", "dep:wa-rs-ureq-http", "dep:wa-rs-tokio-transport", "dep:qrcode"]

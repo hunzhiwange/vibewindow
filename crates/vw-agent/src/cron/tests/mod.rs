@@ -1,0 +1,11 @@
+//! Cron 子系统的测试模块集合。
+//!
+//! 这里按行为域拆分测试文件，保持生产逻辑与单元测试分离，并让每个测试模块聚焦
+//! 命令、调度、存储或类型转换中的一个方面。
+
+mod commands;
+mod consolidation;
+mod schedule;
+mod scheduler;
+mod store;
+mod types;

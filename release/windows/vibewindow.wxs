@@ -1,0 +1,75 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="VibeWindow"
+    UpgradeCode="C8512FCC-FA63-4C65-9458-B5363A71E371"
+    Language="1033"
+    Codepage="1252"
+    Version="{{ .Version }}"
+    Manufacturer="VibeWindow"
+    InstallerVersion="500">
+    <SummaryInformation
+      Keywords="Installer"
+      Description="VibeWindow installer"
+      Manufacturer="VibeWindow" />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of VibeWindow is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Icon Id="VibeWindowIcon" SourceFile="VibeWindow.ico" />
+    <Property Id="ARPPRODUCTICON" Value="VibeWindowIcon" />
+
+    <Feature Id="Complete" Title="VibeWindow" Level="1">
+      <ComponentRef Id="DesktopExecutable" />
+      <ComponentRef Id="WebviewHelper" />
+      <ComponentRef Id="CliExecutable" />
+      <ComponentRef Id="AcpExecutable" />
+      <ComponentRef Id="GatewayLauncher" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="PathEnvironment" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="VibeWindowProgramFiles" Name="VibeWindow">
+        <Component Id="DesktopExecutable" Guid="666108C4-9613-4ECD-BA56-CFFD914949AF">
+          <File Id="DesktopExecutableFile" Source="{{ .Binary }}.exe" Name="vibe-window.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="WebviewHelper" Guid="9FDE8ABF-10DA-433A-AECC-5266AA867241">
+          <File Id="WebviewHelperFile" Source="vw-webview.exe" Name="vw-webview.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="CliExecutable" Guid="3807C8BA-FF94-4A72-913F-FD231D29208E">
+          <File Id="CliExecutableFile" Source="vibewindow.exe" Name="vibewindow.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="AcpExecutable" Guid="F41598B1-552F-4280-B61B-303E00014B7F">
+          <File Id="AcpExecutableFile" Source="acp.exe" Name="acp.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="GatewayLauncher" Guid="ECA6494B-C278-41E4-A4FE-317BD03DD1A7">
+          <File Id="GatewayLauncherFile" Source="Start VibeWindow Gateway.cmd" Name="Start VibeWindow Gateway.cmd" KeyPath="yes" />
+        </Component>
+        <Component Id="PathEnvironment" Guid="7A9F339C-EFD2-4C60-A54B-90BB891E1923" KeyPath="yes">
+          <Environment Id="PathEnv" Name="PATH" Value="[VibeWindowProgramFiles]" Permanent="no" Part="first" Action="set" System="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="VibeWindowProgramMenu" Name="VibeWindow">
+        <Component Id="StartMenuShortcut" Guid="39676A25-1D3B-4B87-BC17-B5EEAC0BA2F6">
+          <Shortcut
+            Id="VibeWindowShortcut"
+            Name="VibeWindow"
+            Description="Open VibeWindow"
+            Icon="VibeWindowIcon"
+            Target="[VibeWindowProgramFiles]vibe-window.exe"
+            WorkingDirectory="VibeWindowProgramFiles" />
+          <Shortcut
+            Id="VibeWindowGatewayShortcut"
+            Name="Start VibeWindow Gateway"
+            Description="Start the VibeWindow gateway"
+            Icon="VibeWindowIcon"
+            Target="[VibeWindowProgramFiles]Start VibeWindow Gateway.cmd"
+            WorkingDirectory="VibeWindowProgramFiles" />
+          <RemoveFolder Id="VibeWindowProgramMenu" On="uninstall" />
+          <RegistryValue Root="HKCU" Key="Software\VibeWindow" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+  </Package>
+</Wix>

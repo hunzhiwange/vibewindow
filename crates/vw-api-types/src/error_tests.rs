@@ -1,0 +1,28 @@
+use crate::error::{ApiErrorBody, ApiErrorDetail};
+use serde_json::json;
+
+#[test]
+fn api_error_body_preserves_optional_details() {
+    let body: ApiErrorBody = serde_json::from_value(json!({
+        "error": {
+            "code": "invalid_input",
+            "message": "bad path",
+            "details": { "field": "path" }
+        }
+    }))
+    .expect("valid error body");
+
+    assert_eq!(body.error.code, "invalid_input");
+    assert_eq!(body.error.details, Some(json!({ "field": "path" })));
+    assert_eq!(
+        serde_json::to_value(ApiErrorBody {
+            error: ApiErrorDetail {
+                code: "x".to_string(),
+                message: "missing".to_string(),
+                details: None,
+            },
+        })
+        .expect("serialize"),
+        json!({ "error": { "code": "x", "message": "missing" } })
+    );
+}

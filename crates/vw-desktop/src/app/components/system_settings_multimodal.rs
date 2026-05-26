@@ -1,0 +1,143 @@
+//! 系统设置中 multimodal 配置页面的界面拼装与交互消息转换。
+//!
+//! 本模块主要负责把应用状态转换为桌面端可渲染的 Iced 控件，并把用户操作映射回上层消息。
+//! 注释聚焦调用边界、返回值和错误传播方式，便于后续维护设置页与工具栏行为时快速定位职责。
+
+use crate::app::components::system_settings_common::{
+    SETTINGS_LABEL_WIDTH, settings_checkbox_style, settings_error_banner,
+    settings_muted_text_style, settings_page_intro, settings_panel, settings_section_card,
+    settings_value_badge,
+};
+use crate::app::message::settings::{MultimodalMessage, SettingsMessage};
+use crate::app::views::design::properties::number_input::NumberInput;
+use crate::app::{App, Message};
+use iced::widget::{checkbox, column, container, row, text};
+use iced::{Alignment, Element, Length};
+
+fn field_row<'a>(
+    label: &'static str,
+    description: &'static str,
+    control: impl Into<Element<'a, Message>>,
+) -> Element<'a, Message> {
+    container(
+        row![
+            column![
+                text(label).size(13),
+                text(description).size(11).style(settings_muted_text_style),
+            ]
+            .spacing(4)
+            .width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
+            container(control.into()).width(Length::Fill),
+        ]
+        .spacing(22)
+        .align_y(Alignment::Center),
+    )
+    .padding([14, 0])
+    .width(Length::Fill)
+    .into()
+}
+
+fn number_row<'a>(
+    label: &'static str,
+    description: &'static str,
+    value: u32,
+    min: u32,
+    max: u32,
+    suffix: &'static str,
+    on_change: impl Fn(u32) -> Message + 'a,
+) -> Element<'a, Message> {
+    let display = if suffix.is_empty() { value.to_string() } else { format!("{value} {suffix}") };
+
+    field_row(
+        label,
+        description,
+        row![
+            NumberInput::new(value as f32, min as f32, max as f32, 1.0, 0, 0.15, move |raw| {
+                on_change(raw.round() as u32)
+            })
+            .settings_style(),
+            settings_value_badge(display),
+        ]
+        .spacing(16)
+        .align_y(Alignment::Center),
+    )
+}
+
+fn bool_row<'a>(
+    label: &'static str,
+    description: &'static str,
+    checked: bool,
+    checkbox_label: &'static str,
+    on_toggle: impl Fn(bool) -> Message + 'a,
+) -> Element<'a, Message> {
+    field_row(
+        label,
+        description,
+        checkbox(checked)
+            .label(checkbox_label)
+            .on_toggle(on_toggle)
+            .style(settings_checkbox_style),
+    )
+}
+
+/// 构建或处理 `view` 对应的界面片段与交互数据。
+///
+/// # 参数
+///
+/// 参数来自调用方持有的应用状态、配置快照或控件输入，用于保持渲染结果与当前状态同步。
+///
+/// # 返回值
+///
+/// 返回可交给 Iced 渲染树使用的 `Element`，其中已绑定必要的消息回调。
+///
+/// # 错误处理
+///
+/// 本函数不直接返回错误；无法交互或缺省状态会在控件状态中显式表达。
+pub fn view(app: &App) -> Element<'_, Message> {
+    let s = &app.multimodal_settings;
+
+    let mut content = column![
+        settings_page_intro(
+            "多模态配置",
+            "配置本地图片附件的数量与大小上限，并决定是否允许抓取远程图片 URL。",
+        ),
+        settings_section_card(
+            "图像输入限制",
+            "输入框附件优先使用本地文件；这里控制单次请求最多允许的图片数量、每张图片大小上限，以及是否允许抓取远程图片 URL。",
+        ),
+        settings_panel(
+            column![
+                number_row("最大图片数量", "单次请求最多允许上传的图片数。", s.max_images, 1, 16, "张", |value| {
+                    Message::Settings(SettingsMessage::Multimodal(MultimodalMessage::MaxImagesChanged(
+                        value,
+                    )))
+                }),
+                number_row("单张图片大小上限", "每张图片允许的最大体积。", s.max_image_size_mb, 1, 20, "MB", |value| {
+                    Message::Settings(SettingsMessage::Multimodal(
+                        MultimodalMessage::MaxImageSizeMbChanged(value),
+                    ))
+                }),
+                bool_row(
+                    "允许远程抓取",
+                    "本地附件始终可用；开启后才允许抓取 http/https 远程图片 URL。",
+                    s.allow_remote_fetch,
+                    "允许抓取 http/https 远程图片 URL",
+                    |value| {
+                        Message::Settings(SettingsMessage::Multimodal(
+                            MultimodalMessage::AllowRemoteFetchToggled(value),
+                        ))
+                    },
+                ),
+            ]
+            .spacing(0),
+        ),
+    ]
+    .spacing(16)
+    .width(Length::Fill);
+
+    if let Some(err) = &s.save_error {
+        content = content.push(settings_error_banner(err));
+    }
+
+    content.into()
+}

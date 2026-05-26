@@ -1,0 +1,101 @@
+//! Memory API handlers.
+
+use super::super::types::{MemoryQuery, MemoryStoreBody};
+use crate::app::agent::gateway::AppState;
+use axum::{
+    extract::{Path, Query, State},
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Json as JsonResponse},
+};
+
+pub async fn handle_api_memory_list(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(params): Query<MemoryQuery>,
+) -> impl IntoResponse {
+    if let Err(e) = super::super::auth::require_auth(&state, &headers) {
+        return e.into_response();
+    }
+
+    if let Some(ref query) = params.query {
+        match state.mem.recall(query, 50, None).await {
+            Ok(entries) => JsonResponse(serde_json::json!({"entries": entries})).into_response(),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                JsonResponse(serde_json::json!({"error": format!("Memory recall failed: {e}")})),
+            )
+                .into_response(),
+        }
+    } else {
+        let category = params.category.as_deref().map(|cat| match cat {
+            "core" => crate::app::agent::memory::MemoryCategory::Core,
+            "daily" => crate::app::agent::memory::MemoryCategory::Daily,
+            "conversation" => crate::app::agent::memory::MemoryCategory::Conversation,
+            other => crate::app::agent::memory::MemoryCategory::Custom(other.to_string()),
+        });
+
+        match state.mem.list(category.as_ref(), None).await {
+            Ok(entries) => JsonResponse(serde_json::json!({"entries": entries})).into_response(),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                JsonResponse(serde_json::json!({"error": format!("Memory list failed: {e}")})),
+            )
+                .into_response(),
+        }
+    }
+}
+
+pub async fn handle_api_memory_store(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    JsonResponse(body): JsonResponse<MemoryStoreBody>,
+) -> impl IntoResponse {
+    if let Err(e) = super::super::auth::require_auth(&state, &headers) {
+        return e.into_response();
+    }
+
+    let category = body
+        .category
+        .as_deref()
+        .map(|cat| match cat {
+            "core" => crate::app::agent::memory::MemoryCategory::Core,
+            "daily" => crate::app::agent::memory::MemoryCategory::Daily,
+            "conversation" => crate::app::agent::memory::MemoryCategory::Conversation,
+            other => crate::app::agent::memory::MemoryCategory::Custom(other.to_string()),
+        })
+        .unwrap_or(crate::app::agent::memory::MemoryCategory::Core);
+
+    match state.mem.store(&body.key, &body.content, category, None).await {
+        Ok(()) => JsonResponse(serde_json::json!({"status": "ok"})).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            JsonResponse(serde_json::json!({"error": format!("Memory store failed: {e}")})),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn handle_api_memory_delete(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(key): Path<String>,
+) -> impl IntoResponse {
+    if let Err(e) = super::super::auth::require_auth(&state, &headers) {
+        return e.into_response();
+    }
+
+    match state.mem.forget(&key).await {
+        Ok(deleted) => {
+            JsonResponse(serde_json::json!({"status": "ok", "deleted": deleted})).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            JsonResponse(serde_json::json!({"error": format!("Memory forget failed: {e}")})),
+        )
+            .into_response(),
+    }
+}
+
+#[cfg(test)]
+#[path = "memory_tests.rs"]
+mod memory_tests;

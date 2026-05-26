@@ -1,0 +1,398 @@
+//! # 原生运行时单元测试模块
+//!
+//! 本模块包含 `NativeRuntime` 及其相关功能的单元测试，验证原生运行时的各项特性和行为。
+//!
+//! ## 测试范围
+//!
+//! - **运行时基础属性**：验证运行时名称、能力标识（Shell 访问、文件系统访问等）
+//! - **Shell 检测逻辑**：Windows 和 Unix 系统下 Shell 的自动检测与优先级回退
+//! - **WSL 启动器识别**：排除 Windows Subsystem for Linux 的 bash.exe（非真正的 bash）
+//! - **命令构建**：验证不同 Shell 类型（PowerShell、CMD、Zsh、Bash）的命令构建正确性
+//!
+//! ## 测试策略
+//!
+//! 测试分为两类：
+//! 1. **直接测试**：直接创建 `NativeRuntime` 实例并验证其属性
+//! 2. **注入测试**：使用 `detect_native_shell_with` 函数注入模拟环境，测试特定场景
+
+use super::*;
+
+#[allow(dead_code)]
+mod tests {
+    use super::*;
+
+    use std::collections::HashMap;
+
+    /// 测试原生运行时的名称标识
+    ///
+    /// 验证 `NativeRuntime::new()` 返回的运行时名称为 `"native"`，
+    /// 用于在运行时工厂中识别和路由到原生运行时实现。
+    #[test]
+    fn native_name() {
+        assert_eq!(NativeRuntime::new().name(), "native");
+    }
+
+    /// 测试 Shell 访问能力的检测
+    ///
+    /// 验证 `has_shell_access()` 返回值与系统实际 Shell 检测结果一致。
+    /// 当系统存在可用 Shell 时返回 `true`，否则返回 `false`。
+    #[test]
+    fn native_has_shell_access() {
+        assert_eq!(NativeRuntime::new().has_shell_access(), detect_native_shell().is_some());
+    }
+
+    /// 测试文件系统访问能力
+    ///
+    /// 原生运行时直接运行在宿主机上，因此始终具备完整的文件系统访问权限。
+    /// 验证 `has_filesystem_access()` 始终返回 `true`。
+    #[test]
+    fn native_has_filesystem_access() {
+        assert!(NativeRuntime::new().has_filesystem_access());
+    }
+
+    /// 测试长时间运行任务的支持
+    ///
+    /// 原生运行时不受容器或沙箱的时间/资源限制，可以执行长时间运行的任务。
+    /// 验证 `supports_long_running()` 返回 `true`。
+    #[test]
+    fn native_supports_long_running() {
+        assert!(NativeRuntime::new().supports_long_running());
+    }
+
+    /// 测试内存预算限制
+    ///
+    /// 原生运行时使用值 `0` 表示无内存限制（unlimited）。
+    /// 与容器运行时不同，原生运行时直接使用宿主机内存资源。
+    #[test]
+    fn native_memory_budget_unlimited() {
+        assert_eq!(NativeRuntime::new().memory_budget(), 0);
+    }
+
+    /// 测试存储路径包含项目标识
+    ///
+    /// 验证运行时的存储路径中包含 `"vibewindow"` 字符串，
+    /// 确保应用数据存储在专用的目录下，避免与其他应用冲突。
+    #[test]
+    fn native_storage_path_contains_vibewindow() {
+        let path = NativeRuntime::new().storage_path();
+        assert!(path.to_string_lossy().contains("vibewindow"));
+    }
+
+    /// 测试 Windows 下 Shell 检测优先选择 Git Bash
+    ///
+    /// 场景：系统中同时存在 Git Bash、PowerShell 和 CMD
+    /// 预期：优先检测到 Git Bash（`ShellKind::Bash`）
+    ///
+    /// 这是 Windows 开发者的常见配置，Git Bash 提供更好的 Unix 兼容性。
+    #[test]
+    fn detect_shell_windows_prefers_git_bash() {
+        // 模拟 Windows 环境下的可执行文件路径映射
+        let mut map = HashMap::new();
+        map.insert("bash", r"C:\Program Files\Git\bin\bash.exe");
+        map.insert("powershell", r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
+        map.insert("cmd", r"C:\Windows\System32\cmd.exe");
+
+        // 注入模拟环境进行测试
+        let shell = detect_native_shell_with(
+            true,
+            |name| map.get(name).map(PathBuf::from),
+            Some(PathBuf::from(r"C:\Windows\System32\cmd.exe")),
+            None,
+        )
+        .expect("windows shell should be detected");
+
+        // 应该优先选择 Git Bash
+        assert_eq!(shell.kind, ShellKind::Bash);
+    }
+
+    /// 测试 Windows 下 Shell 检测的回退顺序
+    ///
+    /// 场景 1：不存在 Bash，存在 PowerShell 和 CMD
+    /// 预期：检测到 PowerShell（`ShellKind::PowerShell`）
+    ///
+    /// 场景 2：仅存在 CMD
+    /// 预期：回退到 CMD（`ShellKind::Cmd`）
+    ///
+    /// Windows 下的 Shell 优先级为：Git Bash > PowerShell > CMD
+    #[test]
+    fn detect_shell_windows_falls_back_to_powershell_then_cmd() {
+        // 场景 1：没有 Bash，有 PowerShell
+        let mut map = HashMap::new();
+        map.insert("powershell", r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
+
+        let shell = detect_native_shell_with(
+            true,
+            |name| map.get(name).map(PathBuf::from),
+            Some(PathBuf::from(r"C:\Windows\System32\cmd.exe")),
+            None,
+        )
+        .expect("windows shell should be detected");
+
+        assert_eq!(shell.kind, ShellKind::PowerShell);
+
+        // 场景 2：没有 Bash 和 PowerShell，仅有 CMD 作为最终回退
+        let cmd_shell = detect_native_shell_with(
+            true,
+            |_name| None,
+            Some(PathBuf::from(r"C:\Windows\System32\cmd.exe")),
+            None,
+        )
+        .expect("cmd fallback should be detected");
+        assert_eq!(cmd_shell.kind, ShellKind::Cmd);
+    }
+
+    /// 测试 Windows 下排除 System32 中的 WSL bash.exe
+    ///
+    /// Windows System32 目录下的 `bash.exe` 是 WSL 的启动器，
+    /// 而非真正的 bash shell。检测逻辑应该跳过它，选择其他可用 Shell。
+    ///
+    /// 场景：仅存在 WSL bash（System32）、PowerShell、CMD
+    /// 预期：选择 PowerShell，而非 WSL bash
+    #[test]
+    fn detect_shell_windows_skips_system32_bash_wsl_launcher() {
+        // 模拟仅有 WSL bash 的场景
+        let mut map = HashMap::new();
+        map.insert("bash", r"C:\Windows\System32\bash.exe"); // 这是 WSL 启动器，应被跳过
+        map.insert("powershell", r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
+        map.insert("cmd", r"C:\Windows\System32\cmd.exe");
+
+        let shell = detect_native_shell_with(
+            true,
+            |name| map.get(name).map(PathBuf::from),
+            Some(PathBuf::from(r"C:\Windows\System32\cmd.exe")),
+            None,
+        )
+        .expect("windows shell should be detected");
+
+        // 应该跳过 WSL bash，选择 PowerShell
+        assert_eq!(shell.kind, ShellKind::PowerShell);
+        assert_eq!(
+            shell.program,
+            PathBuf::from(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe")
+        );
+    }
+
+    /// 测试 Windows 下仅存在 WSL bash 时使用 CMD 作为回退
+    ///
+    /// 场景：仅存在 WSL bash（位于 Sysnative 目录）和 CMD
+    /// 预期：由于 WSL bash 被识别为启动器而被跳过，最终选择 CMD
+    ///
+    /// Sysnative 目录是 32 位进程访问 64 位 System32 的重定向路径。
+    #[test]
+    fn detect_shell_windows_uses_cmd_when_only_wsl_bash_exists() {
+        let mut map = HashMap::new();
+        map.insert("bash", r"C:\Windows\Sysnative\bash.exe"); // WSL 启动器路径
+
+        let shell = detect_native_shell_with(
+            true,
+            |name| map.get(name).map(PathBuf::from),
+            Some(PathBuf::from(r"C:\Windows\System32\cmd.exe")),
+            None,
+        )
+        .expect("cmd fallback should be detected");
+
+        // 应该跳过 WSL bash，回退到 CMD
+        assert_eq!(shell.kind, ShellKind::Cmd);
+        assert_eq!(shell.program, PathBuf::from(r"C:\Windows\System32\cmd.exe"));
+    }
+
+    /// 测试 WSL 启动器路径识别函数
+    ///
+    /// `is_windows_wsl_bash_launcher` 函数用于判断给定的 bash 路径是否为 WSL 启动器。
+    ///
+    /// - 应识别为 WSL 启动器的路径：
+    ///   - `C:\Windows\System32\bash.exe`
+    ///   - `C:\Windows\Sysnative\bash.exe`
+    /// - 不应识别为 WSL 启动器的路径：
+    ///   - `C:\Program Files\Git\bin\bash.exe`（Git Bash，真正的 bash）
+    #[test]
+    fn wsl_launcher_detection_matches_known_paths() {
+        // WSL 启动器路径应返回 true
+        assert!(is_windows_wsl_bash_launcher(Path::new(r"C:\Windows\System32\bash.exe")));
+        assert!(is_windows_wsl_bash_launcher(Path::new(r"C:\Windows\Sysnative\bash.exe")));
+        // Git Bash 路径应返回 false
+        assert!(!is_windows_wsl_bash_launcher(Path::new(r"C:\Program Files\Git\bin\bash.exe")));
+    }
+
+    /// 测试 Unix 系统下优先使用用户默认 Shell
+    ///
+    /// Unix 系统通过环境变量 `$SHELL` 指定用户的默认 Shell。
+    /// 检测逻辑应该优先使用这个值。
+    ///
+    /// 场景：用户默认 Shell 为 `/bin/zsh`
+    /// 预期：检测到 Zsh（`ShellKind::Zsh`），程序路径为 `/bin/zsh`
+    #[test]
+    fn detect_shell_unix_prefers_user_shell() {
+        let shell =
+            detect_native_shell_with(false, |_name| None, None, Some(PathBuf::from("/bin/zsh")))
+                .expect("unix user shell should be detected");
+
+        assert_eq!(shell.kind, ShellKind::Zsh);
+        assert_eq!(shell.program, PathBuf::from("/bin/zsh"));
+    }
+
+    /// 测试 Unix 系统下 Shell 检测的优先级回退
+    ///
+    /// 当无法获取用户默认 Shell 时，按优先级搜索可用的 Shell。
+    /// Unix 下的优先级为：zsh > bash > sh
+    ///
+    /// 场景：系统中存在 zsh、sh、bash（均通过 `which` 找到）
+    /// 预期：按优先级选择 Zsh
+    #[test]
+    fn detect_shell_unix_falls_back_by_priority() {
+        // 模拟 which 命令的查找结果
+        let mut map = HashMap::new();
+        map.insert("zsh", "/bin/zsh");
+        map.insert("sh", "/bin/sh");
+        map.insert("bash", "/usr/bin/bash");
+
+        let shell =
+            detect_native_shell_with(false, |name| map.get(name).map(PathBuf::from), None, None)
+                .expect("unix shell should be detected");
+
+        // 应该按优先级选择 zsh
+        assert_eq!(shell.kind, ShellKind::Zsh);
+    }
+
+    /// 测试无可用 Shell 时的行为
+    ///
+    /// 场景：创建一个没有配置 Shell 的测试用运行时实例
+    /// 预期：
+    /// - `has_shell_access()` 返回 `false`
+    /// - 调用 `build_shell_command` 返回错误，错误信息包含 "could not find a usable shell"
+    ///
+    /// 这验证了运行时在没有 Shell 时的安全失败行为。
+    #[test]
+    fn native_without_shell_disables_shell_access() {
+        let runtime = NativeRuntime::new_for_test(None);
+        assert!(!runtime.has_shell_access());
+
+        let err = runtime
+            .build_shell_command("echo hello", Path::new("."))
+            .expect_err("build should fail without available shell")
+            .to_string();
+        assert!(err.contains("could not find a usable shell"));
+    }
+
+    /// 测试 PowerShell 命令构建
+    ///
+    /// 验证为 PowerShell 构建的命令包含正确的参数：
+    /// - 程序名：`powershell`
+    /// - `-NoProfile`：不加载用户配置文件，加快启动速度
+    /// - `-Command`：指定要执行的命令
+    /// - 命令内容：`Get-Location`
+    #[test]
+    fn native_builds_powershell_command() {
+        let runtime = NativeRuntime::new_for_test(Some(ShellProgram {
+            kind: ShellKind::PowerShell,
+            program: PathBuf::from("powershell"),
+        }));
+
+        let command = runtime
+            .build_shell_command("Get-Location", Path::new("."))
+            .expect("powershell command should build");
+        let debug = format!("{command:?}");
+
+        assert!(debug.contains("powershell"));
+        assert!(debug.contains("-NoProfile"));
+        assert!(debug.contains("-Command"));
+        assert!(debug.contains("Get-Location"));
+    }
+
+    /// 测试 CMD 命令构建
+    ///
+    /// 验证为 CMD 构建的命令包含正确的参数：
+    /// - 程序名：`cmd`
+    /// - `/C`：执行字符串指定的命令然后终止
+    /// - 命令内容：`echo hello`
+    #[test]
+    fn native_builds_cmd_command() {
+        let runtime = NativeRuntime::new_for_test(Some(ShellProgram {
+            kind: ShellKind::Cmd,
+            program: PathBuf::from("cmd"),
+        }));
+
+        let command = runtime
+            .build_shell_command("echo hello", Path::new("."))
+            .expect("cmd command should build");
+        let debug = format!("{command:?}");
+
+        assert!(debug.contains("cmd"));
+        assert!(debug.contains("/C"));
+        assert!(debug.contains("echo hello"));
+    }
+
+    /// 测试 Zsh 命令构建（包含登录和交互标志）
+    ///
+    /// 验证为 Zsh 构建的命令包含正确的参数：
+    /// - 程序路径：`/bin/zsh`
+    /// - `-l`：作为登录 Shell 启动，加载 `.zprofile` 等配置
+    /// - `-i`：作为交互式 Shell 启动，加载 `.zshrc` 等配置
+    /// - 命令内容：`echo hello`
+    ///
+    /// 这确保 Zsh 环境下用户的别名、函数等配置可以被正确加载。
+    #[test]
+    fn native_builds_zsh_command_with_login_and_interactive_flags() {
+        let runtime = NativeRuntime::new_for_test(Some(ShellProgram {
+            kind: ShellKind::Zsh,
+            program: PathBuf::from("/bin/zsh"),
+        }));
+
+        let command = runtime
+            .build_shell_command("echo hello", Path::new("."))
+            .expect("zsh command should build");
+        let debug = format!("{command:?}");
+
+        assert!(debug.contains("/bin/zsh"));
+        assert!(debug.contains("-l"));
+        assert!(debug.contains("-i"));
+        assert!(debug.contains("echo hello"));
+    }
+
+    /// 测试 Bash 命令构建（包含登录标志）
+    ///
+    /// 验证为 Bash 构建的命令包含正确的参数：
+    /// - 程序路径：`/bin/bash`
+    /// - `-l`：作为登录 Shell 启动，加载 `.bash_profile` 等配置
+    /// - `-c`：从字符串读取命令执行
+    /// - 命令内容：`echo hello`
+    ///
+    /// 这确保 Bash 环境下用户的 PATH、别名等配置可以被正确加载。
+    #[test]
+    fn native_builds_bash_command_with_login_flag() {
+        let runtime = NativeRuntime::new_for_test(Some(ShellProgram {
+            kind: ShellKind::Bash,
+            program: PathBuf::from("/bin/bash"),
+        }));
+
+        let command = runtime
+            .build_shell_command("echo hello", Path::new("."))
+            .expect("bash command should build");
+        let debug = format!("{command:?}");
+
+        assert!(debug.contains("/bin/bash"));
+        assert!(debug.contains("-l"));
+        assert!(debug.contains("-c"));
+        assert!(debug.contains("echo hello"));
+    }
+
+    /// 测试 Shell 命令构建（集成测试）
+    ///
+    /// 使用真实的运行时实例构建命令，验证命令字符串中包含预期的命令内容。
+    /// 如果当前环境没有可用的 Shell，测试会直接跳过。
+    ///
+    /// 这是一个轻量级的集成测试，验证命令构建流程端到端可用。
+    #[test]
+    fn native_builds_shell_command() {
+        let runtime = NativeRuntime::new();
+        // 无 Shell 时跳过测试
+        if !runtime.has_shell_access() {
+            return;
+        }
+
+        let cwd = std::env::temp_dir();
+        let command = runtime.build_shell_command("echo hello", &cwd).unwrap();
+        let debug = format!("{command:?}");
+        assert!(debug.contains("echo hello"));
+    }
+}

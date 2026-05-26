@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <title>pi-acp</title>
+  <path d="M6 7h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M8 7v10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M16 7v10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M15 17c0 1.1.9 2 2 2h1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,306 @@
+//! 会话指令文件发现与加载。
+//!
+//! 本模块负责发现 AGENTS/CLAUDE/CONTEXT 等指令文件，并控制它们何时注入会话上下文。
+//! 它会跟踪每条消息已经声明过的指令文件，避免同一轮对话重复加载相同内容。
+
+use crate::app::agent::config;
+use crate::app::agent::flag;
+use crate::app::agent::global;
+use crate::app::agent::project::instance;
+use crate::app::agent::session::message;
+use crate::app::agent::util::filesystem;
+use crate::app::agent::util::log;
+use std::sync::LazyLock;
+use serde_json::{Map, Value};
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+static LOGGER: LazyLock<log::Logger> = LazyLock::new(|| {
+    log::create(Some({
+        let mut m = Map::new();
+        m.insert("service".to_string(), Value::String("instruction".to_string()));
+        m
+    }))
+});
+
+const FILES: [&str; 3] = ["AGENTS.md", "CLAUDE.md", "CONTEXT.md"];
+
+/// 单个项目实例内的指令加载状态。
+#[derive(Debug, Default)]
+struct State {
+    claims: Mutex<HashMap<String, HashSet<String>>>,
+}
+
+/// 获取项目实例级别的指令状态工厂。
+///
+/// 返回的闭包按当前项目实例隔离状态，避免不同工作区之间共享“已声明”记录。
+fn instance_state()
+-> impl Fn() -> crate::app::agent::project::BoxFuture<Arc<State>> + Send + Sync + 'static {
+    instance::state(
+        "instruction",
+        || async { State::default() },
+        None::<fn(Arc<State>) -> crate::app::agent::project::BoxFuture<()>>,
+    )
+}
+
+/// 将路径规范化为可比较的字符串。
+fn normalize_str(p: impl AsRef<Path>) -> String {
+    filesystem::normalize_path(p).to_string_lossy().to_string()
+}
+
+/// 返回全局指令文件候选路径。
+///
+/// 候选顺序体现优先级：显式配置目录优先，其次全局配置目录，最后兼容 Claude Code
+/// 的用户级 `CLAUDE.md`。
+fn global_files() -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    if let Some(dir) = flag::vibewindow_config_dir() {
+        files.push(PathBuf::from(dir).join("AGENTS.md"));
+    }
+    files.push(global::paths().config.join("AGENTS.md"));
+    if !*flag::VIBEWINDOW_DISABLE_CLAUDE_CODE_PROMPT {
+        files.push(global::paths().home.join(".claude").join("CLAUDE.md"));
+    }
+    files
+}
+
+/// 向上解析相对指令文件名。
+///
+/// 当项目配置启用时，从项目目录向工作树边界查找；禁用项目配置时，只在
+/// `VIBEWINDOW_CONFIG_DIR` 内查找，避免越过显式配置沙箱。
+fn resolve_relative(instruction: &str) -> Vec<PathBuf> {
+    if !flag::vibewindow_disable_project_config() {
+        let start = PathBuf::from(instance::directory());
+        let stop = {
+            let wt = instance::worktree();
+            if wt.is_empty() { None } else { Some(PathBuf::from(wt)) }
+        };
+        return filesystem::glob_up(instruction, start, stop);
+    }
+
+    let Some(dir) = flag::vibewindow_config_dir() else {
+        LOGGER.warn(
+            format!(
+                "Skipping relative instruction \"{}\" - no VIBEWINDOW_CONFIG_DIR set while project config is disabled",
+                instruction
+            ),
+            None,
+        );
+        return Vec::new();
+    };
+    let start = PathBuf::from(dir.clone());
+    filesystem::glob_up(instruction, start.clone(), Some(start))
+}
+
+/// 判断某条消息是否已经声明过指定指令文件。
+async fn is_claimed(message_id: &str, filepath: &str) -> bool {
+    let state = instance_state()().await;
+    let claims = state.claims.lock().await;
+    claims.get(message_id).is_some_and(|s| s.contains(filepath))
+}
+
+/// 标记某条消息已经声明指定指令文件。
+async fn claim(message_id: &str, filepath: &str) {
+    let state = instance_state()().await;
+    let mut claims = state.claims.lock().await;
+    claims.entry(message_id.to_string()).or_default().insert(filepath.to_string());
+}
+
+/// 清理指定消息的指令声明记录。
+///
+/// `message_id` 是会话消息 ID。清理后，同一消息关联的文件可在后续流程重新声明。
+pub async fn clear(message_id: &str) {
+    let state = instance_state()().await;
+    let mut claims = state.claims.lock().await;
+    claims.remove(message_id);
+}
+
+/// 查找当前系统级指令文件路径集合。
+///
+/// 返回规范化后的路径集合。项目内指令会按 `AGENTS.md`、`CLAUDE.md`、`CONTEXT.md`
+/// 顺序选中第一类存在的文件；全局指令同样只取优先级最高的存在文件。
+pub async fn system_paths() -> HashSet<String> {
+    let _cfg = config::get().await;
+    let mut paths = HashSet::<String>::new();
+
+    if !flag::vibewindow_disable_project_config() {
+        let start = PathBuf::from(instance::directory());
+        let stop = {
+            let wt = instance::worktree();
+            if wt.is_empty() { None } else { Some(PathBuf::from(wt)) }
+        };
+
+        for file in FILES {
+            let matches = filesystem::find_up(file, start.clone(), stop.clone()).await;
+            if !matches.is_empty() {
+                for p in matches {
+                    paths.insert(normalize_str(p));
+                }
+                break;
+            }
+        }
+    }
+
+    for file in global_files() {
+        if filesystem::exists(&file) {
+            paths.insert(normalize_str(file));
+            break;
+        }
+    }
+
+    paths
+}
+
+#[cfg(target_arch = "wasm32")]
+/// wasm 架构下的 URL 指令占位加载器。
+async fn fetch_url(_url: &str) -> String {
+    String::new()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+/// 在非 wasm 环境中读取远程 URL 指令内容。
+///
+/// 网络请求放入阻塞线程并设置短超时；失败时返回空字符串，避免指令加载阻塞主会话。
+async fn fetch_url(url: &str) -> String {
+    let url = url.to_string();
+    tokio::task::spawn_blocking(move || {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .ok()?;
+        let res = client.get(url).send().ok()?;
+        if !res.status().is_success() {
+            return None;
+        }
+        res.text().ok()
+    })
+    .await
+    .ok()
+    .flatten()
+    .unwrap_or_default()
+}
+
+/// 读取系统级指令内容。
+///
+/// 返回每个指令文件的可注入文本，空文件会被跳过。读取失败按空内容处理，使缺失或
+/// 临时不可读的指令文件不会中断会话创建。
+pub async fn system() -> Vec<String> {
+    let _cfg = config::get().await;
+    let paths = system_paths().await;
+
+    let mut out = Vec::new();
+    for p in paths {
+        let content = std::fs::read_to_string(&p).unwrap_or_default();
+        if content.trim().is_empty() {
+            continue;
+        }
+        out.push(format!("Instructions from: {}\n{}", p, content));
+    }
+
+    out
+}
+
+/// 从历史消息中提取已经加载过的指令路径。
+///
+/// `messages` 是会话消息列表。返回集合只包含未被 compact 的 read/file_read 工具
+/// 结果中标记为 `loaded` 的路径。
+pub fn loaded(messages: &[message::WithParts]) -> HashSet<String> {
+    let mut paths = HashSet::<String>::new();
+    for msg in messages {
+        for part in &msg.parts {
+            let message::Part::Tool(tp) = part else { continue };
+            if tp.tool != "read" && tp.tool != "file_read" {
+                continue;
+            }
+            let message::ToolState::Completed(st) = &tp.state else { continue };
+            if st.time.compacted.is_some() {
+                continue;
+            }
+            let Some(loaded) = st.metadata.get("loaded").and_then(Value::as_array) else {
+                continue;
+            };
+            for p in loaded {
+                if let Some(s) = p.as_str() {
+                    paths.insert(s.to_string());
+                }
+            }
+        }
+    }
+    paths
+}
+
+/// 在指定目录查找第一份支持的指令文件。
+///
+/// 返回规范化路径；如果目录下没有支持的文件，返回 `None`。
+pub async fn find(dir: &str) -> Option<String> {
+    for file in FILES {
+        let filepath = PathBuf::from(dir).join(file);
+        if filesystem::exists(&filepath) {
+            return Some(normalize_str(filepath));
+        }
+    }
+    None
+}
+
+/// 已解析出的附加指令文件。
+#[derive(Debug, Clone)]
+pub struct Resolved {
+    /// 指令文件的规范化路径。
+    pub filepath: String,
+    /// 带来源头的指令内容。
+    pub content: String,
+}
+
+/// 解析目标文件上级目录中的附加指令。
+///
+/// `messages` 用于避免重复加载已读指令，`filepath` 是当前目标文件，`message_id`
+/// 用于本轮声明去重。返回从目标文件目录向项目根逐级发现的指令内容，不包含系统
+/// 指令、目标文件自身或已加载/已声明的文件。
+pub async fn resolve(
+    messages: &[message::WithParts],
+    filepath: &str,
+    message_id: &str,
+) -> Vec<Resolved> {
+    let system = system_paths().await;
+    let already = loaded(messages);
+    let mut results: Vec<Resolved> = Vec::new();
+
+    let target = normalize_str(filepath);
+    let mut current = PathBuf::from(&target)
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from(&target));
+    let root = filesystem::normalize_path(instance::directory());
+
+    while current.starts_with(&root) && current != root {
+        let Some(found) = find(&current.to_string_lossy().to_string()).await else {
+            current = current.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| root.clone());
+            continue;
+        };
+
+        if found != target
+            && !system.contains(&found)
+            && !already.contains(&found)
+            && !is_claimed(message_id, &found).await
+        {
+            // claim 必须在读取前完成，防止并发解析同一消息时重复注入相同指令。
+            claim(message_id, &found).await;
+            let content = std::fs::read_to_string(&found).unwrap_or_default();
+            if !content.trim().is_empty() {
+                results.push(Resolved {
+                    filepath: found.clone(),
+                    content: format!("Instructions from: {}\n{}", found, content),
+                });
+            }
+        }
+
+        current = current.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| root.clone());
+    }
+
+    results
+}
+#[cfg(test)]
+#[path = "instruction_tests.rs"]
+mod instruction_tests;

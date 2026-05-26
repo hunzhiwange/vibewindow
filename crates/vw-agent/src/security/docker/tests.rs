@@ -1,0 +1,198 @@
+//! Docker 沙箱模块测试
+//!
+//! 本模块包含针对 `DockerSandbox` 实现的单元测试，验证以下核心功能：
+//!
+//! # 测试覆盖范围
+//!
+//! - **基本功能**：沙箱名称获取、默认镜像配置、自定义镜像创建
+//! - **隔离标志**：网络隔离、资源限制（内存、CPU）
+//! - **命令包装**：确保原始命令在容器内正确执行
+//! - **配置验证**：验证 Docker 运行时参数的正确性
+//!
+//! # 安全性测试
+//!
+//! 重点关注容器隔离参数，包括：
+//! - 网络隔离（`--network none`）
+//! - 内存限制（`--memory 512m`）
+//! - CPU 限制（`--cpus 1.0`）
+//! - 自动清理（`--rm`）
+//!
+//! # 运行测试
+//!
+//! ```bash
+//! cargo test --package vibe-agent --lib security::docker::tests
+//! ```
+
+use super::*;
+
+/// Docker 沙箱功能测试模块
+///
+/// 包含所有针对 `DockerSandbox` 的单元测试用例，验证沙箱的
+/// 创建、配置和命令包装功能。
+#[allow(dead_code)]
+mod tests {
+    use super::*;
+
+    /// 测试沙箱名称获取
+    ///
+    /// 验证 `DockerSandbox` 的 `name()` 方法返回正确的标识符。
+    /// 所有沙箱实现必须提供唯一的名称用于标识和日志记录。
+    ///
+    /// # 验证点
+    ///
+    /// - 返回值应为 `"docker"`
+    /// - 名称应与实现类型匹配
+    #[test]
+    fn docker_sandbox_name() {
+        let sandbox = DockerSandbox::default();
+        assert_eq!(sandbox.name(), "docker");
+    }
+
+    /// 测试默认镜像配置
+    ///
+    /// 验证使用 `default()` 创建的沙箱使用正确的默认容器镜像。
+    /// 默认镜像选择 `alpine:latest` 以确保：
+    ///
+    /// - 最小化攻击面（Alpine 镜像体积小）
+    /// - 快速启动时间
+    /// - 基本的 shell 和工具支持
+    ///
+    /// # 验证点
+    ///
+    /// - 默认镜像应为 `"alpine:latest"`
+    #[test]
+    fn docker_sandbox_default_image() {
+        let sandbox = DockerSandbox::default();
+        assert_eq!(sandbox.image, "alpine:latest");
+    }
+
+    /// 测试自定义镜像创建
+    ///
+    /// 验证使用 `with_image()` 方法可以创建使用自定义镜像的沙箱。
+    /// 如果 Docker 未安装，该方法应返回错误而不是创建无效沙箱。
+    ///
+    /// # 行为说明
+    ///
+    /// - **成功情况**：Docker 已安装时，返回使用指定镜像的沙箱
+    /// - **失败情况**：Docker 未安装时，返回错误
+    ///
+    /// # 验证点
+    ///
+    /// - 成功时，沙箱应使用指定的镜像（`ubuntu:latest`）
+    /// - 失败时，应确认 Docker 未安装
+    #[test]
+    fn docker_with_custom_image() {
+        let result = DockerSandbox::with_image("ubuntu:latest".to_string());
+        match result {
+            Ok(sandbox) => assert_eq!(sandbox.image, "ubuntu:latest"),
+            Err(_) => assert!(!DockerSandbox::is_installed()),
+        }
+    }
+
+    /// §1.1 沙箱隔离标志测试
+    ///
+    /// 以下测试验证 Docker 命令包装器是否正确注入了安全隔离参数。
+
+    /// 测试命令包装包含必要的隔离标志
+    ///
+    /// 验证 `wrap_command()` 方法正确地将普通命令转换为 Docker 命令，
+    /// 并注入所有必要的安全隔离标志。
+    ///
+    /// # 转换示例
+    ///
+    /// 输入：`echo hello`
+    /// 输出：`docker run --rm --network none --memory 512m --cpus 1.0 alpine:latest echo hello`
+    ///
+    /// # 安全验证点
+    ///
+    /// - **程序名**：应变为 `docker`
+    /// - **子命令**：必须包含 `run`
+    /// - **自动清理**：必须包含 `--rm`（容器退出后自动删除）
+    /// - **网络隔离**：必须包含 `--network none`（禁用网络访问）
+    /// - **内存限制**：必须包含 `--memory 512m`（限制为 512MB）
+    /// - **CPU 限制**：必须包含 `--cpus 1.0`（限制为 1 个 CPU）
+    #[test]
+    fn docker_wrap_command_includes_isolation_flags() {
+        let sandbox = DockerSandbox::default();
+        let mut cmd = Command::new("echo");
+        cmd.arg("hello");
+        sandbox.wrap_command(&mut cmd).unwrap();
+
+        // 验证命令程序已更改为 docker
+        assert_eq!(
+            cmd.get_program().to_string_lossy(),
+            "docker",
+            "wrapped command should use docker as program"
+        );
+
+        // 收集所有参数以便验证
+        let args: Vec<String> = cmd.get_args().map(|s| s.to_string_lossy().to_string()).collect();
+
+        // 验证必要的 Docker 子命令和标志
+        assert!(args.contains(&"run".to_string()), "must include 'run' subcommand");
+        assert!(args.contains(&"--rm".to_string()), "must include --rm for auto-cleanup");
+        assert!(args.contains(&"--network".to_string()), "must include --network flag");
+        assert!(args.contains(&"none".to_string()), "network must be set to 'none' for isolation");
+        assert!(args.contains(&"--memory".to_string()), "must include --memory limit");
+        assert!(args.contains(&"512m".to_string()), "memory limit must be 512m");
+        assert!(args.contains(&"--cpus".to_string()), "must include --cpus limit");
+        assert!(args.contains(&"1.0".to_string()), "CPU limit must be 1.0");
+    }
+
+    /// 测试命令包装保留原始命令
+    ///
+    /// 验证 `wrap_command()` 方法在包装命令时不会丢失或修改
+    /// 原始的程序名和参数。
+    ///
+    /// # 转换示例
+    ///
+    /// 输入：`ls -la`
+    /// 输出：`docker run ... alpine:latest ls -la`
+    ///
+    /// # 验证点
+    ///
+    /// - **镜像名称**：必须包含配置的容器镜像
+    /// - **原始程序**：原命令程序（`ls`）必须作为参数保留
+    /// - **原始参数**：原命令参数（`-la`）必须完整保留
+    #[test]
+    fn docker_wrap_command_preserves_original_command() {
+        let sandbox = DockerSandbox::default();
+        let mut cmd = Command::new("ls");
+        cmd.arg("-la");
+        sandbox.wrap_command(&mut cmd).unwrap();
+
+        // 收集所有参数
+        let args: Vec<String> = cmd.get_args().map(|s| s.to_string_lossy().to_string()).collect();
+
+        // 验证容器镜像和原始命令都被保留
+        assert!(args.contains(&"alpine:latest".to_string()), "must include the container image");
+        assert!(args.contains(&"ls".to_string()), "original program must be passed as argument");
+        assert!(args.contains(&"-la".to_string()), "original args must be preserved");
+    }
+
+    /// 测试命令包装使用自定义镜像
+    ///
+    /// 验证当沙箱配置了自定义镜像时，`wrap_command()` 方法
+    /// 使用正确的镜像名称。
+    ///
+    /// # 配置说明
+    ///
+    /// 当使用特定的容器镜像时（如 `ubuntu:22.04`），包装后的
+    /// Docker 命令必须使用该镜像而非默认的 `alpine:latest`。
+    ///
+    /// # 验证点
+    ///
+    /// - 参数列表中必须包含指定的自定义镜像名称
+    #[test]
+    fn docker_wrap_command_uses_custom_image() {
+        let sandbox = DockerSandbox { image: "ubuntu:22.04".to_string() };
+        let mut cmd = Command::new("echo");
+        sandbox.wrap_command(&mut cmd).unwrap();
+
+        // 收集所有参数
+        let args: Vec<String> = cmd.get_args().map(|s| s.to_string_lossy().to_string()).collect();
+
+        // 验证使用了自定义镜像
+        assert!(args.contains(&"ubuntu:22.04".to_string()), "must use the custom image");
+    }
+}

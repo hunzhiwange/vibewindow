@@ -1,0 +1,30 @@
+[package]
+name = "vw-webview"
+version = "0.2.1"
+edition = "2024"
+publish = false
+repository = "https://github.com/doyouhaobaby/vibe-window"
+default-run = "vw-webview"
+
+[package.metadata.dist]
+dist = true
+
+[[bin]]
+name = "vw-webview"
+path = "src/main.rs"
+
+[dependencies]
+directories = "5"
+mime_guess = "2.0.5"
+serde_json = "1"
+
+[target.'cfg(all(not(target_arch = "wasm32"), not(target_env = "musl")))'.dependencies]
+tao = { version = "0.34" }
+wry = { version = "0.54" }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+rfd = "0.14"
+
+[features]
+default = ["desktop-webview"]
+desktop-webview = []

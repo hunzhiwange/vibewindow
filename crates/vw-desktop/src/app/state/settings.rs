@@ -1,0 +1,28 @@
+//! 维护系统设置状态及其按领域拆分的派生逻辑。
+//!
+//! 注释说明当前文件的职责边界，帮助调用方理解数据流与错误传播，
+//! 不改变任何运行时行为。
+
+/// 对外暴露当前模块需要复用的能力。
+pub(super) use super::*;
+
+mod agents;
+mod channels;
+mod infrastructure;
+mod provider_model;
+mod runtime;
+
+/// 对外暴露当前模块需要复用的能力。
+pub(crate) use agents::*;
+/// 对外暴露当前模块需要复用的能力。
+pub(crate) use channels::*;
+/// 对外暴露当前模块需要复用的能力。
+pub(crate) use infrastructure::*;
+/// 对外暴露当前模块需要复用的能力。
+pub(crate) use provider_model::*;
+/// 对外暴露当前模块需要复用的能力。
+pub(crate) use runtime::*;
+
+#[cfg(test)]
+#[path = "settings_tests.rs"]
+mod settings_tests;

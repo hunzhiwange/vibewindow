@@ -1,0 +1,406 @@
+//! # 技能集成器模块
+//!
+//! 本模块负责将从 Scout（侦察器）获取的技能候选项集成到 VibeWindow 系统中。
+//! 主要功能包括：
+//!
+//! - 生成符合 VibeWindow 标准的 `SKILL.toml` 配置文件
+//! - 生成配套的 `SKILL.md` 文档文件
+//! - 确保生成的文件名和路径安全可靠
+//! - 自动处理 TOML 字符串转义和路径组件清理
+//!
+//! ## 工作流程
+//!
+//! 1. 接收 `ScoutResult`（侦察结果）作为输入
+//! 2. 对技能名称进行路径安全化处理
+//! 3. 创建技能专用目录
+//! 4. 生成并写入 `SKILL.toml` 和 `SKILL.md` 文件
+//!
+//! ## 输出格式
+//!
+//! 生成的文件遵循 VibeWindow 技能规范：
+//! - `SKILL.toml`：包含技能的元数据、版本、依赖等信息
+//! - `SKILL.md`：包含技能的详细说明、使用方法等文档信息
+
+use std::fs;
+use std::path::PathBuf;
+
+use anyhow::{Context, Result, bail};
+use chrono::Utc;
+use tracing::info;
+
+use super::scout::ScoutResult;
+
+// ---------------------------------------------------------------------------
+// Integrator（技能集成器）
+// ---------------------------------------------------------------------------
+
+/// 技能集成器
+///
+/// 负责将技能候选项集成到 VibeWindow 系统中，生成标准化的技能文件。
+///
+/// # 字段
+///
+/// - `output_dir`：技能文件的输出目录路径
+///
+/// # 示例
+///
+/// ```no_run
+/// use vibe_agent::skillforge::integrate::Integrator;
+/// use vibe_agent::skillforge::scout::ScoutResult;
+///
+/// let integrator = Integrator::new("./skills".to_string());
+/// let scout_result = ScoutResult {
+///     // ... 填充字段
+/// };
+/// let skill_dir = integrator.integrate(&scout_result)?;
+/// ```
+pub struct Integrator {
+    output_dir: PathBuf,
+}
+
+impl Integrator {
+    /// 创建新的技能集成器实例
+    ///
+    /// # 参数
+    ///
+    /// - `output_dir`：技能文件的输出目录路径（字符串形式）
+    ///
+    /// # 返回值
+    ///
+    /// 返回配置好的 `Integrator` 实例
+    ///
+    /// # 示例
+    ///
+    /// ```no_run
+    /// let integrator = Integrator::new("./output/skills".to_string());
+    /// ```
+    pub fn new(output_dir: String) -> Self {
+        Self { output_dir: PathBuf::from(output_dir) }
+    }
+
+    /// 将技能候选项集成到输出目录
+    ///
+    /// 该方法会执行以下操作：
+    /// 1. 对技能名称进行安全化处理（防止路径遍历攻击）
+    /// 2. 创建技能专用子目录
+    /// 3. 生成 `SKILL.toml` 配置文件
+    /// 4. 生成 `SKILL.md` 文档文件
+    /// 5. 将两个文件写入磁盘
+    ///
+    /// # 参数
+    ///
+    /// - `candidate`：来自侦察器的技能候选项结果
+    ///
+    /// # 返回值
+    ///
+    /// - 成功：返回技能目录的完整路径
+    /// - 失败：返回错误信息（如目录创建失败、文件写入失败等）
+    ///
+    /// # 错误处理
+    ///
+    /// - 如果技能名称不安全（为空、只包含点号、包含路径分隔符等），会返回错误
+    /// - 如果无法创建目录，会返回错误
+    /// - 如果无法写入文件，会返回错误
+    ///
+    /// # 示例
+    ///
+    /// ```no_run
+    /// use vibe_agent::skillforge::integrate::Integrator;
+    /// use vibe_agent::skillforge::scout::ScoutResult;
+    ///
+    /// let integrator = Integrator::new("./skills".to_string());
+    /// let candidate = ScoutResult {
+    ///     name: "example-skill".to_string(),
+    ///     description: "An example skill".to_string(),
+    ///     url: "https://github.com/example/skill".to_string(),
+    ///     owner: "example".to_string(),
+    ///     language: Some("rust".to_string()),
+    ///     stars: 100,
+    ///     has_license: true,
+    ///     updated_at: None,
+    /// };
+    /// let skill_dir = integrator.integrate(&candidate)?;
+    /// println!("Skill integrated at: {:?}", skill_dir);
+    /// ```
+    pub fn integrate(&self, candidate: &ScoutResult) -> Result<PathBuf> {
+        // 对技能名称进行安全化处理，确保可以用作目录名
+        let safe_name = sanitize_path_component(&candidate.name)?;
+
+        // 构建技能目录的完整路径
+        let skill_dir = self.output_dir.join(&safe_name);
+
+        // 创建技能目录（如果不存在则创建，包括所有父目录）
+        fs::create_dir_all(&skill_dir)
+            .with_context(|| format!("Failed to create dir: {}", skill_dir.display()))?;
+
+        // 构建两个输出文件的完整路径
+        let toml_path = skill_dir.join("SKILL.toml");
+        let md_path = skill_dir.join("SKILL.md");
+
+        // 生成配置文件和文档文件的内容
+        let toml_content = self.generate_toml(candidate);
+        let md_content = self.generate_md(candidate);
+
+        // 将生成的配置文件写入磁盘
+        fs::write(&toml_path, &toml_content)
+            .with_context(|| format!("Failed to write {}", toml_path.display()))?;
+
+        // 将生成的文档文件写入磁盘
+        fs::write(&md_path, &md_content)
+            .with_context(|| format!("Failed to write {}", md_path.display()))?;
+
+        // 记录集成成功的日志
+        info!(
+            skill = candidate.name.as_str(),
+            path = %skill_dir.display(),
+            "Integrated skill"
+        );
+
+        Ok(skill_dir)
+    }
+
+    // -- 生成器方法 ---------------------------------------------------------
+
+    /// 生成 SKILL.toml 配置文件内容
+    ///
+    /// 根据技能候选项的信息生成符合 VibeWindow 标准的 TOML 配置文件。
+    /// 配置文件包含技能的基本信息、版本、依赖、元数据等。
+    ///
+    /// # 参数
+    ///
+    /// - `c`：技能候选项的引用
+    ///
+    /// # 返回值
+    ///
+    /// 返回格式化的 TOML 字符串
+    fn generate_toml(&self, c: &ScoutResult) -> String {
+        // 获取编程语言，如果未指定则使用 "unknown"
+        let lang = c.language.as_deref().unwrap_or("unknown");
+
+        // 格式化更新时间，如果未提供则使用 "unknown"
+        let updated = c
+            .updated_at
+            .map(|d| d.format("%Y-%m-%d").to_string())
+            .unwrap_or_else(|| "unknown".into());
+
+        // 生成 TOML 配置文件内容
+        // 使用 TOML 模板格式化技能元数据
+        format!(
+            r#"# Auto-generated by SkillForge on {now}
+
+[skill]
+name = "{name}"
+version = "0.1.0"
+description = "{description}"
+source = "{url}"
+owner = "{owner}"
+language = "{lang}"
+license = {license}
+stars = {stars}
+updated_at = "{updated}"
+
+[skill.requirements]
+runtime = "vibewindow >= 0.1"
+
+[skill.metadata]
+auto_integrated = true
+forge_timestamp = "{now}"
+"#,
+            // 当前 UTC 时间戳
+            now = Utc::now().format("%Y-%m-%dT%H:%M:%SZ"),
+            // 对所有字符串字段进行 TOML 转义，防止注入
+            name = escape_toml(&c.name),
+            description = escape_toml(&c.description),
+            url = escape_toml(&c.url),
+            owner = escape_toml(&c.owner),
+            lang = lang,
+            // 布尔值转换为 "true" 或 "false" 字符串
+            license = if c.has_license { "true" } else { "false" },
+            stars = c.stars,
+            updated = updated,
+        )
+    }
+
+    /// 生成 SKILL.md 文档文件内容
+    ///
+    /// 根据技能候选项的信息生成 Markdown 格式的文档文件。
+    /// 文档包含技能的概览、描述、使用方法等用户友好的信息。
+    ///
+    /// # 参数
+    ///
+    /// - `c`：技能候选项的引用
+    ///
+    /// # 返回值
+    ///
+    /// 返回格式化的 Markdown 字符串
+    fn generate_md(&self, c: &ScoutResult) -> String {
+        // 获取编程语言，如果未指定则使用 "unknown"
+        let lang = c.language.as_deref().unwrap_or("unknown");
+
+        // 生成 Markdown 文档内容
+        // 使用 Markdown 模板格式化技能文档
+        format!(
+            r#"# {name}
+
+> Auto-generated by SkillForge
+
+## Overview
+
+- **Source**: [{url}]({url})
+- **Owner**: {owner}
+- **Language**: {lang}
+- **Stars**: {stars}
+- **License**: {license}
+
+## Description
+
+{description}
+
+## Usage
+
+```toml
+# Add to your VibeWindow config:
+[skills.{name}]
+enabled = true
+```
+
+## Notes
+
+This manifest was auto-generated from repository metadata.
+Review before enabling in production.
+"#,
+            name = c.name,
+            url = c.url,
+            owner = c.owner,
+            lang = lang,
+            stars = c.stars,
+            // 将布尔值转换为用户友好的字符串
+            license = if c.has_license { "yes" } else { "unknown" },
+            description = c.description,
+        )
+    }
+}
+
+/// 对 TOML 基本字符串值中的特殊字符进行转义
+///
+/// 该函数将字符串中的特殊字符转换为 TOML 格式的转义序列，
+/// 以确保生成的 TOML 文件格式正确且安全。
+///
+/// # 转义规则
+///
+/// - 反斜杠 `\` → `\\`
+/// - 双引号 `"` → `\"`
+/// - 换行符 `\n` → `\\n`
+/// - 回车符 `\r` → `\\r`
+/// - 制表符 `\t` → `\\t`
+/// - 退格符 `\u{08}` → `\\b`
+/// - 换页符 `\u{0C}` → `\\f`
+///
+/// # 参数
+///
+/// - `s`：需要转义的原始字符串
+///
+/// # 返回值
+///
+/// 返回转义后的安全字符串，可以直接用于 TOML 值
+///
+/// # 示例
+///
+/// ```
+/// use vibe_agent::skillforge::integrate::escape_toml;
+///
+/// let input = r#"Hello "World" with \ and newline
+/// here"#;
+/// let escaped = escape_toml(input);
+/// assert!(escaped.contains(r#"\""#)); // 双引号被转义
+/// assert!(escaped.contains(r#"\\"#)); // 反斜杠被转义
+/// assert!(escaped.contains(r#"\n"#)); // 换行符被转义
+/// ```
+fn escape_toml(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
+        .replace('\u{08}', "\\b")
+        .replace('\u{0C}', "\\f")
+}
+
+/// 对字符串进行安全化处理，使其可用作单个路径组件
+///
+/// 该函数用于防止路径遍历攻击和其他文件系统安全问题。
+/// 它会拒绝不安全的名称，并对危险字符进行替换。
+///
+/// # 安全规则
+///
+/// 1. 拒绝空字符串或只包含空白的名称
+/// 2. 拒绝只包含点号的名称（防止 "." 和 ".." 攻击）
+/// 3. 去除名称两端的空白和点号
+/// 4. 将路径分隔符（`/` 和 `\`）和 NUL 字符替换为下划线
+/// 5. 最终检查是否仍存在不安全字符
+///
+/// # 参数
+///
+/// - `name`：需要安全化的原始字符串
+///
+/// # 返回值
+///
+/// - 成功：返回安全化后的字符串
+/// - 失败：返回错误信息（名称为空、不安全等）
+///
+/// # 错误处理
+///
+/// - 如果名称为空或只包含点号，返回错误
+/// - 如果最终结果仍包含路径分隔符，返回错误
+///
+/// # 示例
+///
+/// ```
+/// use vibe_agent::skillforge::integrate::sanitize_path_component;
+///
+/// // 正常名称
+/// assert_eq!(sanitize_path_component("my-skill").unwrap(), "my-skill");
+///
+/// // 带空白的名称
+/// assert_eq!(sanitize_path_component("  my-skill  ").unwrap(), "my-skill");
+///
+/// // 包含路径分隔符的名称
+/// assert_eq!(sanitize_path_component("my/skill").unwrap(), "my_skill");
+///
+/// // 不安全的名称
+/// assert!(sanitize_path_component("..").is_err());
+/// assert!(sanitize_path_component("").is_err());
+/// ```
+fn sanitize_path_component(name: &str) -> Result<String> {
+    // 去除两端的空白和点号
+    let trimmed = name.trim().trim_matches('.');
+
+    // 检查是否为空
+    if trimmed.is_empty() {
+        bail!("Skill name is empty or only dots after sanitization");
+    }
+
+    // 替换危险的路径分隔符和 NUL 字符为下划线
+    let sanitized: String = trimmed
+        .chars()
+        .map(|c| match c {
+            '/' | '\\' | '\0' => '_',
+            _ => c,
+        })
+        .collect();
+
+    // 最终安全检查：确保没有路径遍历或分隔符
+    if sanitized == ".." || sanitized.contains('/') || sanitized.contains('\\') {
+        bail!("Skill name '{}' is unsafe as a path component", name);
+    }
+
+    Ok(sanitized)
+}
+
+// ---------------------------------------------------------------------------
+// 测试模块
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;

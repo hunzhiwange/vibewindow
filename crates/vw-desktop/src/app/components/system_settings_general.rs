@@ -1,0 +1,170 @@
+//! 系统设置通用页面视图模块
+//!
+//! 本模块提供系统设置界面中通用配置项的视图渲染功能。
+//! 主要包括以下设置项：
+//! - 语言选择（当前固定为简体中文）
+//! - 应用主题选择
+//! - 终端 Shell 选择
+//! - 终端主题选择
+//! - 终端字体及字号配置
+
+use crate::app::components::system_settings_common::{
+    SETTINGS_LABEL_WIDTH, settings_divider, settings_muted_text_style, settings_page_intro,
+    settings_panel, settings_pick_list_menu_style, settings_pick_list_style,
+    settings_section_card, settings_value_badge,
+};
+use crate::app::{App, Message, PreviewAutoSaveMode, Shell, TerminalTheme, message};
+use iced::widget::{column, container, pick_list, row, slider, text};
+use iced::{Alignment, Element, Length};
+
+fn setting_row<'a>(
+    label: &'static str,
+    description: &'static str,
+    control: impl Into<Element<'a, Message>>,
+) -> Element<'a, Message> {
+    container(
+        row![
+            column![
+                text(label).size(13),
+                text(description).size(11).style(settings_muted_text_style),
+            ]
+            .spacing(4)
+            .width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
+            container(control.into()).width(Length::Fill),
+        ]
+        .spacing(22)
+        .align_y(Alignment::Center),
+    )
+    .padding([14, 0])
+    .width(Length::Fill)
+    .into()
+}
+
+/// 渲染系统设置通用页面的视图
+///
+/// 该函数构建并返回包含所有通用系统设置选项的 UI 元素。
+/// 用户可以通过此界面配置应用和终端的各项设置。
+///
+/// # 参数
+///
+/// * `app` - 应用状态的可变引用，包含当前所有配置值
+///
+/// # 返回值
+///
+/// 返回一个 `Element`，包含完整的通用设置页面 UI 组件
+///
+/// # 示例
+///
+/// ```ignore
+/// let settings_view = view(&app);
+/// // 返回的 Element 可直接用于 iced 应用的视图渲染
+/// ```
+pub fn view(app: &App) -> Element<'_, Message> {
+    let theme_pick = pick_list(iced::Theme::ALL, Some(app.app_theme.clone()), |t| {
+        Message::View(message::ViewMessage::AppThemeSelected(t))
+    })
+    .padding([10, 14])
+    .text_size(13)
+    .style(settings_pick_list_style)
+    .menu_style(settings_pick_list_menu_style)
+    .width(Length::Fixed(280.0));
+
+    let shell_pick = pick_list(Shell::all(), Some(app.terminal.shell), |s| {
+        Message::Terminal(message::TerminalMessage::ShellSelected(s))
+    })
+    .padding([10, 14])
+    .text_size(13)
+    .style(settings_pick_list_style)
+    .menu_style(settings_pick_list_menu_style)
+    .width(Length::Fixed(280.0));
+
+    let term_theme_pick = pick_list([TerminalTheme::System], Some(app.terminal.theme), |t| {
+        Message::Terminal(message::TerminalMessage::ThemeSelected(t))
+    })
+    .padding([10, 14])
+    .text_size(13)
+    .style(settings_pick_list_style)
+    .menu_style(settings_pick_list_menu_style)
+    .width(Length::Fixed(280.0));
+
+    let font_pick = pick_list(
+        [
+            "JetBrains Mono".to_string(),
+            "Fira Code".to_string(),
+            "Menlo".to_string(),
+            "Monaco".to_string(),
+        ],
+        Some(app.terminal.font_family.clone()),
+        |f| Message::Terminal(message::TerminalMessage::FontSelected(f)),
+    )
+    .padding([10, 14])
+    .text_size(13)
+    .style(settings_pick_list_style)
+    .menu_style(settings_pick_list_menu_style)
+    .width(Length::Fixed(280.0));
+
+    let auto_save_pick =
+        pick_list(PreviewAutoSaveMode::ALL, Some(app.preview_auto_save_mode), |mode| {
+            Message::Preview(message::PreviewMessage::AutoSaveModeChanged(mode))
+        })
+        .padding([10, 14])
+        .text_size(13)
+        .style(settings_pick_list_style)
+        .menu_style(settings_pick_list_menu_style)
+        .width(Length::Fixed(280.0));
+
+    let size_slider = slider(10.0..=18.0, app.terminal.font_size, |s| {
+        Message::Terminal(message::TerminalMessage::FontSizeChanged(s))
+    })
+    .width(Length::Fill);
+
+    column![
+        settings_page_intro("常规", "统一管理界面语言、主题与终端基础体验。"),
+        settings_section_card("界面", "应用外观与预览行为。"),
+        settings_panel(
+            column![
+                setting_row(
+                    "语言",
+                    "当前桌面端使用的界面语言。",
+                    settings_value_badge("简体中文"),
+                ),
+                settings_divider(),
+                setting_row("应用主题", "切换整体视觉主题。", theme_pick),
+                settings_divider(),
+                setting_row(
+                    "自动保存",
+                    "控制预览编辑器自动保存的时机。",
+                    column![
+                        auto_save_pick,
+                        text(app.preview_auto_save_mode.description())
+                            .size(11)
+                            .style(settings_muted_text_style),
+                    ]
+                    .spacing(8),
+                ),
+            ]
+            .spacing(0)
+        ),
+        settings_section_card("终端", "默认 Shell、主题与字体。"),
+        settings_panel(
+            column![
+                setting_row("终端 Shell", "新终端默认使用的 Shell。", shell_pick),
+                settings_divider(),
+                setting_row("终端主题", "当前仅跟随系统主题。", term_theme_pick),
+                settings_divider(),
+                setting_row("终端字体", "选择终端字体家族。", font_pick),
+                settings_divider(),
+                setting_row(
+                    "字体大小",
+                    "在 10pt 到 18pt 之间调整终端字号。",
+                    row![size_slider, settings_value_badge(format!("{} pt", app.terminal.font_size as u32))]
+                        .spacing(12)
+                        .align_y(Alignment::Center),
+                ),
+            ]
+            .spacing(0)
+        ),
+    ]
+    .spacing(16)
+    .into()
+}

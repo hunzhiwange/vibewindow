@@ -1,0 +1,868 @@
+use super::*;
+use super::context::ToolUseContext;
+use crate::app::agent::config::schema::load_or_init_config;
+use crate::app::agent::config::{Config, DelegateAgentConfig};
+use crate::app::agent::memory::Memory;
+use crate::app::agent::runtime::{NativeRuntime, RuntimeAdapter};
+use crate::app::agent::security::SecurityPolicy;
+use crate::app::agent::sop::{SopAuditLogger, SopEngine, SopMetricsCollector};
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
+/// Claude Tools V2 运行时上下文。
+///
+/// 对外仍保留 `session/root` 这两个轻量字段，避免影响现有调用点；真正的共享
+/// 运行时能力则集中放在内部的 `ToolUseContext` 中，以便权限、审批、hook 与
+/// read_state 在不同入口之间复用。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolRuntimeContext {
+    /// 当前会话标识。
+    pub session: String,
+    /// 当前工作区根目录。
+    pub root: Option<String>,
+    /// 厚上下文共享状态。
+    #[serde(skip)]
+    tool_use_context: Arc<ToolUseContext>,
+}
+
+impl Default for ToolRuntimeContext {
+    fn default() -> Self {
+        Self::new(
+            "default",
+            std::env::current_dir()
+                .ok()
+                .map(|path| path.to_string_lossy().to_string()),
+        )
+    }
+}
+
+impl ToolRuntimeContext {
+    /// 创建新的运行时上下文。
+    pub fn new(session: impl Into<String>, root: Option<String>) -> Self {
+        let session = session.into();
+        let tool_use_context = ToolUseContext::new(session.clone(), root.clone());
+        Self {
+            session,
+            root,
+            tool_use_context: Arc::new(tool_use_context),
+        }
+    }
+
+    /// 构造用于工具规格枚举的默认上下文。
+    pub fn for_specs() -> Self {
+        Self::new(
+            "specs",
+            std::env::current_dir()
+                .ok()
+                .map(|path| path.to_string_lossy().to_string()),
+        )
+    }
+
+    /// 用完整 ToolUseContext 覆盖内部共享状态。
+    pub fn with_tool_use_context(mut self, tool_use_context: ToolUseContext) -> Self {
+        self.tool_use_context = Arc::new(
+            tool_use_context
+                .with_root(self.root.clone()),
+        );
+        self
+    }
+
+    /// 获取当前共享运行时上下文。
+    pub fn tool_use_context(&self) -> Arc<ToolUseContext> {
+        self.tool_use_context.clone()
+    }
+}
+
+pub use super::executor::{ExecutedToolCall, ToolCallError};
+
+#[derive(Clone)]
+struct ArcDelegatingTool {
+    inner: Arc<dyn Tool>,
+}
+
+impl ArcDelegatingTool {
+    fn boxed(inner: Arc<dyn Tool>) -> Box<dyn Tool> {
+        Box::new(Self { inner })
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl Tool for ArcDelegatingTool {
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn description(&self) -> &str {
+        self.inner.description()
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        self.inner.parameters_schema()
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.inner.execute(args).await
+    }
+
+    fn validate_input(&self, input: Value) -> anyhow::Result<Value> {
+        self.inner.validate_input(input)
+    }
+
+    async fn check_permissions(&self, input: &Value) -> anyhow::Result<()> {
+        self.inner.check_permissions(input).await
+    }
+
+    async fn call(&self, input: Value) -> anyhow::Result<ToolCallResult> {
+        self.inner.call(input).await
+    }
+
+    fn map_result_for_model(&self, result: &ToolCallResult) -> Value {
+        self.inner.map_result_for_model(result)
+    }
+
+    fn render_hint(&self, result: &ToolCallResult) -> Option<ToolRenderHint> {
+        self.inner.render_hint(result)
+    }
+
+    fn is_concurrency_safe(&self) -> bool {
+        self.inner.is_concurrency_safe()
+    }
+
+    fn is_read_only(&self) -> bool {
+        self.inner.is_read_only()
+    }
+
+    fn to_audit_input(&self, input: &Value) -> Value {
+        self.inner.to_audit_input(input)
+    }
+
+    fn spec(&self) -> ToolSpec {
+        self.inner.spec()
+    }
+}
+
+fn boxed_registry_from_arcs(tools: Vec<Arc<dyn Tool>>) -> Vec<Box<dyn Tool>> {
+    tools.into_iter().map(ArcDelegatingTool::boxed).collect()
+}
+
+/// 根据当前上下文构建可执行工具集。
+pub(crate) fn execution_tools_for_context(ctx: &ToolRuntimeContext) -> Vec<Box<dyn Tool>> {
+    execution_environment_for_context(ctx).0
+}
+
+fn execution_environment_for_context(
+    ctx: &ToolRuntimeContext,
+) -> (Vec<Box<dyn Tool>>, Arc<ToolUseContext>) {
+    let base_context = ctx.tool_use_context();
+    let workspace_dir = base_context.workspace_root().unwrap_or_else(|| {
+        ctx.root.as_ref().map(std::path::PathBuf::from).unwrap_or_else(|| {
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+        })
+    });
+
+    let config = block_on(async {
+        match load_or_init_config().await {
+            Ok(config) => Arc::new(config),
+            Err(error) => {
+                tracing::warn!("tool runtime: failed to load config, falling back to defaults: {error}");
+                let mut config = Config::default();
+                config.workspace_dir = workspace_dir.clone();
+                config.config_path = workspace_dir.join("vibewindow.json");
+                Arc::new(config)
+            }
+        }
+    });
+
+    let security = security_for_tool_context(&config, &workspace_dir, base_context.as_ref());
+    let runtime: Arc<dyn RuntimeAdapter> = Arc::new(NativeRuntime::new());
+    let mem_cfg = config.memory.clone();
+    let memory: Arc<dyn Memory> = Arc::from(
+        crate::app::agent::memory::create_memory(&mem_cfg, &workspace_dir, None).unwrap_or_else(
+            |_| {
+                crate::app::agent::memory::create_memory(
+                    &crate::app::agent::config::MemoryConfig {
+                        backend: "markdown".to_string(),
+                        ..Default::default()
+                    },
+                    &workspace_dir,
+                    None,
+                )
+                .expect("failed to create fallback memory")
+            },
+        ),
+    );
+
+    let browser_config = config.browser.clone();
+    let http_config = config.http_request.clone();
+    let web_fetch_config = config.web_fetch.clone();
+
+    let tool_use_context = Arc::new(
+        base_context
+            .as_ref()
+            .clone()
+            .with_root(ctx.root.clone())
+            .with_security(security.clone()),
+    );
+
+    let tools = all_tools_with_runtime(
+        config.clone(),
+        &security,
+        runtime,
+        memory,
+        None,
+        None,
+        &browser_config,
+        &http_config,
+        &web_fetch_config,
+        &workspace_dir,
+        &HashMap::new(),
+        None,
+        config.as_ref(),
+        Some(&ctx.session),
+    );
+
+    (tools, tool_use_context)
+}
+
+fn security_for_tool_context(
+    config: &Config,
+    workspace_dir: &std::path::Path,
+    base_context: &ToolUseContext,
+) -> Arc<SecurityPolicy> {
+    let mut security = SecurityPolicy::from_config(&config.autonomy, workspace_dir);
+    if base_context.full_access_enabled() {
+        security.workspace_only = false;
+    }
+    Arc::new(security)
+}
+
+/// 枚举当前上下文下的所有工具规格。
+pub fn tool_specs_for_context(ctx: &ToolRuntimeContext) -> Vec<ToolSpec> {
+    execution_environment_for_context(ctx)
+        .0
+        .into_iter()
+        .map(|tool| tool.spec())
+        .collect()
+}
+
+/// 执行一次工具调用。
+pub fn execute_tool_call(
+    requested_name: &str,
+    input: &str,
+    ctx: &ToolRuntimeContext,
+) -> Result<ToolCallResult, ToolCallError> {
+    let parsed = parse_tool_input(requested_name, input)?;
+    let (tools, tool_use_context) = execution_environment_for_context(ctx);
+    let executed = block_on(execute_tool_from_registry(
+        &tools,
+        requested_name,
+        parsed,
+        tool_use_context.clone(),
+    ))?;
+
+    if executed.result.is_success() {
+        return Ok(executed.result);
+    }
+
+    Err(classify_message(
+        executed
+            .result
+            .error_text()
+            .unwrap_or_else(|| "tool execution failed".to_string()),
+    ))
+}
+
+/// 在给定注册表中执行工具调用。
+pub async fn execute_tool_from_registry(
+    tools: &[Box<dyn Tool>],
+    requested_name: &str,
+    input: Value,
+    tool_use_context: Arc<ToolUseContext>,
+) -> Result<ExecutedToolCall, ToolCallError> {
+    super::executor::execute_tool_from_registry(tools, requested_name, input, tool_use_context)
+        .await
+}
+
+/// 检测文件是否为二进制内容。
+pub fn is_binary(path: &std::path::Path) -> bool {
+    let ext =
+        path.extension().and_then(|ext| ext.to_str()).unwrap_or("").to_ascii_lowercase();
+    match ext.as_str() {
+        "zip" | "tar" | "gz" | "7z" | "exe" | "dll" | "so" | "class" | "jar" | "war"
+        | "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "odt" | "ods" | "odp"
+        | "bin" | "dat" | "obj" | "o" | "a" | "lib" | "wasm" | "pyc" | "pyo" => {
+            return true;
+        }
+        _ => {}
+    }
+
+    use std::io::Read;
+
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return false;
+    };
+
+    let mut bytes = [0u8; 4096];
+    let Ok(read_len) = file.read(&mut bytes) else {
+        return false;
+    };
+    if read_len == 0 {
+        return false;
+    }
+
+    let mut bad = 0usize;
+    for byte in &bytes[..read_len] {
+        if *byte == 0 {
+            return true;
+        }
+        if *byte < 9 || (*byte > 13 && *byte < 32) {
+            bad += 1;
+        }
+    }
+
+    (bad as f32) / (read_len as f32) > 0.3
+}
+
+fn parse_tool_input(tool_id: &str, raw_input: &str) -> Result<Value, ToolCallError> {
+    let raw = raw_input.trim();
+    if raw.is_empty() {
+        return Ok(serde_json::json!({}));
+    }
+
+    if raw.starts_with('{') {
+        return serde_json::from_str::<Value>(raw)
+            .map_err(|error| ToolCallError::Failed(format!("invalid JSON arguments: {error}")));
+    }
+
+    if let Some(default_key) = default_scalar_input_key(tool_id) {
+        return Ok(serde_json::json!({ default_key: raw }));
+    }
+
+    Err(ToolCallError::Failed("invalid arguments: expected JSON object".to_string()))
+}
+
+fn default_scalar_input_key(tool_id: &str) -> Option<&'static str> {
+    match tool_id {
+        "file_read" | "file_write" => Some("path"),
+        id if is_web_fetch_tool_id(id) => Some("url"),
+        _ => None,
+    }
+}
+
+fn classify_message(message: String) -> ToolCallError {
+    if is_denied_error(&message) {
+        ToolCallError::denied(message)
+    } else {
+        ToolCallError::Failed(message)
+    }
+}
+
+fn is_denied_error(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("denied")
+        || lower.contains("not allowed")
+        || lower.contains("forbidden")
+        || lower.contains("blocked")
+}
+
+fn block_on<F>(fut: F) -> F::Output
+where
+    F: std::future::Future + Send,
+    F::Output: Send,
+{
+    #[cfg(target_arch = "wasm32")]
+    panic!("block_on not supported on WASM");
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if tokio::runtime::Handle::try_current().is_ok() {
+            return std::thread::scope(|scope| {
+                scope
+                    .spawn(move || {
+                        tokio::runtime::Builder::new_multi_thread()
+                            .worker_threads(1)
+                            .enable_all()
+                            .build()
+                            .expect("failed to build tokio runtime")
+                            .block_on(fut)
+                    })
+                    .join()
+                    .expect("tokio bridge thread panicked")
+            });
+        }
+
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build tokio runtime")
+            .block_on(fut)
+    }
+}
+
+#[cfg(test)]
+mod tests;
+
+pub fn default_tools(security: Arc<SecurityPolicy>) -> Vec<Box<dyn Tool>> {
+    default_tools_with_runtime(security, Arc::new(NativeRuntime::new()))
+}
+
+pub fn default_tools_with_runtime(
+    security: Arc<SecurityPolicy>,
+    runtime: Arc<dyn RuntimeAdapter>,
+) -> Vec<Box<dyn Tool>> {
+    let has_shell_access = runtime.has_shell_access();
+    let has_filesystem_access = runtime.has_filesystem_access();
+    let mut tool_arcs: Vec<Arc<dyn Tool>> = Vec::new();
+
+    #[cfg(not(target_arch = "wasm32"))]
+    if has_shell_access {
+        tool_arcs.push(Arc::new(ShellTool::new(security.clone(), runtime.clone())));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    if has_filesystem_access {
+        tool_arcs.push(Arc::new(FileReadTool::new(security.clone())));
+        tool_arcs.push(Arc::new(NotebookEditTool::new(security.clone())));
+        tool_arcs.push(Arc::new(FileEditTool::new(security.clone())));
+        tool_arcs.push(Arc::new(FileWriteTool::new(security.clone())));
+        tool_arcs.push(Arc::new(ApplyPatchTool::new(security.clone())));
+        tool_arcs.push(Arc::new(LsTool::new(security.clone())));
+        tool_arcs.push(Arc::new(LspTool::new(security.clone())));
+        tool_arcs.push(Arc::new(GlobTool::new(security.clone())));
+        tool_arcs.push(Arc::new(GrepTool::new(security.clone())));
+    }
+
+    if runtime.as_any().is::<crate::app::agent::runtime::WasmRuntime>() {
+        tool_arcs.push(Arc::new(WasmModuleTool::new(security, runtime)));
+    }
+
+    if !tool_arcs.is_empty() {
+        let batch_tools = Arc::new(tool_arcs.clone());
+        tool_arcs.push(Arc::new(BatchTool::new(batch_tools)));
+    }
+
+    boxed_registry_from_arcs(tool_arcs)
+}
+
+#[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
+pub fn all_tools(
+    config: Arc<Config>,
+    security: &Arc<SecurityPolicy>,
+    memory: Arc<dyn Memory>,
+    composio_key: Option<&str>,
+    composio_entity_id: Option<&str>,
+    browser_config: &crate::app::agent::config::BrowserConfig,
+    http_config: &crate::app::agent::config::HttpRequestConfig,
+    web_fetch_config: &crate::app::agent::config::WebFetchConfig,
+    workspace_dir: &std::path::Path,
+    agents: &HashMap<String, DelegateAgentConfig>,
+    fallback_api_key: Option<&str>,
+    root_config: &crate::app::agent::config::Config,
+    session_id_override: Option<&str>,
+) -> Vec<Box<dyn Tool>> {
+    all_tools_with_runtime(
+        config,
+        security,
+        Arc::new(NativeRuntime::new()),
+        memory,
+        composio_key,
+        composio_entity_id,
+        browser_config,
+        http_config,
+        web_fetch_config,
+        workspace_dir,
+        agents,
+        fallback_api_key,
+        root_config,
+        session_id_override,
+    )
+}
+
+#[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
+pub fn all_tools_with_runtime(
+    config: Arc<Config>,
+    security: &Arc<SecurityPolicy>,
+    runtime: Arc<dyn RuntimeAdapter>,
+    memory: Arc<dyn Memory>,
+    composio_key: Option<&str>,
+    composio_entity_id: Option<&str>,
+    browser_config: &crate::app::agent::config::BrowserConfig,
+    http_config: &crate::app::agent::config::HttpRequestConfig,
+    web_fetch_config: &crate::app::agent::config::WebFetchConfig,
+    workspace_dir: &std::path::Path,
+    agents: &HashMap<String, DelegateAgentConfig>,
+    fallback_api_key: Option<&str>,
+    root_config: &crate::app::agent::config::Config,
+    session_id_override: Option<&str>,
+) -> Vec<Box<dyn Tool>> {
+    let has_shell_access = runtime.has_shell_access();
+    let has_filesystem_access = runtime.has_filesystem_access();
+
+    let vibewindow_dir = root_config
+        .config_path
+        .parent()
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| runtime.storage_path());
+
+    let session_id = session_id_override
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| workspace_dir.file_name().and_then(|name| name.to_str()))
+        .unwrap_or("default-session");
+
+    let syscall_detector = Arc::new(crate::app::agent::security::SyscallAnomalyDetector::new(
+        root_config.security.syscall_anomaly.clone(),
+        &vibewindow_dir,
+        root_config.security.audit.clone(),
+    ));
+    let mut tool_arcs: Vec<Arc<dyn Tool>> = vec![
+        Arc::new(ConfigTool::new(config.clone(), security.clone())),
+        Arc::new(CronAddTool::new(config.clone(), security.clone())),
+        Arc::new(CronListTool::new(config.clone())),
+        Arc::new(CronRemoveTool::new(config.clone(), security.clone())),
+        Arc::new(CronUpdateTool::new(config.clone(), security.clone())),
+        Arc::new(CronRunTool::new(config.clone(), security.clone())),
+        Arc::new(CronRunsTool::new(config.clone())),
+        Arc::new(MemoryStoreTool::new(memory.clone(), security.clone())),
+        Arc::new(MemoryRecallTool::new(memory.clone())),
+        Arc::new(MemoryForgetTool::new(memory.clone(), security.clone())),
+        Arc::new(ScheduleTool::new(security.clone(), root_config.clone())),
+        Arc::new(ModelRoutingConfigTool::new(config.clone(), security.clone())),
+        Arc::new(ProxyConfigTool::new(config.clone(), security.clone())),
+        #[cfg(not(target_arch = "wasm32"))]
+        Arc::new(PushoverTool::new(security.clone(), workspace_dir.to_path_buf())),
+    ];
+
+    let sop_engine = Arc::new(Mutex::new(SopEngine::new(root_config.sop.clone())));
+    if let Ok(mut engine) = sop_engine.lock() {
+        engine.reload(workspace_dir);
+    }
+    let sop_audit = Arc::new(SopAuditLogger::new(memory.clone()));
+    let sop_collector = Arc::new(SopMetricsCollector::new());
+
+    tool_arcs.push(Arc::new(SopExecuteTool::new(sop_engine.clone()).with_audit(sop_audit.clone())));
+    tool_arcs.push(Arc::new(
+        SopAdvanceTool::new(sop_engine.clone())
+            .with_audit(sop_audit.clone())
+            .with_collector(sop_collector.clone()),
+    ));
+    tool_arcs.push(Arc::new(
+        SopApproveTool::new(sop_engine.clone())
+            .with_audit(sop_audit.clone())
+            .with_collector(sop_collector.clone()),
+    ));
+    tool_arcs.push(Arc::new(SopListTool::new(sop_engine.clone())));
+    tool_arcs.push(Arc::new(SopStatusTool::new(sop_engine).with_collector(sop_collector.clone())));
+
+    #[cfg(not(target_arch = "wasm32"))]
+    if has_shell_access {
+        tool_arcs.push(Arc::new(ShellTool::new_with_syscall_detector(
+            security.clone(),
+            runtime.clone(),
+            Some(syscall_detector.clone()),
+        )));
+        #[cfg(target_os = "windows")]
+        tool_arcs.push(Arc::new(PowerShellTool::new(security.clone())));
+        tool_arcs.push(Arc::new(GitOperationsTool::new(
+            security.clone(),
+            workspace_dir.to_path_buf(),
+        )));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    if has_filesystem_access {
+        tool_arcs.push(Arc::new(FileReadTool::with_session(security.clone(), session_id)));
+        tool_arcs.push(Arc::new(NotebookEditTool::new(security.clone())));
+        tool_arcs.push(Arc::new(FileEditTool::new(security.clone())));
+        tool_arcs.push(Arc::new(FileWriteTool::new(security.clone())));
+        tool_arcs.push(Arc::new(SendUserFileTool::new(security.clone())));
+        tool_arcs.push(Arc::new(ApplyPatchTool::new(security.clone())));
+        tool_arcs.push(Arc::new(LsTool::new(security.clone())));
+        tool_arcs.push(Arc::new(LspTool::new(security.clone())));
+        tool_arcs.push(Arc::new(GlobTool::new(security.clone())));
+        tool_arcs.push(Arc::new(GrepTool::new(security.clone())));
+        tool_arcs.push(Arc::new(EnterWorktreeTool::new()));
+        tool_arcs.push(Arc::new(ExitWorktreeTool::new()));
+    }
+
+    tool_arcs.push(Arc::new(EnterPlanModeTool::new()));
+    tool_arcs.push(Arc::new(ExitPlanModeTool::new()));
+    tool_arcs.push(Arc::new(VerifyPlanExecutionTool::new()));
+    tool_arcs.push(Arc::new(ToolSearchTool::new()));
+
+    if runtime.as_any().is::<crate::app::agent::runtime::WasmRuntime>() {
+        tool_arcs.push(Arc::new(WasmModuleTool::new(security.clone(), runtime.clone())));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    if browser_config.enabled {
+        tracing::info!(
+            "[DEBUG] all_tools_with_runtime: browser_config.enabled=true, browser_open={}",
+            browser_config.browser_open
+        );
+
+        if !browser_config.browser_open.eq_ignore_ascii_case("disable") {
+            tracing::info!("[DEBUG] all_tools_with_runtime: creating BrowserOpenTool");
+            tool_arcs.push(Arc::new(BrowserOpenTool::new(
+                security.clone(),
+                browser_config.allowed_domains.clone(),
+                browser_config.browser_open.clone(),
+            )));
+        } else {
+            tracing::info!("[DEBUG] all_tools_with_runtime: browser_open is disabled");
+        }
+
+        tracing::info!("[DEBUG] all_tools_with_runtime: creating BrowserTool");
+        tool_arcs.push(Arc::new(BrowserTool::new_with_backend(
+            security.clone(),
+            browser_config.allowed_domains.clone(),
+            browser_config.session_name.clone(),
+            browser_config.backend.clone(),
+            browser_config.native_headless,
+            browser_config.native_webdriver_url.clone(),
+            browser_config.native_chrome_path.clone(),
+            ComputerUseConfig {
+                endpoint: browser_config.computer_use.endpoint.clone(),
+                api_key: browser_config.computer_use.api_key.clone(),
+                timeout_ms: browser_config.computer_use.timeout_ms,
+                allow_remote_endpoint: browser_config.computer_use.allow_remote_endpoint,
+                window_allowlist: browser_config.computer_use.window_allowlist.clone(),
+                max_coordinate_x: browser_config.computer_use.max_coordinate_x,
+                max_coordinate_y: browser_config.computer_use.max_coordinate_y,
+            },
+        )));
+    }
+
+    if http_config.enabled {
+        tool_arcs.push(Arc::new(HttpRequestTool::new(
+            security.clone(),
+            http_config.allowed_domains.clone(),
+            http_config.max_response_size,
+            http_config.timeout_secs,
+            http_config.user_agent.clone(),
+        )));
+    }
+
+    if web_fetch_config.enabled {
+        tool_arcs.push(Arc::new(WebFetchTool::new(
+            security.clone(),
+            web_fetch_config.provider.clone(),
+            web_fetch_config.api_key.clone(),
+            web_fetch_config.api_url.clone(),
+            web_fetch_config.allowed_domains.clone(),
+            web_fetch_config.blocked_domains.clone(),
+            web_fetch_config.max_response_size,
+            web_fetch_config.timeout_secs,
+            web_fetch_config.user_agent.clone(),
+        )));
+    }
+
+    if root_config.web_search.enabled {
+        let provider = root_config.web_search.provider.trim().to_lowercase();
+        let api_key = if provider == "brave" {
+            root_config
+                .web_search
+                .brave_api_key
+                .clone()
+                .or_else(|| root_config.web_search.api_key.clone())
+        } else {
+            root_config.web_search.api_key.clone()
+        };
+
+        if provider == "exa" {
+            tool_arcs.push(Arc::new(super::websearch::WebSearchTool::new(
+                security.clone(),
+                root_config.web_search.provider.clone(),
+                api_key,
+                root_config.web_search.api_url.clone(),
+                root_config.web_search.max_results,
+                root_config.web_search.timeout_secs,
+                root_config.web_search.user_agent.clone(),
+            )));
+        } else {
+            tool_arcs.push(Arc::new(WebSearchTool::new(
+                security.clone(),
+                root_config.web_search.provider.clone(),
+                api_key,
+                root_config.web_search.api_url.clone(),
+                root_config.web_search.max_results,
+                root_config.web_search.timeout_secs,
+                root_config.web_search.user_agent.clone(),
+            )));
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    tool_arcs.push(Arc::new(PdfReadTool::new(security.clone())));
+
+    #[cfg(not(target_arch = "wasm32"))]
+    tool_arcs.push(Arc::new(ScreenshotTool::new(security.clone())));
+    tool_arcs.push(Arc::new(ImageInfoTool::new(security.clone())));
+
+    if let Some(key) = composio_key && !key.is_empty() {
+        tool_arcs.push(Arc::new(ComposioTool::new(
+            key,
+            composio_entity_id,
+            security.clone(),
+        )));
+    }
+
+    tool_arcs.push(Arc::new(SkillTool::new(
+        security.clone(),
+        session_id.to_string(),
+    )));
+    tool_arcs.push(Arc::new(BriefTool::new(security.clone())));
+    tool_arcs.push(Arc::new(SleepTool::new()));
+    tool_arcs.push(Arc::new(TodoReadTool::new(session_id.to_string())));
+    tool_arcs.push(Arc::new(TodoWriteTool::new(
+        session_id.to_string(),
+        security.clone(),
+    )));
+    tool_arcs.push(Arc::new(QuestionTool::new(session_id.to_string())));
+
+    let delegate_agents: HashMap<String, DelegateAgentConfig> = agents
+        .iter()
+        .filter(|(_, config)| {
+            if !config.enabled {
+                return false;
+            }
+            !matches!(config.mode.trim().to_ascii_lowercase().as_str(), "primary")
+        })
+        .map(|(name, config)| (name.clone(), config.clone()))
+        .collect();
+    if !delegate_agents.is_empty() {
+        let delegate_fallback_credential = fallback_api_key.and_then(|value| {
+            let trimmed = value.trim();
+            (!trimmed.is_empty()).then(|| trimmed.to_owned())
+        });
+
+        let provider_runtime_options = crate::app::agent::providers::ProviderRuntimeOptions {
+            auth_profile_override: None,
+            provider_api_url: root_config.api_url.clone(),
+            vibewindow_dir: root_config.config_path.parent().map(std::path::PathBuf::from),
+            secrets_encrypt: root_config.secrets.encrypt,
+            reasoning_enabled: root_config.runtime.reasoning_enabled,
+            reasoning_level: root_config.effective_provider_reasoning_level(),
+            custom_provider_api_mode: root_config
+                .provider_api
+                .map(|mode| mode.as_compatible_mode()),
+            max_tokens_override: None,
+            model_support_vision: root_config.model_support_vision,
+        };
+        let workspace_identity_context = crate::app::agent::channels::build_workspace_identity_context(
+            workspace_dir,
+            Some(&root_config.identity),
+            if root_config.agent.compact_context { Some(6000) } else { None },
+        );
+
+        let parent_tools = Arc::new(tool_arcs.clone());
+        let delegate_tool = DelegateTool::new_with_options(
+            delegate_agents.clone(),
+            delegate_fallback_credential.clone(),
+            security.clone(),
+            provider_runtime_options.clone(),
+        )
+        .with_workspace_identity_context(workspace_identity_context.clone())
+        .with_parent_tools(parent_tools.clone())
+        .with_multimodal_config(root_config.multimodal.clone());
+
+        let delegate_tool = if root_config.coordination.enabled {
+            let coordination_lead_agent = {
+                let value = root_config.coordination.lead_agent.trim();
+                if value.is_empty() { "delegate-lead".to_string() } else { value.to_string() }
+            };
+
+            let coordination_bus = crate::app::agent::coordination::InMemoryMessageBus::with_limits(
+                crate::app::agent::coordination::InMemoryMessageBusLimits {
+                    max_inbox_messages_per_agent: root_config
+                        .coordination
+                        .max_inbox_messages_per_agent,
+                    max_dead_letters: root_config.coordination.max_dead_letters,
+                    max_context_entries: root_config.coordination.max_context_entries,
+                    max_seen_message_ids: root_config.coordination.max_seen_message_ids,
+                },
+            );
+
+            if let Err(error) = coordination_bus.register_agent(coordination_lead_agent.clone()) {
+                tracing::warn!(
+                    "delegate coordination: failed to register lead agent '{coordination_lead_agent}': {error}"
+                );
+            }
+
+            for agent_name in agents.keys() {
+                if let Err(error) = coordination_bus.register_agent(agent_name.clone()) {
+                    tracing::warn!(
+                        "delegate coordination: failed to register agent '{agent_name}': {error}"
+                    );
+                }
+            }
+
+            let delegate_tool =
+                delegate_tool.with_coordination_bus(coordination_bus.clone(), coordination_lead_agent);
+            tool_arcs.push(Arc::new(DelegateCoordinationStatusTool::new(
+                coordination_bus,
+                security.clone(),
+            )));
+            delegate_tool
+        } else {
+            delegate_tool.with_coordination_disabled()
+        };
+        let delegate_tool = Arc::new(delegate_tool);
+
+        let subagent_registry = Arc::new(SubAgentRegistry::new());
+        let subagent_spawn_tool = Arc::new(
+            SubAgentSpawnTool::new(
+                delegate_agents.clone(),
+                delegate_fallback_credential,
+                security.clone(),
+                provider_runtime_options,
+                subagent_registry.clone(),
+                parent_tools,
+                root_config.multimodal.clone(),
+            )
+            .with_workspace_identity_context(workspace_identity_context),
+        );
+        let agent_tool = Arc::new(AgentTool::new(
+            delegate_agents.clone(),
+            delegate_tool,
+            subagent_spawn_tool.clone(),
+            subagent_registry.clone(),
+            security.clone(),
+        ));
+        tool_arcs.push(agent_tool);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    if root_config.agents_ipc.enabled {
+        match agents_ipc::IpcDb::open(workspace_dir, &root_config.agents_ipc) {
+            Ok(ipc_db) => {
+                let ipc_db = Arc::new(ipc_db);
+                tool_arcs.push(Arc::new(agents_ipc::AgentsListTool::new(ipc_db.clone())));
+                tool_arcs.push(Arc::new(agents_ipc::AgentsSendTool::new(
+                    ipc_db.clone(),
+                    security.clone(),
+                )));
+                tool_arcs.push(Arc::new(agents_ipc::AgentsInboxTool::new(ipc_db.clone())));
+                tool_arcs.push(Arc::new(agents_ipc::StateGetTool::new(ipc_db.clone())));
+                tool_arcs.push(Arc::new(SendMessageTool::new(ipc_db.clone(), security.clone())));
+                tool_arcs.push(Arc::new(TeamCreateTool::new(ipc_db.clone(), security.clone())));
+                tool_arcs.push(Arc::new(TeamDeleteTool::new(ipc_db.clone(), security.clone())));
+                tool_arcs.push(Arc::new(agents_ipc::StateSetTool::new(ipc_db, security.clone())));
+            }
+            Err(error) => {
+                tracing::warn!("agents_ipc: failed to open IPC database: {error}");
+            }
+        }
+    }
+
+    tool_arcs.push(Arc::new(ListMcpResourcesTool::new()));
+    tool_arcs.push(Arc::new(ReadMcpResourceTool::new()));
+    tool_arcs.push(Arc::new(McpAuthTool::new()));
+
+    let batch_tools = Arc::new(tool_arcs.clone());
+    tool_arcs.push(Arc::new(BatchTool::new(batch_tools)));
+    boxed_registry_from_arcs(tool_arcs)
+}

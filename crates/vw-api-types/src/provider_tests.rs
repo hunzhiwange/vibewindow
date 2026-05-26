@@ -1,0 +1,20 @@
+use crate::provider::{AuthKind, ConnectProviderRequest, ListProvidersRequest, ProviderStatus};
+use serde_json::json;
+
+#[test]
+fn provider_requests_keep_credentials_explicit_and_default_empty() {
+    let list: ListProvidersRequest = serde_json::from_value(json!({})).expect("valid list");
+    assert_eq!(list.enabled, None);
+    assert_eq!(list.configured, None);
+
+    let connect: ConnectProviderRequest =
+        serde_json::from_value(json!({})).expect("valid connect");
+    assert!(connect.credentials.is_empty());
+    assert!(!connect.set_as_default);
+
+    assert_eq!(serde_json::to_value(AuthKind::ApiKey).expect("serialize"), json!("api_key"));
+    assert_eq!(
+        serde_json::to_value(ProviderStatus::Disconnected).expect("serialize"),
+        json!("disconnected")
+    );
+}

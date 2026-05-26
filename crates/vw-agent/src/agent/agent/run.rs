@@ -1,0 +1,106 @@
+use super::core::Agent;
+use crate::app::agent::config::Config;
+use crate::app::agent::observability::ObserverEvent;
+use anyhow::Result;
+use std::time::Instant;
+
+/// 运行代理会话的便捷函数
+///
+/// 这是最顶层的代理运行入口，支持单次消息处理或交互式会话。
+/// 根据 `message` 参数是否提供，自动选择运行模式：
+/// - 提供消息：运行单次对话
+/// - 未提供消息：进入交互式 REPL 模式（非 WASM 平台）
+///
+/// # 参数
+///
+/// * `config` - 代理配置对象
+/// * `message` - 可选的用户消息。`None` 时进入交互模式
+/// * `provider_override` - 可选的提供商覆盖，用于覆盖配置中的默认提供商
+/// * `model_override` - 可选的模型覆盖，用于覆盖配置中的默认模型
+/// * `temperature` - 温度参数，用于覆盖配置中的默认温度
+///
+/// # 返回值
+///
+/// 成功时返回 `Ok(())`，失败时返回错误
+///
+/// # 平台差异
+///
+/// - 在非 WASM 平台：支持交互式 REPL 模式
+/// - 在 WASM 平台：不支持交互模式，调用时将返回错误
+///
+/// # 可观测性
+///
+/// 该函数会自动记录代理会话的开始和结束事件，包括：
+/// - 提供商和模型信息
+/// - 会话持续时间
+/// - 使用的令牌数（如果可用）
+/// - 成本（如果可用）
+///
+/// # 示例
+///
+/// ```rust,no_run
+/// use vibe_window::app::agent::agent::run;
+/// use vibe_window::app::agent::config::Config;
+///
+/// let config = Config::load("config.toml")?;
+///
+/// run(
+///     config,
+///     Some("请帮我写一个排序函数".to_string()),
+///     None,
+///     None,
+///     0.7,
+/// ).await?;
+/// # Ok::<(), anyhow::Error>(())
+/// ```
+pub async fn run(
+    config: Config,
+    message: Option<String>,
+    provider_override: Option<String>,
+    model_override: Option<String>,
+    temperature: f64,
+) -> Result<String> {
+    let mut effective_config = config;
+    if let Some(p) = provider_override {
+        effective_config.default_provider = Some(p);
+    }
+    if let Some(m) = model_override {
+        effective_config.default_model = Some(m);
+    }
+    effective_config.default_temperature = temperature;
+
+    if message.is_none() {
+        anyhow::bail!(
+            "Interactive CLI mode moved to vw-cli; provide a message or use the vw-cli binary"
+        );
+    }
+
+    let start = Instant::now();
+    let mut agent = Agent::from_config(&effective_config)?;
+
+    let provider_name =
+        effective_config.default_provider.as_deref().unwrap_or("openrouter").to_string();
+    let model_name = effective_config
+        .default_model
+        .as_deref()
+        .unwrap_or("anthropic/claude-sonnet-4-20250514")
+        .to_string();
+
+    agent.observer.record_event(&ObserverEvent::AgentStart {
+        provider: provider_name.clone(),
+        model: model_name.clone(),
+    });
+
+    let response = agent.run_single(message.as_deref().expect("checked above")).await?;
+    println!("{response}");
+
+    agent.observer.record_event(&ObserverEvent::AgentEnd {
+        provider: provider_name,
+        model: model_name,
+        duration: start.elapsed(),
+        tokens_used: None,
+        cost_usd: None,
+    });
+
+    Ok(response)
+}

@@ -1,0 +1,403 @@
+//! # 技能模块（Skills Module）
+//!
+//! 本模块提供了代理技能的加载、初始化和管理功能。
+//!
+//! ## 模块职责
+//!
+//! - **技能加载**：从工作空间目录和 OpenSkills 仓库加载技能定义
+//! - **技能发现**：自动发现并列出可用的技能
+//! - **技能管理**：提供技能目录初始化、安装、卸载等管理操作
+//! - **技能审计**：审计技能的安全性、合规性等
+//!
+//! ## 主要组件
+//!
+//! - [`load_skills`]：从工作空间加载所有技能
+//! - [`load_skills_with_config`]：使用运行时配置加载技能
+//! - [`init_skills_dir`]：初始化技能目录
+//! - [`handle_command`]：处理技能相关的 CLI 命令
+//!
+//! ## 子模块
+//!
+//! - `audit`：技能安全审计
+//! - `cli`：命令行接口处理
+//! - `init`：技能目录初始化
+//! - `installer`：技能安装器
+//! - `loader`：技能加载器
+//! - `open_skills`：OpenSkills 集成
+//! - `policy`：技能策略管理
+//! - `prompt`：技能提示词生成
+//! - `source`：技能源管理
+//! - `types`：技能类型定义
+
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+
+mod audit;
+mod cli;
+mod init;
+mod installer;
+mod loader;
+mod open_skills;
+mod policy;
+mod prompt;
+mod source;
+mod types;
+
+pub(crate) use loader::read_markdown_skill_metadata;
+pub use prompt::{skills_to_prompt, skills_to_prompt_with_mode};
+pub use types::{Skill, SkillTool};
+
+const SKILL_DISABLED_MARKER_FILE: &str = "SKILL.disabled";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LocalSkillSourceKind {
+    Workspace,
+    Ancestor,
+    Global,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct LocalSkillSourceDir {
+    pub(crate) kind: LocalSkillSourceKind,
+    pub(crate) path: PathBuf,
+}
+
+pub(crate) fn local_skill_disabled_marker_path(skill_dir: &Path) -> PathBuf {
+    skill_dir.join(SKILL_DISABLED_MARKER_FILE)
+}
+
+pub(crate) fn is_local_skill_disabled(skill_dir: &Path) -> bool {
+    local_skill_disabled_marker_path(skill_dir).is_file()
+}
+
+pub(crate) fn discover_local_skill_source_dirs(
+    workspace_dir: Option<&Path>,
+) -> Vec<LocalSkillSourceDir> {
+    let mut dirs = Vec::new();
+    let mut seen = HashSet::new();
+    let home_dir = std::env::var_os("HOME").map(PathBuf::from);
+
+    if let Some(workspace_dir) = workspace_dir {
+        let workspace_dir =
+            workspace_dir.canonicalize().unwrap_or_else(|_| workspace_dir.to_path_buf());
+
+        push_skill_source_dir(
+            &mut dirs,
+            &mut seen,
+            LocalSkillSourceKind::Workspace,
+            workspace_dir.join(".vibewindow").join("skills"),
+        );
+        push_skill_source_dir(
+            &mut dirs,
+            &mut seen,
+            LocalSkillSourceKind::Workspace,
+            workspace_dir.join("skills"),
+        );
+
+        let stop_dir = discover_ancestor_scan_stop(&workspace_dir, home_dir.as_deref());
+        if stop_dir.as_ref() != Some(&workspace_dir) {
+            let mut current = workspace_dir.parent().map(Path::to_path_buf);
+            while let Some(dir) = current {
+                if home_dir.as_ref().is_some_and(|home| dir == home.as_path()) {
+                    break;
+                }
+
+                push_skill_source_dir(
+                    &mut dirs,
+                    &mut seen,
+                    LocalSkillSourceKind::Ancestor,
+                    dir.join(".vibewindow").join("skills"),
+                );
+
+                if stop_dir.as_ref().is_some_and(|stop| dir == stop.as_path()) {
+                    break;
+                }
+
+                current = dir.parent().map(Path::to_path_buf);
+            }
+        }
+    }
+
+    if let Some(home_dir) = home_dir {
+        push_skill_source_dir(
+            &mut dirs,
+            &mut seen,
+            LocalSkillSourceKind::Global,
+            home_dir.join(".vibewindow").join("skills"),
+        );
+    }
+
+    dirs
+}
+
+fn push_skill_source_dir(
+    dirs: &mut Vec<LocalSkillSourceDir>,
+    seen: &mut HashSet<PathBuf>,
+    kind: LocalSkillSourceKind,
+    path: PathBuf,
+) {
+    if path.is_dir() && seen.insert(path.clone()) {
+        dirs.push(LocalSkillSourceDir { kind, path });
+    }
+}
+
+fn discover_ancestor_scan_stop(workspace_dir: &Path, home_dir: Option<&Path>) -> Option<PathBuf> {
+    let mut current = Some(workspace_dir);
+    while let Some(dir) = current {
+        if dir.join(".git").exists() {
+            return Some(dir.to_path_buf());
+        }
+        if home_dir.is_some_and(|home| dir == home) {
+            return Some(dir.to_path_buf());
+        }
+        current = dir.parent();
+    }
+    None
+}
+
+fn extend_unique_skills(target: &mut Vec<Skill>, seen: &mut HashSet<String>, items: Vec<Skill>) {
+    for skill in items {
+        if seen.insert(skill.name.clone()) {
+            target.push(skill);
+        }
+    }
+}
+
+/// 从工作空间技能目录加载所有技能
+///
+/// 此函数会从指定工作空间的 `skills` 目录中加载所有技能定义。
+/// 使用默认的完整加载模式（`SkillLoadMode::Full`）加载技能的完整信息。
+///
+/// # 参数
+///
+/// * `workspace_dir` - 工作空间根目录的路径
+///
+/// # 返回值
+///
+/// 返回加载的所有技能列表（`Vec<Skill>`）
+///
+/// # 示例
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use vibewindow::app::agent::skills::load_skills;
+///
+/// let workspace = Path::new("/path/to/workspace");
+/// let skills = load_skills(workspace);
+/// println!("已加载 {} 个技能", skills.len());
+/// ```
+pub fn load_skills(workspace_dir: &Path) -> Vec<Skill> {
+    load_skills_with_open_skills_config(workspace_dir, None, None, types::SkillLoadMode::Full)
+}
+
+/// 使用运行时配置加载技能（推荐在运行时使用）
+///
+/// 此函数根据提供的配置对象加载技能，包括 OpenSkills 的启用状态、
+/// OpenSkills 目录路径以及提示词注入模式等配置项。
+///
+/// # 参数
+///
+/// * `workspace_dir` - 工作空间根目录的路径
+/// * `config` - 应用配置对象，包含技能相关的配置项
+///
+/// # 返回值
+///
+/// 返回加载的所有技能列表（`Vec<Skill>`）
+///
+/// # 示例
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use vibewindow::app::agent::config::Config;
+/// use vibewindow::app::agent::skills::load_skills_with_config;
+///
+/// let workspace = Path::new("/path/to/workspace");
+/// let config = Config::load(workspace).unwrap();
+/// let skills = load_skills_with_config(workspace, &config);
+/// println!("已加载 {} 个技能", skills.len());
+/// ```
+pub fn load_skills_with_config(
+    workspace_dir: &Path,
+    config: &crate::app::agent::config::Config,
+) -> Vec<Skill> {
+    load_skills_with_open_skills_config(
+        workspace_dir,
+        Some(config.skills.open_skills_enabled),
+        config.skills.open_skills_dir.as_deref(),
+        types::SkillLoadMode::from_prompt_mode(config.skills.prompt_injection_mode),
+    )
+}
+
+/// 使用 OpenSkills 配置加载技能（内部实现）
+///
+/// 这是技能加载的核心实现函数，会根据配置决定是否加载 OpenSkills 仓库中的技能，
+/// 然后加载工作空间本地的技能。两个来源的技能会被合并返回。
+///
+/// # 参数
+///
+/// * `workspace_dir` - 工作空间根目录的路径
+/// * `config_open_skills_enabled` - 是否启用 OpenSkills（`None` 表示使用默认值）
+/// * `config_open_skills_dir` - OpenSkills 目录路径（`None` 表示使用默认位置）
+/// * `load_mode` - 技能加载模式（完整模式、轻量模式等）
+///
+/// # 返回值
+///
+/// 返回加载的所有技能列表（`Vec<Skill>`），包含 OpenSkills 和工作空间技能
+///
+/// # 加载顺序
+///
+/// 1. 优先加载当前工作区与祖先目录中的本地技能
+/// 2. 然后补充全局 `~/.vibewindow/skills` 技能
+/// 3. 最后在启用时追加 OpenSkills 社区仓库技能
+/// 4. 同名技能按前面的来源优先，后续来源会被去重跳过
+pub(crate) fn load_skills_with_open_skills_config(
+    workspace_dir: &Path,
+    config_open_skills_enabled: Option<bool>,
+    config_open_skills_dir: Option<&str>,
+    load_mode: types::SkillLoadMode,
+) -> Vec<Skill> {
+    let mut skills = Vec::new();
+    let mut seen = HashSet::new();
+
+    extend_unique_skills(&mut skills, &mut seen, load_workspace_skills(workspace_dir, load_mode));
+
+    if let Some(open_skills_dir) =
+        open_skills::ensure_open_skills_repo(config_open_skills_enabled, config_open_skills_dir)
+    {
+        extend_unique_skills(
+            &mut skills,
+            &mut seen,
+            open_skills::load_open_skills(&open_skills_dir, load_mode),
+        );
+    }
+
+    skills
+}
+
+/// 从工作空间加载本地技能（内部辅助函数）
+///
+/// 从指定工作空间的 `skills` 子目录中加载所有技能定义。
+///
+/// # 参数
+///
+/// * `workspace_dir` - 工作空间根目录的路径
+/// * `load_mode` - 技能加载模式
+///
+/// # 返回值
+///
+/// 返回工作空间中的技能列表（`Vec<Skill>`）
+fn load_workspace_skills(workspace_dir: &Path, load_mode: types::SkillLoadMode) -> Vec<Skill> {
+    discover_local_skill_source_dirs(Some(workspace_dir))
+        .into_iter()
+        .flat_map(|source| loader::load_skills_from_directory(&source.path, load_mode))
+        .collect()
+}
+/// 获取技能目录路径
+///
+/// 返回指定工作空间下的技能目录路径（`{workspace_dir}/skills`）。
+///
+/// # 参数
+///
+/// * `workspace_dir` - 工作空间根目录的路径
+///
+/// # 返回值
+///
+/// 返回技能目录的完整路径（`PathBuf`）
+///
+/// # 示例
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use vibewindow::app::agent::skills::skills_dir;
+///
+/// let workspace = Path::new("/path/to/workspace");
+/// let skills_path = skills_dir(workspace);
+/// println!("技能目录：{}", skills_path.display());
+/// ```
+pub fn skills_dir(workspace_dir: &Path) -> PathBuf {
+    workspace_dir.join("skills")
+}
+
+/// 初始化技能目录
+///
+/// 在指定的工作空间中创建技能目录结构。如果目录已存在，则不会执行任何操作。
+/// 此函数会创建必要的目录结构和默认配置文件。
+///
+/// # 参数
+///
+/// * `workspace_dir` - 工作空间根目录的路径
+///
+/// # 返回值
+///
+/// 成功返回 `Ok(())`，失败返回错误信息
+///
+/// # 错误
+///
+/// 如果无法创建目录或写入文件，将返回相应的 IO 错误
+///
+/// # 示例
+///
+/// ```rust,no_run
+/// use std::path::Path;
+/// use vibewindow::app::agent::skills::init_skills_dir;
+///
+/// let workspace = Path::new("/path/to/workspace");
+/// init_skills_dir(workspace).expect("初始化技能目录失败");
+/// ```
+pub fn init_skills_dir(workspace_dir: &Path) -> anyhow::Result<()> {
+    init::init_skills_dir(workspace_dir)
+}
+
+/// 处理技能相关的 CLI 命令
+///
+/// 此函数是技能命令行接口的入口点，用于处理各种技能管理命令，
+/// 如安装、卸载、列出、更新等操作。
+///
+/// # 参数
+///
+/// * `command` - 技能命令枚举，指定要执行的操作
+/// * `config` - 应用配置对象，提供必要的运行时配置
+///
+/// # 返回值
+///
+/// 成功返回 `Ok(())`，失败返回错误信息
+///
+/// # 支持的命令
+///
+/// - 列出技能
+/// - 安装技能
+/// - 卸载技能
+/// - 更新技能
+/// - 显示技能详情
+///
+/// # 示例
+///
+/// ```rust,no_run
+/// use vibewindow::app::agent::skill::SkillCommands;
+/// use vibewindow::app::agent::config::Config;
+/// use vibewindow::app::agent::skills::handle_command;
+/// use std::path::Path;
+///
+/// let workspace = Path::new("/path/to/workspace");
+/// let config = Config::load(workspace).unwrap();
+/// let command = SkillCommands::List;
+/// handle_command(command, &config).expect("命令执行失败");
+/// ```
+pub fn handle_command(
+    command: crate::app::agent::skill::SkillCommands,
+    config: &crate::app::agent::config::Config,
+) -> anyhow::Result<()> {
+    cli::handle_command(command, config)
+}
+
+// ============================================================================
+// 测试模块
+// ============================================================================
+
+/// 符号链接相关测试
+#[cfg(test)]
+mod symlink_tests;
+
+/// 技能模块集成测试
+#[cfg(test)]
+mod tests;

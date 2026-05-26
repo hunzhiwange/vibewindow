@@ -1,0 +1,146 @@
+//! 处理视图面板的外部打开、弹出层与使用量展示交互。
+//!
+//! 注释说明当前文件的职责边界，帮助调用方理解数据流与错误传播，
+//! 不改变任何运行时行为。
+
+mod apps;
+mod external;
+mod popovers;
+mod settings;
+mod tabs;
+mod usage;
+mod web;
+
+use super::ViewMessage;
+use crate::app::{App, Message};
+use iced::Task;
+
+/// 执行 update 对应的领域操作。
+///
+/// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+/// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
+    match message {
+        ViewMessage::ToggleSettingsPanel
+        | ViewMessage::ProjectFileNewSession
+        | ViewMessage::ProjectFileNewProject
+        | ViewMessage::ProjectFileShowSessions
+        | ViewMessage::ProjectFileShowProjects
+        | ViewMessage::ProjectFileSaveAll
+        | ViewMessage::ToggleSystemSettings
+        | ViewMessage::OpenSystemSettingsTab(_)
+        | ViewMessage::OpenSystemSettingsModelDetail(_, _)
+        | ViewMessage::ToggleAboutModal
+        | ViewMessage::RestartApp
+        | ViewMessage::RestartAppFinished(_)
+        | ViewMessage::InstallCliTool
+        | ViewMessage::RunInstallCliTool
+        | ViewMessage::CheckCliToolUpdate
+        | ViewMessage::CheckCliToolUpdateFinished(_)
+        | ViewMessage::OpenAppUpdateModal
+        | ViewMessage::CheckAppUpdate
+        | ViewMessage::CheckAppUpdateFinished(_)
+        | ViewMessage::RunAppUpdate
+        | ViewMessage::AppUpdateFinished(_)
+        | ViewMessage::InstallCliToolFinished(_)
+        | ViewMessage::CloseInstallCliModal
+        | ViewMessage::AutoMaxToggled(_)
+        | ViewMessage::ToggleDiffPanel
+        | ViewMessage::ToggleGitDiffSummary
+        | ViewMessage::ToggleTerminalPanel
+        | ViewMessage::FileManagerPanelVisible(_)
+        | ViewMessage::OpenTerminalPressed
+        | ViewMessage::ToggleMenu(_)
+        | ViewMessage::MenuAction(_)
+        | ViewMessage::MenuHovered(_) => settings::update(app, message),
+
+        ViewMessage::ToggleModelPopover
+        | ViewMessage::ToggleModePopover
+        | ViewMessage::ToggleSendModePopover
+        | ViewMessage::ToggleFilePopover
+        | ViewMessage::ToggleAcpPopover
+        | ViewMessage::ToggleUsagePopover
+        | ViewMessage::ToggleSessionToolSelectorPopover
+        | ViewMessage::ToggleSessionActionsPopover
+        | ViewMessage::ToggleExecutorPopover
+        | ViewMessage::ClosePopovers
+        | ViewMessage::CloseModelPopover
+        | ViewMessage::CloseModePopover
+        | ViewMessage::CloseSendModePopover
+        | ViewMessage::CloseFilePopover
+        | ViewMessage::CloseAcpPopover
+        | ViewMessage::CloseUsagePopover
+        | ViewMessage::CloseExecutorPopover
+        | ViewMessage::ModelPopoverHoverChanged(_)
+        | ViewMessage::SelectChatSendBehavior(_) => popovers::update(app, message),
+
+        ViewMessage::GoHome
+        | ViewMessage::TabSelected(_)
+        | ViewMessage::TabClosed(_)
+        | ViewMessage::TabHovered(_)
+        | ViewMessage::HomeAppsBarScrollChanged(_)
+        | ViewMessage::HomeAppsBarPrev
+        | ViewMessage::HomeAppsBarNext => tabs::update(app, message),
+
+        ViewMessage::OpenApps
+        | ViewMessage::OpenDesign
+        | ViewMessage::OpenUsage
+        | ViewMessage::OpenJsonTool
+        | ViewMessage::OpenJsonYamlTool
+        | ViewMessage::OpenSqlTool
+        | ViewMessage::OpenRedisTool
+        | ViewMessage::OpenHtmlTool
+        | ViewMessage::OpenJsonDiffTool
+        | ViewMessage::OpenMarkdownTool
+        | ViewMessage::OpenWorkflowTool
+        | ViewMessage::OpenMindMapTool
+        | ViewMessage::OpenPasswordTool
+        | ViewMessage::OpenBaseTool
+        | ViewMessage::OpenTimestampTool
+        | ViewMessage::OpenQrTool
+        | ViewMessage::OpenColorTool
+        | ViewMessage::OpenCleanerTool
+        | ViewMessage::OpenLargeFileTool
+        | ViewMessage::AppsOpenMostRecent
+        | ViewMessage::AppsSearchChanged(_) => apps::update(app, message),
+
+        ViewMessage::UsageModelInfoLoaded(_)
+        | ViewMessage::UsageSessionFilePathLoaded(_, _)
+        | ViewMessage::UsageStepToggled(_) => usage::update(app, message),
+
+        ViewMessage::OpenWebUrl(_)
+        | ViewMessage::OpenWebUrlWithTitle(_, _)
+        | ViewMessage::OpenWebUrlWithTitleAndSize(_, _, _, _)
+        | ViewMessage::OpenUrlExternal(_)
+        | ViewMessage::ToggleWebLinksMenu
+        | ViewMessage::WebBookmarkTitleChanged(_)
+        | ViewMessage::WebBookmarkUrlChanged(_)
+        | ViewMessage::WebBookmarkWidthChanged(_)
+        | ViewMessage::WebBookmarkHeightChanged(_)
+        | ViewMessage::WebBookmarkAddSave
+        | ViewMessage::WebBookmarkAddCancel
+        | ViewMessage::WebBookmarkEditStart(_)
+        | ViewMessage::WebBookmarkEditTitleChanged(_)
+        | ViewMessage::WebBookmarkEditUrlChanged(_)
+        | ViewMessage::WebBookmarkEditWidthChanged(_)
+        | ViewMessage::WebBookmarkEditHeightChanged(_)
+        | ViewMessage::WebBookmarkEditCookieConfigsChanged(_)
+        | ViewMessage::WebBookmarkEditCookieConfigsInsertExample
+        | ViewMessage::WebBookmarkEditSave
+        | ViewMessage::WebBookmarkEditCancel
+        | ViewMessage::WebBookmarkRemove(_) => web::update(app, message),
+
+        ViewMessage::OpenPathInFinder(_)
+        | ViewMessage::OpenProjectInExternalPreferred
+        | ViewMessage::OpenProjectInExternalWith(_)
+        | ViewMessage::CopyProjectPath => external::update(app, message),
+
+        ViewMessage::ReplaySessionFromSnapshot(_) => Task::none(),
+
+        ViewMessage::CloseRequested => settings::close_requested(app),
+        _ => Task::none(),
+    }
+}
+
+#[cfg(test)]
+mod tests;

@@ -1,0 +1,23 @@
+use super::InMemoryMessageBus;
+use crate::app::agent::coordination::InMemoryMessageBusLimits;
+
+#[test]
+fn message_bus_default_uses_recommended_limits() {
+    let bus = InMemoryMessageBus::default();
+
+    assert_eq!(bus.limits(), InMemoryMessageBusLimits::recommended());
+    assert_eq!(bus.subscriber_count(), 0);
+}
+
+#[test]
+fn message_bus_with_limits_keeps_custom_limits() {
+    let limits = InMemoryMessageBusLimits {
+        max_inbox_messages_per_agent: 1,
+        max_dead_letters: 2,
+        max_context_entries: 3,
+        max_seen_message_ids: 4,
+    };
+    let bus = InMemoryMessageBus::with_limits(limits);
+
+    assert_eq!(bus.limits(), limits);
+}

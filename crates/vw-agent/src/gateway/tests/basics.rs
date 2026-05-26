@@ -1,0 +1,78 @@
+//! 网关基础功能测试模块
+//!
+//! 本模块包含对网关核心安全配置和数据结构的单元测试，验证以下内容：
+//! - 请求体大小限制的安全配置
+//! - 请求超时时间的默认设置
+//! - Webhook 和 Agent 请求体的 JSON 解析和字段验证
+//! - WhatsApp 验证查询参数的可选性
+//!
+//! 这些测试确保网关的安全默认值和数据结构符合预期行为。
+
+use super::*;
+
+/// 验证请求体大小限制为 5MB
+///
+/// 此测试确保 `MAX_BODY_SIZE` 常量被设置为 5,242,880 字节（5MB），
+/// 这是防止大请求攻击的重要安全措施。
+#[test]
+fn security_body_limit_is_5mb() {
+    assert_eq!(MAX_BODY_SIZE, 5_242_880);
+}
+
+/// 验证请求超时时间为 30 秒
+///
+/// 此测试确保 `REQUEST_TIMEOUT_SECS` 常量被设置为 30 秒，
+/// 以防止长时间挂起的请求占用资源。
+#[test]
+fn security_timeout_is_30_seconds() {
+    assert_eq!(REQUEST_TIMEOUT_SECS, 30);
+}
+
+/// 验证 Webhook 请求体必须包含 message 字段
+///
+/// 测试场景：
+/// - 有效的 JSON（包含 message 字段）应成功解析
+/// - 缺少 message 字段的 JSON 应解析失败
+#[test]
+fn webhook_body_requires_message_field() {
+    // 测试有效的 Webhook 请求体：包含必需的 message 字段
+    let valid = r#"{"message": "hello"}"#;
+    let parsed: Result<WebhookBody, _> = serde_json::from_str(valid);
+    assert!(parsed.is_ok());
+    assert_eq!(parsed.unwrap().message, "hello");
+
+    // 测试无效的 Webhook 请求体：缺少必需的 message 字段
+    let missing = r#"{"other": "field"}"#;
+    let parsed: Result<WebhookBody, _> = serde_json::from_str(missing);
+    assert!(parsed.is_err());
+}
+
+/// 验证 Agent 请求体必须包含 message 字段
+///
+/// 测试场景：
+/// - 有效的 JSON（包含 message 字段）应成功解析
+/// - 缺少 message 字段的 JSON 应解析失败
+#[test]
+fn agent_body_requires_message_field() {
+    // 测试有效的 Agent 请求体：包含必需的 message 字段
+    let valid = r#"{"message": "hello"}"#;
+    let parsed: Result<AgentBody, _> = serde_json::from_str(valid);
+    assert!(parsed.is_ok());
+    assert_eq!(parsed.unwrap().message, "hello");
+
+    // 测试无效的 Agent 请求体：缺少必需的 message 字段
+    let missing = r#"{"other": "field"}"#;
+    let parsed: Result<AgentBody, _> = serde_json::from_str(missing);
+    assert!(parsed.is_err());
+}
+
+/// 验证 WhatsApp 验证查询的所有字段均为可选
+///
+/// 此测试确保 `WhatsAppVerifyQuery` 结构体的所有字段
+/// （mode、verify_token、challenge）都可以为 None，
+/// 以支持 WhatsApp webhook 验证流程的灵活性。
+#[test]
+fn whatsapp_query_fields_are_optional() {
+    let q = WhatsAppVerifyQuery { mode: None, verify_token: None, challenge: None };
+    assert!(q.mode.is_none());
+}

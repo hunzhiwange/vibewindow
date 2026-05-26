@@ -1,0 +1,433 @@
+//! 只读命令允许表，定义可在只读路径中安全执行的命令、子命令和标志。
+
+/// CommandAllowlistEntry 结构体保存当前模块对外暴露的数据。
+pub struct CommandAllowlistEntry {
+    /// command 字段由调用方显式提供或读取，避免隐藏默认行为。
+    pub command: &'static str,
+    /// subcommands 字段由调用方显式提供或读取，避免隐藏默认行为。
+    pub subcommands: Option<&'static [&'static str]>,
+    /// safe_flags 字段由调用方显式提供或读取，避免隐藏默认行为。
+    pub safe_flags: &'static [&'static str],
+    /// unsafe_flags 字段由调用方显式提供或读取，避免隐藏默认行为。
+    pub unsafe_flags: &'static [&'static str],
+    /// allow_any_flag 字段由调用方显式提供或读取，避免隐藏默认行为。
+    pub allow_any_flag: bool,
+}
+
+/// COMMAND_ALLOWLIST 提供当前模块共享的静态数据。
+pub static COMMAND_ALLOWLIST: &[CommandAllowlistEntry] = &[
+    CommandAllowlistEntry {
+        command: "git",
+        subcommands: Some(&[
+            "status",
+            "log",
+            "diff",
+            "show",
+            "branch",
+            "tag",
+            "remote",
+            "stash list",
+            "describe",
+            "rev-parse",
+            "ls-files",
+            "ls-tree",
+            "blame",
+            "shortlog",
+            "reflog",
+        ]),
+        safe_flags: &[
+            "--oneline",
+            "--short",
+            "--porcelain",
+            "--quiet",
+            "-n",
+            "--name-only",
+            "--stat",
+            "--color",
+            "-p",
+            "-s",
+            "-v",
+            "--decorate",
+        ],
+        unsafe_flags: &["--exec", "-c", "!"],
+        allow_any_flag: false,
+    },
+    CommandAllowlistEntry {
+        command: "grep",
+        subcommands: None,
+        safe_flags: &[
+            "-i",
+            "-v",
+            "-n",
+            "-r",
+            "-l",
+            "-c",
+            "-E",
+            "-F",
+            "-w",
+            "-x",
+            "-A",
+            "-B",
+            "-C",
+            "--color",
+            "--include",
+            "--exclude",
+            "-m",
+            "-q",
+            "-s",
+        ],
+        unsafe_flags: &["-f"],
+        allow_any_flag: false,
+    },
+    CommandAllowlistEntry {
+        command: "rg",
+        subcommands: None,
+        safe_flags: &[
+            "-i",
+            "-v",
+            "-n",
+            "-l",
+            "-c",
+            "-w",
+            "-x",
+            "-A",
+            "-B",
+            "-C",
+            "--color",
+            "--type",
+            "--glob",
+            "-m",
+            "-q",
+            "-s",
+            "--sort",
+            "--json",
+            "--heading",
+            "--context",
+        ],
+        unsafe_flags: &["-f"],
+        allow_any_flag: false,
+    },
+    CommandAllowlistEntry {
+        command: "ag",
+        subcommands: None,
+        safe_flags: &["-i", "-v", "-n", "-l", "-c", "-w", "-A", "-B", "-C", "--color"],
+        unsafe_flags: &["-G"],
+        allow_any_flag: false,
+    },
+    CommandAllowlistEntry {
+        command: "ack",
+        subcommands: None,
+        safe_flags: &["-i", "-v", "-n", "-l", "-c"],
+        unsafe_flags: &["--output"],
+        allow_any_flag: false,
+    },
+    CommandAllowlistEntry {
+        command: "ls",
+        subcommands: None,
+        safe_flags: &[
+            "-l", "-a", "-la", "-lh", "-R", "-1", "-t", "-S", "-r", "--color", "-h", "-d", "-F",
+            "-p",
+        ],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "find",
+        subcommands: None,
+        safe_flags: &[
+            "-name",
+            "-type",
+            "-maxdepth",
+            "-mindepth",
+            "-iname",
+            "-path",
+            "-ipath",
+            "-size",
+            "-mtime",
+            "-atime",
+            "-ctime",
+            "-empty",
+            "-print",
+            "-printf",
+            "-not",
+            "-and",
+            "-or",
+        ],
+        unsafe_flags: &[
+            "-exec", "-execdir", "-ok", "-delete", "-fls", "-fprint", "-fprintf", "-ls",
+        ],
+        allow_any_flag: false,
+    },
+    CommandAllowlistEntry {
+        command: "echo",
+        subcommands: None,
+        safe_flags: &["-n", "-e", "-E"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "printf",
+        subcommands: None,
+        safe_flags: &[],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "wc",
+        subcommands: None,
+        safe_flags: &["-l", "-w", "-c", "-m", "-L"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "sort",
+        subcommands: None,
+        safe_flags: &[
+            "-r",
+            "-n",
+            "-k",
+            "-t",
+            "-u",
+            "-h",
+            "-V",
+            "--reverse",
+            "--numeric-sort",
+            "--human-numeric-sort",
+        ],
+        unsafe_flags: &["-o", "--output"],
+        allow_any_flag: false,
+    },
+    CommandAllowlistEntry {
+        command: "head",
+        subcommands: None,
+        safe_flags: &["-n", "-c", "-q", "-v"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "tail",
+        subcommands: None,
+        safe_flags: &["-n", "-c", "-f", "-q", "-v", "-F"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "cat",
+        subcommands: None,
+        safe_flags: &["-n", "-b", "-s", "-e", "-t", "-A", "--number"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "ps",
+        subcommands: None,
+        safe_flags: &[
+            "-a", "-u", "-x", "-e", "-f", "-l", "-o", "--sort", "-p", "--pid", "-L", "--ppid",
+        ],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "date",
+        subcommands: None,
+        safe_flags: &["+%"],
+        unsafe_flags: &["-s", "--set"],
+        allow_any_flag: false,
+    },
+    CommandAllowlistEntry {
+        command: "pwd",
+        subcommands: None,
+        safe_flags: &["-L", "-P"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "whoami",
+        subcommands: None,
+        safe_flags: &[],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "id",
+        subcommands: None,
+        safe_flags: &["-u", "-g", "-G", "-n"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "env",
+        subcommands: None,
+        safe_flags: &["-i", "-0", "-u"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "printenv",
+        subcommands: None,
+        safe_flags: &["-0"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "stat",
+        subcommands: None,
+        safe_flags: &["-f", "-c", "-L"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "file",
+        subcommands: None,
+        safe_flags: &["-b", "-i", "-L"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "basename",
+        subcommands: None,
+        safe_flags: &["-a", "-s", "-z"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "dirname",
+        subcommands: None,
+        safe_flags: &["-z"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "realpath",
+        subcommands: None,
+        safe_flags: &["-e", "-m", "-s"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "readlink",
+        subcommands: None,
+        safe_flags: &["-f", "-e", "-m", "-n"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "du",
+        subcommands: None,
+        safe_flags: &["-h", "-s", "-a", "-d", "--max-depth"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "df",
+        subcommands: None,
+        safe_flags: &["-h", "-i", "-T"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "tree",
+        subcommands: None,
+        safe_flags: &["-a", "-L", "-d", "-I"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "less",
+        subcommands: None,
+        safe_flags: &["-N", "-S", "-F", "-X"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "more",
+        subcommands: None,
+        safe_flags: &["-d", "-f", "-l"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "nl",
+        subcommands: None,
+        safe_flags: &["-b", "-n", "-w"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "cut",
+        subcommands: None,
+        safe_flags: &["-d", "-f", "-c", "-b", "--complement"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "paste",
+        subcommands: None,
+        safe_flags: &["-d", "-s"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "tr",
+        subcommands: None,
+        safe_flags: &["-d", "-s", "-c"],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "jq",
+        subcommands: None,
+        safe_flags: &["-r", "-c", "-s", "-M", "-C", "-e"],
+        unsafe_flags: &["-f", "--from-file", "--rawfile", "--slurpfile"],
+        allow_any_flag: false,
+    },
+    CommandAllowlistEntry {
+        command: "awk",
+        subcommands: None,
+        safe_flags: &["-F", "-v"],
+        unsafe_flags: &["-f"],
+        allow_any_flag: false,
+    },
+    CommandAllowlistEntry {
+        command: "xargs",
+        subcommands: None,
+        safe_flags: &["-0", "-n", "-L"],
+        unsafe_flags: &["-I", "-P"],
+        allow_any_flag: false,
+    },
+    CommandAllowlistEntry {
+        command: "test",
+        subcommands: None,
+        safe_flags: &[],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+    CommandAllowlistEntry {
+        command: "[",
+        subcommands: None,
+        safe_flags: &[],
+        unsafe_flags: &[],
+        allow_any_flag: true,
+    },
+];
+
+/// 执行 find_allowlist_entry 操作，并返回调用方需要的结果。
+pub fn find_allowlist_entry(command: &str) -> Option<&'static CommandAllowlistEntry> {
+    COMMAND_ALLOWLIST.iter().find(|entry| entry.command == command)
+}
+
+/// 执行 matched_subcommand_len 操作，并返回调用方需要的结果。
+pub fn matched_subcommand_len(entry: &CommandAllowlistEntry, args: &[String]) -> Option<usize> {
+    let subcommands = entry.subcommands?;
+    subcommands
+        .iter()
+        .filter_map(|candidate| {
+            let parts: Vec<&str> = candidate.split_whitespace().collect();
+            args.iter()
+                .take(parts.len())
+                .map(String::as_str)
+                .eq(parts.iter().copied())
+                .then_some(parts.len())
+        })
+        .max()
+}

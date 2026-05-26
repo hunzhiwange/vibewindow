@@ -1,0 +1,238 @@
+//! 飞书 Webhook 事件回调处理模块
+//!
+//! 本模块实现了飞书（Lark）平台的 HTTP Webhook 回调服务器，用于接收和处理飞书推送的事件消息。
+//! 这是飞书集成的传统方式，需要部署在具有公网可访问地址的服务器上。
+//!
+//! # 主要功能
+//!
+//! - **URL 验证**：处理飞书开发后台的 URL 验证请求，确保回调地址有效
+//! - **事件接收**：监听飞书推送的各类事件消息
+//! - **消息解析**：将飞书事件载荷解析为标准化的频道消息格式
+//! - **确认反应**：为接收到的消息添加表情反应作为确认
+//!
+//! # 使用场景
+//!
+//! 适用于：
+//! - 需要处理飞书机器人消息的场景
+//! - 需要与飞书群聊进行集成的应用
+//! - 需要响应飞书用户@机器人等事件
+//!
+//! # 注意事项
+//!
+//! - 此方式需要公网可访问的 HTTP 端点
+//! - 新部署建议使用 WebSocket 长连接方式（通过 `listen()` 方法）
+//! - 需要在飞书开放平台配置事件订阅地址
+//!
+//! # 示例
+//!
+//! ```ignore
+//! let channel = LarkChannel::new(config);
+//! let (tx, rx) = tokio::sync::mpsc::channel(100);
+//! channel.listen_http(tx).await?;
+//! ```
+
+use super::LarkChannel;
+use super::ack::random_lark_ack_reaction;
+use std::sync::Arc;
+
+impl LarkChannel {
+    /// 启动 HTTP 回调服务器监听飞书事件（传统方式）
+    ///
+    /// 创建一个 HTTP 服务器，监听飞书平台推送的事件回调。
+    /// 这是一个传统的集成方式，需要服务器具有公网可访问的地址。
+    ///
+    /// # 参数
+    ///
+    /// * `tx` - 消息发送通道，用于将解析后的事件消息发送到上游处理器
+    ///
+    /// # 返回值
+    ///
+    /// 成功时返回 `Ok(())`，服务器将持续运行直到发生错误或被关闭。
+    /// 失败时返回错误信息，常见错误包括：
+    /// - 端口未配置
+    /// - 端口绑定失败
+    /// - 服务器运行时错误
+    ///
+    /// # 配置要求
+    ///
+    /// 必须在 `[channels_config.lark]` 中配置以下字段：
+    /// - `port`: 监听端口号
+    /// - `verification_token`: 飞书事件验证令牌（可选，用于安全验证）
+    ///
+    /// # 工作流程
+    ///
+    /// 1. 在指定端口启动 HTTP 服务器，监听 `/lark` 路径
+    /// 2. 接收飞书推送的事件回调
+    /// 3. 处理 URL 验证请求（首次配置时飞书会发送验证请求）
+    /// 4. 解析事件载荷为标准消息格式
+    /// 5. 为接收到的消息添加确认反应表情
+    /// 6. 将消息通过通道发送到上游处理器
+    ///
+    /// # 迁移建议
+    ///
+    /// 对于新部署，建议使用 `listen()` 方法（WebSocket 长连接方式），
+    /// 该方式无需公网地址，部署更简单。
+    ///
+    /// # 示例
+    ///
+    /// ```ignore
+    /// let channel = LarkChannel::new(config);
+    /// let (tx, mut rx) = tokio::sync::mpsc::channel::<ChannelMessage>(100);
+    ///
+    /// // 在后台启动监听
+    /// tokio::spawn(async move {
+    ///     if let Err(e) = channel.listen_http(tx).await {
+    ///         eprintln!("Lark webhook error: {}", e);
+    ///     }
+    /// });
+    ///
+    /// // 接收消息
+    /// while let Some(msg) = rx.recv().await {
+    ///     println!("Received: {:?}", msg);
+    /// }
+    /// ```
+    pub async fn listen_http(
+        &self,
+        tx: tokio::sync::mpsc::Sender<super::ChannelMessage>,
+    ) -> anyhow::Result<()> {
+        // 确保机器人 Open ID 已初始化
+        self.ensure_bot_open_id().await;
+        use axum::{Json, Router, extract::State, routing::post};
+
+        /// HTTP 服务器应用状态
+        ///
+        /// 包含处理飞书事件回调所需的所有共享状态信息，
+        /// 在处理每个请求时通过 Axum 的状态提取机制传递给处理器。
+        #[derive(Clone)]
+        struct AppState {
+            /// 飞书事件验证令牌
+            /// 用于验证请求是否来自飞书平台，防止伪造请求
+            verification_token: String,
+            /// 飞书频道实例的共享引用
+            /// 用于调用频道方法（如解析事件、发送反应等）
+            channel: Arc<LarkChannel>,
+            /// 消息发送通道
+            /// 将解析后的消息发送到上游处理器
+            tx: tokio::sync::mpsc::Sender<super::ChannelMessage>,
+        }
+
+        /// 处理飞书事件回调请求
+        ///
+        /// 这是核心的事件处理函数，负责处理飞书推送的所有回调请求。
+        ///
+        /// # 处理逻辑
+        ///
+        /// 1. **URL 验证**：检查是否为飞书开发后台的验证请求
+        ///    - 验证 token（如果配置了）
+        ///    - 返回 challenge 响应以完成验证
+        ///
+        /// 2. **事件处理**：解析事件载荷并处理消息
+        ///    - 使用频道实例解析事件
+        ///    - 为消息添加确认反应表情
+        ///    - 将消息发送到处理通道
+        ///
+        /// # 返回值
+        ///
+        /// 返回 Axum 的 Response 对象：
+        /// - 200 OK: 处理成功
+        /// - 403 FORBIDDEN: token 验证失败
+        async fn handle_event(
+            State(state): State<AppState>,
+            Json(payload): Json<serde_json::Value>,
+        ) -> axum::response::Response {
+            use axum::http::StatusCode;
+            use axum::response::IntoResponse;
+
+            // 处理飞书 URL 验证请求
+            // 飞书在配置事件订阅时会发送包含 challenge 字段的验证请求
+            if let Some(challenge) = payload.get("challenge").and_then(|c| c.as_str()) {
+                // 验证请求中的 token，确保请求来自飞书平台
+                let token_ok = payload
+                    .get("token")
+                    .and_then(|t| t.as_str())
+                    .map_or(true, |t| t == state.verification_token);
+
+                if !token_ok {
+                    // token 不匹配，拒绝请求
+                    return (StatusCode::FORBIDDEN, "invalid token").into_response();
+                }
+
+                // 返回 challenge 响应，完成 URL 验证
+                let resp = serde_json::json!({ "challenge": challenge });
+                return (StatusCode::OK, Json(resp)).into_response();
+            }
+
+            // 解析事件消息
+            let messages = state.channel.parse_event_payload_async(&payload).await;
+
+            // 如果成功解析到消息，为第一条消息添加确认反应
+            if !messages.is_empty() {
+                // 从事件载荷中提取消息 ID
+                if let Some(message_id) =
+                    payload.pointer("/event/message/message_id").and_then(|m| m.as_str())
+                {
+                    // 获取消息内容用于选择合适的反应表情
+                    let ack_text = messages.first().map_or("", |msg| msg.content.as_str());
+
+                    // 根据消息内容选择随机的确认表情
+                    let ack_emoji =
+                        random_lark_ack_reaction(payload.get("event"), ack_text).to_string();
+
+                    // 克隆所需数据以便在异步任务中使用
+                    let reaction_channel = Arc::clone(&state.channel);
+                    let reaction_message_id = message_id.to_string();
+
+                    // 在后台异步添加确认反应，不阻塞主流程
+                    tokio::spawn(async move {
+                        reaction_channel
+                            .try_add_ack_reaction(&reaction_message_id, &ack_emoji)
+                            .await;
+                    });
+                }
+            }
+
+            // 将所有解析出的消息发送到上游处理器
+            for msg in messages {
+                if state.tx.send(msg).await.is_err() {
+                    // 通道已关闭，无法继续发送消息
+                    tracing::warn!("Lark: message channel closed");
+                    break;
+                }
+            }
+
+            // 返回成功响应，告知飞书平台已接收事件
+            (StatusCode::OK, "ok").into_response()
+        }
+
+        // 获取配置的监听端口
+        let port = self.port.ok_or_else(|| {
+            anyhow::anyhow!("Lark webhook mode requires `port` to be set in [channels_config.lark]")
+        })?;
+
+        // 初始化应用状态
+        let state = AppState {
+            verification_token: self.verification_token.clone(),
+            channel: Arc::new(self.clone()),
+            tx,
+        };
+
+        // 创建 Axum 路由，监听 POST /lark 路径
+        let app = Router::new().route("/lark", post(handle_event)).with_state(state);
+
+        // 绑定到指定端口的所有网络接口
+        let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
+        tracing::info!("Lark event callback server listening on {addr}");
+
+        // 启动 TCP 监听器
+        let listener = tokio::net::TcpListener::bind(addr).await?;
+
+        // 运行 HTTP 服务器（阻塞直到服务器停止）
+        axum::serve(listener, app).await?;
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+#[path = "webhook_tests.rs"]
+mod webhook_tests;

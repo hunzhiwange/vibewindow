@@ -1,0 +1,510 @@
+use super::*;
+
+/// 提供者摘要信息
+///
+/// 提供者的基本信息和连接状态，
+/// 用于在提供者列表中显示。
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub(crate) struct ProviderSummary {
+    /// 提供者标识符
+    pub(crate) id: String,
+    /// 提供者显示名称
+    pub(crate) name: String,
+    /// 来源标签（如配置文件、内置等）
+    pub(crate) source_label: String,
+    /// 是否已连接
+    pub(crate) connected: bool,
+}
+
+/// 提供者连接状态
+///
+/// 存储提供者连接对话框的输入状态，
+/// 包括提供者信息和 API 密钥。
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ProviderConnectState {
+    /// 提供者标识符
+    pub(crate) provider_id: String,
+    /// 提供者显示名称
+    pub(crate) provider_name: String,
+    /// API 密钥输入
+    pub(crate) api_key: String,
+}
+
+/// 提供者请求头草稿
+///
+/// 用于自定义提供者的 HTTP 请求头配置。
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ProviderHeaderDraft {
+    /// 请求头键名
+    pub(crate) key: String,
+    /// 请求头值
+    pub(crate) value: String,
+}
+
+/// 自定义提供者模型草稿
+///
+/// 用于添加自定义模型时的输入状态。
+#[derive(Debug, Clone, Default)]
+pub(crate) struct CustomProviderModelDraft {
+    /// 模型标识符
+    pub(crate) model_id: String,
+    /// 模型显示名称
+    pub(crate) display_name: String,
+}
+
+/// 自定义提供者草稿
+///
+/// 存储创建或编辑自定义提供者时的所有输入状态，
+/// 包括基本信息、认证和模型配置。
+#[derive(Debug, Clone)]
+pub struct CustomProviderDraft {
+    /// 提供者标识符
+    pub(crate) provider_id: String,
+    /// 提供者显示名称
+    pub(crate) display_name: String,
+    /// API 基础 URL
+    pub(crate) base_url: String,
+    /// API 密钥
+    pub(crate) api_key: String,
+    /// 自定义请求头列表
+    pub(crate) headers: Vec<ProviderHeaderDraft>,
+    /// 模型列表
+    pub(crate) models: Vec<CustomProviderModelDraft>,
+}
+
+impl Default for CustomProviderDraft {
+    fn default() -> Self {
+        Self {
+            provider_id: String::new(),
+            display_name: String::new(),
+            base_url: String::new(),
+            api_key: String::new(),
+            headers: vec![ProviderHeaderDraft::default()],
+            models: vec![CustomProviderModelDraft::default()],
+        }
+    }
+}
+
+/// 自定义提供者模型对话框状态
+///
+/// 管理添加或编辑自定义提供者模型时的对话框状态。
+#[derive(Debug, Clone)]
+pub(crate) struct CustomProviderModelModalState {
+    /// 正在编辑的模型索引（None 表示新增）
+    pub(crate) edit_index: Option<usize>,
+    /// 模型标识符输入
+    pub(crate) model_id: String,
+    /// 模型显示名称输入
+    pub(crate) display_name: String,
+}
+
+/// 模型目录条目
+///
+/// “更多模型”目录中显示的模型及其所属提供者信息。
+#[derive(Debug, Clone)]
+pub struct ModelCatalogEntry {
+    /// 提供者标识符
+    pub(crate) provider_id: String,
+    /// 提供者显示名称
+    pub(crate) provider_name: String,
+    /// 模型标识符
+    pub(crate) model_id: String,
+    /// 模型显示名称
+    pub(crate) model_name: String,
+}
+
+/// 提供者设置面板状态
+///
+/// 管理提供者设置页面的完整状态，包括提供者列表、
+/// 目录搜索、连接对话框和自定义提供者配置。
+#[derive(Debug, Clone)]
+pub(crate) struct ProviderSettingsState {
+    /// 是否正在加载提供者列表
+    pub(crate) loading: bool,
+    /// 是否正在从远端同步模型目录
+    pub(crate) models_syncing: bool,
+    /// 模型目录同步进度
+    pub(crate) models_sync_progress: f32,
+    /// 模型目录同步状态文案
+    pub(crate) models_sync_label: String,
+    /// 提供者摘要列表
+    pub(crate) providers: Vec<ProviderSummary>,
+    /// 热门提供者模式名称列表
+    pub(crate) popular_patterns: Vec<String>,
+    /// 目录是否正在加载
+    pub(crate) catalog_loading: bool,
+    /// 目录对话框是否打开
+    pub(crate) catalog_open: bool,
+    /// 目录搜索查询
+    pub(crate) catalog_query: String,
+    /// 目录条目列表
+    pub(crate) catalog_items: Vec<ModelCatalogEntry>,
+    /// 连接对话框状态
+    pub(crate) connect_modal: Option<ProviderConnectState>,
+    /// 连接错误信息
+    pub(crate) connect_error: Option<String>,
+    /// 等待确认断开连接的提供者 ID
+    pub(crate) disconnect_confirm_provider_id: Option<String>,
+    /// 自定义提供者对话框是否打开
+    pub(crate) custom_provider_modal_open: bool,
+    /// 当前是否正在编辑已有提供者
+    pub(crate) custom_editing_provider_id: Option<String>,
+    /// 自定义提供者草稿
+    pub(crate) custom: CustomProviderDraft,
+    /// 自定义模型对话框状态
+    pub(crate) custom_model_modal: Option<CustomProviderModelModalState>,
+    /// 保存错误信息
+    pub(crate) save_error: Option<String>,
+}
+
+impl Default for ProviderSettingsState {
+    fn default() -> Self {
+        Self {
+            loading: false,
+            models_syncing: false,
+            models_sync_progress: 0.0,
+            models_sync_label: String::new(),
+            providers: Vec::new(),
+            popular_patterns: vec![
+                "OpenCode Zen".to_string(),
+                "Anthropic".to_string(),
+                "GitHub Copilot".to_string(),
+                "OpenAI".to_string(),
+                "Google".to_string(),
+                "OpenRouter".to_string(),
+                "Vercel AI Gateway".to_string(),
+            ],
+            catalog_loading: false,
+            catalog_open: false,
+            catalog_query: String::new(),
+            catalog_items: Vec::new(),
+            connect_modal: None,
+            connect_error: None,
+            disconnect_confirm_provider_id: None,
+            custom_provider_modal_open: false,
+            custom_editing_provider_id: None,
+            custom: CustomProviderDraft::default(),
+            custom_model_modal: None,
+            save_error: None,
+        }
+    }
+}
+
+/// 模型摘要信息
+///
+/// 模型的基本信息和能力配置，
+/// 用于在模型列表中显示。
+#[derive(Debug, Clone)]
+pub struct ModelSummary {
+    /// 模型标识符
+    pub(crate) id: String,
+    /// 模型显示名称
+    pub(crate) name: String,
+    /// 是否启用
+    pub(crate) enabled: bool,
+    /// 是否支持工具调用
+    pub(crate) toolcall: bool,
+    /// 是否支持附件
+    pub(crate) attachment: bool,
+    /// 上下文长度限制
+    pub(crate) context_limit: u64,
+    /// 模型详细信息（JSON 格式）
+    pub(crate) detail: Value,
+}
+
+/// 提供者模型摘要
+///
+/// 提供者及其包含的模型列表信息。
+#[derive(Debug, Clone)]
+pub struct ProviderModelsSummary {
+    /// 提供者标识符
+    pub(crate) id: String,
+    /// 提供者显示名称
+    pub(crate) name: String,
+    /// 模型列表
+    pub(crate) models: Vec<ModelSummary>,
+}
+
+/// 模型详情行
+///
+/// 模型详情对话框中显示的单行信息。
+#[derive(Debug, Clone)]
+pub(crate) struct ModelDetailRow {
+    /// 行标签
+    pub(crate) label: String,
+    /// 行值
+    pub(crate) value: String,
+}
+
+/// 模型详情对话框状态
+///
+/// 管理模型详情对话框的显示状态和内容。
+#[derive(Debug, Clone)]
+pub(crate) struct ModelDetailModalState {
+    /// 提供者标识符
+    pub(crate) provider_id: String,
+    /// 提供者显示名称
+    pub(crate) provider_name: String,
+    /// 模型标识符
+    pub(crate) model_id: String,
+    /// 模型显示名称
+    pub(crate) model_name: String,
+    /// 详情行列表
+    pub(crate) rows: Vec<ModelDetailRow>,
+    /// 原始 JSON 数据
+    pub(crate) raw_json: String,
+    /// 是否显示原始 JSON
+    pub(crate) show_raw: bool,
+}
+
+/// 模型设置面板状态
+///
+/// 管理模型设置页面的状态，包括模型列表、
+/// 搜索过滤和详情对话框。
+#[derive(Debug, Clone)]
+#[derive(Default)]
+pub(crate) struct ModelSettingsState {
+    /// 是否正在加载
+    pub(crate) loading: bool,
+    /// 搜索查询
+    pub(crate) query: String,
+    /// 提供者模型列表
+    pub(crate) providers: Vec<ProviderModelsSummary>,
+    /// 保存错误信息
+    pub(crate) save_error: Option<String>,
+    /// 模型详情对话框状态
+    pub(crate) detail_modal: Option<ModelDetailModalState>,
+}
+
+/// 嵌入路由草稿
+///
+/// 表示系统设置界面中一条可编辑的嵌入路由输入。
+#[derive(Debug, Clone, Default)]
+pub(crate) struct EmbeddingRouteDraft {
+    /// 路由模式（映射到配置中的 hint）
+    pub(crate) pattern: String,
+    /// 提供商名称
+    pub(crate) provider: String,
+    /// 模型名称
+    pub(crate) model: String,
+    /// 维度输入文本
+    pub(crate) dimensions: String,
+}
+
+/// 嵌入路由设置面板状态
+///
+/// 管理嵌入模型路由列表的新增、编辑和删除草稿状态。
+#[derive(Debug, Clone, Default)]
+pub(crate) struct EmbeddingRoutesSettingsState {
+    pub(crate) routes: Vec<EmbeddingRouteDraft>,
+    pub(crate) save_error: Option<String>,
+    pub(crate) save_success: bool,
+}
+
+/// 模型路由单条规则输入状态。
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ModelRoute {
+    /// 路由模式/提示。
+    pub(crate) pattern: String,
+    /// 提供者名称。
+    pub(crate) provider: String,
+    /// 模型名称。
+    pub(crate) model: String,
+    /// 优先级输入。
+    pub(crate) priority_input: String,
+}
+
+/// 模型路由设置面板状态。
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ModelRoutesSettingsState {
+    /// 路由列表。
+    pub(crate) routes: Vec<ModelRoute>,
+    /// 保存错误信息。
+    pub(crate) save_error: Option<String>,
+}
+
+/// 查询分类单条规则输入状态。
+#[derive(Debug, Clone)]
+pub(crate) struct QueryClassificationRuleInput {
+    /// 匹配模式输入。
+    pub(crate) pattern: String,
+    /// 分类类别输入。
+    pub(crate) category: String,
+    /// 优先级输入。
+    pub(crate) priority_input: String,
+}
+
+impl Default for QueryClassificationRuleInput {
+    fn default() -> Self {
+        Self { pattern: String::new(), category: String::new(), priority_input: "0".to_string() }
+    }
+}
+
+/// 查询分类设置面板状态。
+#[derive(Debug, Clone)]
+#[derive(Default)]
+pub(crate) struct QueryClassificationSettingsState {
+    /// 是否启用查询分类。
+    pub(crate) enabled: bool,
+    /// 查询分类规则列表。
+    pub(crate) rules: Vec<QueryClassificationRuleInput>,
+    /// 保存错误信息。
+    pub(crate) save_error: Option<String>,
+}
+
+/// 心跳设置面板状态
+///
+/// 管理心跳功能的配置，包括定时消息发送设置。
+#[derive(Debug, Clone)]
+pub(crate) struct HeartbeatSettingsState {
+    /// 是否启用心跳
+    pub(crate) enabled: bool,
+    /// 心跳间隔（分钟）
+    pub(crate) interval_minutes: u32,
+    /// 心跳消息输入
+    pub(crate) message_input: String,
+    /// 目标输入
+    pub(crate) target_input: String,
+    /// 接收者输入
+    pub(crate) to_input: String,
+    /// 是否显示帮助对话框
+    pub(crate) show_help_modal: bool,
+    /// 保存错误信息
+    pub(crate) save_error: Option<String>,
+}
+
+impl Default for HeartbeatSettingsState {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_minutes: 30,
+            message_input: String::new(),
+            target_input: String::new(),
+            to_input: String::new(),
+            show_help_modal: false,
+            save_error: None,
+        }
+    }
+}
+
+/// 目标循环设置面板状态
+///
+/// 管理 autonomous goal loop 的执行开关、周期和事件投递目标配置。
+#[derive(Debug, Clone)]
+pub(crate) struct GoalLoopSettingsState {
+    /// 是否启用目标循环
+    pub(crate) enabled: bool,
+    /// 循环间隔输入（分钟）
+    pub(crate) interval_minutes_input: String,
+    /// 单步超时输入（秒）
+    pub(crate) step_timeout_secs_input: String,
+    /// 每轮最大步数输入
+    pub(crate) max_steps_per_cycle_input: String,
+    /// 事件投递通道输入
+    pub(crate) channel_input: String,
+    /// 事件投递目标输入
+    pub(crate) target_input: String,
+    /// 保存错误信息
+    pub(crate) save_error: Option<String>,
+}
+
+impl Default for GoalLoopSettingsState {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_minutes_input: "10".to_string(),
+            step_timeout_secs_input: "120".to_string(),
+            max_steps_per_cycle_input: "3".to_string(),
+            channel_input: String::new(),
+            target_input: String::new(),
+            save_error: None,
+        }
+    }
+}
+
+/// 定时任务设置面板状态
+///
+/// 管理 Cron 定时任务功能的配置。
+#[derive(Debug, Clone)]
+pub(crate) struct CronSettingsState {
+    /// 是否启用定时任务
+    pub(crate) enabled: bool,
+    /// 最大运行历史记录数
+    pub(crate) max_run_history: u32,
+    /// 是否显示帮助对话框
+    pub(crate) show_help_modal: bool,
+    /// 保存错误信息
+    pub(crate) save_error: Option<String>,
+}
+
+impl Default for CronSettingsState {
+    fn default() -> Self {
+        Self { enabled: true, max_run_history: 50, show_help_modal: false, save_error: None }
+    }
+}
+
+/// SOP 设置面板状态
+///
+/// 管理 SOP 目录、默认执行模式以及运行限制配置。
+#[derive(Debug, Clone)]
+pub(crate) struct SopSettingsState {
+    /// SOP 目录覆盖输入
+    pub(crate) sops_dir_input: String,
+    /// 默认执行模式（`supervised` / `autonomous`）
+    pub(crate) default_execution_mode: String,
+    /// 最大完成运行保留数，0 表示不限制
+    pub(crate) max_finished_runs: u32,
+    /// 全局最大并发运行数
+    pub(crate) max_concurrent_total: u32,
+    /// 审批超时时间（秒），0 表示禁用超时
+    pub(crate) approval_timeout_secs: u32,
+    /// 保存错误信息
+    pub(crate) save_error: Option<String>,
+}
+
+impl Default for SopSettingsState {
+    fn default() -> Self {
+        Self {
+            sops_dir_input: String::new(),
+            default_execution_mode: "supervised".to_string(),
+            max_finished_runs: 50,
+            max_concurrent_total: 5,
+            approval_timeout_secs: 300,
+            save_error: None,
+        }
+    }
+}
+
+/// 调度器设置面板状态
+///
+/// 管理任务调度器的配置，包括并发限制等。
+#[derive(Debug, Clone)]
+pub(crate) struct SchedulerSettingsState {
+    /// 是否启用调度器
+    pub(crate) enabled: bool,
+    /// 最大任务数
+    pub(crate) max_tasks: u32,
+    /// 最大并发数
+    pub(crate) max_concurrent: u32,
+    /// 是否显示帮助对话框
+    pub(crate) show_help_modal: bool,
+    /// 保存错误信息
+    pub(crate) save_error: Option<String>,
+}
+
+impl Default for SchedulerSettingsState {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_tasks: 64,
+            max_concurrent: 4,
+            show_help_modal: false,
+            save_error: None,
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "provider_model_tests.rs"]
+mod provider_model_tests;

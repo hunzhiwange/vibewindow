@@ -1,0 +1,175 @@
+//! 读写桌面系统设置并维护网关客户端启动缓存。
+//! 本模块负责配置归一化和兼容旧配置路径，保证启动阶段可以在网关不可用时安全回退。
+
+use crate::app::Message;
+use iced::Task;
+use vw_config_types::ui::{AppSystemSettingsConfig, GatewayClientSystemSettingsConfig};
+
+use super::gateway::{gateway_client, load_config_value_at_path, run_gateway_call, spawn_gateway_task};
+
+async fn fetch_desktop_system_settings_via_gateway()
+-> Result<Option<AppSystemSettingsConfig>, String> {
+    let client = gateway_client()?;
+    client
+        .desktop_system_settings_get::<AppSystemSettingsConfig>()
+        .await
+}
+
+async fn patch_desktop_system_settings_via_gateway(
+    config: &AppSystemSettingsConfig,
+) -> Result<(), String> {
+    let client = gateway_client()?;
+    client.desktop_system_settings_patch(config).await
+}
+
+fn load_legacy_system_settings_config_local() -> AppSystemSettingsConfig {
+    load_config_value_at_path::<AppSystemSettingsConfig>(&["app_ui", "system_settings"])
+        .unwrap_or_default()
+}
+
+fn normalize_system_settings_config(mut cfg: AppSystemSettingsConfig) -> AppSystemSettingsConfig {
+    if !cfg.editor_font_size.is_finite() || cfg.editor_font_size <= 0.0 {
+        cfg.editor_font_size = 14.0;
+    }
+    if cfg.editor_auto_line_height {
+        cfg.editor_line_height = cfg.editor_font_size * 1.4;
+    }
+    if !cfg.editor_line_height.is_finite() || cfg.editor_line_height <= 0.0 {
+        cfg.editor_line_height = 20.0;
+    }
+    cfg
+}
+
+fn gateway_client_bootstrap_cache_path() -> Option<std::path::PathBuf> {
+    crate::app::project_dirs().map(|d| d.config_dir().join("gateway-client-bootstrap.json"))
+}
+
+/// 模块内可见函数，执行 load_gateway_client_bootstrap_config 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+pub(super) fn load_gateway_client_bootstrap_config() -> GatewayClientSystemSettingsConfig {
+    gateway_client_bootstrap_cache_path()
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .and_then(|content| {
+            serde_json::from_str::<GatewayClientSystemSettingsConfig>(&content).ok()
+        })
+        .or_else(|| Some(load_legacy_system_settings_config_local().gateway_client))
+        .unwrap_or_default()
+}
+
+/// 模块内可见函数，执行 save_gateway_client_bootstrap_config 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+pub(super) fn save_gateway_client_bootstrap_config(config: &GatewayClientSystemSettingsConfig) {
+    let Some(path) = gateway_client_bootstrap_cache_path() else {
+        return;
+    };
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Ok(content) = serde_json::to_string(config) {
+        let _ = std::fs::write(path, content);
+    }
+}
+
+/// 公开函数，执行 load_gateway_client_config 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+pub fn load_gateway_client_config() -> GatewayClientSystemSettingsConfig {
+    load_system_settings_config().gateway_client
+}
+
+/// 公开函数，执行 update_gateway_client_config 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+pub fn update_gateway_client_config(update: impl FnOnce(&mut GatewayClientSystemSettingsConfig) + Send) {
+    update_system_settings_config(|system| {
+        update(&mut system.gateway_client);
+    });
+}
+
+/// 公开函数，执行 load_system_settings_config_async 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+pub async fn load_system_settings_config_async() -> Result<AppSystemSettingsConfig, String> {
+    match fetch_desktop_system_settings_via_gateway().await {
+        Ok(Some(config)) => {
+            let config = normalize_system_settings_config(config);
+            save_gateway_client_bootstrap_config(&config.gateway_client);
+            Ok(config)
+        }
+        Ok(None) => {
+            let legacy =
+                normalize_system_settings_config(load_legacy_system_settings_config_local());
+            if legacy != AppSystemSettingsConfig::default()
+                && let Err(err) = patch_desktop_system_settings_via_gateway(&legacy).await
+            {
+                tracing::warn!(target: "vw_desktop", error = %err, "failed to migrate desktop system settings to gateway");
+            }
+            save_gateway_client_bootstrap_config(&legacy.gateway_client);
+            Ok(legacy)
+        }
+        Err(err) => {
+            tracing::warn!(target: "vw_desktop", error = %err, "failed to load desktop system settings via gateway");
+            let legacy =
+                normalize_system_settings_config(load_legacy_system_settings_config_local());
+            save_gateway_client_bootstrap_config(&legacy.gateway_client);
+            Ok(legacy)
+        }
+    }
+}
+
+/// 公开函数，执行 update_system_settings_config_result_async 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+pub async fn update_system_settings_config_result_async(
+    update: impl FnOnce(&mut AppSystemSettingsConfig) + Send,
+) -> Result<(), String> {
+    let mut cfg = load_system_settings_config_async().await?;
+    update(&mut cfg);
+    cfg = normalize_system_settings_config(cfg);
+    patch_desktop_system_settings_via_gateway(&cfg).await?;
+    save_gateway_client_bootstrap_config(&cfg.gateway_client);
+    Ok(())
+}
+
+/// 公开函数，执行 update_system_settings_config_async 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+#[cfg(not(target_arch = "wasm32"))]
+pub fn update_system_settings_config_async(
+    update: impl FnOnce(&mut AppSystemSettingsConfig) + Send + 'static,
+) -> Task<Message> {
+    spawn_gateway_task("system_settings", async move {
+        update_system_settings_config_result_async(update).await
+    })
+}
+
+/// 公开函数，执行 update_system_settings_config_async 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+#[cfg(target_arch = "wasm32")]
+pub fn update_system_settings_config_async(
+    update: impl FnOnce(&mut AppSystemSettingsConfig) + 'static,
+) -> Task<Message> {
+    spawn_gateway_task("system_settings", async move {
+        update_system_settings_config_result_async(update).await
+    })
+}
+
+/// 公开函数，执行 load_system_settings_config 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+pub fn load_system_settings_config() -> AppSystemSettingsConfig {
+    run_gateway_call(load_system_settings_config_async()).unwrap_or_else(|err| {
+        tracing::warn!(target: "vw_desktop", error = %err, "failed to load desktop system settings via gateway");
+        let legacy = normalize_system_settings_config(load_legacy_system_settings_config_local());
+        save_gateway_client_bootstrap_config(&legacy.gateway_client);
+        legacy
+    })
+}
+
+/// 公开函数，执行 update_system_settings_config 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+pub fn update_system_settings_config(update: impl FnOnce(&mut AppSystemSettingsConfig) + Send) {
+    let outcome = run_gateway_call(update_system_settings_config_result_async(update));
+
+    if let Err(err) = outcome {
+        tracing::warn!(target: "vw_desktop", error = %err, "failed to patch desktop system settings via gateway");
+    }
+}
+
+#[cfg(test)]
+#[path = "config_system_settings_tests.rs"]
+mod config_system_settings_tests;
