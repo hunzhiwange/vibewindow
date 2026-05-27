@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, anyhow, bail};
 use std::fs;
 use std::path::{Path, PathBuf};
+use vw_fig2json as fig2json;
 
 const HELP: &str = "\
 Convert Figma .fig files to JSON
