@@ -4,7 +4,9 @@
 //! 停止、重启、状态查询和卸载流程。具体 OpenRC 安装细节放在 `openrc` 模块中。
 
 use crate::app::agent::config::Config;
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
+#[cfg(target_os = "linux")]
+use anyhow::bail;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;

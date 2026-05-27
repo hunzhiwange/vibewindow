@@ -3216,21 +3216,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vw-fig2json"
-version = "0.2.3"
-dependencies = [
- "anyhow",
- "base64 0.21.7",
- "flate2",
- "kiwi-schema",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "zip",
- "zstd",
-]
-
-[[package]]
 name = "filedescriptor"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12905,7 +12890,6 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "directories",
- "vw-fig2json",
  "getrandom 0.2.17",
  "git2",
  "glob",
@@ -12949,6 +12933,7 @@ dependencies = [
  "unicode-width 0.1.14",
  "urlencoding",
  "vw-config-types",
+ "vw-fig2json",
  "vw-gateway-client",
  "vw-provider-resolver",
  "vw-shared",
@@ -12957,6 +12942,21 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "web-time",
+]
+
+[[package]]
+name = "vw-fig2json"
+version = "0.2.3"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "flate2",
+ "kiwi-schema",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "zip",
+ "zstd",
 ]
 
 [[package]]
