@@ -1,6 +1,6 @@
 [package]
 name = "vw-fig2json"
-version = "0.2.3"
+version = "0.2.5"
 edition = "2024"
 authors = ["kreako <olivier@kreako.fr>"]
 description = "Figma .fig parser and JSON converter"
