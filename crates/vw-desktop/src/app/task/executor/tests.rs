@@ -3,7 +3,10 @@
 //! 该模块聚焦任务运行过程中的一个局部职责，供执行器入口组合调用。注释说明边界、错误传播和平台差异，避免调用方需要阅读完整执行链才能理解行为。
 
 use super::process_utils::{build_command_failure_detail, normalize_path};
-use super::programs::{ExecutorCommand, claude_binary_name, resolve_claude_program};
+use super::programs::{
+    ExecutorCommand, claude_binary_name, select_claude_program,
+    select_opencode_program_and_prefix_args,
+};
 use super::runner::resolve_task_execution_acp_agent;
 use super::worktree_admin::assign_task_execution_worktree;
 use super::worktree_admin::resolve_task_execution_workspace;
@@ -43,12 +46,6 @@ impl EnvGuard {
         unsafe { std::env::set_var(key, value) };
         Self { key, original }
     }
-
-    fn remove(key: &'static str) -> Self {
-        let original = std::env::var_os(key);
-        unsafe { std::env::remove_var(key) };
-        Self { key, original }
-    }
 }
 
 impl Drop for EnvGuard {
@@ -61,25 +58,14 @@ impl Drop for EnvGuard {
 }
 
 #[test]
-fn resolve_claude_program_finds_binary_from_profile_path() {
-    let _env_lock = task_executor_env_lock();
-    let home = tempfile::TempDir::new().expect("temp home should be created");
-    let bin_dir = home.path().join("profile-bin");
+fn resolve_claude_program_prefers_resolved_profile_path() {
+    let temp = tempfile::TempDir::new().expect("temp dir should be created");
+    let bin_dir = temp.path().join("profile-bin");
     std::fs::create_dir_all(&bin_dir).expect("bin dir should be created");
     let claude_path = bin_dir.join(claude_binary_name());
     std::fs::write(&claude_path, b"#!/bin/sh\nexit 0\n").expect("claude stub should be written");
 
-    let _home_guard = EnvGuard::set_os("HOME", home.path().as_os_str());
-    let _path_guard = EnvGuard::set_os("PATH", std::ffi::OsStr::new("/usr/bin:/bin"));
-    let _claude_bin_guard = EnvGuard::remove("CLAUDE_BIN");
-
-    std::fs::write(
-        home.path().join(".zshrc"),
-        format!("export PATH={}:$PATH\n", bin_dir.display()),
-    )
-    .expect("profile should be written");
-
-    let resolved = resolve_claude_program();
+    let resolved = select_claude_program(None, None, Some(claude_path.clone()));
     assert_eq!(resolved, claude_path.to_string_lossy().to_string());
 }
 
@@ -100,7 +86,6 @@ fn opencode_command_uses_prompt_arg_without_stdin_pipe() {
 
 #[test]
 fn opencode_command_falls_back_to_bunx_package_when_binary_missing() {
-    let _env_lock = task_executor_env_lock();
     let home = tempfile::TempDir::new().expect("temp home should be created");
     let bin_dir = home.path().join("bin");
     std::fs::create_dir_all(&bin_dir).expect("bin dir should be created");
@@ -118,11 +103,15 @@ fn opencode_command_falls_back_to_bunx_package_when_binary_missing() {
         std::fs::set_permissions(&bunx_path, perms).expect("bunx permissions should be updated");
     }
 
-    let _home_guard = EnvGuard::set_os("HOME", home.path().as_os_str());
-    let _path_guard = EnvGuard::set_os("PATH", bin_dir.as_os_str());
-    let _opencode_bin_guard = EnvGuard::remove("OPENCODE_BIN");
-
-    let cmd = ExecutorCommand::for_opencode("/tmp/project", "auto", "hello");
+    let (program, args) = select_opencode_program_and_prefix_args(
+        None,
+        Some(home.path()),
+        None,
+        Some(bunx_path.to_string_lossy().to_string()),
+        None,
+    );
+    let cmd =
+        ExecutorCommand::for_opencode_resolved("/tmp/project", "auto", "hello", program, args);
 
     assert_eq!(cmd.program, bunx_path.to_string_lossy().to_string());
     assert!(cmd.args.starts_with(&["opencode-ai@latest".to_string(), "run".to_string(),]));

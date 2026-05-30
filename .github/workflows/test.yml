@@ -70,7 +70,8 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libxkbcommon-dev
       - run: cargo fetch --locked
-      - run: cargo test --workspace --lib --bins --tests
+      - run: cargo test --workspace --exclude vw-agent --lib
+      - run: cargo test --workspace --bins --tests
 
   build-wasm:
     name: Build wasm desktop

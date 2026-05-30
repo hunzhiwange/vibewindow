@@ -129,6 +129,9 @@ rusqlite = { version = "0.37.0", features = ["bundled"] }
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]
 rusqlite = "0.37.0"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+landlock = { version = "0.4.5", optional = true }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console = "0.16"
 console_error_panic_hook = "0.1"
@@ -157,7 +160,7 @@ memory-mariadb = ["dep:mysql"]
 observability-otel = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp"]
 runtime-wasm = ["dep:wasmi"]
 sandbox-bubblewrap = []
-sandbox-landlock = []
+sandbox-landlock = ["dep:landlock"]
 shell-ast = ["dep:tree-sitter", "dep:tree-sitter-bash"]
 channel-lark = ["dep:prost"]
 channel-matrix = ["dep:matrix-sdk"]

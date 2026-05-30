@@ -56,54 +56,84 @@ fn resolve_package_runner(program: &str) -> Option<String> {
     resolve_executable(program).map(|path| path.to_string_lossy().to_string())
 }
 
-fn resolve_opencode_program_and_prefix_args() -> (String, Vec<String>) {
-    if let Some(path) = shell_profile_env_var("OPENCODE_BIN") {
+pub(super) fn select_opencode_program_and_prefix_args(
+    opencode_bin: Option<String>,
+    home: Option<&Path>,
+    opencode_path: Option<PathBuf>,
+    bunx_path: Option<String>,
+    npx_path: Option<String>,
+) -> (String, Vec<String>) {
+    if let Some(path) = opencode_bin {
         let candidate = PathBuf::from(path);
         if candidate.is_file() {
             return (candidate.to_string_lossy().to_string(), Vec::new());
         }
     }
-    if let Some(home) = user_home_dir() {
+    if let Some(home) = home {
         let candidate = home.join(".opencode").join("bin").join(opencode_binary_name());
         if candidate.is_file() {
             return (candidate.to_string_lossy().to_string(), Vec::new());
         }
     }
-    if let Some(found) = resolve_executable(opencode_binary_name()) {
+    if let Some(found) = opencode_path {
         return (found.to_string_lossy().to_string(), Vec::new());
     }
 
-    if let Some(bunx) = resolve_package_runner("bunx") {
+    if let Some(bunx) = bunx_path {
         return (bunx, vec![OPENCODE_PACKAGE_SPEC.to_string()]);
     }
 
-    if let Some(npx) = resolve_package_runner("npx") {
+    if let Some(npx) = npx_path {
         return (npx, vec!["-y".to_string(), OPENCODE_PACKAGE_SPEC.to_string()]);
     }
 
     ("opencode".to_string(), Vec::new())
 }
 
+fn resolve_opencode_program_and_prefix_args() -> (String, Vec<String>) {
+    let home = user_home_dir();
+    select_opencode_program_and_prefix_args(
+        shell_profile_env_var("OPENCODE_BIN"),
+        home.as_deref(),
+        resolve_executable(opencode_binary_name()),
+        resolve_package_runner("bunx"),
+        resolve_package_runner("npx"),
+    )
+}
+
 /// 模块内部可见的 resolve_claude_program 函数。
 ///
 /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
-pub(super) fn resolve_claude_program() -> String {
-    if let Some(path) = shell_profile_env_var("CLAUDE_BIN") {
+pub(super) fn select_claude_program(
+    claude_bin: Option<String>,
+    home: Option<&Path>,
+    claude_path: Option<PathBuf>,
+) -> String {
+    if let Some(path) = claude_bin {
         let candidate = PathBuf::from(path);
         if candidate.is_file() {
             return candidate.to_string_lossy().to_string();
         }
     }
-    if let Some(home) = user_home_dir() {
+    if let Some(home) = home {
         let candidate = home.join(".claude").join("local").join(claude_binary_name());
         if candidate.is_file() {
             return candidate.to_string_lossy().to_string();
         }
     }
-    if let Some(found) = resolve_executable(claude_binary_name()) {
+    if let Some(found) = claude_path {
         return found.to_string_lossy().to_string();
     }
     claude_binary_name().to_string()
+}
+
+pub(super) fn resolve_claude_program() -> String {
+    let home = user_home_dir();
+    select_claude_program(
+        shell_profile_env_var("CLAUDE_BIN"),
+        home.as_deref(),
+        resolve_executable(claude_binary_name()),
+    )
 }
 
 fn resolve_codex_program() -> String {
@@ -146,11 +176,13 @@ pub struct ExecutorCommand {
 }
 
 impl ExecutorCommand {
-    /// 公开的 for_opencode 函数。
-    ///
-    /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
-    pub fn for_opencode(project_path: &str, model: &str, prompt: &str) -> Self {
-        let (program, mut args) = resolve_opencode_program_and_prefix_args();
+    pub(super) fn for_opencode_resolved(
+        project_path: &str,
+        model: &str,
+        prompt: &str,
+        program: String,
+        mut args: Vec<String>,
+    ) -> Self {
         args.extend([
             "run".to_string(),
             format!("--dir={}", project_path),
@@ -164,6 +196,14 @@ impl ExecutorCommand {
             args.push(prompt.to_string());
         }
         Self { program, args, cwd: project_path.to_string(), stdin_content: None }
+    }
+
+    /// 公开的 for_opencode 函数。
+    ///
+    /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
+    pub fn for_opencode(project_path: &str, model: &str, prompt: &str) -> Self {
+        let (program, args) = resolve_opencode_program_and_prefix_args();
+        Self::for_opencode_resolved(project_path, model, prompt, program, args)
     }
 
     /// 公开的 for_claude 函数。

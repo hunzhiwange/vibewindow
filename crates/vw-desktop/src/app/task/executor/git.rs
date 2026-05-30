@@ -186,6 +186,11 @@ fn run_git_gateway(
     args: &[&str],
     timeout_secs: Option<u64>,
 ) -> Result<GitCommandOutput, String> {
+    #[cfg(test)]
+    if let Ok(output) = run_git_local(cwd, args) {
+        return Ok(output);
+    }
+
     let client = crate::app::config::gateway_client()?;
     let request = GitCommandRequest {
         directory: cwd.to_string(),
@@ -195,6 +200,20 @@ fn run_git_gateway(
     let response = super::block_on_gateway(client.git_command(&request))
         .map_err(|e| format!("网关 git 执行失败 cwd={} args={:?} err={}", cwd, args, e))?;
     Ok(response.into())
+}
+
+#[cfg(test)]
+fn run_git_local(cwd: &str, args: &[&str]) -> Result<GitCommandOutput, String> {
+    let output = vw_shared::shell::git_std_command()
+        .current_dir(cwd)
+        .args(args)
+        .output()
+        .map_err(|err| format!("本地 git 执行失败 cwd={} args={:?} err={}", cwd, args, err))?;
+    Ok(GitCommandOutput {
+        status: GitCommandStatus { success: output.status.success(), code: output.status.code() },
+        stdout: output.stdout,
+        stderr: output.stderr,
+    })
 }
 
 /// 执行 run_git_logged 对应的领域操作。

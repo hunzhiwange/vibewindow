@@ -42,7 +42,7 @@
 //! ```
 
 #[cfg(all(feature = "sandbox-landlock", target_os = "linux"))]
-use landlock::{AccessFs, PathBeneath, PathFd, Ruleset, RulesetAttr, RulesetCreatedAttr};
+use ::landlock::{AccessFs, PathBeneath, PathFd, Ruleset, RulesetAttr, RulesetCreatedAttr};
 
 use super::traits::Sandbox;
 #[cfg(all(feature = "sandbox-landlock", target_os = "linux"))]
