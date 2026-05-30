@@ -1,4 +1,7 @@
-use super::tool_permission::{ToolPermissionState, pending_permission_badge_label, pending_permission_request_badge_label, tool_permission_state, tool_permission_summary};
+use super::tool_permission::{
+    ToolPermissionState, pending_permission_badge_label, pending_permission_request_badge_label,
+    tool_permission_state, tool_permission_summary,
+};
 use serde_json::json;
 
 #[test]

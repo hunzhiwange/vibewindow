@@ -141,6 +141,8 @@ pub(crate) fn build_router(cors_whitelist: Vec<String>) -> Router {
         .merge(handlers::question::router())
         // PTY 路由：伪终端会话
         .merge(handlers::pty::router())
+        // 任务池路由：调度决策
+        .merge(handlers::task_pool::router())
         // 认证中间件：所有请求必须通过基础认证
         .layer(middleware::from_fn(basic_auth_middleware))
         // CORS 中间件：处理跨域请求（最外层）

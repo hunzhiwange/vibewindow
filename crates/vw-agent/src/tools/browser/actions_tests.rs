@@ -3,11 +3,8 @@ use serde_json::json;
 
 #[test]
 fn parse_browser_action_preserves_required_fields() {
-    let action = parse_browser_action(
-        "fill",
-        &json!({"selector": "#name", "value": "Ada"}),
-    )
-    .expect("fill action should parse");
+    let action = parse_browser_action("fill", &json!({"selector": "#name", "value": "Ada"}))
+        .expect("fill action should parse");
 
     match action {
         BrowserAction::Fill { selector, value } => {

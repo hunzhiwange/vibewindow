@@ -2,8 +2,8 @@
 
 use crate::app::config::{patch_full_agent_config_async, spawn_gateway_task};
 use crate::app::{App, Message};
-use iced::widget::text_editor;
 use iced::Task;
+use iced::widget::text_editor;
 use serde_json::json;
 use vw_config_types::tools::BrowserComputerUseConfig;
 
@@ -150,7 +150,8 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         BrowserMessage::AllowedDomainsEditorAction(action) => {
             let should_persist = matches!(action, text_editor::Action::Edit(_));
             app.browser_settings.allowed_domains_editor.perform(action);
-            app.browser_settings.allowed_domains_input = app.browser_settings.allowed_domains_editor.text();
+            app.browser_settings.allowed_domains_input =
+                app.browser_settings.allowed_domains_editor.text();
             if !should_persist {
                 return Task::none();
             }

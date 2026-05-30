@@ -9,9 +9,7 @@ use crate::app::assets::Icon;
 use crate::app::components::overlays::PointBelowOverlay;
 use crate::app::components::widgets::RightClickArea;
 use crate::app::state::{
-    AdvancedToolSurfaceSpec,
-    AdvancedToolSurfaceState,
-    explicit_advanced_tool_surface_spec,
+    AdvancedToolSurfaceSpec, AdvancedToolSurfaceState, explicit_advanced_tool_surface_spec,
 };
 use crate::app::{App, Message, message};
 
@@ -31,14 +29,8 @@ use crate::app::components::chat_panel::utils::{
 };
 
 pub(super) fn is_advanced_surface_tool(tool_name: &str) -> bool {
-    matches!(
-        tool_name,
-        "AgentTool"
-            | "Agent"
-            | "browser"
-            | "browser_open"
-            | "open_browser_page"
-    ) || explicit_advanced_tool_surface_spec(tool_name).is_some()
+    matches!(tool_name, "AgentTool" | "Agent" | "browser" | "browser_open" | "open_browser_page")
+        || explicit_advanced_tool_surface_spec(tool_name).is_some()
 }
 
 fn string_from_map(map: Option<&Map<String, Value>>, key: &str) -> Option<String> {
@@ -57,7 +49,10 @@ pub(super) fn nested_string<'a>(value: &'a Value, path: &[&str]) -> Option<&'a s
     current.as_str().map(str::trim).filter(|value| !value.is_empty())
 }
 
-pub(super) fn advanced_base_title(tool_name: &str, explicit_spec: Option<AdvancedToolSurfaceSpec>) -> String {
+pub(super) fn advanced_base_title(
+    tool_name: &str,
+    explicit_spec: Option<AdvancedToolSurfaceSpec>,
+) -> String {
     if let Some(spec) = explicit_spec {
         return spec.label.to_string();
     }
@@ -76,7 +71,9 @@ fn advanced_summary(tool_name: &str, value: &Value) -> String {
     }
 
     let input = tool_input(value);
-    if let Some(summary) = tool_inline_summary(tool_name, input).filter(|summary| !summary.trim().is_empty()) {
+    if let Some(summary) =
+        tool_inline_summary(tool_name, input).filter(|summary| !summary.trim().is_empty())
+    {
         return summary;
     }
 
@@ -111,16 +108,9 @@ fn advanced_summary(tool_name: &str, value: &Value) -> String {
                 .and_then(Value::as_str)
                 .map(str::trim)
                 .unwrap_or("browser");
-            let url = input_json
-                .get("url")
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .unwrap_or("");
-            let selector = input_json
-                .get("selector")
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .unwrap_or("");
+            let url = input_json.get("url").and_then(Value::as_str).map(str::trim).unwrap_or("");
+            let selector =
+                input_json.get("selector").and_then(Value::as_str).map(str::trim).unwrap_or("");
 
             if !url.is_empty() {
                 format!("{} · {}", action, truncate_chars(url, 56))
@@ -165,10 +155,11 @@ fn advanced_metadata_text(
             if let Some(backend) = string_from_map(render_metadata, "backend") {
                 parts.push(backend);
             }
-            if let Some(url) = result_data.and_then(|data| nested_string(data, &["result", "url"])) {
+            if let Some(url) = result_data.and_then(|data| nested_string(data, &["result", "url"]))
+            {
                 parts.push(truncate_chars(url, 72).to_string());
-            } else if let Some(title) = result_data
-                .and_then(|data| nested_string(data, &["result", "title"]))
+            } else if let Some(title) =
+                result_data.and_then(|data| nested_string(data, &["result", "title"]))
             {
                 parts.push(truncate_chars(title, 72).to_string());
             }
@@ -177,13 +168,11 @@ fn advanced_metadata_text(
             if let Some(browser) = string_from_map(render_metadata, "browser") {
                 parts.push(browser);
             }
-            if let Some(url) = string_from_map(render_metadata, "url")
-                .or_else(|| {
-                    result_data
-                        .and_then(Value::as_object)
-                        .and_then(|data| string_from_map(Some(data), "url"))
-                })
-            {
+            if let Some(url) = string_from_map(render_metadata, "url").or_else(|| {
+                result_data
+                    .and_then(Value::as_object)
+                    .and_then(|data| string_from_map(Some(data), "url"))
+            }) {
                 parts.push(truncate_chars(&url, 72).to_string());
             }
         }
@@ -208,7 +197,10 @@ fn advanced_fallback_body(
                 format!("{} 已接入当前会话工具面。", spec.label)
             }
             AdvancedToolSurfaceState::Planned => {
-                format!("{} 当前已明确标记为 planned，桌面端先提供清晰状态，不补完整后端。", spec.label)
+                format!(
+                    "{} 当前已明确标记为 planned，桌面端先提供清晰状态，不补完整后端。",
+                    spec.label
+                )
             }
         };
     }
@@ -408,7 +400,8 @@ pub fn tool_advanced_view<'a>(
     let summary = advanced_summary(tool_name, &value);
     let metadata_text = advanced_metadata_text(tool_name, &value, explicit_spec);
 
-    if !is_running && summary.trim().is_empty() && body_text.is_empty() && metadata_text.is_empty() {
+    if !is_running && summary.trim().is_empty() && body_text.is_empty() && metadata_text.is_empty()
+    {
         return None;
     }
 
@@ -417,13 +410,8 @@ pub fn tool_advanced_view<'a>(
     let context_key = chat_context_target_key(msg_idx, Some(tool_idx));
     let context_menu_open = app.chat_context_menu_target == Some(context_key);
     let context_menu_anchor = app.chat_context_menu_pos.unwrap_or((12.0, 26.0));
-    let context_text = selected_chat_text_for_target(app, context_key).unwrap_or_else(|| {
-        if body_text.is_empty() {
-            summary.clone()
-        } else {
-            body_text.clone()
-        }
-    });
+    let context_text = selected_chat_text_for_target(app, context_key)
+        .unwrap_or_else(|| if body_text.is_empty() { summary.clone() } else { body_text.clone() });
 
     let detail_btn = button(
         icon_svg(Icon::Eye)
@@ -438,37 +426,26 @@ pub fn tool_advanced_view<'a>(
         tool_idx,
         visible.to_string(),
     )));
-    let detail_slot: Element<'a, Message> = if is_hovered {
-        detail_btn.into()
-    } else {
-        Space::new().width(Length::Fixed(22.0)).into()
-    };
+    let detail_slot: Element<'a, Message> =
+        if is_hovered { detail_btn.into() } else { Space::new().width(Length::Fixed(22.0)).into() };
 
-    let mut head_left = row![tool_header_title(tool_name, title, is_error)]
-        .spacing(10)
-        .align_y(Alignment::Center);
+    let mut head_left =
+        row![tool_header_title(tool_name, title, is_error)].spacing(10).align_y(Alignment::Center);
     if !summary.trim().is_empty() {
         head_left = head_left.push(text(summary.clone()).size(13).style(|theme: &Theme| {
-            iced::widget::text::Style {
-                color: Some(chat_secondary_muted_text_color(theme)),
-            }
+            iced::widget::text::Style { color: Some(chat_secondary_muted_text_color(theme)) }
         }));
     }
 
-    let head_row: Element<'a, Message> = row![
-        head_left,
-        container(Space::new()).width(Length::Fill),
-        detail_slot
-    ]
-    .align_y(Alignment::Center)
-    .into();
+    let head_row: Element<'a, Message> =
+        row![head_left, container(Space::new()).width(Length::Fill), detail_slot]
+            .align_y(Alignment::Center)
+            .into();
 
     let mut content = column![container(head_row).width(Length::Fill)].spacing(8);
     if !metadata_text.is_empty() {
         content = content.push(text(metadata_text).size(12).style(|theme: &Theme| {
-            iced::widget::text::Style {
-                color: Some(chat_secondary_muted_text_color(theme)),
-            }
+            iced::widget::text::Style { color: Some(chat_secondary_muted_text_color(theme)) }
         }));
     }
 
@@ -482,9 +459,7 @@ pub fn tool_advanced_view<'a>(
         .into()
     } else if body_text.is_empty() {
         container(text("没有可展示的高级工具结果").size(14).style(|theme: &Theme| {
-            iced::widget::text::Style {
-                color: Some(chat_secondary_muted_text_color(theme)),
-            }
+            iced::widget::text::Style { color: Some(chat_secondary_muted_text_color(theme)) }
         }))
         .padding([10, 12])
         .width(Length::Fill)
@@ -493,11 +468,7 @@ pub fn tool_advanced_view<'a>(
     } else if is_error {
         let err_body = tool_text_editor(
             app,
-            ToolTextTarget::ToolCardText {
-                msg_idx,
-                tool_idx,
-                text_idx: 0,
-            },
+            ToolTextTarget::ToolCardText { msg_idx, tool_idx, text_idx: 0 },
             "Noto Sans CJK SC",
             14.0,
             false,
@@ -547,21 +518,14 @@ pub fn tool_advanced_view<'a>(
         let preview = truncate_lines_middle(body_text.as_str(), 120, 600);
         let code = tool_text_editor(
             app,
-            ToolTextTarget::ToolCardText {
-                msg_idx,
-                tool_idx,
-                text_idx: 0,
-            },
+            ToolTextTarget::ToolCardText { msg_idx, tool_idx, text_idx: 0 },
             "JetBrains Mono",
             14.0,
             false,
             false,
         )
         .unwrap_or_else(|| {
-            text(preview)
-                .size(14)
-                .font(iced::Font::with_name("JetBrains Mono"))
-                .into()
+            text(preview).size(14).font(iced::Font::with_name("JetBrains Mono")).into()
         });
         let body: Element<'a, Message> = scrollable(
             container(code)
@@ -590,11 +554,8 @@ pub fn tool_advanced_view<'a>(
 
     content = content.push(body);
 
-    let content: Element<'a, Message> = container(content)
-        .padding([2, 6])
-        .width(Length::Fill)
-        .style(simplified_block_style)
-        .into();
+    let content: Element<'a, Message> =
+        container(content).padding([2, 6]).width(Length::Fill).style(simplified_block_style).into();
 
     Some(if let Some(menu) = chat_context_menu(context_menu_open) {
         PointBelowOverlay::new(content, menu)

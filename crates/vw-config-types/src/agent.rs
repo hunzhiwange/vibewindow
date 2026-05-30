@@ -86,6 +86,9 @@ pub struct AgentDefinitionConfig {
     /// agentic 模式下可用工具白名单。
     #[serde(default, alias = "tools")]
     pub allowed_tools: Vec<String>,
+    /// 委托代理可见的技能白名单。
+    #[serde(default, alias = "skills")]
+    pub allowed_skills: Vec<String>,
     /// 额外模型选项。
     #[serde(default)]
     pub options: HashMap<String, Value>,
@@ -138,6 +141,7 @@ impl Default for AgentDefinitionConfig {
             max_depth: default_max_depth(),
             agentic: false,
             allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
             options: HashMap::new(),
             permission: Value::Null,
             max_iterations: default_max_tool_iterations(),
@@ -165,6 +169,7 @@ impl std::fmt::Debug for AgentDefinitionConfig {
             .field("max_depth", &self.max_depth)
             .field("agentic", &self.agentic)
             .field("allowed_tools", &self.allowed_tools)
+            .field("allowed_skills", &self.allowed_skills)
             .field("options", &self.options)
             .field("permission", &self.permission)
             .field("max_iterations", &self.max_iterations)
@@ -361,7 +366,9 @@ pub fn merged_agent_configs(
 ) -> HashMap<String, AgentDefinitionConfig> {
     let mut merged = BUILTIN_AGENT_SPECS
         .iter()
-        .filter_map(|spec| builtin_agent_config(spec.key).map(|config| (spec.key.to_string(), config)))
+        .filter_map(|spec| {
+            builtin_agent_config(spec.key).map(|config| (spec.key.to_string(), config))
+        })
         .collect::<HashMap<_, _>>();
     for (key, value) in configured {
         let mut merged_value = value.clone();

@@ -67,11 +67,8 @@ pub(super) fn draw_edges(
     handle_slots: &HandleSlots,
 ) {
     let element_scale = canvas_element_scale(zoom);
-    let node_map = document
-        .nodes
-        .iter()
-        .map(|node| (node.id.as_str(), node))
-        .collect::<HashMap<_, _>>();
+    let node_map =
+        document.nodes.iter().map(|node| (node.id.as_str(), node)).collect::<HashMap<_, _>>();
 
     let mut edges = document.edges.iter().collect::<Vec<_>>();
     edges.sort_by(|left, right| left.z_index.total_cmp(&right.z_index));
@@ -110,7 +107,8 @@ pub(super) fn draw_edges(
         });
 
         let selected = selected_edge_id == Some(edge.id.as_str())
-            || selected_node_id.is_some_and(|node_id| node_id == edge.source || node_id == edge.target);
+            || selected_node_id
+                .is_some_and(|node_id| node_id == edge.source || node_id == edge.target);
         let hovered = hovered_edge_id == Some(edge.id.as_str());
         let base_color = if theme_is_dark(theme) {
             with_alpha(theme.palette().text, 0.22)
@@ -127,15 +125,13 @@ pub(super) fn draw_edges(
 
         frame.stroke(
             &edge_path,
-            Stroke::default().with_color(color).with_width(
-                if selected {
-                    2.8 * element_scale
-                } else if hovered {
-                    2.2 * element_scale
-                } else {
-                    1.6 * element_scale
-                },
-            ),
+            Stroke::default().with_color(color).with_width(if selected {
+                2.8 * element_scale
+            } else if hovered {
+                2.2 * element_scale
+            } else {
+                1.6 * element_scale
+            }),
         );
 
         if let Some(label) = edge_handle_label(edge) {
@@ -143,7 +139,8 @@ pub(super) fn draw_edges(
             let badge_font_size = (12.0 * element_scale).max(4.0);
             let badge_padding_x = 9.0 * element_scale;
             let badge_height = (22.0 * element_scale).max(8.0);
-            let badge_width = (label.chars().count() as f32 * badge_font_size * 0.72 + badge_padding_x * 2.0)
+            let badge_width = (label.chars().count() as f32 * badge_font_size * 0.72
+                + badge_padding_x * 2.0)
                 .clamp(30.0 * element_scale, 94.0 * element_scale);
             let badge_rect = Rectangle::new(
                 Point::new(badge_center.x - badge_width / 2.0, badge_center.y - badge_height / 2.0),
@@ -163,12 +160,18 @@ pub(super) fn draw_edges(
             frame.stroke(
                 &badge_path,
                 Stroke::default()
-                    .with_color(with_alpha(if selected || hovered { color } else { base_color }, 0.30))
+                    .with_color(with_alpha(
+                        if selected || hovered { color } else { base_color },
+                        0.30,
+                    ))
                     .with_width((1.0 * element_scale).max(0.4)),
             );
             frame.fill_text(Text {
                 content: label,
-                position: Point::new(badge_rect.x + badge_rect.width / 2.0, badge_rect.y + badge_rect.height / 2.0),
+                position: Point::new(
+                    badge_rect.x + badge_rect.width / 2.0,
+                    badge_rect.y + badge_rect.height / 2.0,
+                ),
                 color: if theme_is_dark(theme) {
                     Color::WHITE.scale_alpha(0.86)
                 } else if selected || hovered {
@@ -201,7 +204,8 @@ pub(super) fn draw_connection_draft(
         return;
     };
 
-    let start = anchor_for_handle(node, draft.from.kind, &draft.from.handle_id, handle_slots, pan, zoom);
+    let start =
+        anchor_for_handle(node, draft.from.kind, &draft.from.handle_id, handle_slots, pan, zoom);
     let end = screen_from_world(draft.cursor_world, pan, zoom);
     let start_side = match draft.from.kind {
         WorkflowHandleKind::Source => node.source_side,
@@ -223,9 +227,7 @@ pub(super) fn draw_connection_draft(
 
     frame.stroke(
         &draft_path,
-        Stroke::default()
-            .with_color(with_alpha(accent, 0.86))
-            .with_width(2.2 * element_scale),
+        Stroke::default().with_color(with_alpha(accent, 0.86)).with_width(2.2 * element_scale),
     );
 }
 
@@ -249,16 +251,10 @@ pub(super) fn draw_nodes(
         .unwrap_or_default();
     let (connected_sources, connected_targets) = connected_handles(document);
     let is_dark = theme_is_dark(theme);
-    let text_primary = if is_dark {
-        Color::WHITE.scale_alpha(0.92)
-    } else {
-        Color::from_rgb8(15, 23, 42)
-    };
-    let text_secondary = if is_dark {
-        Color::WHITE.scale_alpha(0.64)
-    } else {
-        Color::from_rgba8(71, 85, 105, 0.92)
-    };
+    let text_primary =
+        if is_dark { Color::WHITE.scale_alpha(0.92) } else { Color::from_rgb8(15, 23, 42) };
+    let text_secondary =
+        if is_dark { Color::WHITE.scale_alpha(0.64) } else { Color::from_rgba8(71, 85, 105, 0.92) };
     let content_scale = zoom.max(0.3);
     let icon_offset_x = 14.0 * content_scale;
     let icon_size = 24.0 * content_scale;
@@ -294,19 +290,20 @@ pub(super) fn draw_nodes(
         } else {
             node.title.clone()
         };
-        let title_max_chars = (((rect.width - icon_offset_x - icon_size - title_gap - card_padding_x)
-            / (title_font_size * 0.63))
-            .floor()
-            .max(8.0)) as usize;
-        let title_lines = wrap_text_lines(
-            &title_text,
-            title_max_chars,
-            if rect.height > 120.0 { 2 } else { 1 },
-        );
+        let title_max_chars =
+            (((rect.width - icon_offset_x - icon_size - title_gap - card_padding_x)
+                / (title_font_size * 0.63))
+                .floor()
+                .max(8.0)) as usize;
+        let title_lines =
+            wrap_text_lines(&title_text, title_max_chars, if rect.height > 120.0 { 2 } else { 1 });
         let desc_max_chars = ((rect.width - card_padding_x * 2.0) / (desc_font_size * 0.62))
             .floor()
             .max(10.0) as usize;
-        let desc_lines = if !show_start_variables && rect.height >= 84.0 && !description.trim().is_empty() {
+        let desc_lines = if !show_start_variables
+            && rect.height >= 84.0
+            && !description.trim().is_empty()
+        {
             wrap_text_lines(&description, desc_max_chars, if rect.height > 140.0 { 3 } else { 2 })
         } else {
             Vec::new()
@@ -325,11 +322,7 @@ pub(super) fn draw_nodes(
             title_block_height + start_variable_block_height
         } else {
             title_block_height
-                + if desc_lines.is_empty() {
-                    0.0
-                } else {
-                    desc_gap + desc_block_height
-                }
+                + if desc_lines.is_empty() { 0.0 } else { desc_gap + desc_block_height }
         };
         let content_block_height = if show_start_variables {
             icon_size.max(title_block_height) + start_variable_block_height
@@ -363,7 +356,8 @@ pub(super) fn draw_nodes(
 
         let radius = 20.0;
         let shadow_rect = Rectangle::new(Point::new(rect.x, rect.y + 8.0), rect.size());
-        let shadow_path = Path::rounded_rectangle(shadow_rect.position(), shadow_rect.size(), radius.into());
+        let shadow_path =
+            Path::rounded_rectangle(shadow_rect.position(), shadow_rect.size(), radius.into());
         frame.fill(
             &shadow_path,
             Color::from_rgba8(
@@ -383,16 +377,19 @@ pub(super) fn draw_nodes(
         );
 
         if is_selected {
-            let halo_rect = Rectangle::new(Point::new(rect.x - 4.0, rect.y - 4.0), Size::new(rect.width + 8.0, rect.height + 8.0));
-            let halo_path = Path::rounded_rectangle(halo_rect.position(), halo_rect.size(), (radius + 4.0).into());
+            let halo_rect = Rectangle::new(
+                Point::new(rect.x - 4.0, rect.y - 4.0),
+                Size::new(rect.width + 8.0, rect.height + 8.0),
+            );
+            let halo_path = Path::rounded_rectangle(
+                halo_rect.position(),
+                halo_rect.size(),
+                (radius + 4.0).into(),
+            );
             frame.fill(&halo_path, with_alpha(accent, if is_dark { 0.10 } else { 0.08 }));
         }
 
-        let node_path = Path::rounded_rectangle(
-            rect.position(),
-            rect.size(),
-            radius.into(),
-        );
+        let node_path = Path::rounded_rectangle(rect.position(), rect.size(), radius.into());
         frame.fill(&node_path, fill);
         frame.stroke(
             &node_path,
@@ -434,7 +431,10 @@ pub(super) fn draw_nodes(
         } else {
             frame.fill_text(Text {
                 content: node_glyph(&node.block_type).to_string(),
-                position: Point::new(icon_rect.x + icon_rect.width / 2.0, icon_rect.y + icon_rect.height / 2.0),
+                position: Point::new(
+                    icon_rect.x + icon_rect.width / 2.0,
+                    icon_rect.y + icon_rect.height / 2.0,
+                ),
                 color: accent,
                 size: Pixels((12.0 * content_scale).max(4.0)),
                 align_x: iced::widget::text::Alignment::Center,
@@ -453,10 +453,7 @@ pub(super) fn draw_nodes(
         for (index, line) in title_lines.iter().enumerate() {
             frame.fill_text(Text {
                 content: line.clone(),
-                position: Point::new(
-                    title_x,
-                    title_y + index as f32 * title_line_step,
-                ),
+                position: Point::new(title_x, title_y + index as f32 * title_line_step),
                 color: text_primary,
                 size: Pixels(title_font_size),
                 align_x: iced::widget::text::Alignment::Left,
@@ -503,7 +500,9 @@ pub(super) fn draw_nodes(
                 );
                 let badge_rect = Rectangle::new(
                     Point::new(
-                        row_rect.x + row_rect.width - start_variable_row_padding - start_variable_badge_size,
+                        row_rect.x + row_rect.width
+                            - start_variable_row_padding
+                            - start_variable_badge_size,
                         row_rect.y + (row_rect.height - start_variable_badge_size).max(0.0) / 2.0,
                     ),
                     Size::new(start_variable_badge_size, start_variable_badge_size),

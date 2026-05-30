@@ -93,21 +93,25 @@ pub fn update(app: &mut App, message: SearchMessage) -> Task<Message> {
 
         // 处理项目选择
         // 调用应用方法打开项目并建立索引
-        SearchMessage::SelectProject(path) => app.open_project_and_index(path),
+        SearchMessage::SelectProject(path) => {
+            app.show_search_overlay = false;
+            app.open_project_and_index(path)
+        }
 
         // 处理文件选择
         // 将选中的文件路径填入文件 URL 输入框
         SearchMessage::SelectFile(path) => {
             app.file_url_input = path;
+            app.show_search_overlay = false;
             Task::none()
         }
 
         // 处理会话选择
         // 加载历史会话数据，汇总 Token 使用量，并恢复会话状态
         SearchMessage::SelectSession(id) => {
-            let project_path = app
-                .known_session_directory(&id)
-                .filter(|directory| !directory.trim().is_empty());
+            app.show_search_overlay = false;
+            let project_path =
+                app.known_session_directory(&id).filter(|directory| !directory.trim().is_empty());
 
             if let Some(project_path) = project_path {
                 Task::done(Message::Project(
@@ -146,8 +150,7 @@ pub fn update(app: &mut App, message: SearchMessage) -> Task<Message> {
                 Task::batch([
                     initial_prewarm_task,
                     crate::app::message::project::helpers::load_session_messages_task_scoped(
-                        None,
-                        id,
+                        None, id,
                     ),
                     Task::done(Message::Chat(
                         crate::app::message::ChatMessage::LoadInputPanelTodos,

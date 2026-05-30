@@ -26,13 +26,13 @@ use crate::app::agent::id;
 use crate::app::agent::project::instance;
 use crate::app::agent::shell;
 use crate::app::agent::util::log;
-use std::sync::LazyLock;
 use portable_pty::{CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
 
 /// PTY 模块的日志记录器实例

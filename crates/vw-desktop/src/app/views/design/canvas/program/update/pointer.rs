@@ -52,9 +52,7 @@ impl<'a> DesignCanvas<'a> {
         if self.color_picking
             && let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) = event
         {
-            return Some(Action::publish(Message::Design(DesignMessage::PickColor(
-                cursor_pos,
-            ))));
+            return Some(Action::publish(Message::Design(DesignMessage::PickColor(cursor_pos))));
         }
 
         let root_selected_id = self.selected_id.and_then(|id| {

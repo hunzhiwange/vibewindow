@@ -21,7 +21,10 @@ fn find_mut<'a>(elements: &'a mut Vec<DesignElement>, id: &str) -> Option<&'a mu
     None
 }
 
-fn apply_classes_for_element(state: &mut crate::app::views::design::state::DesignState, element_id: &str) {
+fn apply_classes_for_element(
+    state: &mut crate::app::views::design::state::DesignState,
+    element_id: &str,
+) {
     if let Some(el) = find_mut(&mut state.doc.children, element_id) {
         apply_tailwind_classes(el);
     }
@@ -82,7 +85,11 @@ pub(super) fn set_inspector_hover(app: &mut App, hovered: bool) -> Task<Message>
 ///
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 失败会被转换为界面可展示的状态或消息，避免在处理链路中静默丢失。
-pub(super) fn class_input_changed(app: &mut App, element_id: String, input: String) -> Task<Message> {
+pub(super) fn class_input_changed(
+    app: &mut App,
+    element_id: String,
+    input: String,
+) -> Task<Message> {
     if let Some(state) = app.active_design_state_mut() {
         if state.selected_element_id.as_deref() != Some(element_id.as_str()) {
             return Task::none();
@@ -105,11 +112,8 @@ pub(super) fn class_input_submit(app: &mut App, element_id: String) -> Task<Mess
     }
 
     let raw = state.tailwind_class_input.replace('\n', " ");
-    let to_add = raw
-        .split_whitespace()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>();
+    let to_add =
+        raw.split_whitespace().map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<_>>();
     if to_add.is_empty() {
         return Task::none();
     }
@@ -160,7 +164,8 @@ pub(super) fn node_class_input_changed(
             return Task::none();
         }
         state.tailwind_node_class_input = input.replace('\n', " ");
-        state.tailwind_node_class_dropdown_open = !state.tailwind_node_class_input.trim().is_empty();
+        state.tailwind_node_class_dropdown_open =
+            !state.tailwind_node_class_input.trim().is_empty();
     }
     Task::none()
 }
@@ -204,11 +209,8 @@ pub(super) fn node_class_input_submit(
     }
 
     let raw = state.tailwind_node_class_input.replace('\n', " ");
-    let to_add = raw
-        .split_whitespace()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>();
+    let to_add =
+        raw.split_whitespace().map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<_>>();
     if to_add.is_empty() {
         return Task::none();
     }
@@ -267,4 +269,3 @@ pub(super) fn add_class_token(app: &mut App, element_id: String, token: String) 
     }
     Task::done(Message::Design(DesignMessage::Snapshot))
 }
-

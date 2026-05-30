@@ -20,8 +20,8 @@
 //! | 命令安全 | `create_blocks_disallowed_command`, `medium_risk_create_requires_approval` |
 
 use super::super::*;
-use crate::app::agent::security::AutonomyLevel;
 use crate::Config;
+use crate::app::agent::security::AutonomyLevel;
 use serde_json::json;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -47,11 +47,7 @@ async fn test_setup() -> (TempDir, Config, Arc<SecurityPolicy>) {
     let tmp = TempDir::new().unwrap();
     let workspace_dir: PathBuf = tmp.path().join("workspace");
     let config_path: PathBuf = tmp.path().join("vibewindow.json");
-    let config = Config {
-        workspace_dir,
-        config_path,
-        ..Config::default()
-    };
+    let config = Config { workspace_dir, config_path, ..Config::default() };
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     let security = Arc::new(SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir));
     (tmp, config, security)
@@ -351,11 +347,7 @@ async fn mutating_actions_fail_when_cron_disabled() {
     // 配置禁用 cron 功能
     let workspace_dir: PathBuf = tmp.path().join("workspace");
     let config_path: PathBuf = tmp.path().join("vibewindow.json");
-    let mut config = Config {
-        workspace_dir,
-        config_path,
-        ..Config::default()
-    };
+    let mut config = Config { workspace_dir, config_path, ..Config::default() };
     config.cron.enabled = false;
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     let security = Arc::new(SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir));

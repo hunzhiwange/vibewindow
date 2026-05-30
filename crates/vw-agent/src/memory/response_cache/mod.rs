@@ -42,6 +42,7 @@
 //! }
 //! ```
 
+use super::paths;
 use anyhow::Result;
 use chrono::{Duration, Local};
 use parking_lot::Mutex;
@@ -99,12 +100,12 @@ pub struct ResponseCache {
 impl ResponseCache {
     /// 创建或打开响应缓存数据库实例。
     ///
-    /// 该方法会在指定的工作区目录下创建 `memory/response_cache.db` 文件（如果不存在），
+    /// 该方法会在用户态项目数据目录下创建 `memory/response_cache.db` 文件（如果不存在），
     /// 并初始化必要的数据库表结构和索引。
     ///
     /// # 参数
     ///
-    /// - `workspace_dir`: 工作区根目录路径，缓存数据库将创建在其 `memory` 子目录下
+    /// - `workspace_dir`: 工作区根目录路径，仅用于派生用户态项目数据目录
     /// - `ttl_minutes`: 缓存条目的生存时间（分钟），过期条目将被自动清理
     /// - `max_entries`: 缓存的最大条目数，超出时使用 LRU 策略驱逐旧条目
     ///
@@ -155,14 +156,13 @@ impl ResponseCache {
     /// )?;
     /// ```
     pub fn new(workspace_dir: &Path, ttl_minutes: u32, max_entries: usize) -> Result<Self> {
-        // 构建数据库目录路径: workspace_dir/memory/
-        let db_dir = workspace_dir.join("memory");
+        let storage_dir = paths::workspace_data_dir(workspace_dir)?;
+        let db_dir = storage_dir.join("memory");
 
         // 在非 WASM 目标上创建目录（如果不存在）
         #[cfg(not(target_arch = "wasm32"))]
         std::fs::create_dir_all(&db_dir)?;
 
-        // 构建数据库文件完整路径: workspace_dir/memory/response_cache.db
         let db_path = db_dir.join("response_cache.db");
 
         // 非 WASM 目标的完整实现

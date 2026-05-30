@@ -36,11 +36,12 @@ use std::str::FromStr;
 #[cfg(test)]
 use self::common::{run_capture, run_checked, xml_escape};
 #[cfg(test)]
-use self::linux::linux_service_file;
+use self::linux::{linux_service_file, systemd_config_dir_args, systemd_quote_arg};
 #[cfg(test)]
+use self::openrc::generate_openrc_script;
+#[cfg(all(test, unix))]
 use self::openrc::{
-    build_openrc_writability_probe_command, current_uid, generate_openrc_script, is_root,
-    shell_single_quote,
+    build_openrc_writability_probe_command, current_uid, is_root, shell_single_quote,
 };
 #[cfg(test)]
 use self::windows::windows_task_name;

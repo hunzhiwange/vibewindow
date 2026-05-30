@@ -29,8 +29,8 @@
 //! }
 //! ```
 
-use std::sync::LazyLock;
 use std::env;
+use std::sync::LazyLock;
 
 #[cfg(test)]
 mod tests;
@@ -125,7 +125,8 @@ fn number(key: &str) -> Option<u64> {
 /// 自动分享功能开关
 ///
 /// 控制是否启用自动分享功能。当设置为 `true` 或 `1` 时启用。
-pub static VIBEWINDOW_AUTO_SHARE: LazyLock<bool> = LazyLock::new(|| truthy("VIBEWINDOW_AUTO_SHARE"));
+pub static VIBEWINDOW_AUTO_SHARE: LazyLock<bool> =
+    LazyLock::new(|| truthy("VIBEWINDOW_AUTO_SHARE"));
 
 /// Git Bash 路径配置
 ///
@@ -136,7 +137,8 @@ pub static VIBEWINDOW_GIT_BASH_PATH: LazyLock<Option<String>> =
 /// 自定义配置文件路径
 ///
 /// 指定 VibeWindow 配置文件的完整路径，覆盖默认配置路径。
-pub static VIBEWINDOW_CONFIG: LazyLock<Option<String>> = LazyLock::new(|| env_string("VIBEWINDOW_CONFIG"));
+pub static VIBEWINDOW_CONFIG: LazyLock<Option<String>> =
+    LazyLock::new(|| env_string("VIBEWINDOW_CONFIG"));
 
 /// 内联配置内容
 ///
@@ -153,7 +155,8 @@ pub static VIBEWINDOW_DISABLE_AUTOUPDATE: LazyLock<bool> =
 /// 禁用自动清理
 ///
 /// 控制是否禁用过期资源的自动清理（prune）功能。
-pub static VIBEWINDOW_DISABLE_PRUNE: LazyLock<bool> = LazyLock::new(|| truthy("VIBEWINDOW_DISABLE_PRUNE"));
+pub static VIBEWINDOW_DISABLE_PRUNE: LazyLock<bool> =
+    LazyLock::new(|| truthy("VIBEWINDOW_DISABLE_PRUNE"));
 
 /// 禁用终端标题修改
 ///
@@ -261,7 +264,8 @@ pub static VIBEWINDOW_SERVER_USERNAME: LazyLock<Option<String>> =
 /// 实验性功能总开关
 ///
 /// 启用所有实验性功能的基础开关。单独的实验性功能可能有各自独立的开关。
-pub static VIBEWINDOW_EXPERIMENTAL: LazyLock<bool> = LazyLock::new(|| truthy("VIBEWINDOW_EXPERIMENTAL"));
+pub static VIBEWINDOW_EXPERIMENTAL: LazyLock<bool> =
+    LazyLock::new(|| truthy("VIBEWINDOW_EXPERIMENTAL"));
 
 /// 实验性文件监视器
 ///

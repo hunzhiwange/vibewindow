@@ -6,11 +6,7 @@ use super::*;
 
 impl WorkflowState {
     pub fn title(&self) -> &str {
-        if self.source_name.trim().is_empty() {
-            "Dify工作流"
-        } else {
-            self.source_name.as_str()
-        }
+        if self.source_name.trim().is_empty() { "Dify工作流" } else { self.source_name.as_str() }
     }
 
     pub fn active_app(&self) -> Option<&WorkflowAppEntry> {
@@ -144,10 +140,7 @@ impl WorkflowState {
         if let Some(active_id) = self.active_app_id.clone()
             && let Some(app) = self.apps.iter_mut().find(|app| app.id == active_id)
         {
-            app.meta = WorkflowAppMeta {
-                name: self.source_name.clone(),
-                ..snapshot.meta
-            };
+            app.meta = WorkflowAppMeta { name: self.source_name.clone(), ..snapshot.meta };
         }
 
         self.sync_selection_flags();
@@ -157,18 +150,10 @@ impl WorkflowState {
     pub fn apply_loaded(&mut self, loaded: LoadedWorkflow, window_size: (f32, f32)) {
         self.persist_active_snapshot();
         let app_id = generate_app_id();
-        let selected_node_id = loaded
-            .document
-            .nodes
-            .iter()
-            .find(|node| node.selected)
-            .map(|node| node.id.clone());
-        let selected_edge_id = loaded
-            .document
-            .edges
-            .iter()
-            .find(|edge| edge.selected)
-            .map(|edge| edge.id.clone());
+        let selected_node_id =
+            loaded.document.nodes.iter().find(|node| node.selected).map(|node| node.id.clone());
+        let selected_edge_id =
+            loaded.document.edges.iter().find(|edge| edge.selected).map(|edge| edge.id.clone());
 
         let (pan, zoom) = if loaded.had_viewport {
             (
@@ -248,18 +233,10 @@ impl WorkflowState {
             return;
         };
 
-        let selected_node_id = loaded
-            .document
-            .nodes
-            .iter()
-            .find(|node| node.selected)
-            .map(|node| node.id.clone());
-        let selected_edge_id = loaded
-            .document
-            .edges
-            .iter()
-            .find(|edge| edge.selected)
-            .map(|edge| edge.id.clone());
+        let selected_node_id =
+            loaded.document.nodes.iter().find(|node| node.selected).map(|node| node.id.clone());
+        let selected_edge_id =
+            loaded.document.edges.iter().find(|edge| edge.selected).map(|edge| edge.id.clone());
         let (pan, zoom) = if loaded.had_viewport {
             (
                 Vector::new(loaded.document.viewport.x, loaded.document.viewport.y),
@@ -363,9 +340,7 @@ impl WorkflowState {
     }
 
     pub fn open_edit_editor(&mut self, id: Option<&str>) {
-        let target_id = id
-            .map(|value| value.to_string())
-            .or_else(|| self.active_app_id.clone());
+        let target_id = id.map(|value| value.to_string()).or_else(|| self.active_app_id.clone());
         let Some(target_id) = target_id else {
             return;
         };
@@ -502,6 +477,4 @@ impl WorkflowState {
             index += 1;
         }
     }
-
-
 }

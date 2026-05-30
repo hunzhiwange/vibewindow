@@ -15,17 +15,13 @@ fn preferred_chat_message_index_prefers_tool_row_for_duplicate_message_ids() {
         },
         ChatMessage {
             role: ChatRole::Tool,
-            content: "tool grep\n{\"status\":\"completed\",\"output\":\"2 matches\"}\n"
-                .to_string(),
+            content: "tool grep\n{\"status\":\"completed\",\"output\":\"2 matches\"}\n".to_string(),
             think_timing: Vec::new(),
         },
     ];
     let message_ids = vec![Some("msg-1".to_string()), Some("msg-1".to_string())];
 
-    assert_eq!(
-        preferred_chat_message_index_by_id(&chat, &message_ids, "msg-1"),
-        Some(1)
-    );
+    assert_eq!(preferred_chat_message_index_by_id(&chat, &message_ids, "msg-1"), Some(1));
 }
 
 #[test]
@@ -44,10 +40,7 @@ fn preferred_chat_message_index_falls_back_to_first_match_without_tool_row() {
     ];
     let message_ids = vec![Some("msg-2".to_string()), Some("msg-2".to_string())];
 
-    assert_eq!(
-        preferred_chat_message_index_by_id(&chat, &message_ids, "msg-2"),
-        Some(0)
-    );
+    assert_eq!(preferred_chat_message_index_by_id(&chat, &message_ids, "msg-2"), Some(0));
 }
 
 #[test]
@@ -86,8 +79,7 @@ fn permission_target_tool_anchor_fraction_prefers_later_tool_card() {
 fn permission_target_tool_anchor_fraction_uses_tool_row_anchor() {
     let message = ChatMessage {
         role: ChatRole::Tool,
-        content: "tool bash\n{\"status\":\"running\",\"toolCallId\":\"call-1\"}"
-            .to_string(),
+        content: "tool bash\n{\"status\":\"running\",\"toolCallId\":\"call-1\"}".to_string(),
         think_timing: Vec::new(),
     };
     let request = vw_gateway_client::PendingPermissionRequestDto {

@@ -117,7 +117,9 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
         DesignMessage::FillPickerFormatChange(format) => {
             pickers::change_fill_picker_format(app, format)
         }
-        DesignMessage::FillPickerColorChange(color) => pickers::change_fill_picker_color(app, color),
+        DesignMessage::FillPickerColorChange(color) => {
+            pickers::change_fill_picker_color(app, color)
+        }
         DesignMessage::ColorPickerEyedropper => pickers::toggle_color_picker_eyedropper(app),
         DesignMessage::PickColor(point) => pickers::pick_color(app, point),
         DesignMessage::CloseColorPicker => pickers::close_color_picker(app),
@@ -125,7 +127,9 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
             pickers::change_color_picker_format(app, format)
         }
         DesignMessage::ColorPickerChange(color) => pickers::change_color_picker_color(app, color),
-        DesignMessage::PropertyUpdate(id, key, value) => updates::property_update(app, id, key, value),
+        DesignMessage::PropertyUpdate(id, key, value) => {
+            updates::property_update(app, id, key, value)
+        }
         DesignMessage::PropertiesUpdate(id, props) => updates::properties_update(app, id, props),
         DesignMessage::BatchPropertiesUpdate(all_updates) => {
             updates::batch_properties_update(app, all_updates)
@@ -156,7 +160,6 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
         _ => Task::none(),
     }
 }
-
 
 #[cfg(test)]
 #[path = "property/common_tests.rs"]

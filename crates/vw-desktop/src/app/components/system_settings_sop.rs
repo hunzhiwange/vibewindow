@@ -90,17 +90,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "支持绝对路径或工作区相对路径。",
         row![
             text_input("留空时使用 <workspace>/sops", &s.sops_dir_input)
-            .on_input(|value| {
-                Message::Settings(SettingsMessage::Sop(SopMessage::SopsDirChanged(value)))
-            })
-            .padding([10, 12])
-            .size(13)
-            .style(settings_text_input_style)
-            .width(Length::Fill),
-        button(text("选择目录"))
-            .padding([6, 12])
-            .style(rounded_action_btn_style)
-            .on_press(Message::Settings(SettingsMessage::Sop(SopMessage::SopsDirPickFolder,))),
+                .on_input(|value| {
+                    Message::Settings(SettingsMessage::Sop(SopMessage::SopsDirChanged(value)))
+                })
+                .padding([10, 12])
+                .size(13)
+                .style(settings_text_input_style)
+                .width(Length::Fill),
+            button(text("选择目录"))
+                .padding([6, 12])
+                .style(rounded_action_btn_style)
+                .on_press(Message::Settings(SettingsMessage::Sop(SopMessage::SopsDirPickFolder,))),
         ]
         .spacing(12)
         .align_y(Alignment::Center),
@@ -122,16 +122,16 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let mut content = column![
         settings_page_intro("标准流程配置", "配置 SOP 目录来源、默认执行策略与运行队列限制。"),
         settings_section_card(
-                    "路径与执行策略",
-                    "控制 SOP 文件目录来源，以及缺省执行模式在没有显式 SOP.toml 配置时的行为。",
-                ),
+            "路径与执行策略",
+            "控制 SOP 文件目录来源，以及缺省执行模式在没有显式 SOP.toml 配置时的行为。",
+        ),
         settings_panel(column![dir_row, settings_divider(), execution_mode_row].spacing(0)),
         hint_row("支持绝对路径或工作区相对路径；留空时默认读取当前工作区下的 sops 目录。"),
         hint_row("自动执行会直接运行；人工审批会在开始前请求确认。"),
         settings_section_card(
-                    "运行队列限制",
-                    "控制完成记录保留上限、全局并发上限，以及审批等待超时时间。",
-                ),
+            "运行队列限制",
+            "控制完成记录保留上限、全局并发上限，以及审批等待超时时间。",
+        ),
         settings_panel(
             column![
                 number_row(

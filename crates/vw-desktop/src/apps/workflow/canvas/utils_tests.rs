@@ -5,10 +5,10 @@ use serde_yaml::Value;
 
 fn code_node(error_strategy: Option<&str>) -> WorkflowNode {
     let raw_node = match error_strategy {
-        Some(strategy) => serde_yaml::from_str::<Value>(&format!(
-            "data:\n  error_strategy: {strategy}\n"
-        ))
-        .expect("node yaml should parse"),
+        Some(strategy) => {
+            serde_yaml::from_str::<Value>(&format!("data:\n  error_strategy: {strategy}\n"))
+                .expect("node yaml should parse")
+        }
         None => serde_yaml::from_str::<Value>("data: {}\n").expect("node yaml should parse"),
     };
 

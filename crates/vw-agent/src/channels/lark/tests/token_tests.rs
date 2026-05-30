@@ -12,26 +12,12 @@ fn lark_group_response_requires_matching_bot_mention_when_ids_available() {
     let mentions = vec![serde_json::json!({
         "id": { "open_id": "ou_other" }
     })];
-    assert!(!should_respond_in_group(
-        true,
-        "ou_user",
-        &[],
-        Some("ou_bot"),
-        &mentions,
-        &[]
-    ));
+    assert!(!should_respond_in_group(true, "ou_user", &[], Some("ou_bot"), &mentions, &[]));
 
     let mentions = vec![serde_json::json!({
         "id": { "open_id": "ou_bot" }
     })];
-    assert!(should_respond_in_group(
-        true,
-        "ou_user",
-        &[],
-        Some("ou_bot"),
-        &mentions,
-        &[]
-    ));
+    assert!(should_respond_in_group(true, "ou_user", &[], Some("ou_bot"), &mentions, &[]));
 }
 
 #[test]
@@ -40,14 +26,7 @@ fn lark_group_response_requires_resolved_open_id_when_mention_only_enabled() {
     let mentions = vec![serde_json::json!({
         "id": { "open_id": "ou_any" }
     })];
-    assert!(!should_respond_in_group(
-        true,
-        "ou_user",
-        &[],
-        None,
-        &mentions,
-        &[]
-    ));
+    assert!(!should_respond_in_group(true, "ou_user", &[], None, &mentions, &[]));
 }
 
 #[test]
@@ -79,10 +58,7 @@ fn lark_group_response_allows_sender_override_without_mention() {
 fn lark_should_refresh_token_on_http_401() {
     // HTTP 401 是传输层明确认证失败信号，应触发 token 刷新。
     let body = serde_json::json!({ "code": 0 });
-    assert!(should_refresh_lark_tenant_token(
-        reqwest::StatusCode::UNAUTHORIZED,
-        &body
-    ));
+    assert!(should_refresh_lark_tenant_token(reqwest::StatusCode::UNAUTHORIZED, &body));
 }
 
 #[test]
@@ -109,10 +85,7 @@ fn lark_extract_token_ttl_seconds_supports_expire_and_expires_in() {
 
     assert_eq!(extract_lark_token_ttl_seconds(&body_expire), 7200);
     assert_eq!(extract_lark_token_ttl_seconds(&body_expires_in), 3600);
-    assert_eq!(
-        extract_lark_token_ttl_seconds(&body_missing),
-        LARK_DEFAULT_TOKEN_TTL.as_secs()
-    );
+    assert_eq!(extract_lark_token_ttl_seconds(&body_missing), LARK_DEFAULT_TOKEN_TTL.as_secs());
 }
 
 #[test]

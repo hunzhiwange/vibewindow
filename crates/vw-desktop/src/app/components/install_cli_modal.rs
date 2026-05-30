@@ -14,8 +14,8 @@
 
 use crate::app::assets::{self, Icon};
 use crate::app::components::system_settings_common::{
-    primary_action_btn_style, rounded_action_btn_style, settings_close_button,
-    settings_modal_card, settings_modal_overlay, settings_muted_text_style, settings_value_badge,
+    primary_action_btn_style, rounded_action_btn_style, settings_close_button, settings_modal_card,
+    settings_modal_overlay, settings_muted_text_style, settings_value_badge,
 };
 use crate::app::{Message, message};
 use iced::alignment::Horizontal;
@@ -110,17 +110,9 @@ fn view_inner<'a>(
 
     let logo_badge = |expanded: bool| {
         let (logo_image_size, logo_badge_size, logo_badge_radius) = if expanded {
-            (
-                UPDATE_LOGO_IMAGE_SIZE,
-                UPDATE_LOGO_BADGE_SIZE,
-                UPDATE_LOGO_BADGE_RADIUS,
-            )
+            (UPDATE_LOGO_IMAGE_SIZE, UPDATE_LOGO_BADGE_SIZE, UPDATE_LOGO_BADGE_RADIUS)
         } else {
-            (
-                HEADER_LOGO_IMAGE_SIZE,
-                HEADER_LOGO_BADGE_SIZE,
-                HEADER_LOGO_BADGE_RADIUS,
-            )
+            (HEADER_LOGO_IMAGE_SIZE, HEADER_LOGO_BADGE_SIZE, HEADER_LOGO_BADGE_RADIUS)
         };
 
         container(
@@ -136,19 +128,17 @@ fn view_inner<'a>(
         .style(move |theme: &Theme| {
             let palette = theme.extended_palette();
             iced::widget::container::Style {
-                background: Some(Background::Color(
-                    theme.palette().primary.scale_alpha(
-                        if theme.palette().background.r
-                            + theme.palette().background.g
-                            + theme.palette().background.b
-                            < 1.5
-                        {
-                            0.20
-                        } else {
-                            0.08
-                        },
-                    ),
-                )),
+                background: Some(Background::Color(theme.palette().primary.scale_alpha(
+                    if theme.palette().background.r
+                        + theme.palette().background.g
+                        + theme.palette().background.b
+                        < 1.5
+                    {
+                        0.20
+                    } else {
+                        0.08
+                    },
+                ))),
                 border: iced::Border {
                     width: 1.0,
                     color: palette.background.strong.color.scale_alpha(0.78),
@@ -232,9 +222,7 @@ fn view_inner<'a>(
 
     let card_content: Element<'a, Message> = if has_version_info {
         column![
-            container(logo_badge(true))
-                .width(Length::Fill)
-                .center_x(Length::Fill),
+            container(logo_badge(true)).width(Length::Fill).center_x(Length::Fill),
             column![
                 text(title).size(24),
                 text(content)
@@ -262,15 +250,10 @@ fn view_inner<'a>(
         .into()
     } else if show_logo_above_content {
         column![
-            row![
-                Space::new().width(Length::Fill),
-                settings_close_button(close_message.clone()),
-            ]
-            .width(Length::Fill)
-            .align_y(Alignment::Start),
-            container(logo_badge(true))
+            row![Space::new().width(Length::Fill), settings_close_button(close_message.clone()),]
                 .width(Length::Fill)
-                .center_x(Length::Fill),
+                .align_y(Alignment::Start),
+            container(logo_badge(true)).width(Length::Fill).center_x(Length::Fill),
             column![
                 text(title).size(24).align_x(Horizontal::Center),
                 text(content)
@@ -321,9 +304,7 @@ fn view_inner<'a>(
         .into()
     };
 
-    let card = settings_modal_card(card_content)
-    .width(Length::Fixed(540.0))
-    .max_width(620.0);
+    let card = settings_modal_card(card_content).width(Length::Fixed(540.0)).max_width(620.0);
 
     settings_modal_overlay(None, close_message, card)
 }

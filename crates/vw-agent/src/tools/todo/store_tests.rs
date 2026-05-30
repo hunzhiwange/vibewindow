@@ -22,13 +22,9 @@ fn write_todos_replaces_and_normalizes_items() {
 #[test]
 fn write_todos_merge_updates_existing_item() {
     let session = session("merge");
-    write_todos(&session, json!({"todos": [{"id": 1, "content": "task"}]}))
-        .expect("seed succeeds");
-    write_todos(
-        &session,
-        json!({"merge": true, "todos": [{"id": 1, "status": "completed"}]}),
-    )
-    .expect("merge succeeds");
+    write_todos(&session, json!({"todos": [{"id": 1, "content": "task"}]})).expect("seed succeeds");
+    write_todos(&session, json!({"merge": true, "todos": [{"id": 1, "status": "completed"}]}))
+        .expect("merge succeeds");
 
     let todos = read_for_tool(&session).expect("read succeeds");
     assert_eq!(todos[0].status, "completed");

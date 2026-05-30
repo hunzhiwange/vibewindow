@@ -72,12 +72,16 @@ pub(crate) fn format_task_log_stream_for_ui(
             }
             Some(truncate_for_ui(line, max_chars))
         }
-        TaskLogStream::ExitStatus {
-            success,
-            code,
-            signal,
-            ..
-        } => Some(if *success {
+        TaskLogStream::SubTaskStarted { content, .. } => {
+            Some(truncate_for_ui(&format!("子任务开始: {}", content), max_chars))
+        }
+        TaskLogStream::SubTaskCompleted { subtask_id } => {
+            Some(format!("子任务完成: {}", subtask_id))
+        }
+        TaskLogStream::SubTaskFailed { subtask_id, error } => {
+            Some(truncate_for_ui(&format!("子任务失败: {} {}", subtask_id, error), max_chars))
+        }
+        TaskLogStream::ExitStatus { success, code, signal, .. } => Some(if *success {
             format!("执行成功 code={:?}", code)
         } else {
             match signal {
@@ -164,10 +168,33 @@ pub(crate) fn poll_worktree_action_logs(app: &mut crate::app::App) {
 ///
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-pub(crate) fn append_task_log_stream(task: &mut Task, log: &TaskLogStream) {
+pub(crate) fn append_task_log_stream(task: &mut Task, log: &TaskLogStream) -> bool {
+    let mut plan_changed = false;
+    match log {
+        TaskLogStream::SubTaskStarted { subtask_id, .. } => {
+            if let Some(subtask) = task.subtasks.iter_mut().find(|item| item.id == *subtask_id) {
+                subtask.start_execution();
+                plan_changed = true;
+            }
+        }
+        TaskLogStream::SubTaskCompleted { subtask_id } => {
+            if let Some(subtask) = task.subtasks.iter_mut().find(|item| item.id == *subtask_id) {
+                subtask.mark_completed();
+                plan_changed = true;
+            }
+        }
+        TaskLogStream::SubTaskFailed { subtask_id, .. } => {
+            if let Some(subtask) = task.subtasks.iter_mut().find(|item| item.id == *subtask_id) {
+                subtask.mark_failed();
+                plan_changed = true;
+            }
+        }
+        _ => {}
+    }
     if let Some(line) = format_task_log_stream_for_ui(log, TASK_LOG_UI_MAX_ENTRY_CHARS) {
         task.add_log(line);
     }
+    plan_changed
 }
 
 /// 执行 flush_running_task_logs 对应的领域操作。
@@ -201,8 +228,13 @@ pub(crate) fn flush_running_task_logs(
         let task_id = running[idx].clone();
         let task_logs = app.task_board_executor.poll_task_logs(&task_id);
         if let Some(task) = app.task_board_tasks.iter_mut().find(|t| t.id == task_id) {
+            let mut plan_changed = false;
             for log in &task_logs {
-                append_task_log_stream(task, log);
+                plan_changed |= append_task_log_stream(task, log);
+            }
+            if plan_changed && let Some(project_path) = app.project_path.as_deref() {
+                let _ = crate::app::task::write_task_plan_files(project_path, task);
+                let _ = crate::app::task::update_task(project_path, task);
             }
         }
         if viewing_task_id.as_deref() == Some(task_id.as_str()) {
@@ -375,6 +407,7 @@ pub(crate) fn current_running_execution_count(app: &crate::app::App) -> u32 {
 ///
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+#[allow(dead_code)]
 pub(crate) fn current_pending_task_count(app: &crate::app::App) -> u32 {
     app.task_board_tasks
         .iter()
@@ -466,11 +499,12 @@ pub(crate) fn apply_execution_timeouts(
                     changed_tasks.push(task.clone());
                 }
             }
-            TaskStatus::Running => {
+            TaskStatus::Planning | TaskStatus::Running => {
                 let started_at = task.execution_started_at_ms.unwrap_or(task.last_active_at_ms);
                 if now.saturating_sub(started_at) >= running_timeout_ms {
                     task.mark_execution_failed(format!(
-                        "执行超过 {} 分钟仍未完成，已自动标记失败",
+                        "{}超过 {} 分钟仍未完成，已自动标记失败",
+                        task.status.label(),
                         app.task_board_settings.running_timeout_minutes.max(1)
                     ));
                     timed_out_running_ids.push(task.id.clone());
@@ -488,11 +522,8 @@ pub(crate) fn apply_execution_timeouts(
                             .selected_worktree_path
                             .clone()
                             .unwrap_or_else(|| "none".to_string());
-                        let target_branch = task
-                            .merge_target_branch
-                            .as_deref()
-                            .unwrap_or("none")
-                            .to_string();
+                        let target_branch =
+                            task.merge_target_branch.as_deref().unwrap_or("none").to_string();
                         task.add_log(format!(
                             "合并阶段超时检测: inactive_ms={} worktree={} target={} lock_holder={}",
                             inactive_for_ms, selected_worktree, target_branch, holder
@@ -666,10 +697,9 @@ pub(crate) fn build_persist_tasks(
         .cloned()
         .map(|task| {
             let path = project_path.to_string();
-            iced::Task::perform(
-                async move { crate::app::task::update_task(&path, &task) },
-                |_| Message::None,
-            )
+            iced::Task::perform(async move { crate::app::task::update_task(&path, &task) }, |_| {
+                Message::None
+            })
         })
         .collect()
 }

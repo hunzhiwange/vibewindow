@@ -82,4 +82,3 @@ pub(super) fn refresh_node_editor_validation(editor: &mut WorkflowNodeEditorDraf
         editor.visual_draft.as_ref(),
     );
 }
-

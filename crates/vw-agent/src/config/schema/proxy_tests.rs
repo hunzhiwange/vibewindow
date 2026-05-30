@@ -1,6 +1,6 @@
 use super::proxy::{
-    clear_proxy_env, parse_proxy_enabled, parse_proxy_scope, runtime_proxy_config,
-    set_runtime_proxy_config, validate_proxy_config, ProxyConfig, ProxyScope,
+    ProxyConfig, ProxyScope, clear_proxy_env, parse_proxy_enabled, parse_proxy_scope,
+    runtime_proxy_config, set_runtime_proxy_config, validate_proxy_config,
 };
 
 #[test]

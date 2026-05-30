@@ -17,10 +17,9 @@ use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 use crate::app::assets::Icon;
 use crate::app::components::input_panel::icons::icon_svg;
 use crate::app::components::input_panel::styles::{
-    BOTTOM_BAR_CHEVRON_ICON_SIZE, BOTTOM_BAR_ICON_BUTTON_SIZE, BOTTOM_BAR_ICON_SIZE,
-    popover_style, round_icon_button_style, selectable_list_button_style,
-    selector_chevron_color, selector_label_font,
-    selector_text_color, square_icon_button_style, tooltip_dark_style,
+    BOTTOM_BAR_CHEVRON_ICON_SIZE, BOTTOM_BAR_ICON_BUTTON_SIZE, BOTTOM_BAR_ICON_SIZE, popover_style,
+    round_icon_button_style, selectable_list_button_style, selector_chevron_color,
+    selector_label_font, selector_text_color, square_icon_button_style, tooltip_dark_style,
 };
 use crate::app::components::overlays::AboveOverlay;
 use crate::app::state::ChatSendBehavior;
@@ -93,11 +92,7 @@ fn prominent_action_background(theme: &Theme) -> Color {
 }
 
 fn prominent_action_foreground(theme: &Theme) -> Color {
-    if is_dark_theme(theme) {
-        Color::from_rgba8(15, 16, 18, 1.0)
-    } else {
-        Color::WHITE
-    }
+    if is_dark_theme(theme) { Color::from_rgba8(15, 16, 18, 1.0) } else { Color::WHITE }
 }
 
 fn utility_cluster_style(theme: &Theme) -> iced::widget::container::Style {
@@ -108,11 +103,7 @@ fn utility_cluster_style(theme: &Theme) -> iced::widget::container::Style {
         } else {
             Color::from_rgba8(248, 249, 251, 1.0)
         })),
-        border: Border {
-            radius: 999.0.into(),
-            width: 0.0,
-            color: Color::TRANSPARENT,
-        },
+        border: Border { radius: 999.0.into(), width: 0.0, color: Color::TRANSPARENT },
         shadow: iced::Shadow {
             color: Color::BLACK.scale_alpha(if is_dark { 0.12 } else { 0.035 }),
             offset: iced::Vector::new(0.0, 6.0),
@@ -229,7 +220,9 @@ fn send_behavior_icon(behavior: ChatSendBehavior) -> Icon {
 
 fn send_behavior_popover<'a>(selected: ChatSendBehavior) -> Element<'a, Message> {
     let mut list = iced::widget::column![].spacing(4);
-    for behavior in [ChatSendBehavior::Queue, ChatSendBehavior::StopAndSend, ChatSendBehavior::Guide] {
+    for behavior in
+        [ChatSendBehavior::Queue, ChatSendBehavior::StopAndSend, ChatSendBehavior::Guide]
+    {
         let is_selected = behavior == selected;
         let check_icon: Element<'_, Message> = if is_selected {
             icon_svg(Icon::Check, 14.0).into()
@@ -240,8 +233,8 @@ fn send_behavior_popover<'a>(selected: ChatSendBehavior) -> Element<'a, Message>
             icon_svg(send_behavior_icon(behavior), 14.0),
             iced::widget::column![
                 text(behavior.label()).size(13).font(selector_label_font()),
-                text(behavior.description()).size(11).style(|theme: &Theme| iced::widget::text::Style {
-                    color: Some(selector_text_color(theme, false)),
+                text(behavior.description()).size(11).style(|theme: &Theme| {
+                    iced::widget::text::Style { color: Some(selector_text_color(theme, false)) }
                 }),
             ]
             .spacing(2)
@@ -260,11 +253,7 @@ fn send_behavior_popover<'a>(selected: ChatSendBehavior) -> Element<'a, Message>
         list = list.push(button);
     }
 
-    container(list)
-        .style(popover_style)
-        .padding(8)
-        .width(Length::Fixed(320.0))
-        .into()
+    container(list).style(popover_style).padding(8).width(Length::Fixed(320.0)).into()
 }
 
 /// 创建任务池按钮
@@ -384,11 +373,9 @@ pub fn full_access_button(enabled: bool, active: bool) -> Element<'static, Messa
         .align_x(iced::alignment::Horizontal::Center)
         .align_y(iced::alignment::Vertical::Center);
 
-    let access_button = button(button_content)
-        .padding(0)
-        .style(move |theme: &Theme, status| {
-            permission_access_button_style(theme, status, enabled, active)
-        });
+    let access_button = button(button_content).padding(0).style(move |theme: &Theme, status| {
+        permission_access_button_style(theme, status, enabled, active)
+    });
 
     let access_button = if enabled {
         access_button.on_press(Message::Chat(message::ChatMessage::ToggleFullAccessPermission))
@@ -406,9 +393,7 @@ pub fn full_access_button(enabled: bool, active: bool) -> Element<'static, Messa
 
     tooltip(
         access_button,
-        container(text(tooltip_label).size(12))
-            .style(tooltip_dark_style)
-            .padding([6, 8]),
+        container(text(tooltip_label).size(12)).style(tooltip_dark_style).padding([6, 8]),
         Position::Top,
     )
     .into()
@@ -441,11 +426,7 @@ pub fn send_button<'a>(
     is_requesting: bool,
 ) -> Element<'a, Message> {
     let behavior = app.chat_send_behavior;
-    let main_icon = if is_requesting {
-        send_behavior_icon(behavior)
-    } else {
-        Icon::ArrowUp
-    };
+    let main_icon = if is_requesting { send_behavior_icon(behavior) } else { Icon::ArrowUp };
     let main_tooltip = if !can_send {
         "请先输入内容"
     } else if is_requesting {
@@ -483,9 +464,7 @@ pub fn send_button<'a>(
 
     let main_send = tooltip(
         main_send,
-        container(text(main_tooltip).size(12))
-            .style(tooltip_dark_style)
-            .padding([6, 8]),
+        container(text(main_tooltip).size(12)).style(tooltip_dark_style).padding([6, 8]),
         Position::Top,
     );
 
@@ -496,11 +475,7 @@ pub fn send_button<'a>(
     let toggle_btn = button(
         container(
             icon_svg(
-                if app.show_send_mode_popover {
-                    Icon::ChevronUp
-                } else {
-                    Icon::ChevronDown
-                },
+                if app.show_send_mode_popover { Icon::ChevronUp } else { Icon::ChevronDown },
                 SEND_MODE_ICON_SIZE,
             )
             .style(move |theme: &Theme, _| svg::Style {
@@ -518,9 +493,16 @@ pub fn send_button<'a>(
 
     let toggle_btn = tooltip(
         toggle_btn,
-        container(text(if app.show_send_mode_popover { "收起发送方式" } else { "展开发送方式" }).size(12))
-            .style(tooltip_dark_style)
-            .padding([6, 8]),
+        container(
+            text(if app.show_send_mode_popover {
+                "收起发送方式"
+            } else {
+                "展开发送方式"
+            })
+            .size(12),
+        )
+        .style(tooltip_dark_style)
+        .padding([6, 8]),
         Position::Top,
     );
 

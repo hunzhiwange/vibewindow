@@ -277,6 +277,7 @@ pub(super) fn build_skills_settings(
 
     crate::app::state::SkillsSettingsState {
         open_skills_enabled: skills_cfg.open_skills_enabled,
+        directory_provider: skills_cfg.directory_provider,
         open_skills_dir_input: skills_cfg.open_skills_dir.clone().unwrap_or_default(),
         prompt_injection_mode: skills_cfg.prompt_injection_mode,
         active_tab: crate::app::state::SkillsSettingsTab::Skills,
@@ -530,6 +531,7 @@ pub(super) fn build_agents_settings(
                     max_depth: config.max_depth,
                     agentic: config.agentic,
                     allowed_tools: config.allowed_tools,
+                    allowed_skills: config.allowed_skills,
                     options: config.options,
                     permission: config.permission,
                     max_iterations: config.max_iterations,

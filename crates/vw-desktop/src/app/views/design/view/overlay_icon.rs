@@ -188,11 +188,7 @@ pub fn icon_picker_layers<'a>(app: &'a App, state: &'a DesignState) -> Vec<Eleme
     let visible_icons = if require_query {
         Vec::new()
     } else {
-        filtered_icons
-            .iter()
-            .take(OVERLAY_ICON_PICKER_RESULT_LIMIT)
-            .cloned()
-            .collect::<Vec<_>>()
+        filtered_icons.iter().take(OVERLAY_ICON_PICKER_RESULT_LIMIT).cloned().collect::<Vec<_>>()
     };
     let result_summary = if require_query {
         format!("{} 个图标，请先输入名称搜索", active_icons.len())
@@ -337,7 +333,9 @@ pub fn icon_picker_layers<'a>(app: &'a App, state: &'a DesignState) -> Vec<Eleme
                 row![
                     container(
                         scrollable(family_list)
-                            .direction(Direction::Vertical(Scrollbar::new().width(4).scroller_width(4)))
+                            .direction(Direction::Vertical(
+                                Scrollbar::new().width(4).scroller_width(4)
+                            ))
                             .height(Length::Fill)
                     )
                     .width(Length::Fixed(120.0)),

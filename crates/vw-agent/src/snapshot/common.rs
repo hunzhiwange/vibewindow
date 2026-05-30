@@ -96,8 +96,14 @@ pub(super) fn extra_from_output<const N: usize>(
 ) -> Map<String, Value> {
     let mut map = extra(base);
     map.insert("exit_code".to_string(), Value::Number(out.status.code().unwrap_or(-1).into()));
-    map.insert("stdout".to_string(), Value::String(String::from_utf8_lossy(&out.stdout).to_string()));
-    map.insert("stderr".to_string(), Value::String(String::from_utf8_lossy(&out.stderr).to_string()));
+    map.insert(
+        "stdout".to_string(),
+        Value::String(String::from_utf8_lossy(&out.stdout).to_string()),
+    );
+    map.insert(
+        "stderr".to_string(),
+        Value::String(String::from_utf8_lossy(&out.stderr).to_string()),
+    );
     map
 }
 #[cfg(test)]

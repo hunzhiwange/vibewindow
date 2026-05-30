@@ -43,6 +43,9 @@ pub(super) fn task_status_tag_colors(status: crate::app::task::TaskStatus) -> (C
         crate::app::task::TaskStatus::Pending => {
             (Color::from_rgb8(37, 99, 235), Color::from_rgb8(219, 234, 254))
         }
+        crate::app::task::TaskStatus::Planning => {
+            (Color::from_rgb8(79, 70, 229), Color::from_rgb8(224, 231, 255))
+        }
         crate::app::task::TaskStatus::Running => {
             (Color::from_rgb8(147, 51, 234), Color::from_rgb8(243, 232, 255))
         }

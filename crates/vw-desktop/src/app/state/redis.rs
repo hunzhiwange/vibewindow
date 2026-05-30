@@ -94,11 +94,7 @@ pub struct RedisSentinelConfig {
 
 impl Default for RedisSentinelConfig {
     fn default() -> Self {
-        Self {
-            enabled: false,
-            master_name: String::new(),
-            node_password: String::new(),
-        }
+        Self { enabled: false, master_name: String::new(), node_password: String::new() }
     }
 }
 
@@ -232,15 +228,8 @@ pub enum RedisKeyValueKind {
 }
 
 impl RedisKeyValueKind {
-    pub(crate) const ALL: [Self; 7] = [
-        Self::String,
-        Self::Hash,
-        Self::List,
-        Self::Set,
-        Self::Zset,
-        Self::Stream,
-        Self::ReJson,
-    ];
+    pub(crate) const ALL: [Self; 7] =
+        [Self::String, Self::Hash, Self::List, Self::Set, Self::Zset, Self::Stream, Self::ReJson];
 
     pub(crate) fn gateway_value(self) -> &'static str {
         match self {
@@ -457,11 +446,7 @@ pub struct RedisSentinelDraft {
 
 impl Default for RedisSentinelDraft {
     fn default() -> Self {
-        Self {
-            enabled: false,
-            master_name: String::new(),
-            node_password: String::new(),
-        }
+        Self { enabled: false, master_name: String::new(), node_password: String::new() }
     }
 }
 
@@ -533,6 +518,8 @@ pub struct RedisToolUiState {
     pub(crate) show_settings_modal: bool,
     /// 是否显示历史弹窗。
     pub(crate) show_history_modal: bool,
+    /// 是否显示连接配置弹窗。
+    pub(crate) show_connection_modal: bool,
     /// 是否显示新增 Key 弹窗。
     pub(crate) show_create_key_modal: bool,
     /// 顶部通知文本。
@@ -599,6 +586,7 @@ impl RedisToolUiState {
             history_only_write: false,
             show_settings_modal: false,
             show_history_modal: false,
+            show_connection_modal: false,
             show_create_key_modal: false,
             notification: None,
             gateway_loading_label: None,
@@ -623,7 +611,8 @@ impl RedisToolUiState {
         };
 
         if let Some(selected_id) = ui.selected_connection_id.clone()
-            && let Some(connection) = ui.connections.iter().find(|item| item.id == selected_id).cloned()
+            && let Some(connection) =
+                ui.connections.iter().find(|item| item.id == selected_id).cloned()
         {
             ui.load_connection_into_draft(&connection);
             ui.key_browser_pattern = connection.key_pattern.clone();
@@ -665,7 +654,8 @@ impl RedisToolUiState {
         self.sync_connection_scoped_state();
 
         if let Some(selected_id) = self.selected_connection_id.clone()
-            && let Some(connection) = self.connections.iter().find(|item| item.id == selected_id).cloned()
+            && let Some(connection) =
+                self.connections.iter().find(|item| item.id == selected_id).cloned()
         {
             self.load_connection_into_draft(&connection);
             if previous_selected_connection_id.as_deref() != Some(connection.id.as_str())
@@ -718,11 +708,7 @@ impl RedisToolUiState {
         self.key_browser_connection_id = Some(page.connection_id);
         self.key_browser_pattern = page.pattern;
 
-        let mut keys = if append {
-            self.key_browser_items.clone()
-        } else {
-            Vec::new()
-        };
+        let mut keys = if append { self.key_browser_items.clone() } else { Vec::new() };
         keys.extend(page.keys);
         keys.sort();
         keys.dedup();
@@ -801,6 +787,16 @@ impl RedisToolUiState {
         self.show_create_key_modal = false;
     }
 
+    /// 打开连接配置弹窗。
+    pub(crate) fn open_connection_modal(&mut self) {
+        self.show_connection_modal = true;
+    }
+
+    /// 关闭连接配置弹窗。
+    pub(crate) fn close_connection_modal(&mut self) {
+        self.show_connection_modal = false;
+    }
+
     /// 清理运行时数据与命令面板。
     pub(crate) fn clear_runtime_state(&mut self) {
         self.runtime_overview = None;
@@ -831,9 +827,9 @@ impl RedisToolUiState {
 
     /// 当前是否已有匹配所选连接的运行时概览。
     pub(crate) fn has_runtime_for_selected(&self) -> bool {
-        self.runtime_overview
-            .as_ref()
-            .is_some_and(|overview| self.selected_connection_id.as_deref() == Some(overview.connection_id.as_str()))
+        self.runtime_overview.as_ref().is_some_and(|overview| {
+            self.selected_connection_id.as_deref() == Some(overview.connection_id.as_str())
+        })
     }
 
     /// 当前是否已有匹配所选连接的键树数据。
@@ -926,13 +922,13 @@ impl RedisToolUiState {
             self.info_filter.clear();
         }
 
-        let keys_match_selection = self.key_browser_connection_id.as_deref() == self.selected_connection_id.as_deref();
+        let keys_match_selection =
+            self.key_browser_connection_id.as_deref() == self.selected_connection_id.as_deref();
         if !keys_match_selection {
             self.clear_key_browser_state();
         }
     }
 }
-
 
 #[cfg(test)]
 #[path = "redis_tests.rs"]

@@ -5,7 +5,9 @@ use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 
 use super::figma_geometry::read_vector_geometry;
-use super::figma_style::{first_color_string, map_figma_effects, map_figma_paints, map_figma_stroke};
+use super::figma_style::{
+    first_color_string, map_figma_effects, map_figma_paints, map_figma_stroke,
+};
 use super::figma_support::{
     clone_number_or_string, first_visible_paint, has_children, has_styled_frame_characteristics,
     is_image_fill, read_clip_value, read_guid_key_from_object, read_guid_key_from_value,

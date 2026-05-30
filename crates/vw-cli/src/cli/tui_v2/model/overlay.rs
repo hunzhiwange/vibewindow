@@ -283,9 +283,7 @@ impl UiQuestionOverlay {
     /// 当前表面在空提交时的提示文案。
     pub(crate) fn empty_submission_message(&self) -> &'static str {
         match self.surface_kind() {
-            UiQuestionSurfaceKind::Question => {
-                "请至少提供一个回答后再提交。"
-            }
+            UiQuestionSurfaceKind::Question => "请至少提供一个回答后再提交。",
             UiQuestionSurfaceKind::ToolFallback => {
                 "请至少提供一个回答后再提交该工具回退问题，或按 Ctrl+R 明确拒绝。"
             }

@@ -17,10 +17,10 @@
 //! - 一次性查询处理
 //! - 自动化工作流中的代理调用
 
+use crate::app::agent::approval::ApprovalManager;
 use crate::app::agent::config::Config;
 use crate::app::agent::memory::MemoryCategory;
 use crate::app::agent::providers::ChatMessage;
-use crate::app::agent::approval::ApprovalManager;
 use crate::app::agent::security::SecurityPolicy;
 use anyhow::Result;
 use std::sync::Arc;
@@ -137,10 +137,8 @@ pub(crate) async fn run_single_message(
     // - max_tool_iterations: 最大工具调用迭代次数
     // - 后续 None/空参数: 不指定特定约束
     let approval = Some(Arc::new(ApprovalManager::from_config(&config.autonomy)));
-    let security = Some(Arc::new(SecurityPolicy::from_config(
-        &config.autonomy,
-        &config.workspace_dir,
-    )));
+    let security =
+        Some(Arc::new(SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir)));
 
     let response = run_tool_call_loop(
         setup.provider.as_ref(),
@@ -159,7 +157,7 @@ pub(crate) async fn run_single_message(
         None, // 无特定工具约束
         None, // 无特定上下文约束
         security,
-        &[],  // 无额外消息注入
+        &[], // 无额外消息注入
     )
     .await?;
 

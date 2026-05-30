@@ -76,6 +76,22 @@ pub(super) fn small_icon_svg(icon: Icon) -> Svg<'static> {
         .style(|theme: &iced::Theme, _status| svg::Style { color: Some(theme.palette().text) })
 }
 
+pub(super) fn file_tab_icon_svg(icon: Icon) -> Svg<'static> {
+    Svg::new(assets::get_icon(icon)).width(Length::Fixed(14.0)).height(Length::Fixed(14.0)).style(
+        |theme: &iced::Theme, _status| {
+            let palette = theme.extended_palette();
+            let bg = theme.palette().background;
+            let is_dark = bg.r + bg.g + bg.b < 1.5;
+            let color = if is_dark {
+                palette.background.strong.text.scale_alpha(0.78)
+            } else {
+                Color::from_rgba8(71, 85, 105, 0.72)
+            };
+            svg::Style { color: Some(color) }
+        },
+    )
+}
+
 /// 根据文件名获取对应的文件图标
 ///
 /// 通过文件扩展名匹配，返回适合该文件类型的图标。

@@ -1,7 +1,7 @@
 //! 实现 App 上的基础状态辅助方法。
 //! 本模块集中维护展开文件、焦点、提示和轻量 UI 状态，避免主结构体实现过度膨胀。
 
-use iced::Theme;
+use iced::{Color, Theme};
 use std::time::Duration;
 
 use super::state::ExternalOpenApp;
@@ -120,6 +120,14 @@ impl App {
             Screen::CleanerTool => "Vibe Window 氛围视窗 - 垃圾清理工具".to_string(),
             Screen::LargeFileTool => "Vibe Window 氛围视窗 - 大文件查找工具".to_string(),
             Screen::TaskBoard => "Vibe Window 氛围视窗 - 任务看板".to_string(),
+        }
+    }
+
+    pub fn title_for_window(&self, window: iced::window::Id) -> String {
+        if self.task_pet_window_id == Some(window) {
+            "VibeWindow Pet".to_string()
+        } else {
+            self.title()
         }
     }
 
@@ -292,6 +300,24 @@ impl App {
     /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
     pub fn theme(&self) -> Theme {
         self.app_theme.clone()
+    }
+
+    pub fn theme_for_window(&self, window: iced::window::Id) -> Theme {
+        if self.task_pet_window_id == Some(window) {
+            Theme::custom(
+                "VibeWindow Pet",
+                iced::theme::Palette {
+                    background: Color::TRANSPARENT,
+                    text: Color::WHITE,
+                    primary: Color::from_rgb8(88, 122, 255),
+                    success: Color::from_rgb8(70, 208, 120),
+                    warning: Color::from_rgb8(255, 193, 78),
+                    danger: Color::from_rgb8(255, 90, 90),
+                },
+            )
+        } else {
+            self.theme()
+        }
     }
 
     /// 公开函数，执行 effective_editor_theme 对应的应用流程。

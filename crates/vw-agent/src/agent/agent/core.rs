@@ -309,9 +309,10 @@ impl Agent {
     }
 
     pub(super) fn classify_model(&self, user_message: &str) -> String {
-        if let Some(decision) =
-            super::super::classifier::classify_with_decision(&self.classification_config, user_message)
-        {
+        if let Some(decision) = super::super::classifier::classify_with_decision(
+            &self.classification_config,
+            user_message,
+        ) {
             if self.available_hints.contains(&decision.hint) {
                 let resolved_model = self
                     .route_model_by_hint

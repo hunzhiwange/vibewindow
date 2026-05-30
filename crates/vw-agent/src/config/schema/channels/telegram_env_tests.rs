@@ -1,4 +1,4 @@
-use super::{resolve_telegram_allowed_users_env_refs, ChannelsConfig, TelegramConfig};
+use super::{ChannelsConfig, TelegramConfig, resolve_telegram_allowed_users_env_refs};
 
 #[test]
 fn telegram_env_refs_trim_plain_entries_without_env_lookup() {

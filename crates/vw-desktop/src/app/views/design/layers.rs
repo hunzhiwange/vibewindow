@@ -549,9 +549,10 @@ fn render_layer_item<'a>(
 
     if element.kind == "ref"
         && let Some(ref_id) = &element.reference
-            && let Some(ref_el) = doc.find_element(ref_id) {
-                children = &ref_el.children;
-            }
+        && let Some(ref_el) = doc.find_element(ref_id)
+    {
+        children = &ref_el.children;
+    }
 
     let has_children = !children.is_empty();
 

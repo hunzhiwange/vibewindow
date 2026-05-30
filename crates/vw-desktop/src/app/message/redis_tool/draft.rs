@@ -19,16 +19,9 @@ pub(super) fn build_draft_uri(draft: &RedisConnectionDraft) -> Result<String, St
         return Err("请输入 Redis 主机地址".to_string());
     }
 
-    let port = draft
-        .port
-        .trim()
-        .parse::<u16>()
-        .map_err(|_| "端口必须是 1-65535 的整数".to_string())?;
-    let db = draft
-        .db
-        .trim()
-        .parse::<i64>()
-        .map_err(|_| "数据库编号必须是整数".to_string())?;
+    let port =
+        draft.port.trim().parse::<u16>().map_err(|_| "端口必须是 1-65535 的整数".to_string())?;
+    let db = draft.db.trim().parse::<i64>().map_err(|_| "数据库编号必须是整数".to_string())?;
     let scheme = if draft.use_tls { "rediss" } else { "redis" };
     let username = urlencoding::encode(draft.username.trim());
     let password = urlencoding::encode(draft.password.trim());
@@ -67,16 +60,9 @@ pub(super) fn draft_to_upsert_body(
         return Err("请输入 Redis 主机地址".to_string());
     }
 
-    let port = draft
-        .port
-        .trim()
-        .parse::<u16>()
-        .map_err(|_| "端口必须是 1-65535 的整数".to_string())?;
-    let db = draft
-        .db
-        .trim()
-        .parse::<i64>()
-        .map_err(|_| "数据库编号必须是整数".to_string())?;
+    let port =
+        draft.port.trim().parse::<u16>().map_err(|_| "端口必须是 1-65535 的整数".to_string())?;
+    let db = draft.db.trim().parse::<i64>().map_err(|_| "数据库编号必须是整数".to_string())?;
     let key_pattern = if draft.key_pattern.trim().is_empty() {
         "*".to_string()
     } else {
@@ -150,10 +136,7 @@ fn parse_u16_or_default(value: &str, default: u16, label: &str) -> Result<u16, S
         return Ok(default);
     }
 
-    value
-        .trim()
-        .parse::<u16>()
-        .map_err(|_| format!("{label}必须是 1-65535 的整数"))
+    value.trim().parse::<u16>().map_err(|_| format!("{label}必须是 1-65535 的整数"))
 }
 
 fn parse_u32_or_default(value: &str, default: u32, label: &str) -> Result<u32, String> {

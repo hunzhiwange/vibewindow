@@ -44,11 +44,8 @@ pub(super) fn property_update(
     key: String,
     value: serde_json::Value,
 ) -> Task<Message> {
-    let image_tasks = if key == "fill" {
-        load_image_tasks_from_fill_value(&value)
-    } else {
-        Vec::new()
-    };
+    let image_tasks =
+        if key == "fill" { load_image_tasks_from_fill_value(&value) } else { Vec::new() };
     if let Some(state) = app.active_design_state_mut() {
         let doc = &mut state.doc;
         doc.update_property(&id, &key, value);
@@ -82,10 +79,7 @@ pub(super) fn properties_update(
             doc.update_property(&id, key, value.clone());
         }
         reapply_tailwind_if_needed(doc, &id, props.iter().any(|(key, _)| key == "class"));
-        if props
-            .iter()
-            .any(|(key, _)| key == "name" || key == "kind" || key == "reference")
-        {
+        if props.iter().any(|(key, _)| key == "name" || key == "kind" || key == "reference") {
             state.layer_tree_metrics = compute_tree_metrics(&state.doc);
         }
         state.canvas_cache.clear();
@@ -127,4 +121,3 @@ pub(super) fn batch_properties_update(
     }
     Task::batch(image_tasks)
 }
-

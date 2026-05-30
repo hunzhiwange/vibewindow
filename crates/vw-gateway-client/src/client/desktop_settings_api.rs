@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::GatewayClient;
@@ -50,7 +50,7 @@ pub struct ExternalAppsStateDto {
 
 impl GatewayClient {
     /// 读取 Skills 目录页可展示的技能列表。
-    pub async fn desktop_skills_get(
+    pub async fn skills_get(
         &self,
         project_path: Option<&str>,
     ) -> Result<Vec<DesktopSkillCatalogEntryDto>, String> {
@@ -58,11 +58,19 @@ impl GatewayClient {
         if let Some(project_path) = project_path.map(str::trim).filter(|value| !value.is_empty()) {
             query.push(("project_path".to_string(), project_path.to_string()));
         }
-        self.get_json("/v1/desktop/skills", &query).await
+        self.get_json("/v1/skills", &query).await
+    }
+
+    /// 兼容旧桌面调用名；实际请求走前端中立的 `/v1/skills`。
+    pub async fn desktop_skills_get(
+        &self,
+        project_path: Option<&str>,
+    ) -> Result<Vec<DesktopSkillCatalogEntryDto>, String> {
+        self.skills_get(project_path).await
     }
 
     /// 读取指定技能的文档与可执行操作。
-    pub async fn desktop_skill_detail_get(
+    pub async fn skill_detail_get(
         &self,
         project_path: Option<&str>,
         skill_id: &str,
@@ -71,14 +79,23 @@ impl GatewayClient {
         if let Some(project_path) = project_path.map(str::trim).filter(|value| !value.is_empty()) {
             query.push(("project_path".to_string(), project_path.to_string()));
         }
-        self.get_json("/v1/desktop/skills/detail", &query).await
+        self.get_json("/v1/skills/detail", &query).await
+    }
+
+    /// 兼容旧桌面调用名；实际请求走前端中立的 `/v1/skills/detail`。
+    pub async fn desktop_skill_detail_get(
+        &self,
+        project_path: Option<&str>,
+        skill_id: &str,
+    ) -> Result<DesktopSkillDetailDto, String> {
+        self.skill_detail_get(project_path, skill_id).await
     }
 
     /// 在当前项目下创建新的技能 scaffold。
-    pub async fn desktop_skill_create(&self, project_path: &str) -> Result<String, String> {
+    pub async fn skill_create(&self, project_path: &str) -> Result<String, String> {
         let response: DesktopSkillPathDto = self
             .post_json(
-                "/v1/desktop/skills/create",
+                "/v1/skills/create",
                 &[],
                 &serde_json::json!({
                     "project_path": project_path,
@@ -88,15 +105,20 @@ impl GatewayClient {
         Ok(response.path)
     }
 
+    /// 兼容旧桌面调用名；实际请求走前端中立的 `/v1/skills/create`。
+    pub async fn desktop_skill_create(&self, project_path: &str) -> Result<String, String> {
+        self.skill_create(project_path).await
+    }
+
     /// 将内置技能安装到当前项目 skills 目录。
-    pub async fn desktop_skill_install_builtin(
+    pub async fn skill_install_builtin(
         &self,
         project_path: &str,
         skill_id: &str,
     ) -> Result<String, String> {
         let response: DesktopSkillPathDto = self
             .post_json(
-                "/v1/desktop/skills/install-built-in",
+                "/v1/skills/install-built-in",
                 &[],
                 &serde_json::json!({
                     "project_path": project_path,
@@ -107,8 +129,17 @@ impl GatewayClient {
         Ok(response.path)
     }
 
+    /// 兼容旧桌面调用名；实际请求走前端中立的 `/v1/skills/install-built-in`。
+    pub async fn desktop_skill_install_builtin(
+        &self,
+        project_path: &str,
+        skill_id: &str,
+    ) -> Result<String, String> {
+        self.skill_install_builtin(project_path, skill_id).await
+    }
+
     /// 设置本地技能启用状态。
-    pub async fn desktop_skill_set_enabled(
+    pub async fn skill_set_enabled(
         &self,
         project_path: Option<&str>,
         skill_id: &str,
@@ -116,7 +147,7 @@ impl GatewayClient {
     ) -> Result<String, String> {
         let response: DesktopSkillPathDto = self
             .post_json(
-                "/v1/desktop/skills/set-enabled",
+                "/v1/skills/set-enabled",
                 &[],
                 &serde_json::json!({
                     "project_path": project_path,
@@ -128,15 +159,25 @@ impl GatewayClient {
         Ok(response.path)
     }
 
+    /// 兼容旧桌面调用名；实际请求走前端中立的 `/v1/skills/set-enabled`。
+    pub async fn desktop_skill_set_enabled(
+        &self,
+        project_path: Option<&str>,
+        skill_id: &str,
+        enabled: bool,
+    ) -> Result<String, String> {
+        self.skill_set_enabled(project_path, skill_id, enabled).await
+    }
+
     /// 删除本地技能目录。
-    pub async fn desktop_skill_delete(
+    pub async fn skill_delete(
         &self,
         project_path: Option<&str>,
         skill_id: &str,
     ) -> Result<String, String> {
         let response: DesktopSkillPathDto = self
             .post_json(
-                "/v1/desktop/skills/delete",
+                "/v1/skills/delete",
                 &[],
                 &serde_json::json!({
                     "project_path": project_path,
@@ -145,6 +186,15 @@ impl GatewayClient {
             )
             .await?;
         Ok(response.path)
+    }
+
+    /// 兼容旧桌面调用名；实际请求走前端中立的 `/v1/skills/delete`。
+    pub async fn desktop_skill_delete(
+        &self,
+        project_path: Option<&str>,
+        skill_id: &str,
+    ) -> Result<String, String> {
+        self.skill_delete(project_path, skill_id).await
     }
 
     /// 读取桌面端外部应用可用性状态。

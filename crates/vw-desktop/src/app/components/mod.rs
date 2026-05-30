@@ -44,6 +44,9 @@ pub mod status_animation;
 #[path = "status_animation_tests.rs"]
 mod status_animation_tests;
 
+/// 小宠物任务提示组件
+pub mod task_pet;
+
 /// 聊天面板组件
 ///
 /// 核心交互界面，用于用户与 AI 代理之间的对话交互。
@@ -148,7 +151,6 @@ pub mod toast;
 #[path = "toast_tests.rs"]
 mod toast_tests;
 
-
 pub mod text_editor_context_menu;
 #[cfg(test)]
 #[path = "text_editor_context_menu_tests.rs"]
@@ -158,7 +160,6 @@ pub mod text_editor_scroll_panel;
 #[cfg(test)]
 #[path = "text_editor_scroll_panel_tests.rs"]
 mod text_editor_scroll_panel_tests;
-
 
 /// 覆盖层组件
 ///
@@ -186,7 +187,6 @@ pub mod system_settings;
 #[cfg(test)]
 #[path = "system_settings_tests.rs"]
 mod system_settings_tests;
-
 
 /// 系统设置：多代理配置
 ///
@@ -341,7 +341,6 @@ pub mod system_settings_models;
 #[path = "system_settings_models_tests.rs"]
 mod system_settings_models_tests;
 
-
 /// 系统设置：模型路由
 ///
 /// 配置消息模式到 Provider / Model 的路由规则。
@@ -349,7 +348,6 @@ pub mod system_settings_model_routes;
 #[cfg(test)]
 #[path = "system_settings_model_routes_tests.rs"]
 mod system_settings_model_routes_tests;
-
 
 /// 系统设置：查询分类
 ///
@@ -359,7 +357,6 @@ pub mod system_settings_query_classification;
 #[path = "system_settings_query_classification_tests.rs"]
 mod system_settings_query_classification_tests;
 
-
 /// 系统设置：可观测性
 ///
 /// 配置日志、指标、追踪等可观测性功能。
@@ -367,7 +364,6 @@ pub mod system_settings_observability;
 #[cfg(test)]
 #[path = "system_settings_observability_tests.rs"]
 mod system_settings_observability_tests;
-
 
 /// 系统设置：存储配置
 ///
@@ -377,7 +373,6 @@ pub mod system_settings_storage;
 #[path = "system_settings_storage_tests.rs"]
 mod system_settings_storage_tests;
 
-
 /// 系统设置：项目管理
 ///
 /// 管理项目列表、项目配置、工作区设置等。
@@ -385,7 +380,6 @@ pub mod system_settings_projects;
 #[cfg(test)]
 #[path = "system_settings_projects_tests.rs"]
 mod system_settings_projects_tests;
-
 
 /// 系统设置：服务提供商
 ///
@@ -400,7 +394,6 @@ pub mod system_settings_proxy;
 #[path = "system_settings_proxy_tests.rs"]
 mod system_settings_proxy_tests;
 
-
 /// 系统设置：隧道设置
 ///
 /// 配置公网暴露网关时使用的 tunnel provider 与凭据。
@@ -408,7 +401,6 @@ pub mod system_settings_tunnel;
 #[cfg(test)]
 #[path = "system_settings_tunnel_tests.rs"]
 mod system_settings_tunnel_tests;
-
 
 /// 系统设置：Composio 集成
 ///
@@ -436,7 +428,6 @@ pub mod system_settings_reliability;
 #[path = "system_settings_reliability_tests.rs"]
 mod system_settings_reliability_tests;
 
-
 /// 系统设置：多模态配置
 ///
 /// 配置图像输入数量、大小限制与远程抓取开关。
@@ -444,7 +435,6 @@ pub mod system_settings_multimodal;
 #[cfg(test)]
 #[path = "system_settings_multimodal_tests.rs"]
 mod system_settings_multimodal_tests;
-
 
 /// 系统设置：运行时配置
 ///
@@ -454,7 +444,6 @@ pub mod system_settings_runtime;
 #[path = "system_settings_runtime_tests.rs"]
 mod system_settings_runtime_tests;
 
-
 /// 系统设置：研究功能
 ///
 /// 配置代理的研究能力、信息检索、知识库访问等。
@@ -462,7 +451,6 @@ pub mod system_settings_research;
 #[cfg(test)]
 #[path = "system_settings_research_tests.rs"]
 mod system_settings_research_tests;
-
 
 /// 系统设置：Web 搜索
 ///
@@ -472,7 +460,6 @@ pub mod system_settings_web_search;
 #[path = "system_settings_web_search_tests.rs"]
 mod system_settings_web_search_tests;
 
-
 /// 系统设置：调度器配置
 ///
 /// 配置任务调度器、优先级队列、并发控制等。
@@ -481,7 +468,6 @@ pub mod system_settings_scheduler;
 #[path = "system_settings_scheduler_tests.rs"]
 mod system_settings_scheduler_tests;
 
-
 /// 系统设置：SOP 配置
 ///
 /// 配置 SOP 目录、默认执行模式与运行队列限制。
@@ -489,7 +475,6 @@ pub mod system_settings_sop;
 #[cfg(test)]
 #[path = "system_settings_sop_tests.rs"]
 mod system_settings_sop_tests;
-
 
 /// 系统设置：浏览器配置
 ///
@@ -518,7 +503,6 @@ pub mod system_settings_security;
 #[path = "system_settings_security_tests.rs"]
 mod system_settings_security_tests;
 
-
 /// 系统设置：技能管理
 ///
 /// 管理和配置代理可使用的技能和工具集。
@@ -526,7 +510,6 @@ pub mod system_settings_skills;
 #[cfg(test)]
 #[path = "system_settings_skills_tests.rs"]
 mod system_settings_skills_tests;
-
 
 /// 系统设置：语音转写
 ///
@@ -536,7 +519,6 @@ pub mod system_settings_transcription;
 #[path = "system_settings_transcription_tests.rs"]
 mod system_settings_transcription_tests;
 
-
 /// 标签栏组件
 ///
 /// 提供多标签页界面，支持标签切换、关闭、拖拽排序等。
@@ -544,7 +526,6 @@ pub mod tab_bar;
 #[cfg(test)]
 #[path = "tab_bar_tests.rs"]
 mod tab_bar_tests;
-
 
 /// 终端面板组件
 ///
@@ -554,7 +535,6 @@ pub mod terminal_panel;
 #[path = "terminal_panel_tests.rs"]
 mod terminal_panel_tests;
 
-
 /// 顶部工具栏组件
 ///
 /// 应用程序顶部的工具栏，包含窗口控制、全局操作等。
@@ -563,7 +543,6 @@ pub mod top_bar;
 #[path = "top_bar_tests.rs"]
 mod top_bar_tests;
 
-
 /// 通用小部件集合
 ///
 /// 提供按钮、输入框、下拉框等可复用的基础 UI 小部件。
@@ -571,4 +550,3 @@ pub mod widgets;
 #[cfg(test)]
 #[path = "widgets_tests.rs"]
 mod widgets_tests;
-

@@ -131,9 +131,11 @@ impl SecurityPipeline {
             let parsed = parse_command(command);
             let mut report = self.validate(&parsed);
             report.findings.retain(|finding| {
-                finding.message != "Unquoted heredoc marker allows variable expansion inside the heredoc body"
+                finding.message
+                    != "Unquoted heredoc marker allows variable expansion inside the heredoc body"
             });
-            report.blocked = report.findings.iter().any(|finding| finding.severity == Severity::Block);
+            report.blocked =
+                report.findings.iter().any(|finding| finding.severity == Severity::Block);
             return report;
         }
         let parsed = parse_command(command);

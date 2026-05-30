@@ -18,10 +18,10 @@ mod shared_tests;
 
 use super::ChatMessage;
 use super::ClipboardPastePayload;
+use crate::app::{App, Message, message};
 pub(crate) use file_search::{
     FileSearchResult, build_ranked_file_search_entries, ranked_file_search_entries,
 };
-use crate::app::{App, Message, message};
 use iced::Task;
 use std::time::Duration;
 
@@ -42,7 +42,9 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
             context_menus::handle_clipboard_paste_resolved(app, payload)
         }
         ChatMessage::SelectAllInput => context_menus::handle_select_all_input(app),
-        ChatMessage::InputEditorAction(action) => file_search::handle_input_editor_action(app, action),
+        ChatMessage::InputEditorAction(action) => {
+            file_search::handle_input_editor_action(app, action)
+        }
         ChatMessage::MessageEditorAction(idx, action) => {
             editor_actions::handle_message_editor_action(app, idx, action)
         }
@@ -244,6 +246,12 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
                 message::after(Duration::from_millis(16), Message::Chat(ChatMessage::TodoAnimTick))
             }
         }
+        ChatMessage::SetTodoPanelPlacement(placement) => {
+            app.chat_todo_placement = placement;
+            app.chat_todo_expanded = true;
+            app.chat_todo_anim = 1.0;
+            Task::none()
+        }
         ChatMessage::TodoAnimTick => {
             let target = if app.chat_todo_expanded { 1.0 } else { 0.0 };
             let current = app.chat_todo_anim;
@@ -312,7 +320,9 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         ChatMessage::CloseMessageContextMenu => {
             context_menus::handle_close_message_context_menu(app)
         }
-        ChatMessage::ToggleResetMenu(msg_idx) => context_menus::handle_toggle_reset_menu(app, msg_idx),
+        ChatMessage::ToggleResetMenu(msg_idx) => {
+            context_menus::handle_toggle_reset_menu(app, msg_idx)
+        }
         ChatMessage::CloseResetMenu => context_menus::handle_close_reset_menu(app),
         ChatMessage::CopyContextMenuText => context_menus::handle_copy_context_menu_text(app),
         ChatMessage::AppendContextMenuText => context_menus::handle_append_context_menu_text(app),

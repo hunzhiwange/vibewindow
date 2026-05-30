@@ -8,7 +8,8 @@ use iced::widget::{column, row};
 /// 参数由当前工作流状态或编辑草稿提供；返回值是可直接嵌入 iced 视图树的元素。
 #[allow(dead_code)]
 pub(super) fn build_header(state: &WorkflowState) -> Element<'_, Message> {
-    let reload_label = if state.source_path.is_some() { "重新载入" } else { "重新载入示例" };
+    let reload_label =
+        if state.source_path.is_some() { "重新载入" } else { "重新载入示例" };
     let description = if !state.has_apps() {
         String::new()
     } else if let Some(path) = state.source_path.as_deref() {
@@ -133,7 +134,8 @@ pub(super) fn build_header(state: &WorkflowState) -> Element<'_, Message> {
                     let mut summary = column![app_switcher].spacing(8);
 
                     if !description.is_empty() {
-                        summary = summary.push(text(description).size(12).style(settings_muted_text_style));
+                        summary = summary
+                            .push(text(description).size(12).style(settings_muted_text_style));
                     }
 
                     summary
@@ -142,9 +144,7 @@ pub(super) fn build_header(state: &WorkflowState) -> Element<'_, Message> {
             ]
             .spacing(10)
             .width(Length::FillPortion(2)),
-            column![primary_actions, maintenance_actions]
-                .spacing(10)
-                .width(Length::FillPortion(3)),
+            column![primary_actions, maintenance_actions].spacing(10).width(Length::FillPortion(3)),
         ]
         .spacing(18)
         .align_y(Alignment::Start),
@@ -343,14 +343,42 @@ pub(super) fn build_action_menu_overlay(state: &WorkflowState) -> Element<'stati
 
     container(
         column![
-            menu_item(Icon::FileEarmarkPlus, "新增应用", Some(WorkflowMessage::OpenCreateAppEditor)),
+            menu_item(
+                Icon::FileEarmarkPlus,
+                "新增应用",
+                Some(WorkflowMessage::OpenCreateAppEditor)
+            ),
             menu_item(Icon::FolderOpen, "导入 DSL", Some(WorkflowMessage::OpenFile)),
-            menu_item(Icon::Save, "保存 YAML", has_active_app.then_some(WorkflowMessage::SaveActiveApp)),
-            menu_item(Icon::Save, "另存为", has_active_app.then_some(WorkflowMessage::SaveActiveAppAs)),
-            menu_item(Icon::ArrowRepeat, "重新载入", has_active_app.then_some(WorkflowMessage::Reload)),
-            menu_item(Icon::CloudDownload, "导出 PNG", has_active_app.then_some(WorkflowMessage::ExportPng)),
-            menu_item(Icon::CloudDownload, "导出 JPEG", has_active_app.then_some(WorkflowMessage::ExportJpeg)),
-            menu_item(Icon::CloudDownload, "导出 SVG", has_active_app.then_some(WorkflowMessage::ExportSvg)),
+            menu_item(
+                Icon::Save,
+                "保存 YAML",
+                has_active_app.then_some(WorkflowMessage::SaveActiveApp)
+            ),
+            menu_item(
+                Icon::Save,
+                "另存为",
+                has_active_app.then_some(WorkflowMessage::SaveActiveAppAs)
+            ),
+            menu_item(
+                Icon::ArrowRepeat,
+                "重新载入",
+                has_active_app.then_some(WorkflowMessage::Reload)
+            ),
+            menu_item(
+                Icon::CloudDownload,
+                "导出 PNG",
+                has_active_app.then_some(WorkflowMessage::ExportPng)
+            ),
+            menu_item(
+                Icon::CloudDownload,
+                "导出 JPEG",
+                has_active_app.then_some(WorkflowMessage::ExportJpeg)
+            ),
+            menu_item(
+                Icon::CloudDownload,
+                "导出 SVG",
+                has_active_app.then_some(WorkflowMessage::ExportSvg)
+            ),
         ]
         .spacing(2),
     )

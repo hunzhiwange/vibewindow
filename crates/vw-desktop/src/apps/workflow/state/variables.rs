@@ -32,10 +32,8 @@ impl WorkflowState {
     }
 
     pub fn open_edit_environment_variable_editor(&mut self, id: &str) -> Result<(), String> {
-        let variable = self
-            .environment_variable(id)
-            .cloned()
-            .ok_or_else(|| "环境变量不存在".to_string())?;
+        let variable =
+            self.environment_variable(id).cloned().ok_or_else(|| "环境变量不存在".to_string())?;
 
         self.context_menu = None;
         self.action_menu_open = false;
@@ -46,7 +44,9 @@ impl WorkflowState {
             name: variable.name.clone(),
             description: variable.description.clone(),
             value_type: variable.value_type.clone(),
-            raw_value_editor: text_editor::Content::with_text(&value_yaml_for_editor(&variable.value)),
+            raw_value_editor: text_editor::Content::with_text(&value_yaml_for_editor(
+                &variable.value,
+            )),
         });
         Ok(())
     }
@@ -66,10 +66,8 @@ impl WorkflowState {
     }
 
     pub fn open_edit_conversation_variable_editor(&mut self, id: &str) -> Result<(), String> {
-        let variable = self
-            .conversation_variable(id)
-            .cloned()
-            .ok_or_else(|| "会话变量不存在".to_string())?;
+        let variable =
+            self.conversation_variable(id).cloned().ok_or_else(|| "会话变量不存在".to_string())?;
 
         self.context_menu = None;
         self.action_menu_open = false;
@@ -80,7 +78,9 @@ impl WorkflowState {
             name: variable.name.clone(),
             description: variable.description.clone(),
             value_type: variable.value_type.clone(),
-            raw_value_editor: text_editor::Content::with_text(&value_yaml_for_editor(&variable.value)),
+            raw_value_editor: text_editor::Content::with_text(&value_yaml_for_editor(
+                &variable.value,
+            )),
         });
         Ok(())
     }
@@ -151,7 +151,12 @@ impl WorkflowState {
             WorkflowVariableEditorMode::EditEnvironment(id) => {
                 let value_type = normalize_environment_value_type(&value_type_input)?;
                 validate_environment_value(&value_type, &raw_value)?;
-                ensure_unique_variable_name(&self.environment_variables, &name, Some(&id), "环境变量")?;
+                ensure_unique_variable_name(
+                    &self.environment_variables,
+                    &name,
+                    Some(&id),
+                    "环境变量",
+                )?;
 
                 let index = self
                     .environment_variables
@@ -176,12 +181,7 @@ impl WorkflowState {
             }
             WorkflowVariableEditorMode::CreateConversation => {
                 let value_type = normalize_conversation_value_type(&value_type_input)?;
-                ensure_unique_variable_name(
-                    &self.conversation_variables,
-                    &name,
-                    None,
-                    "会话变量",
-                )?;
+                ensure_unique_variable_name(&self.conversation_variables, &name, None, "会话变量")?;
 
                 self.push_undo_snapshot();
                 self.conversation_variables.push(WorkflowConversationVariable {
@@ -233,7 +233,8 @@ impl WorkflowState {
     }
 
     pub fn delete_environment_variable(&mut self, id: &str) -> bool {
-        let Some(index) = self.environment_variables.iter().position(|variable| variable.id == id) else {
+        let Some(index) = self.environment_variables.iter().position(|variable| variable.id == id)
+        else {
             return false;
         };
 
@@ -253,7 +254,8 @@ impl WorkflowState {
     }
 
     pub fn delete_conversation_variable(&mut self, id: &str) -> bool {
-        let Some(index) = self.conversation_variables.iter().position(|variable| variable.id == id) else {
+        let Some(index) = self.conversation_variables.iter().position(|variable| variable.id == id)
+        else {
             return false;
         };
 
@@ -293,8 +295,6 @@ impl WorkflowState {
             index += 1;
         }
     }
-
-
 }
 
 #[cfg(test)]

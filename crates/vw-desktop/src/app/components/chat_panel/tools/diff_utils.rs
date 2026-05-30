@@ -121,9 +121,10 @@ pub fn parse_apply_patch_line_changes(output: &str) -> (usize, usize) {
                     adds = adds.saturating_add(a);
                 }
             } else if let Some(t) = t.strip_prefix('-')
-                && let Ok(d) = t.parse::<usize>() {
-                    dels = dels.saturating_add(d);
-                }
+                && let Ok(d) = t.parse::<usize>()
+            {
+                dels = dels.saturating_add(d);
+            }
         }
     }
 
@@ -235,18 +236,15 @@ pub fn file_preview(tool_name: &str, input: &str, output: &str) -> Option<String
     }
     let vv = serde_json::from_str::<serde_json::Value>(input.trim()).ok()?;
     match tool_name {
-        "write" | "file_write" => {
-            vv.get("content").and_then(|v| v.as_str()).map(|s| s.to_string())
-        }
+        "write" | "file_write" => vv.get("content").and_then(|v| v.as_str()).map(|s| s.to_string()),
         "file_edit" => vv
             .get("new_string")
             .or_else(|| vv.get("newString"))
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
-        "notebook_edit" => vv
-            .get("new_code")
-            .or_else(|| vv.get("newCode"))
-            .and_then(string_or_string_array),
+        "notebook_edit" => {
+            vv.get("new_code").or_else(|| vv.get("newCode")).and_then(string_or_string_array)
+        }
         _ => None,
     }
 }
@@ -275,11 +273,7 @@ pub(super) fn string_or_string_array(value: &serde_json::Value) -> Option<String
                 .filter_map(serde_json::Value::as_str)
                 .map(ToString::to_string)
                 .collect::<Vec<_>>();
-            if lines.is_empty() {
-                None
-            } else {
-                Some(lines.join("\n"))
-            }
+            if lines.is_empty() { None } else { Some(lines.join("\n")) }
         }
         _ => None,
     }

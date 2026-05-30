@@ -81,9 +81,7 @@ pub(crate) fn sanitized_task_board_settings(settings: TaskBoardSettings) -> Task
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
 pub(crate) fn scheduler_tick_interval_secs(app: &crate::app::App) -> u64 {
-    app.task_board_settings
-        .scheduler_tick_interval_seconds
-        .clamp(1, 60)
+    app.task_board_settings.scheduler_tick_interval_seconds.clamp(1, 60)
 }
 
 /// 执行 auto_promote_tick_interval_secs 对应的领域操作。
@@ -91,9 +89,7 @@ pub(crate) fn scheduler_tick_interval_secs(app: &crate::app::App) -> u64 {
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
 pub(crate) fn auto_promote_tick_interval_secs(app: &crate::app::App) -> u64 {
-    app.task_board_settings
-        .auto_promote_tick_interval_seconds
-        .clamp(1, 3600)
+    app.task_board_settings.auto_promote_tick_interval_seconds.clamp(1, 3600)
 }
 
 /// 执行 pr_submitted_stall_timeout_secs 对应的领域操作。
@@ -101,9 +97,7 @@ pub(crate) fn auto_promote_tick_interval_secs(app: &crate::app::App) -> u64 {
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
 pub(crate) fn pr_submitted_stall_timeout_secs(app: &crate::app::App) -> u64 {
-    app.task_board_settings
-        .pr_submitted_stall_timeout_seconds
-        .clamp(5, 3600) as u64
+    app.task_board_settings.pr_submitted_stall_timeout_seconds.clamp(5, 3600) as u64
 }
 
 /// 执行 should_recycle_worktree_on_task_finish 对应的领域操作。
@@ -118,9 +112,7 @@ pub(crate) fn should_recycle_worktree_on_task_finish(app: &crate::app::App) -> b
 ///
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-pub(crate) fn schedule_scheduler_tick(
-    app: &crate::app::App,
-) -> iced::Task<crate::app::Message> {
+pub(crate) fn schedule_scheduler_tick(app: &crate::app::App) -> iced::Task<crate::app::Message> {
     crate::app::message::after(
         std::time::Duration::from_secs(scheduler_tick_interval_secs(app)),
         crate::app::Message::TaskBoard(TaskBoardMessage::ExecutionTick),

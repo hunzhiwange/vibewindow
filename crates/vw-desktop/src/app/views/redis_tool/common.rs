@@ -35,15 +35,16 @@ pub(super) fn build_status_badge<'a>(app: &'a App) -> Element<'a, Message> {
         Idle,
     }
 
-    let (label, tone): (String, StatusTone) = if let Some(message) = &app.redis_tool.gateway_loading_label {
-        (message.as_str().to_owned(), StatusTone::Loading)
-    } else if let Some(error) = &app.redis_tool.gateway_error {
-        (error.as_str().to_owned(), StatusTone::Error)
-    } else if let Some(message) = &app.redis_tool.notification {
-        (message.as_str().to_owned(), StatusTone::Success)
-    } else {
-        ("已就绪".to_string(), StatusTone::Idle)
-    };
+    let (label, tone): (String, StatusTone) =
+        if let Some(message) = &app.redis_tool.gateway_loading_label {
+            (message.as_str().to_owned(), StatusTone::Loading)
+        } else if let Some(error) = &app.redis_tool.gateway_error {
+            (error.as_str().to_owned(), StatusTone::Error)
+        } else if let Some(message) = &app.redis_tool.notification {
+            (message.as_str().to_owned(), StatusTone::Success)
+        } else {
+            ("已就绪".to_string(), StatusTone::Idle)
+        };
 
     container(text(label).size(12).style(move |theme: &Theme| iced::widget::text::Style {
         color: Some(match tone {
@@ -157,15 +158,9 @@ pub(super) fn build_detail_action_button<'a>(
 ) -> Element<'a, Message> {
     let action = button(text(label).size(13)).padding([10, 14]);
     if primary {
-        action
-            .on_press_maybe(enabled.then_some(message))
-            .style(primary_action_btn_style)
-            .into()
+        action.on_press_maybe(enabled.then_some(message)).style(primary_action_btn_style).into()
     } else {
-        action
-            .on_press_maybe(enabled.then_some(message))
-            .style(rounded_action_btn_style)
-            .into()
+        action.on_press_maybe(enabled.then_some(message)).style(rounded_action_btn_style).into()
     }
 }
 
@@ -261,16 +256,10 @@ pub(super) fn form_row<'a>(
     control: Element<'a, Message>,
     compact: bool,
 ) -> Element<'a, Message> {
-    let meta = column![
-        text(label).size(13),
-        text(description).size(12).style(settings_muted_text_style),
-    ]
-    .spacing(4)
-    .width(if compact {
-        Length::Fill
-    } else {
-        Length::Fixed(SETTINGS_LABEL_WIDTH)
-    });
+    let meta =
+        column![text(label).size(13), text(description).size(12).style(settings_muted_text_style),]
+            .spacing(4)
+            .width(if compact { Length::Fill } else { Length::Fixed(SETTINGS_LABEL_WIDTH) });
 
     if compact {
         column![meta, control].spacing(10).padding([12, 0]).into()
@@ -318,11 +307,8 @@ pub(super) fn overview_row<'a>(label: &'a str, value: impl ToString) -> Element<
 /// 此函数不返回 `Result`；不可用状态会通过空视图、禁用控件或回退文案表达。
 pub(super) fn empty_sidebar_hint<'a>(title: &'a str, description: &'a str) -> Element<'a, Message> {
     container(
-        column![
-            text(title).size(14),
-            text(description).size(12).style(settings_muted_text_style),
-        ]
-        .spacing(6),
+        column![text(title).size(14), text(description).size(12).style(settings_muted_text_style),]
+            .spacing(6),
     )
     .padding([20, 16])
     .width(Length::Fill)
@@ -348,9 +334,7 @@ pub(super) fn connection_item_style(
     let palette = theme.extended_palette();
     if selected {
         iced::widget::container::Style {
-            background: Some(Background::Color(
-                palette.primary.base.color.scale_alpha(0.14),
-            )),
+            background: Some(Background::Color(palette.primary.base.color.scale_alpha(0.14))),
             border: Border {
                 width: 1.0,
                 color: palette.primary.base.color.scale_alpha(0.34),
@@ -457,21 +441,17 @@ where
     let widths = [110.0, 150.0, 120.0, 1.0, 90.0];
 
     for (index, cell) in cells.into_iter().enumerate() {
-        let cell_text = text(cell.to_string())
-            .size(if header { 12 } else { 11 })
-            .style(move |theme: &Theme| iced::widget::text::Style {
+        let cell_text = text(cell.to_string()).size(if header { 12 } else { 11 }).style(
+            move |theme: &Theme| iced::widget::text::Style {
                 color: Some(if header {
                     theme.palette().text.scale_alpha(0.76)
                 } else {
                     theme.palette().text.scale_alpha(0.9)
                 }),
-            });
+            },
+        );
 
-        let width = if index == 3 {
-            Length::Fill
-        } else {
-            Length::Fixed(widths[index])
-        };
+        let width = if index == 3 { Length::Fill } else { Length::Fixed(widths[index]) };
         row_widget = row_widget.push(container(cell_text).width(width));
     }
 
@@ -607,11 +587,7 @@ pub(super) fn connection_mode_label(draft: &RedisConnectionDraft) -> String {
         modes.push("Readonly");
     }
 
-    if modes.is_empty() {
-        "直连".to_string()
-    } else {
-        modes.join(" / ")
-    }
+    if modes.is_empty() { "直连".to_string() } else { modes.join(" / ") }
 }
 
 /// 构建 Redis 工具界面。
@@ -645,11 +621,7 @@ pub(super) fn enabled_feature_summary(draft: &RedisConnectionDraft) -> String {
         features.push("Readonly");
     }
 
-    if features.is_empty() {
-        "基础直连".to_string()
-    } else {
-        features.join(" / ")
-    }
+    if features.is_empty() { "基础直连".to_string() } else { features.join(" / ") }
 }
 
 /// 构建 Redis 工具界面。
@@ -745,11 +717,7 @@ pub(super) fn connection_mode_summary(connection: &RedisConnectionConfig) -> Str
         modes.push("Readonly");
     }
 
-    if modes.is_empty() {
-        "基础直连".to_string()
-    } else {
-        modes.join(" / ")
-    }
+    if modes.is_empty() { "基础直连".to_string() } else { modes.join(" / ") }
 }
 
 /// 格式化展示值。
@@ -788,11 +756,7 @@ fn masked_direct_uri(draft: &RedisConnectionDraft) -> String {
 }
 
 fn fallback_value<'a>(value: &'a str, fallback: &'a str) -> &'a str {
-    if value.trim().is_empty() {
-        fallback
-    } else {
-        value.trim()
-    }
+    if value.trim().is_empty() { fallback } else { value.trim() }
 }
 
 #[cfg(test)]

@@ -5,8 +5,8 @@
 //! glob 和白名单做局部调整。
 
 use glob::Pattern;
-use std::sync::LazyLock;
 use std::path::MAIN_SEPARATOR;
+use std::sync::LazyLock;
 
 #[cfg(test)]
 #[path = "ignore_tests.rs"]

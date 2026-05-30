@@ -1,10 +1,15 @@
-use super::common::{JsonMap, OperationAck, PaginatedResponse, PaginationRequest, StringMap, TimestampMs};
+use super::common::{
+    JsonMap, OperationAck, PaginatedResponse, PaginationRequest, StringMap, TimestampMs,
+};
 use serde_json::json;
 
 #[test]
 fn common_types_serialize_with_expected_optional_fields() {
     assert_eq!(serde_json::to_value(TimestampMs(5)).expect("timestamp"), json!(5));
-    assert_eq!(serde_json::to_value(OperationAck { ok: true, message: None }).expect("ack"), json!({"ok": true}));
+    assert_eq!(
+        serde_json::to_value(OperationAck { ok: true, message: None }).expect("ack"),
+        json!({"ok": true})
+    );
     assert_eq!(
         serde_json::to_value(PaginationRequest { cursor: None, limit: Some(10) }).expect("page"),
         json!({"limit": 10})

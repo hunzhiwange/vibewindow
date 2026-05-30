@@ -30,8 +30,6 @@ fn catalog_tests_keeps_planned_coverage_targets() {
         "catalog_skill_initials",
         "section_copy",
         "source_label",
-        "compact_source_path",
-        "source_path_text",
         "catalog_item",
         "catalog_group_section",
     ] {

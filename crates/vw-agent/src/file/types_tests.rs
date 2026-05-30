@@ -22,5 +22,8 @@ fn file_types_serialize_with_expected_names() {
     assert_eq!(serde_json::to_value(node).expect("serialize")["type"], "directory");
     assert_eq!(serde_json::to_value(content).expect("serialize")["type"], "text");
     assert!(Error::AccessDenied("/root".to_string()).to_string().contains("/root"));
-    assert_eq!(SearchInput { query: "q".to_string(), limit: 1, dirs: false, r#type: None }.limit, 1);
+    assert_eq!(
+        SearchInput { query: "q".to_string(), limit: 1, dirs: false, r#type: None }.limit,
+        1
+    );
 }

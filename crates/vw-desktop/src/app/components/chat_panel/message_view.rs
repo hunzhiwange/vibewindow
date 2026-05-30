@@ -54,16 +54,19 @@ use crate::app::components::input_panel::attachment::{
 use crate::app::components::overlays::PointBelowOverlay;
 use crate::app::components::widgets::RightClickArea;
 use crate::app::models::{self, ChatRole};
-use crate::app::{message, App, Message};
+use crate::app::{App, Message, message};
 
 use self::assistant_body::render_assistant_body;
 use self::render_cache::resolve_visible_text_and_copy_hash;
 use self::styles::{
+    COMPACT_ACTION_BUTTON_RADIUS, COMPACT_ACTION_BUTTON_SIZE, MESSAGE_META_TEXT_SIZE,
     is_dark_theme, message_meta_text_color, neutral_card_surface, subtle_card_shadow,
-    user_bubble_surface, COMPACT_ACTION_BUTTON_RADIUS, COMPACT_ACTION_BUTTON_SIZE,
-    MESSAGE_META_TEXT_SIZE,
+    user_bubble_surface,
 };
-use self::text::{message_editor_body, message_text_body, MAX_EDITOR_CHARS};
+use self::text::{
+    MAX_EDITOR_CHARS, message_editor_body, message_text_body, session_control_selection_card,
+    split_session_control_selection,
+};
 
 use super::tool_text_support::{
     chat_text_font, is_safe_for_text_editor, selected_chat_text_for_message,
@@ -74,16 +77,17 @@ use super::tools::{
 };
 use super::utils::{
     chat_context_menu, chat_context_target_key, chat_secondary_muted_text_color,
-    copy_tooltip_content, icon_svg, is_recent_copy, normalize_display_text,
+    chat_secondary_text_color, copy_tooltip_content, icon_svg, is_recent_copy,
+    normalize_display_text,
 };
 
+pub(crate) use self::assistant_body::deduped_tool_last_indices;
+#[cfg(test)]
+pub(crate) use self::assistant_body::should_highlight_pending_permission_tool;
 pub(crate) use self::parse::hash_chat_content;
 pub(crate) use self::render_cache::{
     assistant_render_blocks, build_render_cache_entry, effective_assistant_render_cache,
 };
-pub(crate) use self::assistant_body::deduped_tool_last_indices;
-#[cfg(test)]
-pub(crate) use self::assistant_body::should_highlight_pending_permission_tool;
 pub(crate) use self::text::estimate_message_height_rough;
 #[cfg(test)]
 pub(crate) use self::text::should_prefer_plain_think_body;
@@ -92,11 +96,13 @@ pub(crate) use self::think_block::{
     should_render_think_block, think_block_default_expanded, think_block_resolved_expanded,
 };
 #[cfg(test)]
+pub(crate) use self::tool_summaries::explore_summary_text_blocks;
+#[cfg(test)]
 pub(crate) use self::tool_summaries::summarize_explore_items;
 #[cfg(test)]
-pub(crate) use self::tool_summaries::trailing_tool_tail_text_source_block_idx;
-#[cfg(test)]
 pub(crate) use self::tool_summaries::tool_card_text_blocks;
+#[cfg(test)]
+pub(crate) use self::tool_summaries::trailing_tool_tail_text_source_block_idx;
 
 /// 渲染消息视图（主入口函数）
 ///
@@ -129,11 +135,11 @@ pub fn message_view<'a>(
     let (assistant_blocks, has_special_assistant_blocks) =
         assistant_render_blocks(content, render_cache.as_ref(), false);
     let assistant_blocks = assistant_blocks.into_owned();
-    let assistant_has_tool_blocks = assistant_blocks
-        .iter()
-        .any(|block| matches!(block, models::ParsedChatBlock::Tool { .. }));
+    let assistant_has_tool_blocks =
+        assistant_blocks.iter().any(|block| matches!(block, models::ParsedChatBlock::Tool { .. }));
     let (cleaned_attachment_text, attachment_items) = parse_attachment_markers(content);
-    let prefer_attachment_card_render = !attachment_items.is_empty() && !has_special_assistant_blocks;
+    let prefer_attachment_card_render =
+        !attachment_items.is_empty() && !has_special_assistant_blocks;
 
     let recently_copied = is_recent_copy(app, visible_content_hash);
     let copy_icon = if recently_copied { Icon::Check } else { Icon::Copy };
@@ -145,10 +151,9 @@ pub fn message_view<'a>(
     let message_id = app.chat_message_ids.get(idx).and_then(|message_id| message_id.as_deref());
     let supports_permission_badge =
         role == ChatRole::Tool || (role == ChatRole::Assistant && assistant_has_tool_blocks);
-    let is_permission_target = pending_permission_targets_message(
-        app.permission_modal_request.as_ref(),
-        message_id,
-    ) && supports_permission_badge;
+    let is_permission_target =
+        pending_permission_targets_message(app.permission_modal_request.as_ref(), message_id)
+            && supports_permission_badge;
     let matched_permission_request = supports_permission_badge
         .then(|| pending_permission_request_for_message(&app.permission_modal_requests, message_id))
         .flatten();
@@ -229,30 +234,31 @@ pub fn message_view<'a>(
                            highlighted: bool,
                            compact_square: bool|
      -> Element<'a, Message> {
-        let icon_size = if compact_square { 7.5 } else { 11.0 };
+        let icon_size = if compact_square { 7.5 } else { 12.0 };
         let btn = button(
-            icon_svg(icon)
-                .width(Length::Fixed(icon_size))
-                .height(Length::Fixed(icon_size))
-                .style(move |theme: &Theme, _status| svg::Style {
+            icon_svg(icon).width(Length::Fixed(icon_size)).height(Length::Fixed(icon_size)).style(
+                move |theme: &Theme, _status| svg::Style {
                     color: Some(if highlighted {
                         theme.extended_palette().success.base.color
-                    } else {
+                    } else if compact_square {
                         chat_secondary_muted_text_color(theme)
+                    } else {
+                        chat_secondary_text_color(theme)
                     }),
-                }),
+                },
+            ),
         )
         .width(if compact_square {
             Length::Fixed(COMPACT_ACTION_BUTTON_SIZE)
         } else {
-            Length::Shrink
+            Length::Fixed(24.0)
         })
         .height(if compact_square {
             Length::Fixed(COMPACT_ACTION_BUTTON_SIZE)
         } else {
-            Length::Shrink
+            Length::Fixed(22.0)
         })
-        .padding(if compact_square { 0 } else { 2 })
+        .padding(0)
         .style(move |theme: &Theme, status| {
             let (bg, show_bg) = match status {
                 iced::widget::button::Status::Hovered => {
@@ -269,7 +275,14 @@ pub fn message_view<'a>(
                         (Color::from_rgb8(0xE8, 0xEC, 0xF1), true)
                     }
                 }
-                _ => (Color::TRANSPARENT, false),
+                _ => {
+                    if compact_square {
+                        (Color::TRANSPARENT, false)
+                    } else {
+                        let (idle_bg, _) = neutral_card_surface(theme);
+                        (idle_bg, true)
+                    }
+                }
             };
             iced::widget::button::Style {
                 background: if show_bg { Some(Background::Color(bg)) } else { None },
@@ -283,7 +296,7 @@ pub fn message_view<'a>(
                     radius: if compact_square {
                         COMPACT_ACTION_BUTTON_RADIUS.into()
                     } else {
-                        999.0.into()
+                        8.0.into()
                     },
                 },
                 text_color: chat_secondary_muted_text_color(theme),
@@ -296,39 +309,37 @@ pub fn message_view<'a>(
     };
 
     let approval_badge_view = |label: String, on_press: Option<Message>| -> Element<'a, Message> {
-        let badge = container(
-            iced_text(label)
-                .size(11)
-                .font(chat_text_font())
-                .style(|theme: &Theme| iced::widget::text::Style {
+        let badge =
+            container(iced_text(label).size(11).font(chat_text_font()).style(|theme: &Theme| {
+                iced::widget::text::Style {
                     color: Some(if is_dark_theme(theme) {
                         Color::from_rgba8(255, 235, 177, 0.96)
                     } else {
                         Color::from_rgba8(142, 103, 16, 1.0)
                     }),
-                }),
-        )
-        .padding([2, 8])
-        .style(|theme: &Theme| {
-            let is_dark = is_dark_theme(theme);
-            iced::widget::container::Style {
-                background: Some(Background::Color(if is_dark {
-                    Color::from_rgba8(79, 62, 21, 0.72)
-                } else {
-                    Color::from_rgba8(255, 245, 213, 1.0)
-                })),
-                border: Border {
-                    width: 1.0,
-                    color: if is_dark {
-                        Color::from_rgba8(168, 132, 45, 0.72)
+                }
+            }))
+            .padding([2, 8])
+            .style(|theme: &Theme| {
+                let is_dark = is_dark_theme(theme);
+                iced::widget::container::Style {
+                    background: Some(Background::Color(if is_dark {
+                        Color::from_rgba8(79, 62, 21, 0.72)
                     } else {
-                        Color::from_rgba8(222, 187, 102, 0.92)
+                        Color::from_rgba8(255, 245, 213, 1.0)
+                    })),
+                    border: Border {
+                        width: 1.0,
+                        color: if is_dark {
+                            Color::from_rgba8(168, 132, 45, 0.72)
+                        } else {
+                            Color::from_rgba8(222, 187, 102, 0.92)
+                        },
+                        radius: 999.0.into(),
                     },
-                    radius: 999.0.into(),
-                },
-                ..Default::default()
-            }
-        });
+                    ..Default::default()
+                }
+            });
 
         if let Some(on_press) = on_press {
             button(badge)
@@ -382,9 +393,13 @@ pub fn message_view<'a>(
                 body = body.push(view);
             }
         } else {
-            let text = normalize_display_text(cleaned_attachment_text.trim()).into_owned();
+            let (text, selection) = split_session_control_selection(cleaned_attachment_text.trim());
+            let text = normalize_display_text(text.trim()).into_owned();
             if !text.is_empty() {
                 body = body.push(message_text_body(text, true));
+            }
+            if let Some(selection) = selection {
+                body = body.push(session_control_selection_card(selection));
             }
         }
         body
@@ -392,18 +407,28 @@ pub fn message_view<'a>(
     let body = if prefer_attachment_card_render {
         let mut attachment_body = column![].spacing(8);
         if !attachment_items.is_empty() {
-            attachment_body = attachment_body.push(attachment_preview_strip(attachment_items.clone()));
+            attachment_body =
+                attachment_body.push(attachment_preview_strip(attachment_items.clone()));
         }
-        let text = normalize_display_text(cleaned_attachment_text.trim()).into_owned();
+        let (text, selection) = split_session_control_selection(cleaned_attachment_text.trim());
+        let text = normalize_display_text(text.trim()).into_owned();
         if !text.is_empty() {
             attachment_body = attachment_body.push(message_text_body(text, true));
+        }
+        if let Some(selection) = selection {
+            attachment_body = attachment_body.push(session_control_selection_card(selection));
         }
         attachment_body
     } else if !attachment_items.is_empty() && !assistant_like {
-        let mut attachment_body = column![attachment_preview_strip(attachment_items.clone())].spacing(8);
-        let text = normalize_display_text(cleaned_attachment_text.trim()).into_owned();
+        let mut attachment_body =
+            column![attachment_preview_strip(attachment_items.clone())].spacing(8);
+        let (text, selection) = split_session_control_selection(cleaned_attachment_text.trim());
+        let text = normalize_display_text(text.trim()).into_owned();
         if !text.is_empty() {
             attachment_body = attachment_body.push(message_text_body(text, true));
+        }
+        if let Some(selection) = selection {
+            attachment_body = attachment_body.push(session_control_selection_card(selection));
         }
         attachment_body
     } else {
@@ -482,17 +507,17 @@ pub fn message_view<'a>(
     .preserve_on_right_click()
     .into();
 
-    let bubble_inner: Element<'a, Message> = if let Some(menu) = chat_context_menu(context_menu_open)
-    {
-        PointBelowOverlay::new(bubble_inner, menu)
-            .show(true)
-            .anchor(iced::Point::new(context_menu_anchor.0, context_menu_anchor.1))
-            .gap(0.0)
-            .on_close(Message::Chat(message::ChatMessage::CloseMessageContextMenu))
-            .into()
-    } else {
-        bubble_inner
-    };
+    let bubble_inner: Element<'a, Message> =
+        if let Some(menu) = chat_context_menu(context_menu_open) {
+            PointBelowOverlay::new(bubble_inner, menu)
+                .show(true)
+                .anchor(iced::Point::new(context_menu_anchor.0, context_menu_anchor.1))
+                .gap(0.0)
+                .on_close(Message::Chat(message::ChatMessage::CloseMessageContextMenu))
+                .into()
+        } else {
+            bubble_inner
+        };
 
     let footer_element: Element<'a, Message> = {
         let mut footer_col = column![].spacing(6);
@@ -528,7 +553,7 @@ pub fn message_view<'a>(
                 .size(MESSAGE_META_TEXT_SIZE)
                 .font(chat_text_font())
                 .style(move |theme: &Theme| iced::widget::text::Style {
-                    color: Some(message_meta_text_color(theme, is_user))
+                    color: Some(message_meta_text_color(theme, is_user)),
                 });
             let approval_badge: Option<Element<'a, Message>> = permission_badge
                 .clone()

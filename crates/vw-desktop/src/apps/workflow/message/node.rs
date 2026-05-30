@@ -120,8 +120,7 @@ pub(super) fn handle(app: &mut App, message: WorkflowMessage) -> Option<Task<Mes
             Task::none()
         }
         WorkflowMessage::NodeEditorStartVariableEditorDefaultAction(action) => {
-            app.workflow_state
-                .node_editor_start_variable_editor_default_action(action);
+            app.workflow_state.node_editor_start_variable_editor_default_action(action);
             Task::none()
         }
         WorkflowMessage::NodeEditorStartVariableEditorMaxLengthChanged(value) => {
@@ -159,7 +158,9 @@ pub(super) fn handle(app: &mut App, message: WorkflowMessage) -> Option<Task<Mes
                     async { Err("Web 平台暂不支持选择默认文件".to_string()) },
                     |res| {
                         Message::WorkflowTool(
-                            WorkflowMessage::NodeEditorStartVariableEditorPickDefaultFileFinished(res),
+                            WorkflowMessage::NodeEditorStartVariableEditorPickDefaultFileFinished(
+                                res,
+                            ),
                         )
                     },
                 )
@@ -174,7 +175,9 @@ pub(super) fn handle(app: &mut App, message: WorkflowMessage) -> Option<Task<Mes
                     },
                     |res| {
                         Message::WorkflowTool(
-                            WorkflowMessage::NodeEditorStartVariableEditorPickDefaultFileFinished(res),
+                            WorkflowMessage::NodeEditorStartVariableEditorPickDefaultFileFinished(
+                                res,
+                            ),
                         )
                     },
                 )
@@ -196,29 +199,24 @@ pub(super) fn handle(app: &mut App, message: WorkflowMessage) -> Option<Task<Mes
             Task::none()
         }
         WorkflowMessage::NodeEditorStartVariableEditorRemoveDefaultFile(index) => {
-            app.workflow_state
-                .remove_node_editor_start_variable_editor_default_file(index);
+            app.workflow_state.remove_node_editor_start_variable_editor_default_file(index);
             Task::none()
         }
         WorkflowMessage::NodeEditorStartVariableEditorOpenDefaultFileUrlInput => {
-            app.workflow_state
-                .open_node_editor_start_variable_editor_default_file_url_input();
+            app.workflow_state.open_node_editor_start_variable_editor_default_file_url_input();
             Task::none()
         }
         WorkflowMessage::NodeEditorStartVariableEditorCloseDefaultFileUrlInput => {
-            app.workflow_state
-                .close_node_editor_start_variable_editor_default_file_url_input();
+            app.workflow_state.close_node_editor_start_variable_editor_default_file_url_input();
             Task::none()
         }
         WorkflowMessage::NodeEditorStartVariableEditorDefaultFileUrlChanged(value) => {
-            app.workflow_state
-                .set_node_editor_start_variable_editor_default_file_url_input(value);
+            app.workflow_state.set_node_editor_start_variable_editor_default_file_url_input(value);
             Task::none()
         }
         WorkflowMessage::NodeEditorStartVariableEditorSubmitDefaultFileUrl => {
-            if let Err(error) = app
-                .workflow_state
-                .submit_node_editor_start_variable_editor_default_file_url()
+            if let Err(error) =
+                app.workflow_state.submit_node_editor_start_variable_editor_default_file_url()
             {
                 app.workflow_state.set_error(error);
             }
@@ -257,12 +255,18 @@ pub(super) fn handle(app: &mut App, message: WorkflowMessage) -> Option<Task<Mes
             Task::none()
         }
         WorkflowMessage::InsertDownstreamNode(source_node_id, block_type) => {
-            if let Err(error) = app.workflow_state.insert_downstream_node(&source_node_id, &block_type) {
+            if let Err(error) =
+                app.workflow_state.insert_downstream_node(&source_node_id, &block_type)
+            {
                 app.workflow_state.set_error(error);
             }
             Task::none()
         }
-        WorkflowMessage::InsertDownstreamNodeFromHandle(source_node_id, source_handle_id, block_type) => {
+        WorkflowMessage::InsertDownstreamNodeFromHandle(
+            source_node_id,
+            source_handle_id,
+            block_type,
+        ) => {
             if let Err(error) = app.workflow_state.insert_downstream_node_from_handle(
                 &source_node_id,
                 &source_handle_id,
@@ -292,20 +296,52 @@ pub(super) fn handle(app: &mut App, message: WorkflowMessage) -> Option<Task<Mes
             app.workflow_state.remove_node_editor_if_else_condition(case_index, condition_index);
             Task::none()
         }
-        WorkflowMessage::NodeEditorIfElseConditionSelectorChanged(case_index, condition_index, value) => {
-            app.workflow_state.set_node_editor_if_else_condition_selector(case_index, condition_index, value);
+        WorkflowMessage::NodeEditorIfElseConditionSelectorChanged(
+            case_index,
+            condition_index,
+            value,
+        ) => {
+            app.workflow_state.set_node_editor_if_else_condition_selector(
+                case_index,
+                condition_index,
+                value,
+            );
             Task::none()
         }
-        WorkflowMessage::NodeEditorIfElseConditionOperatorChanged(case_index, condition_index, value) => {
-            app.workflow_state.set_node_editor_if_else_condition_operator(case_index, condition_index, value);
+        WorkflowMessage::NodeEditorIfElseConditionOperatorChanged(
+            case_index,
+            condition_index,
+            value,
+        ) => {
+            app.workflow_state.set_node_editor_if_else_condition_operator(
+                case_index,
+                condition_index,
+                value,
+            );
             Task::none()
         }
-        WorkflowMessage::NodeEditorIfElseConditionValueChanged(case_index, condition_index, value) => {
-            app.workflow_state.set_node_editor_if_else_condition_value(case_index, condition_index, value);
+        WorkflowMessage::NodeEditorIfElseConditionValueChanged(
+            case_index,
+            condition_index,
+            value,
+        ) => {
+            app.workflow_state.set_node_editor_if_else_condition_value(
+                case_index,
+                condition_index,
+                value,
+            );
             Task::none()
         }
-        WorkflowMessage::NodeEditorIfElseConditionVarTypeChanged(case_index, condition_index, value) => {
-            app.workflow_state.set_node_editor_if_else_condition_var_type(case_index, condition_index, value);
+        WorkflowMessage::NodeEditorIfElseConditionVarTypeChanged(
+            case_index,
+            condition_index,
+            value,
+        ) => {
+            app.workflow_state.set_node_editor_if_else_condition_var_type(
+                case_index,
+                condition_index,
+                value,
+            );
             Task::none()
         }
         WorkflowMessage::NodeEditorKnowledgeQuerySelectorChanged(value) => {
@@ -481,11 +517,14 @@ pub(super) fn handle(app: &mut App, message: WorkflowMessage) -> Option<Task<Mes
             Task::none()
         }
         WorkflowMessage::NodeEditorCodeInputVariableNameChanged(index, value) => {
-            app.workflow_state
-                .set_node_editor_code_input_variable_name(index, value);
+            app.workflow_state.set_node_editor_code_input_variable_name(index, value);
             Task::none()
         }
-        WorkflowMessage::NodeEditorCodeInputVariableSelectorChanged(index, selector, value_type) => {
+        WorkflowMessage::NodeEditorCodeInputVariableSelectorChanged(
+            index,
+            selector,
+            value_type,
+        ) => {
             app.workflow_state
                 .set_node_editor_code_input_variable_selector(index, selector, value_type);
             Task::none()

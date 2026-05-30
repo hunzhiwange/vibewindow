@@ -43,10 +43,7 @@ use super::{
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
 pub(super) fn is_plan_mode_tool(tool_name: &str) -> bool {
-    matches!(
-        tool_name,
-        "enter_plan_mode" | "exit_plan_mode" | "verify_plan_execution"
-    )
+    matches!(tool_name, "enter_plan_mode" | "exit_plan_mode" | "verify_plan_execution")
 }
 
 /// 处理 string field 对应的局部职责。
@@ -83,9 +80,7 @@ pub(super) fn string_field<'a>(data: Option<&'a Map<String, Value>>, key: &str) 
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
 pub(super) fn bool_field(data: Option<&Map<String, Value>>, key: &str) -> bool {
-    data.and_then(|items| items.get(key))
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
+    data.and_then(|items| items.get(key)).and_then(Value::as_bool).unwrap_or(false)
 }
 
 /// 处理 u64 field 对应的局部职责。
@@ -102,9 +97,7 @@ pub(super) fn bool_field(data: Option<&Map<String, Value>>, key: &str) -> bool {
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
 pub(super) fn u64_field(data: Option<&Map<String, Value>>, key: &str) -> u64 {
-    data.and_then(|items| items.get(key))
-        .and_then(Value::as_u64)
-        .unwrap_or(0)
+    data.and_then(|items| items.get(key)).and_then(Value::as_u64).unwrap_or(0)
 }
 
 /// 处理 string list field 对应的局部职责。
@@ -243,11 +236,7 @@ fn fallback_output_lines(value: &Value) -> Vec<String> {
         .filter(|line| !line.is_empty())
         .map(ToString::to_string)
         .collect::<Vec<_>>();
-    if lines.is_empty() {
-        vec![trimmed.to_string()]
-    } else {
-        lines
-    }
+    if lines.is_empty() { vec![trimmed.to_string()] } else { lines }
 }
 
 /// 处理 body lines 对应的局部职责。
@@ -436,10 +425,11 @@ pub fn tool_plan_mode_view<'a>(
 
     let mut body = column![];
     if !metadata.is_empty() {
-        body = body.push(text(metadata).size(12).style(|theme: &Theme| iced::widget::text::Style {
-            // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-            color: Some(chat_secondary_muted_text_color(theme)),
-        }));
+        body =
+            body.push(text(metadata).size(12).style(|theme: &Theme| iced::widget::text::Style {
+                // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                color: Some(chat_secondary_muted_text_color(theme)),
+            }));
     }
 
     if is_running {
@@ -453,20 +443,18 @@ pub fn tool_plan_mode_view<'a>(
     } else {
         for (index, line) in lines.iter().enumerate() {
             let is_primary = index == 0 && !line.starts_with('-') && !line.starts_with("1.");
-            body = body.push(
-                text(line.clone())
-                    .size(if is_primary { 14 } else { 13 })
-                    .style(move |theme: &Theme| {
-                        let color = if is_error {
-                            theme.extended_palette().danger.base.color.scale_alpha(0.95)
-                        } else if is_primary {
-                            theme.extended_palette().secondary.base.text.scale_alpha(0.96)
-                        } else {
-                            chat_secondary_muted_text_color(theme)
-                        };
-                        iced::widget::text::Style { color: Some(color) }
-                    }),
-            );
+            body = body.push(text(line.clone()).size(if is_primary { 14 } else { 13 }).style(
+                move |theme: &Theme| {
+                    let color = if is_error {
+                        theme.extended_palette().danger.base.color.scale_alpha(0.95)
+                    } else if is_primary {
+                        theme.extended_palette().secondary.base.text.scale_alpha(0.96)
+                    } else {
+                        chat_secondary_muted_text_color(theme)
+                    };
+                    iced::widget::text::Style { color: Some(color) }
+                },
+            ));
         }
     }
 

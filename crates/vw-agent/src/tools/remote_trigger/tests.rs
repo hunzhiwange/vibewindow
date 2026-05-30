@@ -17,8 +17,5 @@ async fn remote_trigger_returns_explicit_unsupported_result() {
         .expect("remote trigger should return structured result");
 
     assert!(!result.success);
-    assert_eq!(
-        result.error.as_deref(),
-        Some("RemoteTrigger is not supported in this runtime")
-    );
+    assert_eq!(result.error.as_deref(), Some("RemoteTrigger is not supported in this runtime"));
 }

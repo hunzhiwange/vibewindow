@@ -81,11 +81,7 @@ fn build_worktree_room_scene<'a>(
     let actor_bounce = if is_busy && busy_phase { 1.5 } else { 0.0 };
     let keyboard_nudge = 4.0;
     let chair_overlap = -11.0;
-    let desk_keyboard = if is_busy {
-        if busy_phase { "⌨️" } else { "⌨" }
-    } else {
-        "⌨️"
-    };
+    let desk_keyboard = if is_busy { if busy_phase { "⌨️" } else { "⌨" } } else { "⌨️" };
     let animated_actor_state = if is_busy {
         let terminal_dots = match ((now_ms / 350) % 4) as u8 {
             0 => "",
@@ -220,7 +216,9 @@ fn build_worktree_room_scene<'a>(
                 };
                 column.push(text(line).size(9).style(move |theme: &Theme| {
                     iced::widget::text::Style {
-                        color: Some(theme.extended_palette().background.base.text.scale_alpha(alpha)),
+                        color: Some(
+                            theme.extended_palette().background.base.text.scale_alpha(alpha),
+                        ),
                     }
                 }))
             },
@@ -241,7 +239,11 @@ fn build_worktree_room_scene<'a>(
                     })),
                     border: Border {
                         width: 1.0,
-                        color: p.background.strong.color.scale_alpha(if is_dark { 0.28 } else { 0.16 }),
+                        color: p.background.strong.color.scale_alpha(if is_dark {
+                            0.28
+                        } else {
+                            0.16
+                        }),
                         radius: 10.0.into(),
                     },
                     text_color: Some(p.background.base.text),
@@ -442,7 +444,9 @@ pub(super) fn build_worktree_pixel_card<'a>(
         iced::widget::container::Style {
             background: Some(Background::Color(bg)),
             border: Border {
-                width: if app.task_board_worktree_panel_expanded || slot.state == WorktreeState::Busy {
+                width: if app.task_board_worktree_panel_expanded
+                    || slot.state == WorktreeState::Busy
+                {
                     2.0
                 } else {
                     1.0

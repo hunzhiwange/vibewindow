@@ -90,9 +90,7 @@ mod tests {
                     tool_use_id: Some("call_1".to_string()),
                     tool_id: Some("shell".into()),
                     success: Some(true),
-                    content: vec![ToolResultContentDto::Text {
-                        text: "pwd".to_string(),
-                    }],
+                    content: vec![ToolResultContentDto::Text { text: "pwd".to_string() }],
                     data: serde_json::json!({}),
                     model_result: serde_json::json!("pwd"),
                     render_hint: None,

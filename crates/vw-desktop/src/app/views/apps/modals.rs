@@ -131,12 +131,9 @@ fn edit_web_bookmark_modal<'a>(app: &'a App) -> Option<(Element<'a, Message>, Me
     let cookie_tooltip = {
         // 构建提示气泡内容：标题 + 示例文本
         ui::tooltip_bubble_el(
-            column![
-                text("配置示例").size(12),
-                text(WEB_BOOKMARK_COOKIE_CONFIG_EXAMPLE).size(11),
-            ]
-            .spacing(6)
-            .into(),
+            column![text("配置示例").size(12), text(WEB_BOOKMARK_COOKIE_CONFIG_EXAMPLE).size(11),]
+                .spacing(6)
+                .into(),
         )
     };
 

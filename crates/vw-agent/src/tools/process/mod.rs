@@ -24,8 +24,8 @@ use crate::app::agent::security::SyscallAnomalyDetector;
 use crate::app::agent::security::policy::ToolOperation;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
 use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::{Arc, Mutex, RwLock};
@@ -203,11 +203,8 @@ impl ProcessTool {
                 && let Ok(Some(status)) = child.try_wait()
             {
                 entry.exit_code = status.code();
-                entry.status = if status.success() {
-                    ProcessStatus::Completed
-                } else {
-                    ProcessStatus::Failed
-                };
+                entry.status =
+                    if status.success() { ProcessStatus::Completed } else { ProcessStatus::Failed };
                 entry.completed_at = Some(now);
                 entry.updated_at = now;
             }
@@ -243,12 +240,7 @@ impl ProcessTool {
 
     pub fn list_snapshots(&self) -> Vec<ProcessSnapshot> {
         self.refresh_processes();
-        self.processes
-            .read()
-            .unwrap()
-            .values()
-            .map(Self::snapshot_entry)
-            .collect()
+        self.processes.read().unwrap().values().map(Self::snapshot_entry).collect()
     }
 
     pub fn get_snapshot(&self, id: usize) -> Option<ProcessSnapshot> {
@@ -318,8 +310,12 @@ impl ProcessTool {
                 slice_unseen_output(&stderr, stderr_snapshot.dropped_prefix_bytes, &mut offsets.1);
 
             if !stdout_delta.is_empty() || !stderr_delta.is_empty() {
-                let _ =
-                    detector.inspect_command_output(&entry.command, stdout_delta, stderr_delta, None);
+                let _ = detector.inspect_command_output(
+                    &entry.command,
+                    stdout_delta,
+                    stderr_delta,
+                    None,
+                );
             }
         }
 
@@ -367,10 +363,8 @@ impl ProcessTool {
             .ok_or_else(|| anyhow::anyhow!("Missing 'command' parameter for spawn action"))?;
         let title = args.get("title").and_then(|value| value.as_str()).map(|value| value.trim());
         let title = title.filter(|value| !value.is_empty()).map(ToOwned::to_owned);
-        let metadata = args
-            .get("metadata")
-            .cloned()
-            .unwrap_or_else(|| Value::Object(Default::default()));
+        let metadata =
+            args.get("metadata").cloned().unwrap_or_else(|| Value::Object(Default::default()));
 
         // 应用 shell 重定向策略
         let effective_command = self.security.apply_shell_redirect_policy(command);
@@ -378,8 +372,10 @@ impl ProcessTool {
         // 检查并发运行进程数量
         {
             let processes = self.processes.read().unwrap();
-            let running =
-                processes.values().filter(|entry| matches!(entry.status, ProcessStatus::Running)).count();
+            let running = processes
+                .values()
+                .filter(|entry| matches!(entry.status, ProcessStatus::Running))
+                .count();
             if running >= MAX_PROCESSES {
                 return Ok(ToolResult {
                     success: false,
@@ -601,11 +597,7 @@ impl ProcessTool {
             }
         };
 
-        Ok(ToolResult {
-            success: true,
-            output: output.to_string(),
-            error: None,
-        })
+        Ok(ToolResult { success: true, output: output.to_string(), error: None })
     }
 
     /// 处理 kill 操作：终止指定进程
@@ -702,7 +694,9 @@ impl ProcessTool {
                 };
 
                 match status {
-                    Ok(Some(status)) => return Ok::<std::process::ExitStatus, std::io::Error>(status),
+                    Ok(Some(status)) => {
+                        return Ok::<std::process::ExitStatus, std::io::Error>(status);
+                    }
                     Ok(None) => tokio::time::sleep(Duration::from_millis(50)).await,
                     Err(error) => return Err(error),
                 }

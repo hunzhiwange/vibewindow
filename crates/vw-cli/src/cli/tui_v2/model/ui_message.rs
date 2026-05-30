@@ -46,12 +46,7 @@ pub(crate) struct UiMessageBase {
 impl UiMessageBase {
     /// 创建一条最小消息元信息。
     pub(crate) fn new(id: UiMessageId) -> Self {
-        Self {
-            id,
-            parent_id: None,
-            session_id: None,
-            created_ms: None,
-        }
+        Self { id, parent_id: None, session_id: None, created_ms: None }
     }
 
     /// 绑定父消息 ID。

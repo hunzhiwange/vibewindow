@@ -311,7 +311,7 @@ pub fn selectable_list_button_style(
     };
 
     button::Style {
-        background: background,
+        background,
         border: Border {
             radius: 8.0.into(),
             width: if selected || hovered || pressed { 1.0 } else { 0.0 },
@@ -415,6 +415,52 @@ pub fn input_card_style(theme: &Theme, drop_hovered: bool) -> container::Style {
         },
         ..Default::default()
     }
+}
+
+pub fn manual_context_card_style(theme: &Theme) -> container::Style {
+    let is_dark = is_dark_theme(theme);
+    let primary = theme.palette().primary;
+    let background = if is_dark {
+        Color::from_rgba(
+            primary.r * 0.20 + 18.0 / 255.0 * 0.80,
+            primary.g * 0.20 + 19.0 / 255.0 * 0.80,
+            primary.b * 0.20 + 22.0 / 255.0 * 0.80,
+            0.96,
+        )
+    } else {
+        Color::from_rgba(
+            primary.r * 0.08 + 250.0 / 255.0 * 0.92,
+            primary.g * 0.08 + 251.0 / 255.0 * 0.92,
+            primary.b * 0.08 + 253.0 / 255.0 * 0.92,
+            1.0,
+        )
+    };
+    let border = if is_dark { primary.scale_alpha(0.34) } else { primary.scale_alpha(0.24) };
+    container::Style {
+        background: Some(Background::Color(background)),
+        border: Border { width: 1.0, color: border, radius: 12.0.into() },
+        ..Default::default()
+    }
+}
+
+pub fn manual_context_card_button_style(theme: &Theme, status: button::Status) -> button::Style {
+    let mut style = button::Style {
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 12.0.into() },
+        text_color: selector_text_color(theme, true),
+        ..Default::default()
+    };
+
+    if matches!(status, button::Status::Hovered | button::Status::Pressed) {
+        style.background =
+            Some(Background::Color(theme.palette().primary.scale_alpha(if is_dark_theme(theme) {
+                0.10
+            } else {
+                0.06
+            })));
+    }
+
+    style
 }
 
 /// 生成文本编辑器样式

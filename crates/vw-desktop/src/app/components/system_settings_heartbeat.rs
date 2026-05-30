@@ -123,12 +123,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let interval_row = field_row(
         "间隔分钟",
         "周期性触发心跳的时间间隔。",
-        row![
-        interval_slider,
-        settings_value_badge(format!("{} 分钟", s.interval_minutes)),
-        ]
-        .spacing(16)
-        .align_y(Alignment::Center),
+        row![interval_slider, settings_value_badge(format!("{} 分钟", s.interval_minutes)),]
+            .spacing(16)
+            .align_y(Alignment::Center),
     );
 
     let message_row = text_row(
@@ -166,7 +163,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         settings_panel(column![enabled_row, settings_divider(), interval_row].spacing(0)),
         settings_section_card("投递内容", "配置兜底消息、目标通道和接收者。"),
         settings_panel(
-            column![message_row, settings_divider(), target_row, settings_divider(), to_row].spacing(0),
+            column![message_row, settings_divider(), target_row, settings_divider(), to_row]
+                .spacing(0),
         ),
     ]
     .spacing(16)

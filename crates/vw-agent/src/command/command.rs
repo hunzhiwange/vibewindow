@@ -48,11 +48,11 @@ use crate::app::agent::bus;
 use crate::app::agent::config;
 use crate::app::agent::project::instance;
 use crate::app::agent::skill;
-use std::sync::LazyLock;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 /// 命令相关事件定义
 ///

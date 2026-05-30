@@ -91,14 +91,14 @@ mod usage_tests;
 
 use crate::app::assets::Icon;
 use crate::app::components::chat_panel::tool_selector::session_tool_selector_popover;
-use crate::app::components::overlays::AboveOverlay;
 use crate::app::components::input_panel::icons::acp_agent_icon;
-use crate::app::state::AcpHistoryReplayMode;
-use crate::app::{App, Message, message};
+use crate::app::components::overlays::AboveOverlay;
+use crate::app::state::{AcpHistoryReplayMode, tool_display_name};
+use crate::app::{App, Message, TodoPanelPlacement, message};
 use drop_area::DropArea;
 use file_references::{extract_file_mentions, render_file_references};
-use iced::widget::tooltip::{Position as TooltipPosition, Tooltip};
 use iced::widget::scrollable::{Direction, Scrollbar};
+use iced::widget::tooltip::{Position as TooltipPosition, Tooltip};
 use iced::widget::{Space, button, column, container, row, scrollable, text, text_input};
 use iced::{Alignment, Color, Element, Length, Padding, Theme};
 use icons::icon_svg;
@@ -117,42 +117,48 @@ const ACP_SELECTOR_MAX_HEIGHT: f32 = 240.0;
 const ACP_SELECTOR_SCROLLBAR_WIDTH: f32 = 4.0;
 const ACP_SELECTOR_LIST_RIGHT_PADDING: f32 = 5.0;
 
+fn bottom_bar_round_toggle<'a>(
+    icon: Element<'a, Message>,
+    tooltip_label: &'static str,
+    on_press: Message,
+) -> Element<'a, Message> {
+    let button_content = container(icon)
+        .width(Length::Fixed(styles::BOTTOM_BAR_ICON_BUTTON_SIZE))
+        .height(Length::Fixed(styles::BOTTOM_BAR_ICON_BUTTON_SIZE))
+        .align_x(iced::alignment::Horizontal::Center)
+        .align_y(iced::alignment::Vertical::Center);
+
+    let toggle = button(button_content)
+        .padding(0)
+        .style(|theme: &Theme, status| styles::round_icon_button_style(theme, status, true))
+        .on_press(on_press);
+
+    Tooltip::new(toggle, dark_tooltip_content(tooltip_label), TooltipPosition::Top).gap(6.0).into()
+}
+
 fn session_control_button<'a>(app: &'a App) -> Option<Element<'a, Message>> {
     let runtime = app.current_session_runtime();
-    let tool_inventory = app.session_tool_inventory(&runtime);
     let highlight_toggle = app.show_session_tool_selector_popover
         || runtime.agent.is_some()
-        || runtime.tool_selector.has_custom_tool_selection()
-        || tool_inventory.static_filtered;
+        || runtime.tool_selector.has_manual_context_selection();
 
-    let toggle = button(
-        icon_svg(Icon::Sliders, styles::BOTTOM_BAR_LARGE_ICON_SIZE).style(
-            move |theme: &Theme, _| iced::widget::svg::Style {
-                color: Some(styles::selector_text_color(theme, highlight_toggle)),
-            }
-        ),
-    )
-    .style(move |theme: &Theme, status| {
-        styles::selector_pill_button_style(theme, status, highlight_toggle)
-    })
-    .padding([6, 8])
-    .on_press(Message::View(
-        message::ViewMessage::ToggleSessionToolSelectorPopover,
-    ));
-
-    let toggle: Element<'_, Message> = Tooltip::new(
-        toggle,
-        dark_tooltip_content("配置当前会话的代理与工具范围"),
-        TooltipPosition::Top,
-    )
-    .gap(6.0)
-    .into();
-
-    let selector: Element<'_, Message> = AboveOverlay::new(toggle, session_tool_selector_popover(app))
-        .show(app.show_session_tool_selector_popover)
-        .gap(6.0)
-        .on_close(Message::View(message::ViewMessage::ClosePopovers))
+    let icon: Element<'_, Message> = icon_svg(Icon::Sliders, styles::BOTTOM_BAR_ICON_SIZE)
+        .style(move |theme: &Theme, _| iced::widget::svg::Style {
+            color: Some(styles::selector_text_color(theme, highlight_toggle)),
+        })
         .into();
+    let toggle = bottom_bar_round_toggle(
+        icon,
+        "会话控制",
+        Message::View(message::ViewMessage::ToggleSessionToolSelectorPopover),
+    );
+
+    let selector: Element<'_, Message> =
+        AboveOverlay::new(toggle, session_tool_selector_popover(app))
+            .show(app.show_session_tool_selector_popover)
+            .gap(6.0)
+            .on_close(Message::View(message::ViewMessage::ClosePopovers))
+            .into();
 
     Some(selector)
 }
@@ -161,25 +167,13 @@ fn acp_selector_button<'a>(
     app: &'a App,
     selected_acp_agent: Option<String>,
 ) -> Option<Element<'a, Message>> {
-    let highlight_toggle = app.show_acp_popover || selected_acp_agent.is_some();
     let label = selected_acp_agent.as_deref().unwrap_or("ACP 智能体").to_string();
-
-    let toggle = button(
-        acp_agent_icon(&label, styles::BOTTOM_BAR_LARGE_ICON_SIZE),
-    )
-    .style(move |theme: &Theme, status| {
-        styles::selector_pill_button_style(theme, status, highlight_toggle)
-    })
-    .padding([6, 8])
-    .on_press(Message::View(message::ViewMessage::ToggleAcpPopover));
-
-    let toggle: Element<'_, Message> = Tooltip::new(
-        toggle,
-        dark_tooltip_content("切换 ACP 后端"),
-        TooltipPosition::Top,
-    )
-    .gap(6.0)
-    .into();
+    let icon = acp_agent_icon(&label, styles::BOTTOM_BAR_ICON_SIZE);
+    let toggle = bottom_bar_round_toggle(
+        icon,
+        "切换 ACP 后端",
+        Message::View(message::ViewMessage::ToggleAcpPopover),
+    );
 
     let selected_for_default = selected_acp_agent.is_none();
     let default_check: Element<'_, Message> = if selected_for_default {
@@ -225,21 +219,17 @@ fn acp_selector_button<'a>(
         .padding([6, 10])
         .width(Length::Fill)
         .style(move |theme: &Theme, status| popover_item_style(theme, status, selected))
-        .on_press(Message::Chat(message::ChatMessage::AcpAgentSelected(Some(
-            agent_for_press,
-        ))));
+        .on_press(Message::Chat(message::ChatMessage::AcpAgentSelected(Some(agent_for_press))));
         list = list.push(select_btn);
     }
 
     if app.acp_agents.is_empty() {
         list = list.push(
-            container(
-                text("正在加载 ACP 列表，稍后会自动显示。")
-                    .size(11)
-                    .style(|theme: &Theme| iced::widget::text::Style {
-                        color: Some(theme.palette().text.scale_alpha(0.62)),
-                    }),
-            )
+            container(text("正在加载 ACP 列表，稍后会自动显示。").size(11).style(
+                |theme: &Theme| iced::widget::text::Style {
+                    color: Some(theme.palette().text.scale_alpha(0.62)),
+                },
+            ))
             .padding([4, 2]),
         );
     }
@@ -345,6 +335,92 @@ fn acp_history_controls<'a>(
     container(controls_row).padding(Padding { top: 0.0, right: 8.0, bottom: 0.0, left: 8.0 }).into()
 }
 
+fn skill_title(app: &App, skill_id: &str) -> String {
+    app.skills_settings
+        .catalog
+        .iter()
+        .find(|skill| skill.id == skill_id)
+        .map(|skill| skill.title.clone())
+        .unwrap_or_else(|| skill_id.to_string())
+}
+
+fn summarize_names(names: &[String]) -> String {
+    const MAX_VISIBLE_NAMES: usize = 3;
+    let mut preview = names.iter().take(MAX_VISIBLE_NAMES).cloned().collect::<Vec<_>>().join("、");
+    let hidden_count = names.len().saturating_sub(MAX_VISIBLE_NAMES);
+    if hidden_count > 0 {
+        preview.push_str(&format!(" +{hidden_count}"));
+    }
+    preview
+}
+
+fn selected_context_card<'a>(app: &'a App) -> Option<Element<'a, Message>> {
+    let Some(runtime) = app.current_session_runtime_ref() else {
+        return None;
+    };
+
+    let selected_tools = runtime.tool_selector.selected_manual_tools();
+    let selected_skills = runtime.tool_selector.selected_manual_skills();
+    if selected_tools.is_empty() && selected_skills.is_empty() {
+        return None;
+    }
+
+    let tool_names =
+        selected_tools.iter().map(|tool_id| tool_display_name(tool_id)).collect::<Vec<_>>();
+    let skill_names =
+        selected_skills.iter().map(|skill_id| skill_title(app, skill_id)).collect::<Vec<_>>();
+
+    let mut lines = Vec::new();
+    if !tool_names.is_empty() {
+        lines.push(format!("工具 {}：{}", tool_names.len(), summarize_names(&tool_names)));
+    }
+    if !skill_names.is_empty() {
+        lines.push(format!("技能 {}：{}", skill_names.len(), summarize_names(&skill_names)));
+    }
+
+    let icon: Element<'_, Message> = icon_svg(Icon::Sliders, 14.0)
+        .style(|theme: &Theme, _| iced::widget::svg::Style {
+            color: Some(theme.palette().primary.scale_alpha(0.92)),
+        })
+        .into();
+    let content = row![
+        icon,
+        column![
+            text("已选工具与技能").size(12).style(|theme: &Theme| {
+                iced::widget::text::Style { color: Some(theme.palette().text.scale_alpha(0.92)) }
+            }),
+            text(lines.join("  /  "))
+                .size(11)
+                .width(Length::Fill)
+                .wrapping(iced::widget::text::Wrapping::Word)
+                .style(|theme: &Theme| iced::widget::text::Style {
+                    color: Some(theme.palette().text.scale_alpha(0.68)),
+                }),
+        ]
+        .spacing(2)
+        .width(Length::Fill),
+        text("调整").size(11).style(|theme: &Theme| iced::widget::text::Style {
+            color: Some(theme.palette().primary.scale_alpha(0.88)),
+        }),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    Some(
+        container(
+            button(content)
+                .padding([8, 10])
+                .width(Length::Fill)
+                .style(styles::manual_context_card_button_style)
+                .on_press(Message::View(message::ViewMessage::ToggleSessionToolSelectorPopover)),
+        )
+        .padding(0)
+        .width(Length::Fill)
+        .style(styles::manual_context_card_style)
+        .into(),
+    )
+}
+
 /// 构建并渲染输入面板的完整UI视图
 ///
 /// 这是输入面板模块的主入口函数，负责组装所有子组件并构建最终的用户界面。
@@ -414,7 +490,8 @@ pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
         .is_some();
 
     // ========== 构建模型选择按钮和弹出框 ==========
-    let model_toggle = model_popover::model_toggle_button(app, auto_model, &model, app.show_model_popover);
+    let model_toggle =
+        model_popover::model_toggle_button(app, auto_model, &model, app.show_model_popover);
 
     // 构建输入编辑器组件
     let (input, _editor_height) =
@@ -519,70 +596,57 @@ pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
     // 1. 有TODO项：显示TODO面板
     // 2. 队列为空或任务模式启用：标准布局
     // 3. 队列非空且非任务模式：显示队列面板
-    let content = if !todo_items.is_empty() {
+    let show_input_todo =
+        !todo_items.is_empty() && app.chat_todo_placement == TodoPanelPlacement::InputBottom;
+
+    let content = if show_input_todo {
         // 有待办事项时，将 TODO 面板紧贴输入框上方
-        let todo_panel = todo_panel::todo_panel(app, todo_items, submit_anim);
-        let input_block = if effective_acp_agent.is_some() {
-            column![
-                todo_panel,
-                acp_history_controls(acp_history_mode, acp_recent_count),
-                input,
-                divider,
-                bottom_bar
-            ]
-            .spacing(0)
-        } else {
-            column![todo_panel, input, divider, bottom_bar].spacing(0)
-        };
+        let todo_panel = todo_panel::todo_panel(
+            app,
+            todo_items,
+            submit_anim,
+            todo_panel::TodoPanelSurface::InputBottom,
+        );
+        let mut input_block = column![todo_panel].spacing(0);
+        if let Some(context_card) = selected_context_card(app) {
+            input_block = input_block.push(context_card);
+        }
+        if effective_acp_agent.is_some() {
+            input_block =
+                input_block.push(acp_history_controls(acp_history_mode, acp_recent_count));
+        }
+        input_block = input_block.push(input).push(divider).push(bottom_bar);
 
         column![attachment_strip, file_refs, task_mode_form, input_block].spacing(3)
     } else if queue.is_empty() || task_mode_enabled {
         // 标准布局：文件引用 + 任务模式表单 + 输入框 + 底部栏
-        if effective_acp_agent.is_some() {
-            column![
-                attachment_strip,
-                file_refs,
-                task_mode_form,
-                acp_history_controls(acp_history_mode, acp_recent_count),
-                input,
-                divider,
-                bottom_bar
-            ]
-            .spacing(6)
-        } else {
-            column![attachment_strip, file_refs, task_mode_form, input, divider, bottom_bar]
-                .spacing(6)
+        let mut standard = column![attachment_strip, file_refs, task_mode_form].spacing(6);
+        if let Some(context_card) = selected_context_card(app) {
+            standard = standard.push(context_card);
         }
+        if effective_acp_agent.is_some() {
+            standard = standard.push(acp_history_controls(acp_history_mode, acp_recent_count));
+        }
+        standard.push(input).push(divider).push(bottom_bar)
     } else {
         // 队列布局：队列面板 + 标准内容
         let queue = queue_panel::queue_panel(queue, is_requesting);
 
-        if effective_acp_agent.is_some() {
-            column![
-                queue,
-                Space::new().height(Length::Fixed(4.0)),
-                attachment_strip,
-                file_refs,
-                task_mode_form,
-                acp_history_controls(acp_history_mode, acp_recent_count),
-                input,
-                divider,
-                bottom_bar
-            ]
-            .spacing(6)
-        } else {
-            column![
-                queue,
-                Space::new().height(Length::Fixed(4.0)),
-                attachment_strip,
-                file_refs,
-                task_mode_form,
-                input,
-                divider,
-                bottom_bar
-            ]
-            .spacing(6)
+        let mut queued = column![
+            queue,
+            Space::new().height(Length::Fixed(4.0)),
+            attachment_strip,
+            file_refs,
+            task_mode_form
+        ]
+        .spacing(6);
+        if let Some(context_card) = selected_context_card(app) {
+            queued = queued.push(context_card);
         }
+        if effective_acp_agent.is_some() {
+            queued = queued.push(acp_history_controls(acp_history_mode, acp_recent_count));
+        }
+        queued.push(input).push(divider).push(bottom_bar)
     };
 
     // 构建文件搜索覆盖层

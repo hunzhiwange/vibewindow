@@ -11,9 +11,20 @@ yanked = "deny"
 ignore = [
     { id = "RUSTSEC-2025-0141", reason = "Transitive via probe-rs in current release path; tracked for replacement when probe-rs updates." },
     { id = "RUSTSEC-2024-0384", reason = "Reported to `rust-nostr/nostr` and it's WIP" },
-    # derivative v2.2.0 via wasm_evt_listener -> matrix_indexed_db_futures -> matrix-sdk-indexeddb.
-    # This chain is transitive under matrix-sdk's IndexedDB integration path; matrix-sdk remains pinned to 0.16 in current release line.
-    { id = "RUSTSEC-2024-0388", reason = "Transitive via matrix-sdk indexeddb dependency chain; tracked until matrix-sdk ecosystem removes derivative." },
+    { id = "RUSTSEC-2024-0320", reason = "Transitive via syntect in the desktop syntax highlighting path; no safe upstream upgrade is available." },
+    { id = "RUSTSEC-2024-0370", reason = "Transitive via gtk3-rs macro chain under wry/tao Linux webview support; no safe upstream upgrade is available." },
+    { id = "RUSTSEC-2024-0411", reason = "Transitive via tao Linux webview support; gtk3-rs has no safe upstream upgrade in the current release line." },
+    { id = "RUSTSEC-2024-0412", reason = "Transitive via wry/tao Linux webview support; gtk3-rs has no safe upstream upgrade in the current release line." },
+    { id = "RUSTSEC-2024-0413", reason = "Transitive via wry/tao Linux webview support; gtk3-rs has no safe upstream upgrade in the current release line." },
+    { id = "RUSTSEC-2024-0414", reason = "Transitive via wry/tao Linux webview support; gtk3-rs has no safe upstream upgrade in the current release line." },
+    { id = "RUSTSEC-2024-0415", reason = "Transitive via wry/tao Linux webview support; gtk3-rs has no safe upstream upgrade in the current release line." },
+    { id = "RUSTSEC-2024-0416", reason = "Transitive via wry/tao Linux webview support; gtk3-rs has no safe upstream upgrade in the current release line." },
+    { id = "RUSTSEC-2024-0417", reason = "Transitive via wry Linux webview support; gtk3-rs has no safe upstream upgrade in the current release line." },
+    { id = "RUSTSEC-2024-0418", reason = "Transitive via wry/tao Linux webview support; gtk3-rs has no safe upstream upgrade in the current release line." },
+    { id = "RUSTSEC-2024-0419", reason = "Transitive via gtk3-rs macro chain under wry/tao Linux webview support; no safe upstream upgrade is available." },
+    { id = "RUSTSEC-2024-0420", reason = "Transitive via wry/tao Linux webview support; gtk3-rs has no safe upstream upgrade in the current release line." },
+    { id = "RUSTSEC-2024-0436", reason = "Transitive via wgpu/rav1e/rmcp in current release path; no safe upstream upgrade is available." },
+    { id = "RUSTSEC-2025-0057", reason = "Transitive via kuchikiki/selectors under wry webview support; no safe upstream upgrade is available." },
 ]
 
 [licenses]
@@ -36,6 +47,11 @@ allow = [
     "CC0-1.0",
 ]
 unused-allowed-license = "allow"
+exceptions = [
+    { allow = ["MITNFA"], crate = "hex_lit" },
+    { allow = ["GPL-3.0-or-later"], crate = "html2md" },
+    { allow = ["NCSA"], crate = "libfuzzer-sys" },
+]
 
 [bans]
 multiple-versions = "warn"

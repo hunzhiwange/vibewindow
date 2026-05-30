@@ -127,7 +127,8 @@ pub fn render_properties(app: &App) -> Element<'_, Message> {
                     let raw_html = if element.kind.eq_ignore_ascii_case("tailwind")
                         && doc
                             .tailwind_selection
-                            .as_ref().is_none_or(|(sel_id, _)| sel_id != &element.id)
+                            .as_ref()
+                            .is_none_or(|(sel_id, _)| sel_id != &element.id)
                     {
                         Some(prop_section(
                             "Raw HTML",

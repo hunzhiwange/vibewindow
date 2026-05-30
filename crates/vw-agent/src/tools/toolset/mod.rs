@@ -1,5 +1,5 @@
-use super::*;
 use super::context::ToolUseContext;
+use super::*;
 use crate::app::agent::config::schema::load_or_init_config;
 use crate::app::agent::config::{Config, DelegateAgentConfig};
 use crate::app::agent::memory::Memory;
@@ -32,9 +32,7 @@ impl Default for ToolRuntimeContext {
     fn default() -> Self {
         Self::new(
             "default",
-            std::env::current_dir()
-                .ok()
-                .map(|path| path.to_string_lossy().to_string()),
+            std::env::current_dir().ok().map(|path| path.to_string_lossy().to_string()),
         )
     }
 }
@@ -44,29 +42,20 @@ impl ToolRuntimeContext {
     pub fn new(session: impl Into<String>, root: Option<String>) -> Self {
         let session = session.into();
         let tool_use_context = ToolUseContext::new(session.clone(), root.clone());
-        Self {
-            session,
-            root,
-            tool_use_context: Arc::new(tool_use_context),
-        }
+        Self { session, root, tool_use_context: Arc::new(tool_use_context) }
     }
 
     /// 构造用于工具规格枚举的默认上下文。
     pub fn for_specs() -> Self {
         Self::new(
             "specs",
-            std::env::current_dir()
-                .ok()
-                .map(|path| path.to_string_lossy().to_string()),
+            std::env::current_dir().ok().map(|path| path.to_string_lossy().to_string()),
         )
     }
 
     /// 用完整 ToolUseContext 覆盖内部共享状态。
     pub fn with_tool_use_context(mut self, tool_use_context: ToolUseContext) -> Self {
-        self.tool_use_context = Arc::new(
-            tool_use_context
-                .with_root(self.root.clone()),
-        );
+        self.tool_use_context = Arc::new(tool_use_context.with_root(self.root.clone()));
         self
     }
 
@@ -168,7 +157,9 @@ fn execution_environment_for_context(
         match load_or_init_config().await {
             Ok(config) => Arc::new(config),
             Err(error) => {
-                tracing::warn!("tool runtime: failed to load config, falling back to defaults: {error}");
+                tracing::warn!(
+                    "tool runtime: failed to load config, falling back to defaults: {error}"
+                );
                 let mut config = Config::default();
                 config.workspace_dir = workspace_dir.clone();
                 config.config_path = workspace_dir.join("vibewindow.json");
@@ -201,11 +192,7 @@ fn execution_environment_for_context(
     let web_fetch_config = config.web_fetch.clone();
 
     let tool_use_context = Arc::new(
-        base_context
-            .as_ref()
-            .clone()
-            .with_root(ctx.root.clone())
-            .with_security(security.clone()),
+        base_context.as_ref().clone().with_root(ctx.root.clone()).with_security(security.clone()),
     );
 
     let tools = all_tools_with_runtime(
@@ -242,11 +229,7 @@ fn security_for_tool_context(
 
 /// 枚举当前上下文下的所有工具规格。
 pub fn tool_specs_for_context(ctx: &ToolRuntimeContext) -> Vec<ToolSpec> {
-    execution_environment_for_context(ctx)
-        .0
-        .into_iter()
-        .map(|tool| tool.spec())
-        .collect()
+    execution_environment_for_context(ctx).0.into_iter().map(|tool| tool.spec()).collect()
 }
 
 /// 执行一次工具调用。
@@ -269,10 +252,7 @@ pub fn execute_tool_call(
     }
 
     Err(classify_message(
-        executed
-            .result
-            .error_text()
-            .unwrap_or_else(|| "tool execution failed".to_string()),
+        executed.result.error_text().unwrap_or_else(|| "tool execution failed".to_string()),
     ))
 }
 
@@ -289,12 +269,11 @@ pub async fn execute_tool_from_registry(
 
 /// 检测文件是否为二进制内容。
 pub fn is_binary(path: &std::path::Path) -> bool {
-    let ext =
-        path.extension().and_then(|ext| ext.to_str()).unwrap_or("").to_ascii_lowercase();
+    let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("").to_ascii_lowercase();
     match ext.as_str() {
-        "zip" | "tar" | "gz" | "7z" | "exe" | "dll" | "so" | "class" | "jar" | "war"
-        | "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "odt" | "ods" | "odp"
-        | "bin" | "dat" | "obj" | "o" | "a" | "lib" | "wasm" | "pyc" | "pyo" => {
+        "zip" | "tar" | "gz" | "7z" | "exe" | "dll" | "so" | "class" | "jar" | "war" | "doc"
+        | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "odt" | "ods" | "odp" | "bin" | "dat"
+        | "obj" | "o" | "a" | "lib" | "wasm" | "pyc" | "pyo" => {
             return true;
         }
         _ => {}
@@ -566,10 +545,8 @@ pub fn all_tools_with_runtime(
         )));
         #[cfg(target_os = "windows")]
         tool_arcs.push(Arc::new(PowerShellTool::new(security.clone())));
-        tool_arcs.push(Arc::new(GitOperationsTool::new(
-            security.clone(),
-            workspace_dir.to_path_buf(),
-        )));
+        tool_arcs
+            .push(Arc::new(GitOperationsTool::new(security.clone(), workspace_dir.to_path_buf())));
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -702,25 +679,23 @@ pub fn all_tools_with_runtime(
     tool_arcs.push(Arc::new(ScreenshotTool::new(security.clone())));
     tool_arcs.push(Arc::new(ImageInfoTool::new(security.clone())));
 
-    if let Some(key) = composio_key && !key.is_empty() {
-        tool_arcs.push(Arc::new(ComposioTool::new(
-            key,
-            composio_entity_id,
-            security.clone(),
-        )));
+    if let Some(key) = composio_key
+        && !key.is_empty()
+    {
+        tool_arcs.push(Arc::new(ComposioTool::new(key, composio_entity_id, security.clone())));
     }
 
-    tool_arcs.push(Arc::new(SkillTool::new(
+    tool_arcs.push(Arc::new(SkillTool::new_with_runtime_config(
         security.clone(),
         session_id.to_string(),
+        false,
+        workspace_dir.to_path_buf(),
+        config.clone(),
     )));
     tool_arcs.push(Arc::new(BriefTool::new(security.clone())));
     tool_arcs.push(Arc::new(SleepTool::new()));
     tool_arcs.push(Arc::new(TodoReadTool::new(session_id.to_string())));
-    tool_arcs.push(Arc::new(TodoWriteTool::new(
-        session_id.to_string(),
-        security.clone(),
-    )));
+    tool_arcs.push(Arc::new(TodoWriteTool::new(session_id.to_string(), security.clone())));
     tool_arcs.push(Arc::new(QuestionTool::new(session_id.to_string())));
 
     let delegate_agents: HashMap<String, DelegateAgentConfig> = agents
@@ -752,11 +727,44 @@ pub fn all_tools_with_runtime(
             max_tokens_override: None,
             model_support_vision: root_config.model_support_vision,
         };
-        let workspace_identity_context = crate::app::agent::channels::build_workspace_identity_context(
-            workspace_dir,
-            Some(&root_config.identity),
-            if root_config.agent.compact_context { Some(6000) } else { None },
-        );
+        let workspace_identity_context =
+            crate::app::agent::channels::build_workspace_identity_context(
+                workspace_dir,
+                Some(&root_config.identity),
+                if root_config.agent.compact_context { Some(6000) } else { None },
+            );
+        let delegate_skill_contexts =
+            if delegate_agents.values().any(|agent| !agent.allowed_skills.is_empty()) {
+                let loaded_skills =
+                    crate::app::agent::skills::load_skills_with_config(workspace_dir, root_config);
+                delegate_agents
+                    .iter()
+                    .filter_map(|(agent_name, agent_config)| {
+                        if agent_config.allowed_skills.is_empty() {
+                            return None;
+                        }
+                        let allowed_skills = agent_config
+                            .allowed_skills
+                            .iter()
+                            .map(|skill| skill.trim())
+                            .filter(|skill| !skill.is_empty())
+                            .collect::<std::collections::HashSet<_>>();
+                        let selected_skills = loaded_skills
+                            .iter()
+                            .filter(|skill| allowed_skills.contains(skill.name.as_str()))
+                            .cloned()
+                            .collect::<Vec<_>>();
+                        let prompt = crate::app::agent::skills::skills_to_prompt_with_mode(
+                            &selected_skills,
+                            workspace_dir,
+                            root_config.skills.prompt_injection_mode,
+                        );
+                        (!prompt.trim().is_empty()).then(|| (agent_name.clone(), prompt))
+                    })
+                    .collect::<HashMap<_, _>>()
+            } else {
+                HashMap::new()
+            };
 
         let parent_tools = Arc::new(tool_arcs.clone());
         let delegate_tool = DelegateTool::new_with_options(
@@ -766,6 +774,7 @@ pub fn all_tools_with_runtime(
             provider_runtime_options.clone(),
         )
         .with_workspace_identity_context(workspace_identity_context.clone())
+        .with_skill_contexts(delegate_skill_contexts.clone())
         .with_parent_tools(parent_tools.clone())
         .with_multimodal_config(root_config.multimodal.clone());
 
@@ -800,8 +809,8 @@ pub fn all_tools_with_runtime(
                 }
             }
 
-            let delegate_tool =
-                delegate_tool.with_coordination_bus(coordination_bus.clone(), coordination_lead_agent);
+            let delegate_tool = delegate_tool
+                .with_coordination_bus(coordination_bus.clone(), coordination_lead_agent);
             tool_arcs.push(Arc::new(DelegateCoordinationStatusTool::new(
                 coordination_bus,
                 security.clone(),
@@ -823,7 +832,8 @@ pub fn all_tools_with_runtime(
                 parent_tools,
                 root_config.multimodal.clone(),
             )
-            .with_workspace_identity_context(workspace_identity_context),
+            .with_workspace_identity_context(workspace_identity_context)
+            .with_skill_contexts(delegate_skill_contexts),
         );
         let agent_tool = Arc::new(AgentTool::new(
             delegate_agents.clone(),

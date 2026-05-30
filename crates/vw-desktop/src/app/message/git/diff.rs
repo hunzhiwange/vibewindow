@@ -8,19 +8,22 @@ use crate::app::git::{
 };
 use crate::app::{
     App, Message, set_config_field,
-    state::{GitDiffCommentDraft, GitDiffContextMenuState, GitDiffFileMenuState, GitDiffLineRange, GitDiffSelectedLine},
+    state::{
+        GitDiffCommentDraft, GitDiffContextMenuState, GitDiffFileMenuState, GitDiffLineRange,
+        GitDiffSelectedLine,
+    },
 };
 use iced::Task;
 use iced::widget::text_editor;
 use std::time::Duration;
 
+#[cfg(not(target_arch = "wasm32"))]
+use super::shared::{changed_diff_line_sets, git_repo_path_for_app, new_position_for_old_line};
 use super::shared::{
     clear_stage_selection_for_lines, diff_context_target_range, diff_context_target_stage_lines,
     dismiss_preview_transient_ui, extend_stage_selection_for_lines, load_missing_diff_contents,
     normalize_range, refresh_git_panel_data_task, selected_lines_from_range,
 };
-#[cfg(not(target_arch = "wasm32"))]
-use super::shared::{changed_diff_line_sets, git_repo_path_for_app, new_position_for_old_line};
 use super::{ExpandDirection, GitMessage};
 
 /// update 处理当前模块对应的消息或状态转换。
@@ -37,11 +40,9 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
         }
         GitMessage::ToggleDiffLineSelection(file, line, is_old, text) => {
             app.git_diff_selected_range = None;
-            if let Some(pos) = app
-                .git_diff_selected_lines
-                .iter()
-                .position(|selected| selected.file == file && selected.line == line && selected.is_old == is_old)
-            {
+            if let Some(pos) = app.git_diff_selected_lines.iter().position(|selected| {
+                selected.file == file && selected.line == line && selected.is_old == is_old
+            }) {
                 app.git_diff_selected_lines.remove(pos);
             } else {
                 app.git_diff_selected_lines.push(GitDiffSelectedLine { file, line, is_old, text });
@@ -54,7 +55,8 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
             app.git_diff_selected_range = None;
             app.git_diff_dragging = true;
             app.git_diff_drag_start_text = Some(text);
-            app.git_diff_drag_range = Some(GitDiffLineRange { file, start: line, end: line, is_old });
+            app.git_diff_drag_range =
+                Some(GitDiffLineRange { file, start: line, end: line, is_old });
             Task::none()
         }
         GitMessage::DiffDragSelectHover(file, line, is_old) => {
@@ -77,12 +79,13 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
 
             let now = web_time::Instant::now();
             if range.start == range.end {
-                let is_double_click = app.git_diff_last_click.as_ref().is_some_and(|(file, line, is_old, when)| {
-                    file == &range.file
-                        && *line == range.start
-                        && *is_old == range.is_old
-                        && now.duration_since(*when) <= Duration::from_millis(350)
-                });
+                let is_double_click =
+                    app.git_diff_last_click.as_ref().is_some_and(|(file, line, is_old, when)| {
+                        file == &range.file
+                            && *line == range.start
+                            && *is_old == range.is_old
+                            && now.duration_since(*when) <= Duration::from_millis(350)
+                    });
 
                 if is_double_click {
                     app.git_diff_last_click = None;
@@ -90,7 +93,8 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
                     app.git_diff_comment_draft =
                         Some(GitDiffCommentDraft { range, editor: text_editor::Content::new() });
                 } else {
-                    app.git_diff_last_click = Some((range.file.clone(), range.start, range.is_old, now));
+                    app.git_diff_last_click =
+                        Some((range.file.clone(), range.start, range.is_old, now));
                     app.git_diff_selected_range = None;
                     let text = start_text.unwrap_or_default();
                     if let Some(pos) = app.git_diff_selected_lines.iter().position(|selected| {
@@ -142,7 +146,8 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
                     is_old,
                     text,
                 });
-                app.git_diff_selected_range = Some(GitDiffLineRange { file: file.clone(), start: line, end: line, is_old });
+                app.git_diff_selected_range =
+                    Some(GitDiffLineRange { file: file.clone(), start: line, end: line, is_old });
             }
 
             app.git_diff_context_menu = Some(GitDiffContextMenuState { file, line, is_old, x, y });
@@ -200,10 +205,8 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
             };
             app.git_diff_context_menu = None;
             app.git_diff_selected_range = Some(range.clone());
-            app.git_diff_comment_draft = Some(GitDiffCommentDraft {
-                range,
-                editor: text_editor::Content::new(),
-            });
+            app.git_diff_comment_draft =
+                Some(GitDiffCommentDraft { range, editor: text_editor::Content::new() });
             Task::none()
         }
         GitMessage::SelectDiffContextStageLines => {
@@ -257,7 +260,8 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
             let start = draft.range.start + 1;
             let end = draft.range.end + 1;
             let comment = draft.editor.text().trim().to_string();
-            let line_ref = if start == end { start.to_string() } else { format!("{}-{}", start, end) };
+            let line_ref =
+                if start == end { start.to_string() } else { format!("{}-{}", start, end) };
             let out = if comment.is_empty() {
                 format!("@{}:{} ", file, line_ref)
             } else {
@@ -270,9 +274,13 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
             app.git_diff_context_menu = None;
             let mut selected = app.git_diff_selected_lines.clone();
             selected.sort_by(|left, right| {
-                left.file.cmp(&right.file).then(left.is_old.cmp(&right.is_old)).then(left.line.cmp(&right.line))
+                left.file
+                    .cmp(&right.file)
+                    .then(left.is_old.cmp(&right.is_old))
+                    .then(left.line.cmp(&right.line))
             });
-            let content = selected.into_iter().map(|entry| entry.text).collect::<Vec<_>>().join("\n");
+            let content =
+                selected.into_iter().map(|entry| entry.text).collect::<Vec<_>>().join("\n");
             if content.trim().is_empty() {
                 Task::none()
             } else {
@@ -289,7 +297,10 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
 
                 let mut selected = app.git_diff_selected_lines.clone();
                 selected.sort_by(|left, right| {
-                    left.file.cmp(&right.file).then(left.is_old.cmp(&right.is_old)).then(left.line.cmp(&right.line))
+                    left.file
+                        .cmp(&right.file)
+                        .then(left.is_old.cmp(&right.is_old))
+                        .then(left.line.cmp(&right.line))
                 });
                 if selected.is_empty() {
                     return Task::none();
@@ -298,9 +309,10 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
                 let mut refreshed = false;
                 let mut changed_line_cache = std::collections::HashMap::new();
                 for entry in selected.into_iter().rev() {
-                    let (old_changed, new_changed) = changed_line_cache
-                        .entry(entry.file.clone())
-                        .or_insert_with(|| changed_diff_line_sets(app, &entry.file).unwrap_or_default());
+                    let (old_changed, new_changed) =
+                        changed_line_cache.entry(entry.file.clone()).or_insert_with(|| {
+                            changed_diff_line_sets(app, &entry.file).unwrap_or_default()
+                        });
 
                     let result = if entry.is_old && old_changed.contains(&entry.line) {
                         let insert_idx = new_position_for_old_line(app, &entry.file, entry.line)
@@ -328,7 +340,10 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
             app.git_diff_context_menu = None;
             let mut selected = app.git_diff_selected_lines.clone();
             selected.sort_by(|left, right| {
-                left.file.cmp(&right.file).then(left.is_old.cmp(&right.is_old)).then(left.line.cmp(&right.line))
+                left.file
+                    .cmp(&right.file)
+                    .then(left.is_old.cmp(&right.is_old))
+                    .then(left.line.cmp(&right.line))
             });
             let text = selected.into_iter().map(|entry| entry.text).collect::<Vec<_>>().join("\n");
             if text.trim().is_empty() {
@@ -341,14 +356,21 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
             app.git_diff_context_menu = None;
             let mut selected = app.git_diff_selected_lines.clone();
             selected.sort_by(|left, right| {
-                left.file.cmp(&right.file).then(left.is_old.cmp(&right.is_old)).then(left.line.cmp(&right.line))
+                left.file
+                    .cmp(&right.file)
+                    .then(left.is_old.cmp(&right.is_old))
+                    .then(left.line.cmp(&right.line))
             });
             if selected.is_empty() {
                 return Task::none();
             }
 
             let mut out = String::from("Git Diff 评论\n");
-            for file in selected.iter().map(|entry| entry.file.as_str()).collect::<std::collections::BTreeSet<_>>() {
+            for file in selected
+                .iter()
+                .map(|entry| entry.file.as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+            {
                 out.push_str(&format!("文件: {}\n", file));
                 let old_lines = selected
                     .iter()
@@ -454,9 +476,11 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
             )
         }
         GitMessage::ToggleExpandHunk(file, idx) => {
-            if let Some(pos) = app.expanded_hunks.iter().position(|(expanded_file, expanded_idx)| {
-                expanded_file == &file && *expanded_idx == idx
-            }) {
+            if let Some(pos) =
+                app.expanded_hunks.iter().position(|(expanded_file, expanded_idx)| {
+                    expanded_file == &file && *expanded_idx == idx
+                })
+            {
                 app.expanded_hunks.remove(pos);
             } else {
                 app.expanded_hunks.push((file, idx));
@@ -505,4 +529,3 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
         _ => unreachable!("unexpected diff git message"),
     }
 }
-

@@ -70,12 +70,8 @@ pub(crate) fn compute_fullscreen_layout(
         resolve_section_heights(area.height, has_bottom_float, config, prompt_extra_rows);
 
     let header = Rect::new(area.x, area.y, area.width, header_height);
-    let scrollable_area = Rect::new(
-        area.x,
-        area.y.saturating_add(header_height),
-        area.width,
-        scroll_height,
-    );
+    let scrollable_area =
+        Rect::new(area.x, area.y.saturating_add(header_height), area.width, scroll_height);
     let (scrollable, project_context, modified_files) = split_scrollable_area(scrollable_area);
 
     let bottom_float = if bottom_float_height == 0 {
@@ -101,7 +97,8 @@ pub(crate) fn compute_fullscreen_layout(
         modified_files,
         bottom,
         bottom_float,
-        modal: has_modal.then(|| centered_rect(area, config.modal_width_pct, config.modal_height_pct, 28, 8)),
+        modal: has_modal
+            .then(|| centered_rect(area, config.modal_width_pct, config.modal_height_pct, 28, 8)),
     }
 }
 
@@ -121,12 +118,8 @@ fn split_scrollable_area(area: Rect) -> (Rect, Option<Rect>, Option<Rect>) {
     }
 
     let scrollable = Rect::new(area.x, area.y, transcript_width, area.height);
-    let sidebar = Rect::new(
-        area.x.saturating_add(transcript_width),
-        area.y,
-        sidebar_width,
-        area.height,
-    );
+    let sidebar =
+        Rect::new(area.x.saturating_add(transcript_width), area.y, sidebar_width, area.height);
     let project_height = resolve_project_context_height(sidebar.height);
     let project_context = Rect::new(sidebar.x, sidebar.y, sidebar.width, project_height);
     let modified_files_height = sidebar.height.saturating_sub(project_height);
@@ -171,13 +164,10 @@ fn resolve_section_heights(
         config.header_height
     }
     .min(area_height.max(1));
-    let mut bottom = if is_compact_height {
-        config.bottom_height.max(8)
-    } else {
-        config.bottom_height
-    }
-    .saturating_add(prompt_extra_rows)
-    .min(area_height.max(1));
+    let mut bottom =
+        if is_compact_height { config.bottom_height.max(8) } else { config.bottom_height }
+            .saturating_add(prompt_extra_rows)
+            .min(area_height.max(1));
     let mut bottom_float = if has_bottom_float && !is_compact_height {
         config.bottom_float_height.min(area_height.max(1))
     } else {
@@ -219,7 +209,8 @@ fn resolve_section_heights(
         header = header.saturating_sub(overflow.min(header.saturating_sub(1)));
     }
 
-    let scroll = area_height.saturating_sub(header.saturating_add(bottom).saturating_add(bottom_float));
+    let scroll =
+        area_height.saturating_sub(header.saturating_add(bottom).saturating_add(bottom_float));
     (header, scroll.max(1), bottom_float, bottom)
 }
 
@@ -234,7 +225,8 @@ fn centered_rect(
         return Rect::default();
     }
 
-    let target_width = u16_from_u32_saturating((u32::from(area.width) * u32::from(width_pct)) / 100);
+    let target_width =
+        u16_from_u32_saturating((u32::from(area.width) * u32::from(width_pct)) / 100);
     let target_height =
         u16_from_u32_saturating((u32::from(area.height) * u32::from(height_pct)) / 100);
     let width = target_width.max(min_width).min(area.width.saturating_sub(2).max(1));

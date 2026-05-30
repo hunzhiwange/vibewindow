@@ -31,14 +31,6 @@ mod stream;
 #[cfg(test)]
 mod tests;
 
-/// 桌面端可用外部应用状态的精简传输对象。
-///
-/// 该结构会把原始 JSON 响应规整为更适合 UI 层消费的字段。
-pub use client::{
-    DesktopSkillCatalogEntryDto, DesktopSkillDetailDto, DesktopSkillPathDto,
-    ExternalAppsStateDto,
-    PendingPermissionReplyDto, PendingPermissionRequestDto, PendingPermissionToolDto,
-};
 /// 网关 HTTP 与流式接口的统一客户端入口。
 ///
 /// 调用方通常只需要持有这个类型，即可访问本 crate 暴露的大部分能力。
@@ -47,15 +39,12 @@ pub use client::GatewayClient;
 ///
 /// 包含全部 provider、默认路由与已连接 provider 三部分信息。
 pub use client::ProviderListResponse;
-pub use vw_api_types::tool::{
-    GatewayRedisCommandRequest, GatewayRedisCommandResponse, GatewayRedisConfigBundle,
-    GatewayRedisConnectionConfig, GatewayRedisConnectionTestResponse,
-    GatewayRedisKeyAnalysis, GatewayRedisKeyAnalysisRequest, GatewayRedisKeyCreateRequest,
-    GatewayRedisConnectionUpsertBody, GatewayRedisDeleteResponse, GatewayRedisHistoryListQuery,
-    GatewayRedisHistoryPage, GatewayRedisHistoryRecord, GatewayRedisImportResponse,
-    GatewayRedisInfoEntry, GatewayRedisKeyListQuery, GatewayRedisKeyPage,
-    GatewayRedisKeyspaceStat, GatewayRedisRuntimeOverview, GatewayRedisSettings,
-    GatewayRedisSettingsUpdateBody, GatewayRedisToolState,
+/// 桌面端可用外部应用状态的精简传输对象。
+///
+/// 该结构会把原始 JSON 响应规整为更适合 UI 层消费的字段。
+pub use client::{
+    DesktopSkillCatalogEntryDto, DesktopSkillDetailDto, DesktopSkillPathDto, ExternalAppsStateDto,
+    PendingPermissionReplyDto, PendingPermissionRequestDto, PendingPermissionToolDto,
 };
 /// 网关认证参数与基础端点配置。
 ///
@@ -99,6 +88,16 @@ pub use stream::{
 pub use vw_api_types;
 pub use vw_api_types::project::{
     ListProjectChangeRecordsRequest, ListProjectChangeRecordsResponse, ProjectChangeRecordDto,
+};
+pub use vw_api_types::tool::{
+    GatewayRedisCommandRequest, GatewayRedisCommandResponse, GatewayRedisConfigBundle,
+    GatewayRedisConnectionConfig, GatewayRedisConnectionTestResponse,
+    GatewayRedisConnectionUpsertBody, GatewayRedisDeleteResponse, GatewayRedisHistoryListQuery,
+    GatewayRedisHistoryPage, GatewayRedisHistoryRecord, GatewayRedisImportResponse,
+    GatewayRedisInfoEntry, GatewayRedisKeyAnalysis, GatewayRedisKeyAnalysisRequest,
+    GatewayRedisKeyCreateRequest, GatewayRedisKeyListQuery, GatewayRedisKeyPage,
+    GatewayRedisKeyspaceStat, GatewayRedisRuntimeOverview, GatewayRedisSettings,
+    GatewayRedisSettingsUpdateBody, GatewayRedisToolState,
 };
 pub use vw_api_types::workflow::{
     WorkflowNodeRunDto, WorkflowNodeRunStatus, WorkflowRunRequest, WorkflowRunResponse,

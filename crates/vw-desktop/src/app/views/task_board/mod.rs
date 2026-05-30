@@ -56,15 +56,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let base =
         container(main_mouse_area).width(Length::Fill).height(Length::Fill).padding(16).style(
             |theme: &Theme| container::Style {
-                background: Some(Background::Color(if theme.palette().background.r
-                    + theme.palette().background.g
-                    + theme.palette().background.b
-                    < 1.5
-                {
-                    theme.extended_palette().background.base.color.scale_alpha(0.94)
-                } else {
-                    Color::from_rgba8(246, 248, 252, 0.98)
-                })),
+                background: Some(Background::Color(
+                    if theme.palette().background.r
+                        + theme.palette().background.g
+                        + theme.palette().background.b
+                        < 1.5
+                    {
+                        theme.extended_palette().background.base.color.scale_alpha(0.94)
+                    } else {
+                        Color::from_rgba8(246, 248, 252, 0.98)
+                    },
+                )),
                 ..Default::default()
             },
         );

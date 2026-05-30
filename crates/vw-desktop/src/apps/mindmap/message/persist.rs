@@ -61,46 +61,28 @@ pub(super) fn persist(app: &App) -> Task<Message> {
             node_positions: t
                 .node_positions
                 .iter()
-                .map(|(path, pt)| PersistedNodePos {
-                    path: path.clone(),
-                    x: pt.x,
-                    y: pt.y,
-                })
+                .map(|(path, pt)| PersistedNodePos { path: path.clone(), x: pt.x, y: pt.y })
                 .collect(),
             node_fills: t
                 .node_fills
                 .iter()
-                .map(|(path, rgba)| PersistedNodeFill {
-                    path: path.clone(),
-                    rgba: *rgba,
-                })
+                .map(|(path, rgba)| PersistedNodeFill { path: path.clone(), rgba: *rgba })
                 .collect(),
             node_text_colors: t
                 .node_text_colors
                 .iter()
-                .map(|(path, rgba)| PersistedNodeTextColor {
-                    path: path.clone(),
-                    rgba: *rgba,
-                })
+                .map(|(path, rgba)| PersistedNodeTextColor { path: path.clone(), rgba: *rgba })
                 .collect(),
             node_border_colors: t
                 .node_border_colors
                 .iter()
-                .map(|(path, rgba)| PersistedNodeBorderColor {
-                    path: path.clone(),
-                    rgba: *rgba,
-                })
+                .map(|(path, rgba)| PersistedNodeBorderColor { path: path.clone(), rgba: *rgba })
                 .collect(),
             node_border_style: t.node_border_style,
             node_border_styles: t
                 .node_border_styles
                 .iter()
-                .map(|(path, style)| {
-                    PersistedNodeBorderStyle {
-                        path: path.clone(),
-                        style: *style,
-                    }
-                })
+                .map(|(path, style)| PersistedNodeBorderStyle { path: path.clone(), style: *style })
                 .collect(),
             node_priorities: t
                 .node_priorities
@@ -113,10 +95,7 @@ pub(super) fn persist(app: &App) -> Task<Message> {
             node_urls: t
                 .node_urls
                 .iter()
-                .map(|(path, url)| PersistedNodeUrl {
-                    path: path.clone(),
-                    url: url.clone(),
-                })
+                .map(|(path, url)| PersistedNodeUrl { path: path.clone(), url: url.clone() })
                 .collect(),
             collapsed_paths: t.collapsed_paths.iter().cloned().collect(),
             background: t.background,
@@ -125,20 +104,12 @@ pub(super) fn persist(app: &App) -> Task<Message> {
             edge_styles: t
                 .edge_styles
                 .iter()
-                .map(|(path, style)| {
-                    PersistedEdgeStyle {
-                        path: path.clone(),
-                        style: *style,
-                    }
-                })
+                .map(|(path, style)| PersistedEdgeStyle { path: path.clone(), style: *style })
                 .collect(),
             edge_colors: t
                 .edge_colors
                 .iter()
-                .map(|(path, rgba)| PersistedEdgeColor {
-                    path: path.clone(),
-                    rgba: *rgba,
-                })
+                .map(|(path, rgba)| PersistedEdgeColor { path: path.clone(), rgba: *rgba })
                 .collect(),
             doodle_rgba: t.doodle_rgba,
             doodle_width_px: t.doodle_width_px,

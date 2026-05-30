@@ -103,10 +103,7 @@ fn build_converters_panel<'a>(app: &'a App, size: Size) -> Element<'a, Message> 
     let from_ts_panel = build_from_timestamp_panel(app, compact);
     let to_ts_panel = build_to_timestamp_panel(app, compact);
 
-    column![current_panel, from_ts_panel, to_ts_panel]
-        .spacing(16)
-        .height(Length::Shrink)
-        .into()
+    column![current_panel, from_ts_panel, to_ts_panel].spacing(16).height(Length::Shrink).into()
 }
 
 fn build_current_time_panel<'a>(app: &'a App, compact: bool) -> Element<'a, Message> {
@@ -202,9 +199,8 @@ fn build_from_timestamp_panel<'a>(app: &'a App, compact: bool) -> Element<'a, Me
         .on_press(Message::TimestampTool(TimestampToolMessage::ConvertFromTs))
         .style(primary_action_btn_style);
 
-    let copy_button = button(text("复制结果").size(13))
-        .padding([10, 12])
-        .style(rounded_action_btn_style);
+    let copy_button =
+        button(text("复制结果").size(13)).padding([10, 12]).style(rounded_action_btn_style);
     let copy_button = if app.ts_time_output.trim().is_empty() {
         copy_button
     } else {
@@ -276,11 +272,12 @@ fn build_to_timestamp_panel<'a>(app: &'a App, compact: bool) -> Element<'a, Mess
     let copy_button = button(text("复制秒 / 毫秒结果").size(13))
         .padding([10, 12])
         .style(rounded_action_btn_style);
-    let copy_button = if app.ts_ts_output_sec.trim().is_empty() && app.ts_ts_output_ms.trim().is_empty() {
-        copy_button
-    } else {
-        copy_button.on_press(Message::TimestampTool(TimestampToolMessage::CopyTsOutput))
-    };
+    let copy_button =
+        if app.ts_ts_output_sec.trim().is_empty() && app.ts_ts_output_ms.trim().is_empty() {
+            copy_button
+        } else {
+            copy_button.on_press(Message::TimestampTool(TimestampToolMessage::CopyTsOutput))
+        };
 
     column![
         build_section_title("时间转 Unix 时间戳"),
@@ -309,7 +306,9 @@ fn build_to_timestamp_panel<'a>(app: &'a App, compact: bool) -> Element<'a, Mess
                     column![
                         text_input("输入 UTC 时间", &app.ts_time_input)
                             .on_input(|value| {
-                                Message::TimestampTool(TimestampToolMessage::InputTimeChanged(value))
+                                Message::TimestampTool(TimestampToolMessage::InputTimeChanged(
+                                    value,
+                                ))
                             })
                             .padding([10, 12])
                             .size(13)
@@ -404,22 +403,17 @@ fn form_row<'a>(
     control: impl Into<Element<'a, Message>>,
     compact: bool,
 ) -> Element<'a, Message> {
-    let intro = column![
-        text(label).size(13),
-        text(description).size(11).style(settings_muted_text_style),
-    ]
-    .spacing(4);
+    let intro =
+        column![text(label).size(13), text(description).size(11).style(settings_muted_text_style),]
+            .spacing(4);
 
     let layout: Element<'a, Message> = if compact {
         column![intro, control.into()].spacing(12).into()
     } else {
-        row![
-            intro.width(Length::Fixed(220.0)),
-            container(control.into()).width(Length::Fill),
-        ]
-        .spacing(22)
-        .align_y(Alignment::Center)
-        .into()
+        row![intro.width(Length::Fixed(220.0)), container(control.into()).width(Length::Fill),]
+            .spacing(22)
+            .align_y(Alignment::Center)
+            .into()
     };
 
     container(layout).width(Length::Fill).into()
@@ -439,13 +433,10 @@ fn actions_row<'a>(items: Vec<Element<'a, Message>>, compact: bool) -> Element<'
 }
 
 fn status_row<'a>(label: &'a str, value: impl ToString) -> Element<'a, Message> {
-    row![
-        text(label).size(13).width(Length::Fill),
-        settings_value_badge(value),
-    ]
-    .spacing(12)
-    .align_y(Alignment::Center)
-    .into()
+    row![text(label).size(13).width(Length::Fill), settings_value_badge(value),]
+        .spacing(12)
+        .align_y(Alignment::Center)
+        .into()
 }
 
 fn build_metric_badge<'a>(label: String) -> Element<'a, Message> {

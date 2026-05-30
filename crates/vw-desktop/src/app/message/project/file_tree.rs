@@ -313,36 +313,35 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
                 FileTreeAction::AddToChat => {
                     // 获取项目根目录并计算相对路径
                     if let Some(root) = &app.project_path
-                        && let Some(rel_path) = relative_to_project(root, &path) {
-                            // 关闭文件搜索面板
-                            app.show_file_search = false;
-                            app.file_search_query.clear();
-                            app.file_search_selected_index = 0;
+                        && let Some(rel_path) = relative_to_project(root, &path)
+                    {
+                        // 关闭文件搜索面板
+                        app.show_file_search = false;
+                        app.file_search_query.clear();
+                        app.file_search_selected_index = 0;
 
-                            // 获取当前会话的运行时并移动光标到文档末尾
-                            let runtime = app.current_session_runtime_mut();
-                            runtime.input_editor.perform(iced::widget::text_editor::Action::Move(
-                                iced::widget::text_editor::Motion::DocumentEnd,
-                            ));
+                        // 获取当前会话的运行时并移动光标到文档末尾
+                        let runtime = app.current_session_runtime_mut();
+                        runtime.input_editor.perform(iced::widget::text_editor::Action::Move(
+                            iced::widget::text_editor::Motion::DocumentEnd,
+                        ));
 
-                            // 在光标位置插入 @文件路径 引用
-                            crate::app::ui::chat::insert_at_cursor(
-                                &mut runtime.input_editor,
-                                &format!("@{} ", rel_path),
-                            );
+                        // 在光标位置插入 @文件路径 引用
+                        crate::app::ui::chat::insert_at_cursor(
+                            &mut runtime.input_editor,
+                            &format!("@{} ", rel_path),
+                        );
 
-                            // 如果没有活动会话，同步输入编辑器内容
-                            if app.active_session_id.is_none() {
-                                let runtime = app.current_session_runtime();
-                                app.input_editor = runtime.input_editor;
-                            }
-
-                            // 设置焦点并返回聚焦任务
-                            app.focus_area = crate::app::FocusArea::None;
-                            return Some(iced::widget::operation::focus(
-                                app.input_editor_id.clone(),
-                            ));
+                        // 如果没有活动会话，同步输入编辑器内容
+                        if app.active_session_id.is_none() {
+                            let runtime = app.current_session_runtime();
+                            app.input_editor = runtime.input_editor;
                         }
+
+                        // 设置焦点并返回聚焦任务
+                        app.focus_area = crate::app::FocusArea::None;
+                        return Some(iced::widget::operation::focus(app.input_editor_id.clone()));
+                    }
                 }
                 // 在文件夹中查找：创建新的查找标签页并打开查找界面
                 FileTreeAction::FindInFolder => {

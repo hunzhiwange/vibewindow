@@ -5,10 +5,7 @@
 
 use super::artifacts;
 use super::helpers::{
-    allowed_tool_ids_for_request,
-    is_acp_request,
-    response_preview,
-    tool_call_preview,
+    allowed_tool_ids_for_request, is_acp_request, response_preview, tool_call_preview,
 };
 use super::llm_messages;
 use super::llm_runner;
@@ -29,6 +26,10 @@ const EMPTY_RESPONSE_ERR: &str = "模型未返回内容";
 const EMPTY_RESPONSE_RETRY_PROMPT: &str =
     "上一步模型输出为空，已自动重试。请继续当前任务并返回非空答复。";
 const EMPTY_RESPONSE_RETRY_LIMIT: usize = 4;
+
+fn request_full_access_enabled(options: &Value) -> bool {
+    options.get("full_access").and_then(Value::as_bool).unwrap_or(false)
+}
 
 /// 执行会话处理主循环。
 ///
@@ -65,15 +66,16 @@ pub fn run(req: Request, mut on_event: impl FnMut(StreamEvent) -> bool + Send + 
         tool_use_context = tool_use_context.with_approval(approval);
     }
     if let Some(non_cli_approval_context) = req.non_cli_approval_context.clone() {
-        tool_use_context =
-            tool_use_context.with_non_cli_approval_context(non_cli_approval_context);
+        tool_use_context = tool_use_context.with_non_cli_approval_context(non_cli_approval_context);
     }
     if let Some(message_id) = req.assistant_message_id.clone() {
         tool_use_context = tool_use_context.with_message_id(message_id);
     }
-    tool_use_context = tool_use_context.with_full_access_enabled(
-        req.options.get("full_access").and_then(Value::as_bool).unwrap_or(false),
-    );
+    let full_access_enabled = request_full_access_enabled(&req.options);
+    tool_use_context = tool_use_context.with_full_access_enabled(full_access_enabled);
+    if full_access_enabled {
+        tool_use_context = tool_use_context.with_bypass_non_cli_approval_for_turn(true);
+    }
     let ctx = ToolRuntimeContext::new(req.session.clone(), req.root.clone())
         .with_tool_use_context(tool_use_context);
     let mut tool_state = ToolSessionState::default();
@@ -342,9 +344,7 @@ fn handle_step_error(
             Role::System,
             format!(
                 "{}，自动重试中（{}/{}）",
-                EMPTY_RESPONSE_ERR,
-                empty_response_retries,
-                EMPTY_RESPONSE_RETRY_LIMIT
+                EMPTY_RESPONSE_ERR, empty_response_retries, EMPTY_RESPONSE_RETRY_LIMIT
             ),
         );
         llm_messages.push(json!({
@@ -585,9 +585,8 @@ fn handle_assistant_text_branch(
     }
 
     if enforce_todos && incomplete {
-        let message =
-            "任务未完成：todo 列表仍有未完成项，请继续推进直至全部完成，再输出最终答复。"
-                .to_string();
+        let message = "任务未完成：todo 列表仍有未完成项，请继续推进直至全部完成，再输出最终答复。"
+            .to_string();
         tracing::info!(
             target: "vw_agent",
             session_id = %req.session,
@@ -668,9 +667,7 @@ fn handle_empty_assistant_text(
         Role::System,
         format!(
             "{}，自动重试中（{}/{}）",
-            EMPTY_RESPONSE_ERR,
-            empty_response_retries,
-            EMPTY_RESPONSE_RETRY_LIMIT
+            EMPTY_RESPONSE_ERR, empty_response_retries, EMPTY_RESPONSE_RETRY_LIMIT
         ),
     );
     llm_messages.push(utils::assistant_message_with_reasoning("", reasoning_content));

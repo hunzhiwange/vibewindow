@@ -69,9 +69,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let content = row![
         icon_badge,
         column![
-            text(title).size(11).style(move |_theme: &Theme| iced::widget::text::Style {
-                color: Some(accent),
-            }),
+            text(title)
+                .size(11)
+                .style(move |_theme: &Theme| iced::widget::text::Style { color: Some(accent) }),
             text(&toast.message).size(13).style(|theme: &Theme| iced::widget::text::Style {
                 color: Some(if is_dark_theme(theme) {
                     theme.extended_palette().background.base.text.scale_alpha(0.94)

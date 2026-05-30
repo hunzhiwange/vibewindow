@@ -30,11 +30,11 @@ mod canvas_ops;
 mod color_ops;
 mod file_ops;
 mod markdown_ops;
+mod node_meta_ops;
+mod node_ops;
 mod node_ops_clipboard;
 mod node_ops_helpers;
 mod node_ops_history;
-mod node_meta_ops;
-mod node_ops;
 mod node_ops_structure;
 mod node_ops_text;
 

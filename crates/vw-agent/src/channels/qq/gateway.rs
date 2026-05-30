@@ -54,9 +54,8 @@ impl QQChannel {
         let mut sequence: i64 = -1;
         let (hb_tx, mut hb_rx) = tokio::sync::mpsc::channel::<()>(1);
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_millis(
-                heartbeat_interval,
-            ));
+            let mut interval =
+                tokio::time::interval(std::time::Duration::from_millis(heartbeat_interval));
             loop {
                 interval.tick().await;
                 if hb_tx.send(()).await.is_err() {

@@ -126,9 +126,10 @@ fn export_no_db_returns_zero() {
 fn export_and_hydrate_roundtrip() {
     let tmp = TempDir::new().unwrap();
     let workspace = tmp.path();
+    let storage = paths::project_data_dir(workspace).unwrap();
 
     // 手动创建包含核心记忆的 brain.db 数据库
-    let db_dir = workspace.join("memory");
+    let db_dir = storage.join("memory");
     fs::create_dir_all(&db_dir).unwrap();
     let db_path = db_dir.join("brain.db");
 
@@ -177,7 +178,7 @@ fn export_and_hydrate_roundtrip() {
     assert_eq!(exported, 2, "应仅导出核心记忆");
 
     // 验证快照文件已创建且内容正确
-    let snapshot = workspace.join(SNAPSHOT_FILENAME);
+    let snapshot = storage.join(SNAPSHOT_FILENAME);
     assert!(snapshot.exists());
     let content = fs::read_to_string(&snapshot).unwrap();
     assert!(content.contains("identity"));
@@ -225,17 +226,19 @@ fn export_and_hydrate_roundtrip() {
 fn should_hydrate_only_when_needed() {
     let tmp = TempDir::new().unwrap();
     let workspace = tmp.path();
+    let storage = paths::project_data_dir(workspace).unwrap();
 
     // 场景 1：无数据库、无快照 → 应返回 false
     assert!(!should_hydrate(workspace));
 
     // 场景 2：创建快照但没有数据库 → 应返回 true
-    let snapshot = workspace.join(SNAPSHOT_FILENAME);
+    let snapshot = storage.join(SNAPSHOT_FILENAME);
+    fs::create_dir_all(&storage).unwrap();
     fs::write(&snapshot, "### 🔑 `test`\n\nHello\n").unwrap();
     assert!(should_hydrate(workspace));
 
     // 场景 3：创建真实数据库 → 应返回 false（即使快照存在）
-    let db_dir = workspace.join("memory");
+    let db_dir = storage.join("memory");
     fs::create_dir_all(&db_dir).unwrap();
     let db_path = db_dir.join("brain.db");
     let conn = Connection::open(&db_path).unwrap();

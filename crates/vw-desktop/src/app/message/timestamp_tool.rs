@@ -158,10 +158,10 @@ pub fn format_utc(secs: i64) -> String {
 fn civil_from_days(mut z: i64) -> (i32, i32, i32) {
     z += 719468;
     let era = if z >= 0 { z } else { z - 146096 } / 146097;
-    let doe = z - era * 146097 ;
+    let doe = z - era * 146097;
     let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
     let mut y = (yoe + era * 400) as i32;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100 + yoe / 400) ;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100 + yoe / 400);
     let mp = (5 * doy + 2) / 153;
     let d = (doy - (153 * mp + 2) / 5 + 1) as i32;
     let m = (mp + if mp < 10 { 3 } else { -9 }) as i32;

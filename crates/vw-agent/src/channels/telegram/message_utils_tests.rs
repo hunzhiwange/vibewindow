@@ -1,6 +1,6 @@
 use super::message_utils::{
-    build_telegram_ack_reaction_request, random_telegram_ack_reaction, split_message_for_telegram,
-    TELEGRAM_ACK_REACTIONS, TELEGRAM_MAX_MESSAGE_LENGTH,
+    TELEGRAM_ACK_REACTIONS, TELEGRAM_MAX_MESSAGE_LENGTH, build_telegram_ack_reaction_request,
+    random_telegram_ack_reaction, split_message_for_telegram,
 };
 
 #[test]

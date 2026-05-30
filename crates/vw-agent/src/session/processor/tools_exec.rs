@@ -26,16 +26,10 @@ use crate::app::agent::tools::{self, ToolCallError, ToolRuntimeContext};
 use crate::app::agent::tools::{is_todo_read_tool_id, is_todo_write_tool_id};
 
 fn preserve_full_output_in_session(name: &str) -> bool {
-    matches!(
-        name,
-        "apply_patch" | "write" | "file_write" | "file_edit" | "notebook_edit"
-    )
+    matches!(name, "apply_patch" | "write" | "file_write" | "file_edit" | "notebook_edit")
 }
 
-fn denied_tool_payload(
-    input: Option<&str>,
-    denied: &ToolCallError,
-) -> serde_json::Value {
+fn denied_tool_payload(input: Option<&str>, denied: &ToolCallError) -> serde_json::Value {
     let mut payload = serde_json::Map::new();
     payload.insert("status".to_string(), serde_json::json!("denied"));
     if let Some(input) = input {
@@ -47,6 +41,28 @@ fn denied_tool_payload(
     {
         payload.insert("permission_request".to_string(), value);
     }
+    serde_json::Value::Object(payload)
+}
+
+fn completed_tool_payload_for_ui(
+    tool_name: &str,
+    input: &str,
+    result: &tools::ToolCallResult,
+    output: &str,
+) -> serde_json::Value {
+    let mut payload = serde_json::Map::new();
+    payload.insert("status".to_string(), serde_json::json!("completed"));
+    payload.insert("input".to_string(), serde_json::json!(input));
+    payload.insert("title".to_string(), serde_json::json!(result.render_title(tool_name)));
+    payload.insert("metadata".to_string(), result.render_metadata());
+    payload.insert("output".to_string(), serde_json::json!(output));
+
+    if !result.content_blocks.is_empty()
+        && let Ok(value) = serde_json::to_value(result.to_dto())
+    {
+        payload.insert("result".to_string(), value);
+    }
+
     serde_json::Value::Object(payload)
 }
 
@@ -151,13 +167,7 @@ pub(crate) fn run_tool_and_record(
                     format!(
                         "tool {}\n{}\n",
                         name,
-                        serde_json::json!({
-                            "status": "completed",
-                                "input": input_ui,
-                            "title": v.render_title(name),
-                            "metadata": v.render_metadata(),
-                            "output": output_ui
-                        })
+                        completed_tool_payload_for_ui(name, &input_ui, &v, &output_ui)
                     ),
                     // 会话消息：仅包含状态和输出（节省上下文空间）
                     format!(
@@ -181,11 +191,7 @@ pub(crate) fn run_tool_and_record(
                             name,
                             denied_tool_payload(Some(&input_ui), &denied)
                         ),
-                        format!(
-                            "tool {}\n{}\n",
-                            name,
-                            denied_tool_payload(None, &denied)
-                        ),
+                        format!("tool {}\n{}\n", name, denied_tool_payload(None, &denied)),
                         content,
                     )
                 }
@@ -209,7 +215,7 @@ pub(crate) fn run_tool_and_record(
                     ),
                     content,
                 ),
-            }
+            },
         };
 
     // 向 UI 发送事件通知
@@ -377,13 +383,8 @@ pub(crate) fn run_batch_tool_and_record(
     ///
     /// 返回包含完整执行结果的 `BatchComputed` 对象
     fn compute_single_tool(planned: BatchPlannedCall, ctx: ToolRuntimeContext) -> BatchComputed {
-        let BatchPlannedCall {
-            tool,
-            input_effective,
-            input_sanitized,
-            input_ui,
-            is_non_todo,
-        } = planned;
+        let BatchPlannedCall { tool, input_effective, input_sanitized, input_ui, is_non_todo } =
+            planned;
 
         // 执行工具并格式化结果
         let (ui_message, session_message, success, output_for_model, error_for_model) =
@@ -404,13 +405,7 @@ pub(crate) fn run_batch_tool_and_record(
                         format!(
                             "tool {}\n{}\n",
                             tool,
-                            serde_json::json!({
-                                "status": "completed",
-                                "input": input_ui,
-                                "title": v.render_title(&tool),
-                                "metadata": v.render_metadata(),
-                                "output": output_ui
-                            })
+                            completed_tool_payload_for_ui(&tool, &input_ui, &v, &output_ui)
                         ),
                         format!(
                             "tool {}\n{}\n",
@@ -435,11 +430,7 @@ pub(crate) fn run_batch_tool_and_record(
                                 tool,
                                 denied_tool_payload(Some(&input_ui), &denied)
                             ),
-                            format!(
-                                "tool {}\n{}\n",
-                                tool,
-                                denied_tool_payload(None, &denied)
-                            ),
+                            format!("tool {}\n{}\n", tool, denied_tool_payload(None, &denied)),
                             false,
                             None,
                             Some(error_text),

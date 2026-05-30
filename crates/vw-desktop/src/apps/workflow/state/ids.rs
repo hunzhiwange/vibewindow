@@ -4,7 +4,10 @@
 
 use super::*;
 
-pub(super) fn fitted_viewport(document: &WorkflowDocument, window_size: (f32, f32)) -> (Vector, f32) {
+pub(super) fn fitted_viewport(
+    document: &WorkflowDocument,
+    window_size: (f32, f32),
+) -> (Vector, f32) {
     let Some(bounds) = document.bounds() else {
         return (Vector::new(120.0, 120.0), 1.0);
     };
@@ -112,8 +115,5 @@ pub(super) fn generate_edge_id(
 }
 
 pub(super) fn sanitize_handle_id(handle_id: &str) -> String {
-    handle_id
-        .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' })
-        .collect()
+    handle_id.chars().map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' }).collect()
 }

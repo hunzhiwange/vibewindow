@@ -1,4 +1,7 @@
-use super::chat::{ChatContextDto, ChatOptionsDto, ChatRole, GatewayChatStreamEvent, GatewayChatStreamRequest, MessagePartDto, MessageStatus};
+use super::chat::{
+    ChatContextDto, ChatOptionsDto, ChatRole, GatewayChatStreamEvent, GatewayChatStreamRequest,
+    MessagePartDto, MessageStatus,
+};
 use serde_json::json;
 
 #[test]
@@ -17,5 +20,8 @@ fn chat_defaults_keep_optional_fields_empty() {
     assert!(request.messages.is_empty());
     assert_eq!(ChatOptionsDto::default().model, None);
     assert!(ChatContextDto::default().selected_file_paths.is_empty());
-    assert_eq!(GatewayChatStreamEvent::Error("bad".into()), GatewayChatStreamEvent::Error("bad".into()));
+    assert_eq!(
+        GatewayChatStreamEvent::Error("bad".into()),
+        GatewayChatStreamEvent::Error("bad".into())
+    );
 }

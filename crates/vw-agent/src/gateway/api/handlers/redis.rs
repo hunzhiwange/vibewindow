@@ -29,7 +29,10 @@ where
     S: Clone + Send + Sync + 'static,
 {
     Router::new()
-        .route("/redis/settings", get(handlers::redis_settings_get).put(handlers::redis_settings_put))
+        .route(
+            "/redis/settings",
+            get(handlers::redis_settings_get).put(handlers::redis_settings_put),
+        )
         .route(
             "/redis/connections",
             get(handlers::redis_connections_list).post(handlers::redis_connection_create),
@@ -44,10 +47,7 @@ where
             "/redis/connections/{connection_id}/activate",
             post(handlers::redis_connection_activate),
         )
-        .route(
-            "/redis/connections/{connection_id}/test",
-            post(handlers::redis_connection_test),
-        )
+        .route("/redis/connections/{connection_id}/test", post(handlers::redis_connection_test))
         .route(
             "/redis/connections/{connection_id}/overview",
             get(handlers::redis_connection_overview),
@@ -60,10 +60,7 @@ where
             "/redis/connections/{connection_id}/keys/analyze",
             post(handlers::redis_connection_key_analyze),
         )
-        .route(
-            "/redis/connections/{connection_id}/command",
-            post(handlers::redis_command_execute),
-        )
+        .route("/redis/connections/{connection_id}/command", post(handlers::redis_command_execute))
         .route("/redis/history", get(handlers::redis_history_list))
         .route("/redis/import", post(handlers::redis_import))
         .route("/redis/export", get(handlers::redis_export))

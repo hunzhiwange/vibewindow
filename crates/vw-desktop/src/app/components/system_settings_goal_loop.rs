@@ -74,11 +74,14 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let enabled_row = field_row(
         "启用",
         "控制是否开启周期性的目标循环。",
-        checkbox(s.enabled).label("开启目标循环").on_toggle(|value| {
-            Message::Settings(message::SettingsMessage::GoalLoop(GoalLoopMessage::EnabledToggled(
-                value,
-            )))
-        }).style(settings_checkbox_style),
+        checkbox(s.enabled)
+            .label("开启目标循环")
+            .on_toggle(|value| {
+                Message::Settings(message::SettingsMessage::GoalLoop(
+                    GoalLoopMessage::EnabledToggled(value),
+                ))
+            })
+            .style(settings_checkbox_style),
     );
 
     let interval_row = text_row(
@@ -87,10 +90,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "正整数，例如 10",
         &s.interval_minutes_input,
         |value| {
-                Message::Settings(message::SettingsMessage::GoalLoop(
-                    GoalLoopMessage::IntervalMinutesChanged(value),
-                ))
-            },
+            Message::Settings(message::SettingsMessage::GoalLoop(
+                GoalLoopMessage::IntervalMinutesChanged(value),
+            ))
+        },
     );
 
     let step_timeout_row = text_row(
@@ -99,10 +102,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "秒，例如 120",
         &s.step_timeout_secs_input,
         |value| {
-                Message::Settings(message::SettingsMessage::GoalLoop(
-                    GoalLoopMessage::StepTimeoutSecsChanged(value),
-                ))
-            },
+            Message::Settings(message::SettingsMessage::GoalLoop(
+                GoalLoopMessage::StepTimeoutSecsChanged(value),
+            ))
+        },
     );
 
     let max_steps_row = text_row(
@@ -111,10 +114,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "正整数，例如 3",
         &s.max_steps_per_cycle_input,
         |value| {
-                Message::Settings(message::SettingsMessage::GoalLoop(
-                    GoalLoopMessage::MaxStepsPerCycleChanged(value),
-                ))
-            },
+            Message::Settings(message::SettingsMessage::GoalLoop(
+                GoalLoopMessage::MaxStepsPerCycleChanged(value),
+            ))
+        },
     );
 
     let channel_row = text_row(
@@ -123,10 +126,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "可选，例如 telegram",
         &s.channel_input,
         |value| {
-                Message::Settings(message::SettingsMessage::GoalLoop(
-                    GoalLoopMessage::ChannelChanged(value),
-                ))
-            },
+            Message::Settings(message::SettingsMessage::GoalLoop(GoalLoopMessage::ChannelChanged(
+                value,
+            )))
+        },
     );
 
     let target_row = text_row(
@@ -135,10 +138,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "可选，例如 chat_id",
         &s.target_input,
         |value| {
-                Message::Settings(message::SettingsMessage::GoalLoop(
-                    GoalLoopMessage::TargetChanged(value),
-                ))
-            },
+            Message::Settings(message::SettingsMessage::GoalLoop(GoalLoopMessage::TargetChanged(
+                value,
+            )))
+        },
     );
 
     let hint_row = row![

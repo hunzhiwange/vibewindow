@@ -95,11 +95,7 @@ pub(crate) fn think_block_expanded(
         return true;
     }
 
-    if think_detail_overrides.contains(&meta.id) {
-        !meta.open
-    } else {
-        meta.open
-    }
+    if think_detail_overrides.contains(&meta.id) { !meta.open } else { meta.open }
 }
 
 #[cfg(test)]
@@ -244,8 +240,5 @@ pub(crate) fn transcript_prefix_style(role: TranscriptRole) -> (String, Color, S
 /// }
 /// ```
 pub(crate) fn default_empty_transcript_line() -> Line<'static> {
-    Line::from(Span::styled(
-        "Ready. Type /help for commands.",
-        Style::default().fg(TEXT_SUBTLE),
-    ))
+    Line::from(Span::styled("Ready. Type /help for commands.", Style::default().fg(TEXT_SUBTLE)))
 }

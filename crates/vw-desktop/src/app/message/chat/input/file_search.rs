@@ -75,10 +75,7 @@ pub(crate) fn ranked_file_search_entries(app: &App) -> Vec<FileSearchResult> {
 
 /// 模块内可见函数，执行 handle_input_editor_action 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
-pub(super) fn handle_input_editor_action(
-    app: &mut App,
-    act: text_editor::Action,
-) -> Task<Message> {
+pub(super) fn handle_input_editor_action(app: &mut App, act: text_editor::Action) -> Task<Message> {
     match act {
         text_editor::Action::Edit(edit) => handle_input_editor_edit(app, edit),
         other => handle_input_editor_non_edit(app, other),
@@ -171,7 +168,10 @@ pub(super) fn handle_input_area_drag_drop(app: &mut App) -> Task<Message> {
     let mentions = drop_mention_paths(app);
     if !mentions.is_empty() {
         let runtime = app.current_session_runtime_mut();
-        crate::app::ui::chat::insert_at_cursor(&mut runtime.input_editor, &join_drop_mentions(&mentions));
+        crate::app::ui::chat::insert_at_cursor(
+            &mut runtime.input_editor,
+            &join_drop_mentions(&mentions),
+        );
 
         sync_global_input_editor_if_needed(app);
         clear_drag_drop_state(app);
@@ -287,10 +287,7 @@ fn collect_dropped_paths(app: &App) -> Vec<DroppedPath> {
 
     source_paths
         .iter()
-        .map(|path| DroppedPath {
-            path: path.clone(),
-            is_dir: std::path::Path::new(path).is_dir(),
-        })
+        .map(|path| DroppedPath { path: path.clone(), is_dir: std::path::Path::new(path).is_dir() })
         .collect()
 }
 
@@ -323,11 +320,8 @@ fn format_drop_mention_path(
     } else {
         file_path.replace('\\', "/")
     };
-    let mention_path = if is_dir && !normalized.ends_with('/') {
-        format!("{normalized}/")
-    } else {
-        normalized
-    };
+    let mention_path =
+        if is_dir && !normalized.ends_with('/') { format!("{normalized}/") } else { normalized };
 
     match position {
         Some((line, col)) if !is_dir => format!("{mention_path}:{line}:{col}"),

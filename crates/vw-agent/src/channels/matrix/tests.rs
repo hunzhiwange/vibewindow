@@ -16,11 +16,11 @@
 //! - 异步测试使用 `#[tokio::test]` 属性
 //! - 测试函数命名遵循 `<功能>_<预期行为>` 模式
 
-use super::*;
 use super::types::{SyncResponse, TimelineEvent, WhoAmIResponse};
+use super::*;
 use crate::app::agent::channels::traits::Channel;
-use matrix_sdk::ruma::events::room::message::RoomMessageEventContent;
 use matrix_sdk::ruma::events::room::message::OriginalSyncRoomMessageEvent;
+use matrix_sdk::ruma::events::room::message::RoomMessageEventContent;
 use std::path::PathBuf;
 
 /// 测试模块：封装所有 Matrix 通道相关测试用例

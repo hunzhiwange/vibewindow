@@ -137,7 +137,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
 
         ViewMessage::ReplaySessionFromSnapshot(_) => Task::none(),
 
-        ViewMessage::CloseRequested => settings::close_requested(app),
+        ViewMessage::CloseRequested(window_id) => settings::close_requested(app, window_id),
         _ => Task::none(),
     }
 }

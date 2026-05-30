@@ -4,6 +4,81 @@
 
 use vw_desktop::{app, fonts};
 
+const MAIN_WINDOW_SIZE: iced::Size = iced::Size { width: 1720.0, height: 1000.0 };
+
+fn main_window_platform_settings() -> iced::window::settings::PlatformSpecific {
+    #[cfg(target_os = "macos")]
+    {
+        iced::window::settings::PlatformSpecific {
+            title_hidden: true,
+            titlebar_transparent: true,
+            fullsize_content_view: true,
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        iced::window::settings::PlatformSpecific::default()
+    }
+}
+
+fn main_window_settings() -> iced::window::Settings {
+    let window = iced::window::Settings {
+        size: MAIN_WINDOW_SIZE,
+        maximized: cfg!(not(target_arch = "wasm32")),
+        position: iced::window::Position::Centered,
+        platform_specific: main_window_platform_settings(),
+        exit_on_close_request: false,
+        ..Default::default()
+    };
+
+    #[cfg(target_arch = "wasm32")]
+    let window = {
+        let mut window = window;
+        window.platform_specific.target = Some("vibe-window-app-container".to_string());
+        window
+    };
+
+    window
+}
+
+fn task_pet_initial_position(window_size: iced::Size, monitor_size: iced::Size) -> iced::Point {
+    iced::Point::new((monitor_size.width - window_size.width - 80.0).max(24.0), 96.0)
+}
+
+fn task_pet_window_settings(size: iced::Size) -> iced::window::Settings {
+    iced::window::Settings {
+        size,
+        min_size: Some(size),
+        max_size: Some(size),
+        position: iced::window::Position::SpecificWith(task_pet_initial_position),
+        resizable: false,
+        decorations: false,
+        transparent: true,
+        level: iced::window::Level::AlwaysOnTop,
+        exit_on_close_request: false,
+        ..Default::default()
+    }
+}
+
+fn boot_app() -> (app::App, iced::Task<app::Message>) {
+    let (mut app, startup_task) = app::App::new();
+    let (main_window_id, main_window_task) = iced::window::open(main_window_settings());
+    let (task_pet_window_id, task_pet_window_task) =
+        iced::window::open(task_pet_window_settings(app.task_pet_window_size()));
+
+    app.register_window_ids(main_window_id, task_pet_window_id);
+
+    (
+        app,
+        iced::Task::batch([
+            startup_task,
+            main_window_task.map(|_| app::Message::None),
+            task_pet_window_task.map(|_| app::Message::None),
+        ]),
+    )
+}
+
 /// 启动桌面应用。
 ///
 /// 返回 iced 运行结果，窗口或渲染器初始化失败时将错误交给进程入口处理。
@@ -38,43 +113,11 @@ pub fn main() -> iced::Result {
 
     let settings = iced::Settings { default_font, fonts: fonts::load_all(), ..Default::default() };
 
-    let platform_specific = {
-        #[cfg(target_os = "macos")]
-        {
-            iced::window::settings::PlatformSpecific {
-                title_hidden: true,
-                titlebar_transparent: true,
-                fullsize_content_view: true,
-            }
-        }
-
-        #[cfg(not(target_os = "macos"))]
-        {
-            iced::window::settings::PlatformSpecific::default()
-        }
-    };
-
-    let window = iced::window::Settings {
-        size: iced::Size::new(1720.0, 1000.0),
-        maximized: cfg!(not(target_arch = "wasm32")),
-        platform_specific,
-        ..Default::default()
-    };
-
-    #[cfg(target_arch = "wasm32")]
-    let window = {
-        let mut window = window;
-        window.platform_specific.target = Some("vibe-window-app-container".to_string());
-        window
-    };
-
-    iced::application(app::App::new, app::App::update, app::App::view)
-        .title(app::App::title)
-        .theme(app::App::theme)
+    iced::daemon(boot_app, app::App::update, app::App::view_window)
+        .title(app::App::title_for_window)
+        .theme(app::App::theme_for_window)
         .subscription(app::App::subscription)
-        .window(window)
         .settings(settings)
-        .centered()
         .run()
 }
 

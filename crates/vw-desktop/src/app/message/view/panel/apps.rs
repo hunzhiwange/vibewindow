@@ -102,16 +102,16 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
                             && let Some(v) = candidates
                                 .iter()
                                 .find(|id| id.to_ascii_lowercase().contains(substr))
-                            {
-                                return Some(v.clone());
-                            }
+                        {
+                            return Some(v.clone());
+                        }
                         if model_lower.contains("deepseek")
                             && let Some(v) = candidates
                                 .iter()
                                 .find(|id| id.to_ascii_lowercase().contains("openrouter"))
-                            {
-                                return Some(v.clone());
-                            }
+                        {
+                            return Some(v.clone());
+                        }
                         Some(candidates[0].clone())
                     }
 
@@ -269,9 +269,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             app.active_tab_id = Some(id);
             app.screen = Screen::RedisTool;
             if let Some(selected_id) = app.redis_tool.selected_connection_id.clone()
-                && !app
-                    .redis_tool
-                    .has_detail_tab_data_for_selected(app.redis_tool.detail_tab)
+                && !app.redis_tool.has_detail_tab_data_for_selected(app.redis_tool.detail_tab)
             {
                 Task::done(Message::RedisTool(
                     crate::app::message::RedisToolMessage::SelectConnection(selected_id),

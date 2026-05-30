@@ -47,7 +47,9 @@ pub(super) fn owned_blocks_from_raw(raw: &str) -> Vec<ParsedChatBlock> {
         .collect()
 }
 
-pub(super) fn borrowed_blocks(blocks: &[ParsedChatBlock]) -> impl Iterator<Item = RenderBlock<'_>> + '_ {
+pub(super) fn borrowed_blocks(
+    blocks: &[ParsedChatBlock],
+) -> impl Iterator<Item = RenderBlock<'_>> + '_ {
     blocks.iter().map(|block| match block {
         ParsedChatBlock::Think { content, open } => {
             RenderBlock::Think { content: content.as_str(), open: *open }
@@ -315,10 +317,7 @@ fn parse_blocks(raw: &str) -> Vec<RenderBlock<'_>> {
         let think_chunk = &rest[..end];
         if let Some(tool_start) = find_tool_start(think_chunk) {
             if tool_start > 0 {
-                out.push(RenderBlock::Think {
-                    content: &think_chunk[..tool_start],
-                    open: false,
-                });
+                out.push(RenderBlock::Think { content: &think_chunk[..tool_start], open: false });
             } else {
                 out.push(RenderBlock::Think { content: "", open: false });
             }

@@ -153,8 +153,7 @@ impl<'a> DesignCanvas<'a> {
                     | Handle::RotateBottomRight => {
                         let center_x = rect.x + rect.width / 2.0;
                         let center_y = rect.y + rect.height / 2.0;
-                        let start_angle =
-                            (cursor_pos.y - center_y).atan2(cursor_pos.x - center_x);
+                        let start_angle = (cursor_pos.y - center_y).atan2(cursor_pos.x - center_x);
 
                         let mut current_rot = 0.0;
                         if let Some(element) = find_element_by_id(&self.doc.children, sel_id) {
@@ -268,15 +267,18 @@ impl<'a> DesignCanvas<'a> {
                             if !is_selected {
                                 let mut initial_positions = Vec::new();
                                 initial_positions.push((hit_id.clone(), Point::new(el.x, el.y)));
-                                state.moving_elements = Some((initial_positions, cursor_pos, false));
+                                state.moving_elements =
+                                    Some((initial_positions, cursor_pos, false));
                             } else {
                                 let mut initial_positions = Vec::new();
                                 for id in self.selected_ids {
                                     if let Some(el) = find_element_by_id(&self.doc.children, id) {
-                                        initial_positions.push((id.clone(), Point::new(el.x, el.y)));
+                                        initial_positions
+                                            .push((id.clone(), Point::new(el.x, el.y)));
                                     }
                                 }
-                                state.moving_elements = Some((initial_positions, cursor_pos, false));
+                                state.moving_elements =
+                                    Some((initial_positions, cursor_pos, false));
                             }
                         }
                         return Some(Action::publish(Message::Design(

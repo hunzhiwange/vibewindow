@@ -3,11 +3,12 @@
 //! 该模块定义 workflow 的消息类型，并将 UI、文件、导出和编辑操作分发到状态更新逻辑。
 
 use super::model::{
-    LoadedWorkflow, WorkflowAppMeta, WorkflowConnectionEndpoint, WorkflowViewport,
-    create_blank_workflow, load_builtin_workflow, load_document_from_path,
-    load_document_from_text, load_document_from_value, serialize_workflow_yaml,
+    LoadedWorkflow, WorkflowAppMeta, WorkflowConnectionEndpoint, create_blank_workflow,
+    load_builtin_workflow, load_document_from_path, load_document_from_value,
     suggested_workflow_file_name,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use super::model::{WorkflowViewport, load_document_from_text, serialize_workflow_yaml};
 use super::state::{
     WorkflowAppEditorMode, WorkflowCanvasContextMenuTarget, WorkflowNodeEditorTab,
     WorkflowVariablePanelKind,
@@ -250,13 +251,17 @@ pub(super) fn suggested_new_node_position(app: &App) -> Point {
     )
 }
 
-pub(super) fn save_entry(entry: super::state::WorkflowAppEntry, force_picker: bool) -> Task<Message> {
+pub(super) fn save_entry(
+    entry: super::state::WorkflowAppEntry,
+    force_picker: bool,
+) -> Task<Message> {
     #[cfg(target_arch = "wasm32")]
     {
         let _ = (entry, force_picker);
-        Task::perform(async { Err("Web 平台暂不支持保存本地工作流文件".to_string()) }, |res| {
-            Message::WorkflowTool(WorkflowMessage::SaveActiveAppFinished(res))
-        })
+        Task::perform(
+            async { Err("Web 平台暂不支持保存本地工作流文件".to_string()) },
+            |res| Message::WorkflowTool(WorkflowMessage::SaveActiveAppFinished(res)),
+        )
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -300,9 +305,10 @@ pub(super) fn save_entry(entry: super::state::WorkflowAppEntry, force_picker: bo
 pub(super) fn open_file() -> Task<Message> {
     #[cfg(target_arch = "wasm32")]
     {
-        Task::perform(async { Err("Web 平台暂不支持本地工作流文件选择".to_string()) }, |res| {
-            Message::WorkflowTool(WorkflowMessage::OpenFileFinished(res))
-        })
+        Task::perform(
+            async { Err("Web 平台暂不支持本地工作流文件选择".to_string()) },
+            |res| Message::WorkflowTool(WorkflowMessage::OpenFileFinished(res)),
+        )
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -431,9 +437,7 @@ pub(super) fn export_jpeg(app: &mut App) -> Task<Message> {
                             image::ExtendedColorType::Rgb8,
                         )
                         .map_err(|error| format!("编码 JPEG 失败: {error}"))?;
-                    file.write(&jpeg_data.into_inner())
-                        .await
-                        .map_err(|error| error.to_string())?;
+                    file.write(&jpeg_data.into_inner()).await.map_err(|error| error.to_string())?;
                     let _ = open::that(file.path());
                 }
                 Ok(())

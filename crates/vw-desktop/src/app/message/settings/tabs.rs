@@ -60,7 +60,11 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             } else if tab == SystemTab::Agents {
                 app.agents_settings.loading = true;
                 app.agents_settings.save_error = None;
-                Task::done(Message::Settings(SettingsMessage::Agents(AgentsMessage::Refresh)))
+                app.skills_settings.loading = true;
+                Task::batch(vec![
+                    Task::done(Message::Settings(SettingsMessage::Agents(AgentsMessage::Refresh))),
+                    Task::done(Message::Settings(SettingsMessage::SkillsRefresh)),
+                ])
             } else if tab == SystemTab::Browser {
                 app.browser_settings.save_error = None;
                 Task::done(Message::Settings(SettingsMessage::Browser(BrowserMessage::Refresh)))
@@ -93,6 +97,10 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             } else {
                 Task::none()
             }
+        }
+        SettingsMessage::SystemTabQueryChanged(query) => {
+            app.system_settings_query = query;
+            Task::none()
         }
         SettingsMessage::SystemHelpOpen(tab) => {
             app.system_settings_help_tab = Some(tab);

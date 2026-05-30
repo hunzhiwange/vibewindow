@@ -62,23 +62,23 @@ fn adapt_gateway_stream_event_maps_timeout_error_to_terminal_timeout() {
 
 #[test]
 fn adapt_gateway_stream_event_maps_task_and_metadata_refresh_events() {
-    let question_event = adapt_gateway_stream_event(GatewayChatStreamEvent::Other(serde_json::json!({
-        "type": "chat.question_raised",
-        "session_id": "session_123"
-    })));
+    let question_event =
+        adapt_gateway_stream_event(GatewayChatStreamEvent::Other(serde_json::json!({
+            "type": "chat.question_raised",
+            "session_id": "session_123"
+        })));
 
     assert_eq!(
         question_event,
-        UiRuntimeEvent::TaskStateChanged {
-            session_id: Some("session_123".to_string()),
-        }
+        UiRuntimeEvent::TaskStateChanged { session_id: Some("session_123".to_string()) }
     );
 
-    let title_event = adapt_gateway_stream_event(GatewayChatStreamEvent::Other(serde_json::json!({
-        "type": "chat.title_updated",
-        "session_id": "session_123",
-        "title": "Renamed"
-    })));
+    let title_event =
+        adapt_gateway_stream_event(GatewayChatStreamEvent::Other(serde_json::json!({
+            "type": "chat.title_updated",
+            "session_id": "session_123",
+            "title": "Renamed"
+        })));
 
     assert_eq!(
         title_event,

@@ -1,4 +1,6 @@
-use super::text::{normalize_display_text, strip_internal_tool_trace, truncate_chars, truncate_lines_middle};
+use super::text::{
+    normalize_display_text, strip_internal_tool_trace, truncate_chars, truncate_lines_middle,
+};
 
 #[test]
 fn truncate_chars_and_lines_keep_boundaries() {

@@ -35,8 +35,7 @@ use super::constants::{DEFAULT_MAX_TOOL_ITERATIONS, MISSING_TOOL_CALL_RETRY_PROM
 use super::errors::ToolLoopCancelled;
 use llm_round::run_llm_round;
 use output::{
-    send_retry_progress, stream_final_response, update_thinking_progress,
-    update_tool_call_progress,
+    send_retry_progress, stream_final_response, update_thinking_progress, update_tool_call_progress,
 };
 use tool_execution::execute_tool_calls_and_update_history;
 
@@ -154,12 +153,8 @@ pub async fn run_tool_call_loop(
         )
         .await?;
 
-        update_tool_call_progress(
-            on_delta.as_ref(),
-            round.tool_calls.len(),
-            round.duration_secs,
-        )
-        .await;
+        update_tool_call_progress(on_delta.as_ref(), round.tool_calls.len(), round.duration_secs)
+            .await;
 
         if round.tool_calls.is_empty() {
             let completion_claim_signal =

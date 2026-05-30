@@ -378,4 +378,3 @@ pub struct ImageImportPayload {
     pub bytes: Vec<u8>,
     pub size_opt: Option<(u32, u32)>,
 }
-

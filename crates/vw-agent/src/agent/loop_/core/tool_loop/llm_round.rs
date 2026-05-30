@@ -14,11 +14,11 @@ use anyhow::Result;
 use std::time::Instant;
 use tokio_util::sync::CancellationToken;
 
-use super::super::errors::ToolLoopCancelled;
 use super::super::super::parsing::{
     ParsedToolCall, detect_tool_call_parse_issue, parse_structured_tool_calls, parse_tool_calls,
 };
 use super::super::super::utils::scrub_credentials;
+use super::super::errors::ToolLoopCancelled;
 use super::super::history::{
     build_native_assistant_history, build_native_assistant_history_from_parsed_calls,
 };
@@ -77,7 +77,8 @@ pub(super) async fn run_llm_round(
         .into());
     }
 
-    let prepared_messages = multimodal::prepare_messages_for_provider(history, multimodal_config).await?;
+    let prepared_messages =
+        multimodal::prepare_messages_for_provider(history, multimodal_config).await?;
 
     observer.record_event(&ObserverEvent::LlmRequest {
         provider: provider_name.to_string(),
@@ -122,18 +123,18 @@ pub(super) async fn run_llm_round(
 
     match chat_result {
         Ok(resp) => {
-            let (resp_input_tokens, resp_output_tokens, resp_cached_tokens, resp_reasoning_tokens) = resp
-                .usage
-                .as_ref()
-                .map(|usage| {
-                    (
-                        usage.input_tokens,
-                        usage.output_tokens,
-                        usage.cached_tokens,
-                        usage.reasoning_tokens,
-                    )
-                })
-                .unwrap_or((None, None, None, None));
+            let (resp_input_tokens, resp_output_tokens, resp_cached_tokens, resp_reasoning_tokens) =
+                resp.usage
+                    .as_ref()
+                    .map(|usage| {
+                        (
+                            usage.input_tokens,
+                            usage.output_tokens,
+                            usage.cached_tokens,
+                            usage.reasoning_tokens,
+                        )
+                    })
+                    .unwrap_or((None, None, None, None));
 
             observer.record_event(&ObserverEvent::LlmResponse {
                 provider: provider_name.to_string(),
@@ -215,7 +216,8 @@ pub(super) async fn run_llm_round(
                 resp.reasoning_content.as_deref(),
                 use_native_tools,
             );
-            let display_text = if parsed_text.is_empty() { response_text.clone() } else { parsed_text };
+            let display_text =
+                if parsed_text.is_empty() { response_text.clone() } else { parsed_text };
 
             Ok(LlmRoundResult {
                 response_text,

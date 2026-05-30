@@ -8,15 +8,15 @@
 //! - 复制和清空操作
 //! - 右键菜单（复制选择、剪切、粘贴、删除）
 
+use crate::app::components::system_settings_common::{
+    primary_action_btn_style, rounded_action_btn_style, settings_muted_text_style, settings_panel,
+    settings_panel_style,
+};
 use crate::app::components::text_editor_context_menu::{
     TextEditorContextMenuMessages, TextEditorContextMenuState, wrap_with_context_menu,
 };
 use crate::app::components::text_editor_scroll_panel::{
     TextEditorScrollPanelMetrics, text_editor_scroll_panel,
-};
-use crate::app::components::system_settings_common::{
-    primary_action_btn_style, rounded_action_btn_style, settings_muted_text_style, settings_panel,
-    settings_panel_style,
 };
 use crate::app::message::JsonToolMessage;
 use crate::app::{App, Message};
@@ -139,11 +139,8 @@ fn build_action_button<'a>(
     is_primary: bool,
 ) -> Element<'a, Message> {
     let button = button(text(label).size(13)).padding([10, 12]).width(Length::Fill);
-    let button = if app.json_tool_loading {
-        button
-    } else {
-        button.on_press(Message::JsonTool(msg))
-    };
+    let button =
+        if app.json_tool_loading { button } else { button.on_press(Message::JsonTool(msg)) };
 
     if is_primary {
         button.style(primary_action_btn_style).into()

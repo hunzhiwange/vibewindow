@@ -92,11 +92,8 @@ pub(super) fn resolve_svg_rect(
     view_box: (f32, f32, f32, f32),
 ) -> Rectangle {
     let (_, _, view_box_width, view_box_height) = view_box;
-    let aspect_ratio = if view_box_height.abs() > f32::EPSILON {
-        view_box_width / view_box_height
-    } else {
-        1.0
-    };
+    let aspect_ratio =
+        if view_box_height.abs() > f32::EPSILON { view_box_width / view_box_height } else { 1.0 };
 
     let width = style.width.map(|value| value * zoom);
     let height = style.height.map(|value| value * zoom);
@@ -136,11 +133,8 @@ pub(super) fn resolve_svg_render_origin(
     view_box: (f32, f32, f32, f32),
 ) -> (Point, f32) {
     let (min_x, min_y, view_box_width, view_box_height) = view_box;
-    let scale_x = if view_box_width.abs() > f32::EPSILON {
-        draw_bounds.width / view_box_width
-    } else {
-        1.0
-    };
+    let scale_x =
+        if view_box_width.abs() > f32::EPSILON { draw_bounds.width / view_box_width } else { 1.0 };
     let scale_y = if view_box_height.abs() > f32::EPSILON {
         draw_bounds.height / view_box_height
     } else {

@@ -14,4 +14,3 @@ fn moonshot_aliases_are_case_insensitive() {
     assert!(is_moonshot_alias("moonshot"));
     assert!(!is_moonshot_alias("openai"));
 }
-

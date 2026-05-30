@@ -25,7 +25,7 @@ use iced::{Background, Border, Color, Length};
 use std::collections::HashSet;
 
 use crate::app::components::system_settings_common::{
-    settings_text_editor_style, settings_text_input_style,
+    settings_text_editor_style, settings_text_input_style, with_settings_help_modal,
 };
 use crate::app::{App, DiffTheme, Message, message};
 
@@ -489,25 +489,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
         app.git_filter_new || app.git_filter_modified || app.git_filter_deleted;
     if status_filters_active {
         diff_files.retain(|m| {
-                (app.git_filter_new
-                    && matches!(m.status, utils::FileStatus::Added | utils::FileStatus::Untracked))
-                    || (app.git_filter_modified
-                        && matches!(
-                            m.status,
-                            utils::FileStatus::Modified | utils::FileStatus::Renamed
-                        ))
-                    || (app.git_filter_deleted && matches!(m.status, utils::FileStatus::Deleted))
-            });
+            (app.git_filter_new
+                && matches!(m.status, utils::FileStatus::Added | utils::FileStatus::Untracked))
+                || (app.git_filter_modified
+                    && matches!(m.status, utils::FileStatus::Modified | utils::FileStatus::Renamed))
+                || (app.git_filter_deleted && matches!(m.status, utils::FileStatus::Deleted))
+        });
     }
     let files_list: Vec<String> = diff_files.iter().map(|m| m.path.clone()).collect();
 
     // 渲染头部组件
     let header = header::view(app, files_list.clone());
-
-    // 将聚焦文件排序到列表最前面
-    if let Some(focus) = app.git_focused_file.as_deref() {
-        diff_files.sort_by_key(|m| if m.path == focus { 0 } else { 1 });
-    }
 
     // 根据当前主题确定 diff 配色方案
     let effective_theme =
@@ -654,12 +646,16 @@ pub fn view(app: &App) -> Element<'_, Message> {
         let use_virtualization = renderable_diff_files.len() >= GIT_FILE_VIRTUALIZATION_MIN_ITEMS
             && !app.show_git_custom_diff_modal
             && app.chat_text_diff.is_none();
-        let file_heights = if use_virtualization { {
+        let file_heights = if use_virtualization {
+            {
                 renderable_diff_files
                     .iter()
                     .map(|meta| estimate_git_file_card_height(app, meta))
                     .collect::<Vec<_>>()
-            } } else { Default::default() };
+            }
+        } else {
+            Default::default()
+        };
         let (start_idx, end_idx, top_spacer_h, bottom_spacer_h) = if use_virtualization {
             compute_git_file_virtual_window(app, &file_heights)
         } else {
@@ -765,7 +761,26 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let base_content: Element<'_, Message> = iced::widget::MouseArea::new(col.height(Length::Fill))
         .on_release(Message::Git(message::GitMessage::DiffDragSelectEnd))
         .into();
-    let base: Element<'_, Message> = base_content;
+    let mut base: Element<'_, Message> = base_content;
+
+    if app.show_git_commit_help_modal {
+        base = with_settings_help_modal(
+            app,
+            base,
+            left_panel::COMMIT_HELP_TITLE,
+            left_panel::COMMIT_HELP_TEXT,
+            Message::Git(message::GitMessage::CommitHelpClose),
+        );
+    }
+    if app.show_git_filter_help_modal {
+        base = with_settings_help_modal(
+            app,
+            base,
+            filter_options::FILTER_HELP_TITLE,
+            filter_options::FILTER_HELP_TEXT,
+            Message::Git(message::GitMessage::FilterHelpClose),
+        );
+    }
 
     // 渲染复制/编辑模态框（如果激活）
     if app.show_git_copy_modal {

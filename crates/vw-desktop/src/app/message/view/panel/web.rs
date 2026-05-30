@@ -26,18 +26,20 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
                     && let Some(target_dir) = p
                         .ancestors()
                         .find(|a| a.file_name().map(|n| n == "target").unwrap_or(false))
-                        && let Some(root) = target_dir.parent() {
-                            candidates.push(root.join("target/release/vw-webview"));
-                            candidates.push(root.join("target/debug/vw-webview"));
-                        }
+                    && let Some(root) = target_dir.parent()
+                {
+                    candidates.push(root.join("target/release/vw-webview"));
+                    candidates.push(root.join("target/debug/vw-webview"));
+                }
                 candidates.push(std::path::PathBuf::from("vw-webview"));
 
                 // Only use bookmark-specific cookie configs
                 let mut configs = Vec::new();
                 if let Some(bm) = app.web_bookmarks.iter().find(|b| b.url == _url)
-                    && let Some(bm_configs) = &bm.cookie_configs {
-                        configs.extend(bm_configs.clone());
-                    }
+                    && let Some(bm_configs) = &bm.cookie_configs
+                {
+                    configs.extend(bm_configs.clone());
+                }
                 let cookies_json = serde_json::to_string(&configs).unwrap_or_default();
 
                 let mut spawned = false;
@@ -71,18 +73,20 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
                     && let Some(target_dir) = p
                         .ancestors()
                         .find(|a| a.file_name().map(|n| n == "target").unwrap_or(false))
-                        && let Some(root) = target_dir.parent() {
-                            candidates.push(root.join("target/release/vw-webview"));
-                            candidates.push(root.join("target/debug/vw-webview"));
-                        }
+                    && let Some(root) = target_dir.parent()
+                {
+                    candidates.push(root.join("target/release/vw-webview"));
+                    candidates.push(root.join("target/debug/vw-webview"));
+                }
                 candidates.push(std::path::PathBuf::from("vw-webview"));
 
                 // Only use bookmark-specific cookie configs
                 let mut configs = Vec::new();
                 if let Some(bm) = app.web_bookmarks.iter().find(|b| b.url == _url)
-                    && let Some(bm_configs) = &bm.cookie_configs {
-                        configs.extend(bm_configs.clone());
-                    }
+                    && let Some(bm_configs) = &bm.cookie_configs
+                {
+                    configs.extend(bm_configs.clone());
+                }
                 let cookies_json = serde_json::to_string(&configs).unwrap_or_default();
 
                 let mut spawned = false;
@@ -119,18 +123,20 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
                     && let Some(target_dir) = p
                         .ancestors()
                         .find(|a| a.file_name().map(|n| n == "target").unwrap_or(false))
-                        && let Some(root) = target_dir.parent() {
-                            candidates.push(root.join("target").join("release").join(helper_name));
-                            candidates.push(root.join("target").join("debug").join(helper_name));
-                        }
+                    && let Some(root) = target_dir.parent()
+                {
+                    candidates.push(root.join("target").join("release").join(helper_name));
+                    candidates.push(root.join("target").join("debug").join(helper_name));
+                }
                 candidates.push(std::path::PathBuf::from(helper_name));
 
                 // Only use bookmark-specific cookie configs
                 let mut configs = Vec::new();
                 if let Some(bm) = app.web_bookmarks.iter().find(|b| b.url == url)
-                    && let Some(bm_configs) = &bm.cookie_configs {
-                        configs.extend(bm_configs.clone());
-                    }
+                    && let Some(bm_configs) = &bm.cookie_configs
+                {
+                    configs.extend(bm_configs.clone());
+                }
                 let cookies_json = serde_json::to_string(&configs).unwrap_or_default();
 
                 let mut spawned = false;
@@ -222,17 +228,20 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
                             );
                             obj.insert("url".to_string(), serde_json::Value::String(b.url.clone()));
                             if let Some(w) = b.width
-                                && let Some(nn) = serde_json::Number::from_f64(w as f64) {
-                                    obj.insert("width".to_string(), serde_json::Value::Number(nn));
-                                }
+                                && let Some(nn) = serde_json::Number::from_f64(w as f64)
+                            {
+                                obj.insert("width".to_string(), serde_json::Value::Number(nn));
+                            }
                             if let Some(h) = b.height
-                                && let Some(nn) = serde_json::Number::from_f64(h as f64) {
-                                    obj.insert("height".to_string(), serde_json::Value::Number(nn));
-                                }
+                                && let Some(nn) = serde_json::Number::from_f64(h as f64)
+                            {
+                                obj.insert("height".to_string(), serde_json::Value::Number(nn));
+                            }
                             if let Some(configs) = &b.cookie_configs
-                                && let Ok(v) = serde_json::to_value(configs) {
-                                    obj.insert("cookie_configs".to_string(), v);
-                                }
+                                && let Ok(v) = serde_json::to_value(configs)
+                            {
+                                obj.insert("cookie_configs".to_string(), v);
+                            }
                             serde_json::Value::Object(obj)
                         })
                         .collect(),
@@ -292,9 +301,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
         }
         ViewMessage::WebBookmarkEditCookieConfigsInsertExample => {
             app.edit_web_bookmark_cookie_configs_editor =
-                iced::widget::text_editor::Content::with_text(
-                    WEB_BOOKMARK_COOKIE_CONFIG_EXAMPLE,
-                );
+                iced::widget::text_editor::Content::with_text(WEB_BOOKMARK_COOKIE_CONFIG_EXAMPLE);
             Task::none()
         }
         ViewMessage::WebBookmarkEditSave => {
@@ -327,23 +334,20 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
                                     serde_json::Value::String(b.url.clone()),
                                 );
                                 if let Some(w) = b.width
-                                    && let Some(nn) = serde_json::Number::from_f64(w as f64) {
-                                        obj.insert(
-                                            "width".to_string(),
-                                            serde_json::Value::Number(nn),
-                                        );
-                                    }
+                                    && let Some(nn) = serde_json::Number::from_f64(w as f64)
+                                {
+                                    obj.insert("width".to_string(), serde_json::Value::Number(nn));
+                                }
                                 if let Some(h) = b.height
-                                    && let Some(nn) = serde_json::Number::from_f64(h as f64) {
-                                        obj.insert(
-                                            "height".to_string(),
-                                            serde_json::Value::Number(nn),
-                                        );
-                                    }
+                                    && let Some(nn) = serde_json::Number::from_f64(h as f64)
+                                {
+                                    obj.insert("height".to_string(), serde_json::Value::Number(nn));
+                                }
                                 if let Some(configs) = &b.cookie_configs
-                                    && let Ok(v) = serde_json::to_value(configs) {
-                                        obj.insert("cookie_configs".to_string(), v);
-                                    }
+                                    && let Ok(v) = serde_json::to_value(configs)
+                                {
+                                    obj.insert("cookie_configs".to_string(), v);
+                                }
                                 serde_json::Value::Object(obj)
                             })
                             .collect(),
@@ -382,17 +386,20 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
                             );
                             obj.insert("url".to_string(), serde_json::Value::String(b.url.clone()));
                             if let Some(w) = b.width
-                                && let Some(nn) = serde_json::Number::from_f64(w as f64) {
-                                    obj.insert("width".to_string(), serde_json::Value::Number(nn));
-                                }
+                                && let Some(nn) = serde_json::Number::from_f64(w as f64)
+                            {
+                                obj.insert("width".to_string(), serde_json::Value::Number(nn));
+                            }
                             if let Some(h) = b.height
-                                && let Some(nn) = serde_json::Number::from_f64(h as f64) {
-                                    obj.insert("height".to_string(), serde_json::Value::Number(nn));
-                                }
+                                && let Some(nn) = serde_json::Number::from_f64(h as f64)
+                            {
+                                obj.insert("height".to_string(), serde_json::Value::Number(nn));
+                            }
                             if let Some(configs) = &b.cookie_configs
-                                && let Ok(v) = serde_json::to_value(configs) {
-                                    obj.insert("cookie_configs".to_string(), v);
-                                }
+                                && let Ok(v) = serde_json::to_value(configs)
+                            {
+                                obj.insert("cookie_configs".to_string(), v);
+                            }
                             serde_json::Value::Object(obj)
                         })
                         .collect(),

@@ -1,7 +1,7 @@
 //! 处理 Redis 连接草稿表单输入、文件选择结果和开关状态。
 
-use super::{App, Message, RedisToolMessage, Task};
 use super::helpers::pick_file_path;
+use super::{App, Message, RedisToolMessage, Task};
 
 /// 处理 `draft_name_changed` 对应的用户输入、异步结果或状态转换。
 ///
@@ -220,10 +220,7 @@ pub(super) fn draft_ssh_password_changed(app: &mut App, value: String) -> Task<M
 /// 处理 `draft_ssh_private_key_path_changed` 对应的用户输入、异步结果或状态转换。
 ///
 /// 参数来自已匹配的消息载荷或当前设置状态，函数只在当前消息边界内产生状态变更。
-pub(super) fn draft_ssh_private_key_path_changed(
-    app: &mut App,
-    value: String,
-) -> Task<Message> {
+pub(super) fn draft_ssh_private_key_path_changed(app: &mut App, value: String) -> Task<Message> {
     app.redis_tool.draft.ssh_tunnel.private_key_path = value;
     Task::none()
 }
@@ -280,10 +277,7 @@ pub(super) fn draft_sentinel_enabled_toggled(app: &mut App, value: bool) -> Task
 /// 处理 `draft_sentinel_master_name_changed` 对应的用户输入、异步结果或状态转换。
 ///
 /// 参数来自已匹配的消息载荷或当前设置状态，函数只在当前消息边界内产生状态变更。
-pub(super) fn draft_sentinel_master_name_changed(
-    app: &mut App,
-    value: String,
-) -> Task<Message> {
+pub(super) fn draft_sentinel_master_name_changed(app: &mut App, value: String) -> Task<Message> {
     app.redis_tool.draft.sentinel.master_name = value;
     Task::none()
 }
@@ -291,10 +285,7 @@ pub(super) fn draft_sentinel_master_name_changed(
 /// 处理 `draft_sentinel_node_password_changed` 对应的用户输入、异步结果或状态转换。
 ///
 /// 参数来自已匹配的消息载荷或当前设置状态，函数只在当前消息边界内产生状态变更。
-pub(super) fn draft_sentinel_node_password_changed(
-    app: &mut App,
-    value: String,
-) -> Task<Message> {
+pub(super) fn draft_sentinel_node_password_changed(app: &mut App, value: String) -> Task<Message> {
     app.redis_tool.draft.sentinel.node_password = value;
     Task::none()
 }

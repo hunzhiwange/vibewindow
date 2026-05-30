@@ -47,11 +47,8 @@ pub(super) fn draw(
 ) -> Vec<Geometry> {
     let geom = canvas.cache.draw(renderer, bounds.size(), |frame: &mut Frame| {
         let layout = layout_for_canvas(canvas);
-        let current_theme = resolve_theme(
-            canvas.theme_group,
-            canvas.theme_variant,
-            canvas.custom_themes,
-        );
+        let current_theme =
+            resolve_theme(canvas.theme_group, canvas.theme_variant, canvas.custom_themes);
         let palette = theme.extended_palette();
         let background = if let Some(rgba) = canvas.background {
             rgba_u32_to_color(rgba)
@@ -96,11 +93,9 @@ pub(super) fn draw(
     });
 
     state.overlay_cache.clear();
-    let overlay_geom = state
-        .overlay_cache
-        .draw(renderer, bounds.size(), |frame: &mut Frame| {
-            overlay::draw_overlay(frame, canvas, state, bounds, cursor);
-        });
+    let overlay_geom = state.overlay_cache.draw(renderer, bounds.size(), |frame: &mut Frame| {
+        overlay::draw_overlay(frame, canvas, state, bounds, cursor);
+    });
 
     vec![geom, overlay_geom]
 }

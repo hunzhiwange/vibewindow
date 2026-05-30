@@ -143,12 +143,8 @@ fn public_urls_from_status_prefers_funnel_enabled_entry() {
         }
     });
 
-    let urls = public_urls_from_status(
-        &status,
-        Some("xiangminmac-mini.tail47e3db.ts.net"),
-        42617,
-        true,
-    );
+    let urls =
+        public_urls_from_status(&status, Some("xiangminmac-mini.tail47e3db.ts.net"), 42617, true);
 
     assert_eq!(urls, vec!["https://xiangminmac-mini.tail47e3db.ts.net".to_string()]);
 }
@@ -177,17 +173,10 @@ fn public_urls_from_status_prefers_tailnet_endpoint_for_serve() {
         }
     });
 
-    let urls = public_urls_from_status(
-        &status,
-        Some("xiangminmac-mini.tail47e3db.ts.net"),
-        42617,
-        false,
-    );
+    let urls =
+        public_urls_from_status(&status, Some("xiangminmac-mini.tail47e3db.ts.net"), 42617, false);
 
-    assert_eq!(
-        urls,
-        vec!["https://xiangminmac-mini.tail47e3db.ts.net:8443".to_string()]
-    );
+    assert_eq!(urls, vec!["https://xiangminmac-mini.tail47e3db.ts.net:8443".to_string()]);
 }
 
 #[test]
@@ -204,12 +193,8 @@ fn public_urls_from_status_filters_out_other_backend_ports() {
         }
     });
 
-    let urls = public_urls_from_status(
-        &status,
-        Some("xiangminmac-mini.tail47e3db.ts.net"),
-        42617,
-        false,
-    );
+    let urls =
+        public_urls_from_status(&status, Some("xiangminmac-mini.tail47e3db.ts.net"), 42617, false);
 
     assert!(urls.is_empty());
 }

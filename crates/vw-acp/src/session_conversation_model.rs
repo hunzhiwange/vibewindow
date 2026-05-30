@@ -298,7 +298,8 @@ fn extract_tool_result_dto_text(result: &ToolResultDto) -> Option<String> {
         }
     }
 
-    extract_tool_result_text(&result.model_result).or_else(|| extract_tool_result_text(&result.data))
+    extract_tool_result_text(&result.model_result)
+        .or_else(|| extract_tool_result_text(&result.data))
 }
 
 fn to_tool_result_content_from_dto(result: &ToolResultDto) -> SessionToolResultContent {
@@ -474,12 +475,9 @@ fn apply_tool_call_update(agent: &mut SessionAgentMessage, update: &Map<String, 
             .as_ref()
             .map(to_tool_result_content_from_dto)
             .or_else(|| output.as_ref().map(to_tool_result_content));
-        let is_error = status.map(|status| status_indicates_error(Some(status))).or_else(|| {
-            result
-                .as_ref()
-                .and_then(|result| result.success)
-                .map(|success| !success)
-        });
+        let is_error = status
+            .map(|status| status_indicates_error(Some(status)))
+            .or_else(|| result.as_ref().and_then(|result| result.success).map(|success| !success));
         upsert_tool_result(
             agent,
             tool_call_id,

@@ -17,11 +17,7 @@ pub async fn handle_api_tools(
         return e.into_response();
     }
 
-    let tools = state
-        .tools_registry
-        .iter()
-        .map(|tool| tool.to_dto())
-        .collect();
+    let tools = state.tools_registry.iter().map(|tool| tool.to_dto()).collect();
 
     Json(ListToolSpecsResponse { items: tools }).into_response()
 }

@@ -70,10 +70,7 @@ pub(super) fn node_toolbar_layout(
             (
                 bottom_center,
                 Rectangle::new(
-                    Point::new(
-                        center_x - node_toolbar_w / 2.0,
-                        bottom_center.y + node_toolbar_gap,
-                    ),
+                    Point::new(center_x - node_toolbar_w / 2.0, bottom_center.y + node_toolbar_gap),
                     Size::new(node_toolbar_w, node_toolbar_h),
                 ),
             )

@@ -145,6 +145,17 @@ jobs:
           # Actually do builds and make zips and whatnot
           dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
           echo "dist ran successfully"
+      - name: Build Linux DEB/RPM
+        if: ${{ contains(join(matrix.targets, ','), 'unknown-linux-gnu') }}
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+          for target in ${{ join(matrix.targets, ' ') }}; do
+            if [[ "$target" == *unknown-linux-gnu ]]; then
+              TARGET="$target" PROFILE=dist OUT_DIR=target/distrib scripts/bundle_linux.sh
+            fi
+          done
       - name: Build macOS DMG
         if: ${{ contains(join(matrix.targets, ','), 'apple-darwin') }}
         shell: bash
@@ -185,8 +196,10 @@ jobs:
           name: artifacts-build-local-${{ join(matrix.targets, '_') }}
           path: |
             ${{ steps.cargo-dist.outputs.paths }}
+            target/distrib/*.deb
             target/distrib/*.dmg
             target/distrib/*.msi
+            target/distrib/*.rpm
             ${{ env.BUILD_MANIFEST_NAME }}
 
   # Build and package all the platform-agnostic(ish) things

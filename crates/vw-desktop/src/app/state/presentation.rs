@@ -329,7 +329,6 @@ impl std::fmt::Display for ConventionalCommitType {
     }
 }
 
-
 #[cfg(test)]
 #[path = "presentation_tests.rs"]
 mod presentation_tests;

@@ -4,12 +4,9 @@ use serde_json::{Map, Value};
 use std::path::Path;
 
 use super::pathing::{
-    contains_path,
-    image_mime_type,
-    is_binary_by_extension,
-    is_image_by_extension,
+    contains_path, image_mime_type, is_binary_by_extension, is_image_by_extension,
 };
-use super::{event, ignore, ripgrep, Content, ContentType, Error, Node, NodeType};
+use super::{Content, ContentType, Error, Node, NodeType, event, ignore, ripgrep};
 
 /// 初始化预加载。
 pub fn init_preload(cwd: impl AsRef<Path>) {

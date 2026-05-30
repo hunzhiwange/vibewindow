@@ -18,37 +18,44 @@ fn build_start_variable_editor_draft(
 }
 
 impl WorkflowState {
-    pub(super) fn append_node_editor_start_variable_editor_default_file(&mut self, value: String) -> Result<(), String> {
+    pub(super) fn append_node_editor_start_variable_editor_default_file(
+        &mut self,
+        value: String,
+    ) -> Result<(), String> {
         let trimmed = value.trim().to_string();
         if trimmed.is_empty() {
             return Ok(());
         }
 
         let mut result = Ok(());
-        self.update_node_editor_start_variable_editor(|editor| match editor.variable.input_type.as_str() {
-            "file-list" => {
-                let max_count = usize::from(normalized_start_variable_file_list_max_length(
-                    &editor.variable.max_length_input,
-                ));
-                if editor.variable.default_file_values.len() >= max_count {
-                    result = Err(format!("默认文件最多只能添加 {} 个", max_count));
-                    return;
+        self.update_node_editor_start_variable_editor(|editor| {
+            match editor.variable.input_type.as_str() {
+                "file-list" => {
+                    let max_count = usize::from(normalized_start_variable_file_list_max_length(
+                        &editor.variable.max_length_input,
+                    ));
+                    if editor.variable.default_file_values.len() >= max_count {
+                        result = Err(format!("默认文件最多只能添加 {} 个", max_count));
+                        return;
+                    }
+                    editor.variable.default_file_values.push(trimmed.clone());
+                    normalize_start_variable_draft(&mut editor.variable);
+                    editor.default_value_editor =
+                        text_editor::Content::with_text(&editor.variable.default_value);
+                    editor.default_file_url_input.clear();
+                    editor.show_default_file_url_input = false;
                 }
-                editor.variable.default_file_values.push(trimmed.clone());
-                normalize_start_variable_draft(&mut editor.variable);
-                editor.default_value_editor = text_editor::Content::with_text(&editor.variable.default_value);
-                editor.default_file_url_input.clear();
-                editor.show_default_file_url_input = false;
-            }
-            "file" => {
-                editor.variable.default_file_values = vec![trimmed.clone()];
-                normalize_start_variable_draft(&mut editor.variable);
-                editor.default_value_editor = text_editor::Content::with_text(&editor.variable.default_value);
-                editor.default_file_url_input = editor.variable.default_value.clone();
-                editor.show_default_file_url_input = false;
-            }
-            _ => {
-                editor.variable.default_value = trimmed.clone();
+                "file" => {
+                    editor.variable.default_file_values = vec![trimmed.clone()];
+                    normalize_start_variable_draft(&mut editor.variable);
+                    editor.default_value_editor =
+                        text_editor::Content::with_text(&editor.variable.default_value);
+                    editor.default_file_url_input = editor.variable.default_value.clone();
+                    editor.show_default_file_url_input = false;
+                }
+                _ => {
+                    editor.variable.default_value = trimmed.clone();
+                }
             }
         });
         result
@@ -98,11 +105,7 @@ impl WorkflowState {
     }
 
     pub fn focus_node(&mut self, id: &str, window_size: (f32, f32)) -> Result<(), String> {
-        let node = self
-            .document
-            .node(id)
-            .cloned()
-            .ok_or_else(|| "目标节点不存在".to_string())?;
+        let node = self.document.node(id).cloned().ok_or_else(|| "目标节点不存在".to_string())?;
 
         let usable_width = (window_size.0 - 380.0).max(320.0);
         let usable_height = (window_size.1 - 220.0).max(260.0);
@@ -112,7 +115,8 @@ impl WorkflowState {
             node.position.y + node.size.height / 2.0,
         );
 
-        self.pan = screen_center - Vector::new(world_center.x * self.zoom, world_center.y * self.zoom);
+        self.pan =
+            screen_center - Vector::new(world_center.x * self.zoom, world_center.y * self.zoom);
         self.selected_node_id = Some(node.id.clone());
         self.selected_edge_id = None;
         self.node_editor = None;
@@ -127,7 +131,9 @@ impl WorkflowState {
     pub fn node_editor_action(&mut self, action: text_editor::Action) {
         if let Some(editor) = self.node_editor.as_mut() {
             editor.raw_data_editor.perform(action);
-            if let Ok(visual_draft) = build_node_visual_draft(&editor.block_type, &editor.raw_data_editor.text()) {
+            if let Ok(visual_draft) =
+                build_node_visual_draft(&editor.block_type, &editor.raw_data_editor.text())
+            {
                 editor.visual_draft = visual_draft;
                 clamp_node_editor_start_variable_focus(editor);
             }
@@ -150,11 +156,7 @@ impl WorkflowState {
         F: FnOnce(&mut WorkflowNodeVisualDraft) -> bool,
     {
         if let Some(editor) = self.node_editor.as_mut() {
-            let changed = editor
-                .visual_draft
-                .as_mut()
-                .map(update)
-                .unwrap_or(false);
+            let changed = editor.visual_draft.as_mut().map(update).unwrap_or(false);
             if changed {
                 let _ = sync_node_editor_raw_from_visual(editor);
                 refresh_node_editor_validation(editor);
@@ -224,7 +226,8 @@ impl WorkflowState {
         self.update_node_editor_start_variable_editor(|editor| {
             editor.variable.input_type = value;
             normalize_start_variable_draft(&mut editor.variable);
-            editor.default_value_editor = text_editor::Content::with_text(&editor.variable.default_value);
+            editor.default_value_editor =
+                text_editor::Content::with_text(&editor.variable.default_value);
             editor.default_file_url_input = editor.variable.default_value.clone();
             editor.show_default_file_url_input = false;
         });
@@ -251,12 +254,16 @@ impl WorkflowState {
     pub fn set_node_editor_start_variable_editor_default(&mut self, value: String) {
         self.update_node_editor_start_variable_editor(|editor| {
             editor.variable.default_value = value;
-            editor.default_value_editor = text_editor::Content::with_text(&editor.variable.default_value);
+            editor.default_value_editor =
+                text_editor::Content::with_text(&editor.variable.default_value);
             editor.default_file_url_input = editor.variable.default_value.clone();
         });
     }
 
-    pub fn node_editor_start_variable_editor_default_action(&mut self, action: text_editor::Action) {
+    pub fn node_editor_start_variable_editor_default_action(
+        &mut self,
+        action: text_editor::Action,
+    ) {
         self.update_node_editor_start_variable_editor(|editor| {
             editor.default_value_editor.perform(action);
             editor.variable.default_value = editor.default_value_editor.text();
@@ -332,11 +339,7 @@ impl WorkflowState {
                 "remote_url" => vec!["remote_url".to_string()],
                 _ => default_start_variable_allowed_upload_methods(),
             };
-            if !editor
-                .variable
-                .allowed_file_upload_methods
-                .iter()
-                .any(|item| item == "remote_url")
+            if !editor.variable.allowed_file_upload_methods.iter().any(|item| item == "remote_url")
             {
                 editor.show_default_file_url_input = false;
             }
@@ -366,7 +369,9 @@ impl WorkflowState {
         });
     }
 
-    pub fn submit_node_editor_start_variable_editor_default_file_url(&mut self) -> Result<(), String> {
+    pub fn submit_node_editor_start_variable_editor_default_file_url(
+        &mut self,
+    ) -> Result<(), String> {
         let value = self
             .node_editor
             .as_ref()
@@ -376,7 +381,10 @@ impl WorkflowState {
         self.append_node_editor_start_variable_editor_default_file(value)
     }
 
-    pub fn set_node_editor_start_variable_editor_default_file_path(&mut self, path: String) -> Result<(), String> {
+    pub fn set_node_editor_start_variable_editor_default_file_path(
+        &mut self,
+        path: String,
+    ) -> Result<(), String> {
         self.append_node_editor_start_variable_editor_default_file(path)
     }
 
@@ -385,7 +393,8 @@ impl WorkflowState {
             if editor.variable.default_file_values.get(index).is_some() {
                 editor.variable.default_file_values.remove(index);
                 normalize_start_variable_draft(&mut editor.variable);
-                editor.default_value_editor = text_editor::Content::with_text(&editor.variable.default_value);
+                editor.default_value_editor =
+                    text_editor::Content::with_text(&editor.variable.default_value);
                 if editor.variable.input_type == "file" {
                     editor.default_file_url_input = editor.variable.default_value.clone();
                 }
@@ -401,14 +410,11 @@ impl WorkflowState {
             return Ok(());
         };
 
-        let WorkflowStartVariableEditorDraft {
-            mode,
-            mut variable,
-            ..
-        } = start_variable_editor;
+        let WorkflowStartVariableEditorDraft { mode, mut variable, .. } = start_variable_editor;
         normalize_start_variable_draft(&mut variable);
 
-        let Some(WorkflowNodeVisualDraft::Start { variables }) = editor.visual_draft.as_mut() else {
+        let Some(WorkflowNodeVisualDraft::Start { variables }) = editor.visual_draft.as_mut()
+        else {
             editor.start_variable_editor = Some(build_start_variable_editor_draft(mode, variable));
             return Err("当前节点不支持开始变量编辑".to_string());
         };
@@ -430,7 +436,8 @@ impl WorkflowState {
             }
             WorkflowStartVariableEditorMode::Edit(index) => {
                 let Some(slot) = variables.get_mut(index) else {
-                    editor.start_variable_editor = Some(build_start_variable_editor_draft(mode, variable));
+                    editor.start_variable_editor =
+                        Some(build_start_variable_editor_draft(mode, variable));
                     return Err("目标变量不存在".to_string());
                 };
                 *slot = variable;
@@ -448,7 +455,8 @@ impl WorkflowState {
         if let Some(editor) = self.node_editor.as_mut() {
             let mut changed = false;
 
-            if let Some(WorkflowNodeVisualDraft::Start { variables }) = editor.visual_draft.as_mut() {
+            if let Some(WorkflowNodeVisualDraft::Start { variables }) = editor.visual_draft.as_mut()
+            {
                 if index < variables.len() {
                     variables.remove(index);
                     editor.start_variable_focus_index = match editor.start_variable_focus_index {

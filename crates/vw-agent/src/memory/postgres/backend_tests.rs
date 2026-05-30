@@ -7,4 +7,3 @@ fn validates_schema_and_table_identifiers_before_connecting() {
     assert!(validate_identifier("bad-name", "table").is_err());
     assert_eq!(quote_identifier("memories"), "\"memories\"");
 }
-

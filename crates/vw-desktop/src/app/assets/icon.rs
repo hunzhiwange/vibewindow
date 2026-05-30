@@ -155,6 +155,8 @@ pub enum Icon {
     ArrowClockwise,
     /// 搜索图标
     Search,
+    /// 机器人/小宠物图标
+    Robot,
     /// 循环箭头/刷新图标
     ArrowRepeat,
     /// X/关闭图标

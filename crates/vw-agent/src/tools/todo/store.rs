@@ -1,6 +1,6 @@
 use anyhow::anyhow;
-use std::sync::LazyLock;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use vw_shared::todo::{default_todo_priority, default_todo_status};
 
@@ -11,7 +11,8 @@ use super::schema::{TodoInput, TodoPatch, WriteArgs};
 /// 全局待办事项存储
 ///
 /// 使用互斥锁保护的哈希表，键为会话标识，值为该会话的待办事项列表。
-static TODOS: LazyLock<Mutex<HashMap<String, Vec<Todo>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static TODOS: LazyLock<Mutex<HashMap<String, Vec<Todo>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 fn load_todos(session: &str) -> Vec<Todo> {
     #[cfg(not(target_arch = "wasm32"))]

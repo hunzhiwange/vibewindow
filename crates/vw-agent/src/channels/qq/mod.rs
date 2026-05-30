@@ -43,12 +43,12 @@ mod outbound;
 mod webhook;
 
 #[cfg(test)]
-use super::traits::Channel;
-#[cfg(test)]
 use self::content::{
     build_media_message_body, build_text_message_body, compose_message_content,
     parse_outgoing_content,
 };
+#[cfg(test)]
+use super::traits::Channel;
 
 /// QQ 机器人 API 基础 URL
 const QQ_API_BASE: &str = "https://api.sgroup.qq.com";

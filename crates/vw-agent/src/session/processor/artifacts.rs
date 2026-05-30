@@ -107,10 +107,7 @@ pub(crate) fn persist_llm_raw_step_payload(
         .iter()
         .filter(|message| message.get("role").and_then(Value::as_str) == Some("system"))
         .filter_map(|message| {
-            message
-                .get("content")
-                .and_then(Value::as_str)
-                .map(|content| content.to_string())
+            message.get("content").and_then(Value::as_str).map(|content| content.to_string())
         })
         .collect::<Vec<_>>();
     let payload = json!({

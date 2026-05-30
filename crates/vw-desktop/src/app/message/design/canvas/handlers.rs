@@ -4,13 +4,13 @@
 
 use super::brush::{extract_hex_token, with_alpha};
 use super::element_tree::insert_into_parent;
-use crate::app::message::design::{CanvasContextMenuAction, LayerAction};
+use crate::app::Message;
 use crate::app::message::DesignMessage;
+use crate::app::message::design::{CanvasContextMenuAction, LayerAction};
 use crate::app::views::design::canvas::geometry::get_element_screen_bounds;
 use crate::app::views::design::models::{DesignElement, DesignTool, Stroke, compute_tree_metrics};
-use crate::app::views::design::state::{ContextPopoverType, DesignState};
 use crate::app::views::design::properties::fill::types::{FillItem, FillObject};
-use crate::app::Message;
+use crate::app::views::design::state::{ContextPopoverType, DesignState};
 use iced::{Task, Vector, widget::text_editor};
 
 /// handle_tool_selected 处理当前模块对应的消息或状态转换。
@@ -27,7 +27,10 @@ pub(super) fn handle_tool_selected(state: &mut DesignState, tool: DesignTool) ->
             Some(ContextPopoverType::ToolbarBrush)
                 | Some(ContextPopoverType::ToolbarShape)
                 | Some(ContextPopoverType::ToolbarIcon)
-        ) => None,
+        ) =>
+        {
+            None
+        }
         _ => state.context_popover,
     };
     Task::none()
@@ -46,10 +49,7 @@ pub(super) fn handle_create_element(
     let selected_id = element.id.clone();
 
     if let Some(parent_id) = parent_id {
-        let group_id = state
-            .doc
-            .group_id_for_element(&parent_id)
-            .unwrap_or(state.active_group_id);
+        let group_id = state.doc.group_id_for_element(&parent_id).unwrap_or(state.active_group_id);
         element.set_group_id_recursive(group_id);
         if let Err(element) = insert_into_parent(&mut state.doc.children, &parent_id, element) {
             state.doc.children.push(element);
@@ -113,10 +113,7 @@ pub(super) fn handle_create_element(
 ///
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 变更范围限制在当前消息处理路径内，不引入额外的流程分支。
-pub(super) fn handle_zoom_fit(
-    state: &mut DesignState,
-    window_size: (f32, f32),
-) -> Task<Message> {
+pub(super) fn handle_zoom_fit(state: &mut DesignState, window_size: (f32, f32)) -> Task<Message> {
     if let Some((min_x, min_y, max_x, max_y)) = state.doc.get_bounds() {
         let width = max_x - min_x;
         let height = max_y - min_y;
@@ -133,7 +130,8 @@ pub(super) fn handle_zoom_fit(
             let view_cy = window_size.1 / 2.0;
 
             state.zoom = new_zoom;
-            state.pan = Vector::new(view_cx - content_cx * new_zoom, view_cy - content_cy * new_zoom);
+            state.pan =
+                Vector::new(view_cx - content_cx * new_zoom, view_cy - content_cy * new_zoom);
             state.show_zoom_menu = false;
             state.canvas_cache.clear();
         }
@@ -154,10 +152,8 @@ pub(super) fn handle_fit_to_element(
         let padding = 50.0;
         let available_w = window_size.0 - padding * 2.0;
         let available_h = window_size.1 - padding * 2.0;
-        let new_zoom = (available_w / bounds.width)
-            .min(available_h / bounds.height)
-            .min(2.0)
-            .max(0.1);
+        let new_zoom =
+            (available_w / bounds.width).min(available_h / bounds.height).min(2.0).max(0.1);
         let center_viewport_x = window_size.0 / 2.0;
         let center_viewport_y = window_size.1 / 2.0;
         let center_el_x = bounds.x + bounds.width / 2.0;
@@ -278,10 +274,7 @@ pub(super) fn handle_select_toolbar_icon(
 ///
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 变更范围限制在当前消息处理路径内，不引入额外的流程分支。
-pub(super) fn handle_update_context_shape(
-    state: &mut DesignState,
-    kind: String,
-) -> Task<Message> {
+pub(super) fn handle_update_context_shape(state: &mut DesignState, kind: String) -> Task<Message> {
     state.context_popover = None;
     state.context_shape_group_hover = None;
     if let Some(id) = state.selected_element_id.clone() {
@@ -326,10 +319,7 @@ pub(super) fn handle_update_context_fill(
             }
             "none" | "不填充" => vec![],
             _ if fill_type.starts_with('#') => {
-                vec![FillItem::Object(FillObject::Solid {
-                    color: fill_type,
-                    enabled: true,
-                })]
+                vec![FillItem::Object(FillObject::Solid { color: fill_type, enabled: true })]
             }
             _ => vec![],
         };
@@ -400,4 +390,3 @@ pub(super) fn handle_update_context_border(
     }
     Task::none()
 }
-

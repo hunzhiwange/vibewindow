@@ -45,11 +45,11 @@ pub use vw_shared::permission::{Action, Rule, Ruleset};
 use crate::app::agent::global;
 use crate::app::agent::id;
 use glob::Pattern;
-use std::sync::LazyLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 

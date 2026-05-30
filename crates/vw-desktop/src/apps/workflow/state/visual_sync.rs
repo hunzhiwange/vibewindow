@@ -79,10 +79,7 @@ pub(super) fn apply_visual_draft_to_yaml(
             data_map.insert(
                 yaml_key("cases"),
                 Value::Sequence(
-                    cases
-                        .iter()
-                        .map(merge_if_else_case_value)
-                        .collect::<Result<Vec<_>, _>>()?,
+                    cases.iter().map(merge_if_else_case_value).collect::<Result<Vec<_>, _>>()?,
                 ),
             );
         }
@@ -110,10 +107,8 @@ pub(super) fn apply_visual_draft_to_yaml(
                 yaml_key("query_attachment_selector"),
                 selector_path_value_from_input(query_attachment_selector_input),
             );
-            data_map.insert(
-                yaml_key("dataset_ids"),
-                string_list_value_from_input(dataset_ids_input),
-            );
+            data_map
+                .insert(yaml_key("dataset_ids"), string_list_value_from_input(dataset_ids_input));
             set_mapping_string(data_map, "retrieval_mode", retrieval_mode);
 
             let multiple_config = ensure_mapping_entry(data_map, "multiple_retrieval_config");
@@ -141,7 +136,10 @@ pub(super) fn apply_visual_draft_to_yaml(
                 multiple_config.insert(yaml_key("score_threshold"), Value::Null);
             }
 
-            let single_model = ensure_mapping_entry(ensure_mapping_entry(data_map, "single_retrieval_config"), "model");
+            let single_model = ensure_mapping_entry(
+                ensure_mapping_entry(data_map, "single_retrieval_config"),
+                "model",
+            );
             set_mapping_string(single_model, "provider", single_model_provider);
             set_mapping_string(single_model, "name", single_model_name);
             set_mapping_string(single_model, "mode", single_model_mode);
@@ -312,11 +310,7 @@ pub(super) fn parse_node_data_yaml_value(text: &str) -> Result<Value, String> {
 }
 
 pub(super) fn ensure_root_mapping(value: Value) -> Value {
-    if value.is_mapping() {
-        value
-    } else {
-        Value::Mapping(Mapping::new())
-    }
+    if value.is_mapping() { value } else { Value::Mapping(Mapping::new()) }
 }
 
 pub(super) fn selector_input_from_value(value: Option<&Value>) -> String {
@@ -326,13 +320,7 @@ pub(super) fn selector_input_from_value(value: Option<&Value>) -> String {
             selectors
                 .iter()
                 .filter_map(Value::as_sequence)
-                .map(|parts| {
-                    parts
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .collect::<Vec<_>>()
-                        .join(".")
-                })
+                .map(|parts| parts.iter().filter_map(Value::as_str).collect::<Vec<_>>().join("."))
                 .filter(|selector| !selector.trim().is_empty())
                 .collect::<Vec<_>>()
                 .join(", ")
@@ -343,13 +331,7 @@ pub(super) fn selector_input_from_value(value: Option<&Value>) -> String {
 pub(super) fn selector_path_input_from_value(value: Option<&Value>) -> String {
     value
         .and_then(Value::as_sequence)
-        .map(|parts| {
-            parts
-                .iter()
-                .filter_map(Value::as_str)
-                .collect::<Vec<_>>()
-                .join(".")
-        })
+        .map(|parts| parts.iter().filter_map(Value::as_str).collect::<Vec<_>>().join("."))
         .unwrap_or_default()
 }
 
@@ -388,11 +370,7 @@ fn code_variable_value(variable: &WorkflowCodeVariableDraft) -> Value {
         (
             "value_selector",
             Value::Sequence(
-                variable
-                    .selector
-                    .iter()
-                    .map(|part| Value::String(part.clone()))
-                    .collect(),
+                variable.selector.iter().map(|part| Value::String(part.clone())).collect(),
             ),
         ),
         ("value_type", Value::String(variable.value_type.clone())),

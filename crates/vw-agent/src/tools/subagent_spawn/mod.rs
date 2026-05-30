@@ -24,13 +24,13 @@
 
 use super::subagent_registry::{SubAgentRegistry, SubAgentSession, SubAgentStatus};
 use super::traits::{Tool, ToolResult};
+use crate::app::agent::approval::ApprovalManager;
 use crate::app::agent::config::DelegateAgentConfig;
 use crate::app::agent::hooks::HookRunner;
 use crate::app::agent::observability::traits::{Observer, ObserverEvent, ObserverMetric};
 use crate::app::agent::providers::{ChatMessage, Provider};
 use crate::app::agent::security::SecurityPolicy;
 use crate::app::agent::security::policy::ToolOperation;
-use crate::app::agent::approval::ApprovalManager;
 use async_trait::async_trait;
 use chrono::Utc;
 use serde_json::{Value, json};
@@ -73,6 +73,7 @@ pub struct SubAgentSpawnTool {
     parent_tools: Arc<Vec<Arc<dyn Tool>>>,
     multimodal_config: crate::app::agent::config::MultimodalConfig,
     workspace_identity_context: String,
+    skill_contexts: HashMap<String, String>,
 }
 
 impl SubAgentSpawnTool {
@@ -124,6 +125,7 @@ impl SubAgentSpawnTool {
             parent_tools,
             multimodal_config,
             workspace_identity_context: String::new(),
+            skill_contexts: HashMap::new(),
         }
     }
 
@@ -132,18 +134,32 @@ impl SubAgentSpawnTool {
         self
     }
 
-    fn merged_system_prompt(&self, agent_system_prompt: Option<&str>) -> Option<String> {
-        match (
-            self.workspace_identity_context.trim().is_empty(),
-            agent_system_prompt.map(str::trim).filter(|prompt| !prompt.is_empty()),
-        ) {
-            (true, None) => None,
-            (true, Some(agent_prompt)) => Some(agent_prompt.to_string()),
-            (false, None) => Some(self.workspace_identity_context.clone()),
-            (false, Some(agent_prompt)) => {
-                Some(format!("{}\n\n{}", self.workspace_identity_context, agent_prompt))
-            }
+    pub fn with_skill_contexts(mut self, skill_contexts: HashMap<String, String>) -> Self {
+        self.skill_contexts = skill_contexts;
+        self
+    }
+
+    fn merged_system_prompt(
+        &self,
+        agent_name: &str,
+        agent_system_prompt: Option<&str>,
+    ) -> Option<String> {
+        let mut sections = Vec::new();
+        if !self.workspace_identity_context.trim().is_empty() {
+            sections.push(self.workspace_identity_context.clone());
         }
+        if let Some(skill_context) =
+            self.skill_contexts.get(agent_name).filter(|context| !context.trim().is_empty())
+        {
+            sections.push(skill_context.clone());
+        }
+        if let Some(agent_prompt) =
+            agent_system_prompt.map(str::trim).filter(|prompt| !prompt.is_empty())
+        {
+            sections.push(agent_prompt.to_string());
+        }
+
+        (!sections.is_empty()).then(|| sections.join("\n\n"))
     }
 }
 
@@ -243,10 +259,8 @@ impl Tool for SubAgentSpawnTool {
     /// - 提供者创建失败
     /// - 超过最大并发限制
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let called_via_agent_tool = args
-            .get("_via_agent_tool")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        let called_via_agent_tool =
+            args.get("_via_agent_tool").and_then(|v| v.as_bool()).unwrap_or(false);
         let agent_name = args
             .get("agent")
             .and_then(|v| v.as_str())
@@ -341,7 +355,8 @@ impl Tool for SubAgentSpawnTool {
         let session_id = uuid::Uuid::new_v4().to_string();
         let agent_name_owned = agent_name.to_string();
         let task_owned = task.to_string();
-        let merged_system_prompt = self.merged_system_prompt(agent_config.system_prompt.as_deref());
+        let merged_system_prompt =
+            self.merged_system_prompt(agent_name, agent_config.system_prompt.as_deref());
 
         // 判断是否为代理模式
         let is_agentic = agent_config.agentic;
@@ -523,70 +538,6 @@ async fn run_simple_background(
     }
 }
 
-/// 工具 Arc 引用包装器。
-///
-/// 将 `Arc<dyn Tool>` 包装为实现 `Tool` trait 的具体类型。
-/// 这允许在需要 `Box<dyn Tool>` 的上下文中使用 `Arc` 包装的工具。
-///
-/// ## 使用场景
-///
-/// 当子代理需要使用父代理的工具时，通过此包装器将
-/// `Arc<dyn Tool>` 转换为子代理可用的工具实例。
-struct ToolArcRef {
-    /// 内部工具引用
-    inner: Arc<dyn Tool>,
-}
-
-impl ToolArcRef {
-    /// 创建新的工具引用包装器。
-    ///
-    /// # 参数
-    ///
-    /// - `inner`: 工具的 Arc 引用
-    ///
-    /// # 返回值
-    ///
-    /// 返回包装后的 `ToolArcRef` 实例。
-    fn new(inner: Arc<dyn Tool>) -> Self {
-        Self { inner }
-    }
-}
-
-/// `Tool` trait 实现
-///
-/// 将所有调用委托给内部工具引用。
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Tool for ToolArcRef {
-    /// 返回内部工具的名称。
-    fn name(&self) -> &str {
-        self.inner.name()
-    }
-
-    /// 返回内部工具的描述。
-    fn description(&self) -> &str {
-        self.inner.description()
-    }
-
-    /// 返回内部工具的参数 Schema。
-    fn parameters_schema(&self) -> serde_json::Value {
-        self.inner.parameters_schema()
-    }
-
-    /// 执行内部工具。
-    ///
-    /// # 参数
-    ///
-    /// - `args`: 工具参数
-    ///
-    /// # 返回值
-    ///
-    /// 返回内部工具的执行结果。
-    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        self.inner.execute(args).await
-    }
-}
-
 /// 空操作观察者。
 ///
 /// 不记录任何事件和指标的观察者实现。
@@ -670,27 +621,11 @@ async fn run_agentic_background(
         });
     }
 
-    // 构建允许的工具名称集合（去除空白）
-    let allowed = agent_config
-        .allowed_tools
-        .iter()
-        .map(|name| name.trim())
-        .filter(|name| !name.is_empty())
-        .collect::<std::collections::HashSet<_>>();
-
-    // 过滤父工具，只保留允许的且非递归的工具
-    let sub_tools: Vec<Box<dyn Tool>> = parent_tools
-        .iter()
-        .filter(|tool| {
-            let tool_id = tool.spec().id;
-            // 排除可能导致递归的工具
-            allowed.contains(tool_id.as_str())
-                && tool_id != "delegate"
-                && tool_id != "subagent_spawn"
-                && tool_id != "subagent_manage"
-        })
-        .map(|tool| Box::new(ToolArcRef::new(tool.clone())) as Box<dyn Tool>)
-        .collect();
+    let sub_tools = crate::app::agent::tools::delegated_tools::build_agentic_tools(
+        parent_tools,
+        &agent_config.allowed_tools,
+        &agent_config.allowed_skills,
+    );
 
     // 检查过滤后是否还有可用工具
     if sub_tools.is_empty() {

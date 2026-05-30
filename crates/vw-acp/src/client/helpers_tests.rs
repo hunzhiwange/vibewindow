@@ -5,11 +5,7 @@ use crate::types::AcpSessionOptions;
 fn session_options_meta_filters_empty_values() {
     let meta = build_session_options_meta(Some(&AcpSessionOptions {
         model: Some(" claude-sonnet ".to_string()),
-        allowed_tools: Some(vec![
-            "Read".to_string(),
-            " ".to_string(),
-            "Write".to_string(),
-        ]),
+        allowed_tools: Some(vec!["Read".to_string(), " ".to_string(), "Write".to_string()]),
         max_turns: Some(3),
     }))
     .expect("meta");

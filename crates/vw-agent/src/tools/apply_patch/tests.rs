@@ -9,8 +9,8 @@
 
 use super::super::*;
 use crate::app::agent::security::{AutonomyLevel, SecurityPolicy};
-use crate::app::agent::tools::{FileSnapshot, ToolUseContext};
 use crate::app::agent::tools::context::scope_tool_use_context;
+use crate::app::agent::tools::{FileSnapshot, ToolUseContext};
 use serde_json::json;
 use vw_api_types::tools::ToolResultContentDto;
 
@@ -143,18 +143,15 @@ async fn apply_patch_reports_partial_read_state_when_context_present() {
     ));
     {
         let read_state = context.read_state_handle();
-        read_state
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .note_read(
-                Some(dir.as_path()),
-                "a.txt",
-                8,
-                true,
-                Some(1),
-                Some(1),
-                Some(FileSnapshot::from_text("old\nsecond\n")),
-            );
+        read_state.lock().unwrap_or_else(|error| error.into_inner()).note_read(
+            Some(dir.as_path()),
+            "a.txt",
+            8,
+            true,
+            Some(1),
+            Some(1),
+            Some(FileSnapshot::from_text("old\nsecond\n")),
+        );
     }
 
     let result = scope_tool_use_context(
@@ -191,18 +188,15 @@ async fn apply_patch_invalidates_read_state_for_deleted_file() {
     ));
     {
         let read_state = context.read_state_handle();
-        read_state
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .note_read(
-                Some(dir.as_path()),
-                "a.txt",
-                4,
-                false,
-                None,
-                None,
-                Some(FileSnapshot::from_text("old\n")),
-            );
+        read_state.lock().unwrap_or_else(|error| error.into_inner()).note_read(
+            Some(dir.as_path()),
+            "a.txt",
+            4,
+            false,
+            None,
+            None,
+            Some(FileSnapshot::from_text("old\n")),
+        );
     }
 
     let result = scope_tool_use_context(

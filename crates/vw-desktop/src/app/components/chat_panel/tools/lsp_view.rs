@@ -12,7 +12,7 @@ use serde::Deserialize;
 use crate::app::assets::Icon;
 /// 重新导出 use crate::app::components::chat_panel::utils::{，让上层模块通过稳定路径访问。
 use crate::app::components::chat_panel::utils::{
-    chat_secondary_muted_text_color, chat_scroll_direction, eye_icon_button_style,
+    chat_scroll_direction, chat_secondary_muted_text_color, eye_icon_button_style,
     eye_icon_svg_style, icon_svg, simplified_block_style, simplified_code_block_style,
     truncate_chars, truncate_lines_middle, weak_file_button_style,
 };
@@ -55,7 +55,9 @@ pub(super) struct LspToolData {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub(super) enum LspPayload {
-    Locations { items: Vec<LspLocationItem> },
+    Locations {
+        items: Vec<LspLocationItem>,
+    },
     Hover {
         // contents 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
         contents: String,
@@ -64,10 +66,18 @@ pub(super) enum LspPayload {
         #[serde(default)]
         character: Option<u32>,
     },
-    DocumentSymbols { items: Vec<LspDocumentSymbolItem> },
-    CallHierarchyItems { items: Vec<LspCallHierarchyItem> },
-    CallHierarchyCalls { items: Vec<LspCallHierarchyItem> },
-    Message { message: String },
+    DocumentSymbols {
+        items: Vec<LspDocumentSymbolItem>,
+    },
+    CallHierarchyItems {
+        items: Vec<LspCallHierarchyItem>,
+    },
+    CallHierarchyCalls {
+        items: Vec<LspCallHierarchyItem>,
+    },
+    Message {
+        message: String,
+    },
 }
 
 /// LspLocationItem 保存 lsp_view 模块需要跨函数传递的状态。
@@ -189,15 +199,13 @@ pub fn tool_lsp_view<'a>(
         .or_else(|| data.as_ref().and_then(|data| data.error.clone()))
         .unwrap_or_default();
     let summary = tool_summary_text(&value).unwrap_or_else(|| {
-        data.as_ref()
-            .map(summary_from_data)
-            .filter(|summary| !summary.is_empty())
-            .unwrap_or_else(|| {
+        data.as_ref().map(summary_from_data).filter(|summary| !summary.is_empty()).unwrap_or_else(
+            || {
                 // super 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                super::tool_inline_summary("lsp", tool_input(&value)).unwrap_or_else(|| {
-                    truncate_chars(output_text.trim(), 96).to_string()
-                })
-            })
+                super::tool_inline_summary("lsp", tool_input(&value))
+                    .unwrap_or_else(|| truncate_chars(output_text.trim(), 96).to_string())
+            },
+        )
     });
 
     let title = if is_running {
@@ -251,7 +259,10 @@ pub fn tool_lsp_view<'a>(
     .width(Length::Fill);
 
     let body: Element<'a, Message> = if is_running {
-        container(text("正在等待 LSP 响应...").size(14)).padding([10, 12]).width(Length::Fill).into()
+        container(text("正在等待 LSP 响应...").size(14))
+            .padding([10, 12])
+            .width(Length::Fill)
+            .into()
     } else if is_error || data.as_ref().is_some_and(|data| !data.success) {
         build_error_body(&error_text)
     } else if let Some(data) = data.as_ref() {
@@ -315,7 +326,9 @@ pub(super) fn meta_text(data: &LspToolData) -> String {
             }
         }
         "documentSymbol" => format!("{} 个文档符号", data.result_count),
-        "workspaceSymbol" => format!("{} 个工作区符号 / {} 个文件", data.result_count, data.file_count),
+        "workspaceSymbol" => {
+            format!("{} 个工作区符号 / {} 个文件", data.result_count, data.file_count)
+        }
         "prepareCallHierarchy" => format!("{} 个调用层级项", data.result_count),
         "incomingCalls" => format!("{} 个入向调用 / {} 个文件", data.result_count, data.file_count),
         "outgoingCalls" => format!("{} 个出向调用 / {} 个文件", data.result_count, data.file_count),
@@ -448,11 +461,8 @@ fn build_location_list<'a>(items: &[LspLocationItem]) -> Element<'a, Message> {
     }
     let mut column_view = column![].spacing(6);
     for item in items {
-        let primary = item
-            .name
-            .clone()
-            .or_else(|| item.kind.clone())
-            .unwrap_or_else(|| item.path.clone());
+        let primary =
+            item.name.clone().or_else(|| item.kind.clone()).unwrap_or_else(|| item.path.clone());
         let mut secondary = format!("{}:{}:{}", item.path, item.line, item.character);
         if let Some(detail) = item.detail.as_deref().filter(|detail| !detail.trim().is_empty()) {
             secondary.push_str(&format!(" · {}", detail));
@@ -464,11 +474,8 @@ fn build_location_list<'a>(items: &[LspLocationItem]) -> Element<'a, Message> {
         {
             secondary.push_str(&format!(" · {}", container_name));
         }
-        column_view = column_view.push(open_item_button(
-            item.absolute_path.clone(),
-            primary,
-            secondary,
-        ));
+        column_view =
+            column_view.push(open_item_button(item.absolute_path.clone(), primary, secondary));
     }
     build_scroll_box(column_view)
 }
@@ -500,11 +507,8 @@ fn build_symbol_list<'a>(items: &[LspDocumentSymbolItem]) -> Element<'a, Message
             .filter(|detail| !detail.trim().is_empty())
             .map(|detail| format!("{}:{}:{} · {}", item.path, item.line, item.character, detail))
             .unwrap_or_else(|| format!("{}:{}:{}", item.path, item.line, item.character));
-        column_view = column_view.push(open_item_button(
-            item.absolute_path.clone(),
-            primary,
-            secondary,
-        ));
+        column_view =
+            column_view.push(open_item_button(item.absolute_path.clone(), primary, secondary));
     }
     build_scroll_box(column_view)
 }
@@ -540,11 +544,8 @@ fn build_call_list<'a>(items: &[LspCallHierarchyItem]) -> Element<'a, Message> {
                 .join(", ");
             format!("{}:{}:{} · 调用点 {}", item.path, item.line, item.character, call_sites)
         };
-        column_view = column_view.push(open_item_button(
-            item.absolute_path.clone(),
-            primary,
-            secondary,
-        ));
+        column_view =
+            column_view.push(open_item_button(item.absolute_path.clone(), primary, secondary));
     }
     build_scroll_box(column_view)
 }
@@ -562,7 +563,11 @@ fn build_call_list<'a>(items: &[LspCallHierarchyItem]) -> Element<'a, Message> {
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn open_item_button<'a>(absolute_path: String, primary: String, secondary: String) -> Element<'a, Message> {
+fn open_item_button<'a>(
+    absolute_path: String,
+    primary: String,
+    secondary: String,
+) -> Element<'a, Message> {
     button(
         column![
             text(truncate_chars(&primary, 120)).size(14),
@@ -599,10 +604,7 @@ fn open_item_button<'a>(absolute_path: String, primary: String, secondary: Strin
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
 fn build_scroll_box<'a>(content: iced::widget::Column<'a, Message>) -> Element<'a, Message> {
     scrollable(
-        container(content)
-            .width(Length::Fill)
-            .padding([8, 10])
-            .style(simplified_code_block_style),
+        container(content).width(Length::Fill).padding([8, 10]).style(simplified_code_block_style),
     )
     .direction(chat_scroll_direction())
     .height(Length::Fixed(220.0))

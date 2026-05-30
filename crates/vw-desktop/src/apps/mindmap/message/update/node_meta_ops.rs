@@ -803,28 +803,29 @@ pub(super) fn save_node_url(app: &mut App) -> Task<Message> {
     println!("SaveNodeUrl");
 
     if let Some(tab) = app.active_mindmap_tab_mut()
-        && let Some(path) = tab.selected_path.clone() {
-            // 处理 URL：去除首尾空白和反引号
-            let url = tab.url_editor_value.trim().trim_matches('`').trim().to_string();
+        && let Some(path) = tab.selected_path.clone()
+    {
+        // 处理 URL：去除首尾空白和反引号
+        let url = tab.url_editor_value.trim().trim_matches('`').trim().to_string();
 
-            #[cfg(debug_assertions)]
-            println!("Saving URL for path {:?}: '{}'", path, url);
+        #[cfg(debug_assertions)]
+        println!("Saving URL for path {:?}: '{}'", path, url);
 
-            // 根据处理后的 URL 是否为空，决定插入或移除
-            if url.is_empty() {
-                tab.node_urls.remove(&path);
-            } else {
-                tab.node_urls.insert(path, url);
-            }
-
-            // 清空画布缓存以触发重绘
-            tab.show_url_editor = false;
-            tab.url_editor_value.clear();
-            tab.canvas_cache.clear();
-
-            // 持久化状态
-            let _ = persist(app);
+        // 根据处理后的 URL 是否为空，决定插入或移除
+        if url.is_empty() {
+            tab.node_urls.remove(&path);
+        } else {
+            tab.node_urls.insert(path, url);
         }
+
+        // 清空画布缓存以触发重绘
+        tab.show_url_editor = false;
+        tab.url_editor_value.clear();
+        tab.canvas_cache.clear();
+
+        // 持久化状态
+        let _ = persist(app);
+    }
     Task::none()
 }
 
@@ -844,23 +845,24 @@ pub(super) fn clear_node_url(app: &mut App) -> Task<Message> {
     println!("ClearNodeUrl");
 
     if let Some(tab) = app.active_mindmap_tab_mut()
-        && let Some(path) = tab.selected_path.clone() {
-            #[cfg(debug_assertions)]
-            println!("Clearing URL for path {:?}", path);
+        && let Some(path) = tab.selected_path.clone()
+    {
+        #[cfg(debug_assertions)]
+        println!("Clearing URL for path {:?}", path);
 
-            // 从节点 URL 映射中移除
-            tab.node_urls.remove(&path);
+        // 从节点 URL 映射中移除
+        tab.node_urls.remove(&path);
 
-            // 清空编辑器值
-            tab.show_url_editor = false;
-            tab.url_editor_value.clear();
+        // 清空编辑器值
+        tab.show_url_editor = false;
+        tab.url_editor_value.clear();
 
-            // 清空画布缓存以触发重绘
-            tab.canvas_cache.clear();
+        // 清空画布缓存以触发重绘
+        tab.canvas_cache.clear();
 
-            // 持久化状态
-            let _ = persist(app);
-        }
+        // 持久化状态
+        let _ = persist(app);
+    }
     Task::none()
 }
 
@@ -880,25 +882,26 @@ pub(super) fn clear_node_url(app: &mut App) -> Task<Message> {
 /// 返回空的任务（`Task::none()`），因为此操作不需要异步处理
 pub(super) fn open_node_url(app: &mut App) -> Task<Message> {
     if let Some(tab) = app.active_mindmap_tab_mut()
-        && let Some(path) = tab.selected_path.as_ref() {
-            // 根据 URL 编辑器状态获取 URL
-            let url = if tab.show_url_editor {
-                tab.url_editor_value.clone()
-            } else {
-                tab.node_urls.get(path).cloned().unwrap_or_default()
-            };
+        && let Some(path) = tab.selected_path.as_ref()
+    {
+        // 根据 URL 编辑器状态获取 URL
+        let url = if tab.show_url_editor {
+            tab.url_editor_value.clone()
+        } else {
+            tab.node_urls.get(path).cloned().unwrap_or_default()
+        };
 
-            // 处理 URL：去除首尾空白和反引号
-            let url = url.trim().trim_matches('`').trim().to_string();
+        // 处理 URL：去除首尾空白和反引号
+        let url = url.trim().trim_matches('`').trim().to_string();
 
-            // 如果 URL 非空，在系统浏览器中打开
-            if !url.is_empty() {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let _ = open::that(url);
-                }
+        // 如果 URL 非空，在系统浏览器中打开
+        if !url.is_empty() {
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let _ = open::that(url);
             }
         }
+    }
     Task::none()
 }
 

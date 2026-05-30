@@ -4,8 +4,8 @@
 //! 日志记录器会自动添加 `service: llm` 标签，便于在日志流中识别和过滤 LLM 相关的日志条目。
 
 use crate::app::agent::util::log;
-use std::sync::LazyLock;
 use serde_json::{Map, Value};
+use std::sync::LazyLock;
 
 /// LLM 会话专用的全局日志记录器
 ///

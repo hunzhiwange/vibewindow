@@ -28,6 +28,14 @@ use super::{App, Message, Screen};
 use super::{app_view_modals, app_view_status};
 
 impl App {
+    pub fn view_window(&self, window: iced::window::Id) -> Element<'_, Message> {
+        if self.task_pet_window_id == Some(window) {
+            components::task_pet::window(self)
+        } else {
+            self.view()
+        }
+    }
+
     /// 渲染应用的主视图
     ///
     /// 该方法是整个应用的视图入口，负责构建完整的 UI 元素树。
@@ -227,6 +235,11 @@ impl App {
         // 确认对话框（问题模态框）
         let root_content = app_view_modals::with_question_modal(self, root_content);
         let root_content = app_view_modals::with_permission_modal(self, root_content);
+        let root_content: Element<'_, Message> = if self.show_search_overlay {
+            iced::widget::stack![root_content, components::search_panel::overlay(self)].into()
+        } else {
+            root_content
+        };
 
         if self.active_toast.is_some() {
             let toast_layer: Element<'_, Message> = iced::widget::column![
@@ -246,11 +259,7 @@ impl App {
             .height(iced::Length::Fill)
             .into();
 
-            iced::widget::stack![
-                root_content,
-                toast_layer
-            ]
-            .into()
+            iced::widget::stack![root_content, toast_layer].into()
         } else {
             root_content
         }

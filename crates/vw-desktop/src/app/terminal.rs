@@ -214,7 +214,7 @@ pub struct TerminalRuntime {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn spawn_pty_terminal(
     cwd: Option<&str>,
-    shell_choice: Shell,
+    #[cfg_attr(windows, allow(unused_variables))] shell_choice: Shell,
 ) -> Result<TerminalRuntime, String> {
     use portable_pty::{CommandBuilder, PtySize};
     use std::io::Read;

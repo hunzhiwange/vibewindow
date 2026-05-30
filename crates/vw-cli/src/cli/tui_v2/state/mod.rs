@@ -23,8 +23,8 @@ use vw_shared::session::ui_types::{
 };
 
 use super::model::{
-    OverlayState, PromptState, UiAssistantMessage, UiMessage, UiMessageBase, UiMessageId,
-    UiMemoryEntry, UiQuestionOverlay, UiStep, UiStepState, UiSystemMessage, UiSystemMessageLevel,
+    OverlayState, PromptState, UiAssistantMessage, UiMemoryEntry, UiMessage, UiMessageBase,
+    UiMessageId, UiQuestionOverlay, UiStep, UiStepState, UiSystemMessage, UiSystemMessageLevel,
     UiThinkingTiming, UiTodoOverlay, UiTokenUsage, UiToolResult, UiTurnTerminal, UiUserMessage,
 };
 use crate::cli::session::GitWorkspaceStatus;
@@ -36,18 +36,16 @@ mod reducer_tests;
 mod runtime_pipeline;
 pub(crate) mod selectors;
 
-use self::selectors::{TuiTranscriptProjectionCache, derive_transcript_projection_cache};
 use self::selectors::{TuiSearchTextCache, TuiTranscriptLayoutCache};
+use self::selectors::{TuiTranscriptProjectionCache, derive_transcript_projection_cache};
 
 pub(crate) use reducer::{
-    TuiAction, TuiTerminalUpdate, TuiToolCallUpdate, TuiToolResultUpdate,
-    reduce_tui_state,
+    TuiAction, TuiTerminalUpdate, TuiToolCallUpdate, TuiToolResultUpdate, reduce_tui_state,
 };
 pub(crate) use runtime_pipeline::apply_runtime_event;
 pub(crate) use selectors::{
-    TuiAssistantTurnEntry, TuiStatusSummary, TuiStickyPromptSummary,
-    TuiTranscriptItem, TuiUnseenRangeSummary,
-    TuiVisibleTranscriptWindow, TuiViewportSummary, TuiWindowSummary,
+    TuiAssistantTurnEntry, TuiStatusSummary, TuiStickyPromptSummary, TuiTranscriptItem,
+    TuiUnseenRangeSummary, TuiViewportSummary, TuiVisibleTranscriptWindow, TuiWindowSummary,
     select_status_summary, select_transcript_message_anchors,
     select_visible_grouped_transcript_window,
 };
@@ -100,11 +98,7 @@ impl TuiScrollState {
     }
 
     /// 同步当前 scrollable 宿主反馈出的视口能力。
-    pub(crate) fn sync_viewport(
-        &mut self,
-        viewport_height: u16,
-        viewport_width: u16,
-    ) {
+    pub(crate) fn sync_viewport(&mut self, viewport_height: u16, viewport_width: u16) {
         // 兼容现有 footer/测试摘要；真实窗口裁剪改由 selectors 基于行高推导。
         self.viewport_messages = viewport_height as usize;
         self.viewport_height = viewport_height;
@@ -167,10 +161,7 @@ impl TuiScrollState {
 }
 
 fn anchor_index_for_message(anchors: &[usize], message_index: usize) -> usize {
-    anchors
-        .iter()
-        .rposition(|anchor| *anchor <= message_index)
-        .unwrap_or_default()
+    anchors.iter().rposition(|anchor| *anchor <= message_index).unwrap_or_default()
 }
 
 /// 状态线的基础输入。
@@ -243,10 +234,7 @@ fn parse_tool_message_payload(raw: &str) -> ParsedToolMessage {
     };
 
     if let Ok(value) = serde_json::from_str::<Value>(&payload_text) {
-        let status = value
-            .get("status")
-            .and_then(Value::as_str)
-            .unwrap_or("completed");
+        let status = value.get("status").and_then(Value::as_str).unwrap_or("completed");
         let is_error = matches!(status, "error" | "denied");
         let text = if is_error {
             value
@@ -268,18 +256,10 @@ fn parse_tool_message_payload(raw: &str) -> ParsedToolMessage {
                 .unwrap_or(payload_text.as_str())
         };
 
-        return ParsedToolMessage {
-            tool_name,
-            text: text.to_string(),
-            is_error,
-        };
+        return ParsedToolMessage { tool_name, text: text.to_string(), is_error };
     }
 
-    ParsedToolMessage {
-        tool_name,
-        text: payload_text,
-        is_error: false,
-    }
+    ParsedToolMessage { tool_name, text: payload_text, is_error: false }
 }
 
 fn serialize_tool_result_message(message: &UiToolResult) -> String {
@@ -476,10 +456,9 @@ impl TuiState {
             let base = snapshot_message_base(session.id.as_str(), index, raw_message_id.clone());
 
             let ui_message = match message.role {
-                ChatRole::User => UiMessage::User(UiUserMessage {
-                    base,
-                    text: message.content.clone(),
-                }),
+                ChatRole::User => {
+                    UiMessage::User(UiUserMessage { base, text: message.content.clone() })
+                }
                 ChatRole::Assistant => UiMessage::Assistant(UiAssistantMessage {
                     base,
                     text: message.content.clone(),
@@ -526,10 +505,9 @@ impl TuiState {
         }
 
         for step in &session.steps {
-            state.messages.push(UiMessage::Step(ui_step_from_snapshot_step(
-                session.id.as_str(),
-                step,
-            )));
+            state
+                .messages
+                .push(UiMessage::Step(ui_step_from_snapshot_step(session.id.as_str(), step)));
         }
 
         state.refresh_search_index();
@@ -636,14 +614,12 @@ impl TuiState {
     /// 为当前 viewport width 预热对应的 transcript layout bucket。
     pub(crate) fn refresh_transcript_layout_for_current_width(&mut self) {
         let content_width = self.scroll.viewport_width;
-        self.transcript_layout
-            .rebuild_width(&self.messages, &self.transcript, content_width);
+        self.transcript_layout.rebuild_width(&self.messages, &self.transcript, content_width);
     }
 
     /// 只刷新一条消息所属 transcript item 的 wrap/height cache。
     pub(crate) fn refresh_transcript_layout_for_message(&mut self, message_index: usize) {
-        self.transcript_layout
-            .refresh_message(&self.messages, &self.transcript, message_index);
+        self.transcript_layout.refresh_message(&self.messages, &self.transcript, message_index);
     }
 
     /// 依据当前消息与会话元信息刷新预览数据。
@@ -662,11 +638,7 @@ impl TuiState {
             updated_ms: self.session.updated_ms,
             message_count: self.session.persisted_messages.len(),
             call_count: self.session.persisted_calls.len(),
-            last_content: self
-                .messages
-                .iter()
-                .rev()
-                .find_map(last_content_from_ui_message),
+            last_content: self.messages.iter().rev().find_map(last_content_from_ui_message),
         });
     }
 
@@ -747,11 +719,7 @@ pub(super) fn persisted_slot_index_for_message_index(
 }
 
 pub(super) fn raw_message_id_from_ui_message(message: &UiMessage) -> Option<String> {
-    message
-        .id()
-        .as_str()
-        .strip_prefix("gateway:")
-        .map(ToOwned::to_owned)
+    message.id().as_str().strip_prefix("gateway:").map(ToOwned::to_owned)
 }
 
 fn attach_session_id(session_id: Option<&str>, message: &mut UiMessage) {
@@ -820,10 +788,10 @@ fn terminal_from_snapshot(session: &ChatSession) -> UiTurnTerminal {
         }
 
         let finish_reason = normalize_optional_string(step.finish_reason.clone());
-        if contains_marker(finish_reason.as_deref(), &["timeout", "timed out", "deadline exceeded"]) {
+        if contains_marker(finish_reason.as_deref(), &["timeout", "timed out", "deadline exceeded"])
+        {
             return UiTurnTerminal::TimedOut {
-                message: finish_reason
-                    .unwrap_or_else(|| "session timed out".to_string()),
+                message: finish_reason.unwrap_or_else(|| "session timed out".to_string()),
             };
         }
         if contains_marker(
@@ -841,9 +809,9 @@ fn terminal_from_snapshot(session: &ChatSession) -> UiTurnTerminal {
     }
 
     match session.messages.last().map(|message| message.role) {
-        Some(ChatRole::Assistant | ChatRole::System | ChatRole::Tool) => UiTurnTerminal::Done {
-            finish_reason: None,
-        },
+        Some(ChatRole::Assistant | ChatRole::System | ChatRole::Tool) => {
+            UiTurnTerminal::Done { finish_reason: None }
+        }
         Some(ChatRole::User) | None => UiTurnTerminal::Pending,
     }
 }
@@ -878,11 +846,7 @@ fn snapshot_chat_message_from_ui_message(
             content: message.text.clone(),
             think_timing: metadata
                 .map(|metadata| {
-                    metadata
-                        .think_timing
-                        .iter()
-                        .map(snapshot_think_timing)
-                        .collect::<Vec<_>>()
+                    metadata.think_timing.iter().map(snapshot_think_timing).collect::<Vec<_>>()
                 })
                 .unwrap_or_default(),
         }),

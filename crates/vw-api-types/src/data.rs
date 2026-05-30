@@ -27,7 +27,9 @@ fn default_true() -> bool {
     true
 }
 
-fn deserialize_optional_search_fields<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+fn deserialize_optional_search_fields<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<String>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -64,9 +66,9 @@ where
                     .collect(),
             ))
         }
-        Some(other) => Err(serde::de::Error::custom(format!(
-            "invalid searchFields payload: {other}"
-        ))),
+        Some(other) => {
+            Err(serde::de::Error::custom(format!("invalid searchFields payload: {other}")))
+        }
     }
 }
 
@@ -79,9 +81,9 @@ where
     let value = Option::<Value>::deserialize(deserializer)?;
     match value {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Array(items)) => serde_json::from_value(Value::Array(items))
-            .map(Some)
-            .map_err(serde::de::Error::custom),
+        Some(Value::Array(items)) => {
+            serde_json::from_value(Value::Array(items)).map(Some).map_err(serde::de::Error::custom)
+        }
         Some(Value::String(text)) => {
             let trimmed = text.trim();
             if trimmed.is_empty() {
@@ -91,9 +93,9 @@ where
                 .map(Some)
                 .map_err(serde::de::Error::custom)
         }
-        Some(other) => Err(serde::de::Error::custom(format!(
-            "invalid templateFields payload: {other}"
-        ))),
+        Some(other) => {
+            Err(serde::de::Error::custom(format!("invalid templateFields payload: {other}")))
+        }
     }
 }
 
@@ -106,9 +108,9 @@ where
     let value = Option::<Value>::deserialize(deserializer)?;
     match value {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Array(items)) => serde_json::from_value(Value::Array(items))
-            .map(Some)
-            .map_err(serde::de::Error::custom),
+        Some(Value::Array(items)) => {
+            serde_json::from_value(Value::Array(items)).map(Some).map_err(serde::de::Error::custom)
+        }
         Some(Value::String(text)) => {
             let trimmed = text.trim();
             if trimmed.is_empty() {
@@ -118,9 +120,9 @@ where
                 .map(Some)
                 .map_err(serde::de::Error::custom)
         }
-        Some(other) => Err(serde::de::Error::custom(format!(
-            "invalid transformerFields payload: {other}"
-        ))),
+        Some(other) => {
+            Err(serde::de::Error::custom(format!("invalid transformerFields payload: {other}")))
+        }
     }
 }
 
@@ -145,9 +147,9 @@ where
             "2" | "only" | "count_only" => Ok(Some(AiDataCountMode::Only)),
             other => Err(serde::de::Error::custom(format!("invalid count mode: {other}"))),
         },
-        Some(other) => Err(serde::de::Error::custom(format!(
-            "invalid count mode payload: {other}"
-        ))),
+        Some(other) => {
+            Err(serde::de::Error::custom(format!("invalid count mode payload: {other}")))
+        }
     }
 }
 
@@ -427,7 +429,11 @@ pub struct AiDataQueryRequest {
     pub page: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "pageSize")]
     pub limit: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_optional_count_mode")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_count_mode"
+    )]
     pub count: Option<AiDataCountMode>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "orderBy")]
     pub order_by: Option<String>,

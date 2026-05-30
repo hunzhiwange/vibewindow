@@ -224,7 +224,11 @@ fn build_worktree_pixel_section<'a>(
                     })),
                     border: Border {
                         width: 1.0,
-                        color: p.background.strong.color.scale_alpha(if is_dark { 0.34 } else { 0.25 }),
+                        color: p.background.strong.color.scale_alpha(if is_dark {
+                            0.34
+                        } else {
+                            0.25
+                        }),
                         radius: 2.0.into(),
                     },
                     ..Default::default()

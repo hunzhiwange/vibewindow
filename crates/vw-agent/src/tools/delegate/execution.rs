@@ -123,7 +123,8 @@ pub(super) async fn execute(
         format!("[Context]\n{context}\n\n[Task]\n{prompt}")
     };
     let temperature = agent_config.temperature.unwrap_or(0.7);
-    let merged_system_prompt = tool.merged_system_prompt(agent_config.system_prompt.as_deref());
+    let merged_system_prompt =
+        tool.merged_system_prompt(agent_name, agent_config.system_prompt.as_deref());
 
     if agent_config.agentic {
         let result = tool

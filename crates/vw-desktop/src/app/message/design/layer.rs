@@ -63,10 +63,10 @@ fn node_has_children(doc: &DesignDoc, id: &str) -> bool {
     // 对于引用类型元素，检查被引用的目标元素是否有子节点
     if el.kind == "ref"
         && let Some(ref_id) = el.reference.as_deref()
-            && let Some(ref_el) = doc.find_element(ref_id)
-        {
-            return !ref_el.children.is_empty();
-        }
+        && let Some(ref_el) = doc.find_element(ref_id)
+    {
+        return !ref_el.children.is_empty();
+    }
 
     false
 }
@@ -268,9 +268,11 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
                 app.hovered_layer_id = Some(id.clone());
                 // 如果正在拖拽，同时更新拖拽目标
                 if let Some(drag_id) = &app.dragging_layer
-                    && drag_id != &id && app.drag_target_layer.as_deref() != Some(&id) {
-                        app.drag_target_layer = Some(id);
-                    }
+                    && drag_id != &id
+                    && app.drag_target_layer.as_deref() != Some(&id)
+                {
+                    app.drag_target_layer = Some(id);
+                }
                 Task::none()
             }
         }
@@ -328,62 +330,63 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
             if let (Some(drag_id), Some(target_id)) = (drag_id, target_id) {
                 // 确保不是拖到自己身上
                 if drag_id != target_id
-                    && let Some(state) = app.active_design_state_mut() {
-                        // 从树中移除被拖拽的节点
-                        fn remove_node(
-                            children: &mut Vec<crate::app::views::design::models::DesignElement>,
-                            id: &str,
-                        ) -> Option<crate::app::views::design::models::DesignElement>
-                        {
-                            // 在当前层级查找
-                            if let Some(idx) = children.iter().position(|c| c.id == id) {
-                                return Some(children.remove(idx));
-                            }
-                            // 递归查找子节点
-                            for child in children {
-                                if let Some(el) = remove_node(&mut child.children, id) {
-                                    return Some(el);
-                                }
-                            }
-                            None
+                    && let Some(state) = app.active_design_state_mut()
+                {
+                    // 从树中移除被拖拽的节点
+                    fn remove_node(
+                        children: &mut Vec<crate::app::views::design::models::DesignElement>,
+                        id: &str,
+                    ) -> Option<crate::app::views::design::models::DesignElement>
+                    {
+                        // 在当前层级查找
+                        if let Some(idx) = children.iter().position(|c| c.id == id) {
+                            return Some(children.remove(idx));
                         }
-
-                        // 将节点插入到目标位置之前
-                        fn insert_node(
-                            children: &mut Vec<crate::app::views::design::models::DesignElement>,
-                            target_id: &str,
-                            element: crate::app::views::design::models::DesignElement,
-                        ) -> Result<(), crate::app::views::design::models::DesignElement>
-                        {
-                            // 在当前层级查找目标位置
-                            if let Some(idx) = children.iter().position(|c| c.id == target_id) {
-                                children.insert(idx, element);
-                                return Ok(());
+                        // 递归查找子节点
+                        for child in children {
+                            if let Some(el) = remove_node(&mut child.children, id) {
+                                return Some(el);
                             }
-                            // 递归查找子节点
-                            let mut element = element;
-                            for child in children {
-                                match insert_node(&mut child.children, target_id, element) {
-                                    Ok(_) => return Ok(()),
-                                    Err(returned) => element = returned,
-                                }
-                            }
-                            Err(element)
                         }
-
-                        // 执行移动操作
-                        if let Some(element) = remove_node(&mut state.doc.children, &drag_id) {
-                            if let Err(element) =
-                                insert_node(&mut state.doc.children, &target_id, element)
-                            {
-                                // 如果找不到目标位置，添加到末尾
-                                state.doc.children.push(element);
-                            }
-                            // 更新树指标和清空缓存
-                            state.layer_tree_metrics = compute_tree_metrics(&state.doc);
-                            state.canvas_cache.clear();
-                        }
+                        None
                     }
+
+                    // 将节点插入到目标位置之前
+                    fn insert_node(
+                        children: &mut Vec<crate::app::views::design::models::DesignElement>,
+                        target_id: &str,
+                        element: crate::app::views::design::models::DesignElement,
+                    ) -> Result<(), crate::app::views::design::models::DesignElement>
+                    {
+                        // 在当前层级查找目标位置
+                        if let Some(idx) = children.iter().position(|c| c.id == target_id) {
+                            children.insert(idx, element);
+                            return Ok(());
+                        }
+                        // 递归查找子节点
+                        let mut element = element;
+                        for child in children {
+                            match insert_node(&mut child.children, target_id, element) {
+                                Ok(_) => return Ok(()),
+                                Err(returned) => element = returned,
+                            }
+                        }
+                        Err(element)
+                    }
+
+                    // 执行移动操作
+                    if let Some(element) = remove_node(&mut state.doc.children, &drag_id) {
+                        if let Err(element) =
+                            insert_node(&mut state.doc.children, &target_id, element)
+                        {
+                            // 如果找不到目标位置，添加到末尾
+                            state.doc.children.push(element);
+                        }
+                        // 更新树指标和清空缓存
+                        state.layer_tree_metrics = compute_tree_metrics(&state.doc);
+                        state.canvas_cache.clear();
+                    }
+                }
             }
             Task::none()
         }
@@ -756,4 +759,3 @@ fn tailwind_collapse_key(id: &str, path: &[usize]) -> String {
     }
     s
 }
-

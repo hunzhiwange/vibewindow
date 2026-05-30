@@ -4,7 +4,9 @@
 //! 工具不会读取文件内容，只校验文件边界、推断附件类型并返回结构化渲染信息。
 
 use super::external_directory::{Kind, Options, assert_external_directory};
-use super::traits::{Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec};
+use super::traits::{
+    Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec,
+};
 use crate::app::agent::security::SecurityPolicy;
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -46,11 +48,7 @@ impl SendUserFileTool {
 
     fn resolve_path(&self, raw: &str) -> PathBuf {
         let path = Path::new(raw.trim());
-        if path.is_absolute() {
-            path.to_path_buf()
-        } else {
-            self.security.workspace_dir.join(path)
-        }
+        if path.is_absolute() { path.to_path_buf() } else { self.security.workspace_dir.join(path) }
     }
 
     fn infer_kind(path: &Path, requested: Option<&str>) -> &'static str {

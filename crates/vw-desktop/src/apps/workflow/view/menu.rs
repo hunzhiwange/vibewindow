@@ -11,16 +11,12 @@ pub(super) fn workflow_node_icon_badge(
     accent: Color,
     icon_size: f32,
 ) -> Element<'static, Message> {
-    let icon_element: Element<'static, Message> = if let Some(handle) =
-        assets::get_named_icon_image(icon.family, icon.name, accent)
-    {
-        image(handle)
-            .width(Length::Fixed(icon_size))
-            .height(Length::Fixed(icon_size))
-            .into()
-    } else {
-        text("•").size(icon_size - 1.0).color(accent).into()
-    };
+    let icon_element: Element<'static, Message> =
+        if let Some(handle) = assets::get_named_icon_image(icon.family, icon.name, accent) {
+            image(handle).width(Length::Fixed(icon_size)).height(Length::Fixed(icon_size)).into()
+        } else {
+            text("•").size(icon_size - 1.0).color(accent).into()
+        };
 
     container(icon_element)
         .width(Length::Fixed(icon_size + 14.0))
@@ -29,11 +25,7 @@ pub(super) fn workflow_node_icon_badge(
         .align_y(iced::alignment::Vertical::Center)
         .style(move |_theme: &Theme| iced::widget::container::Style {
             background: Some(Background::Color(accent.scale_alpha(0.12))),
-            border: Border {
-                color: accent.scale_alpha(0.18),
-                width: 1.0,
-                radius: 12.0.into(),
-            },
+            border: Border { color: accent.scale_alpha(0.18), width: 1.0, radius: 12.0.into() },
             ..Default::default()
         })
         .into()
@@ -57,7 +49,10 @@ pub(super) fn context_menu_content_button(
 /// 提供 context menu button 功能。
 ///
 /// 参数和返回值遵循调用方所在模块的工作流约定，错误会显式向上传递或由 UI 状态承载。
-pub(super) fn context_menu_button(label: impl Into<String>, message: WorkflowMessage) -> Element<'static, Message> {
+pub(super) fn context_menu_button(
+    label: impl Into<String>,
+    message: WorkflowMessage,
+) -> Element<'static, Message> {
     let content: Element<'static, Message> = text(label.into()).size(12).into();
     context_menu_content_button(content, message)
 }
@@ -100,7 +95,9 @@ pub(super) fn build_context_node_picker_menu(
 /// 提供 context node picker button 功能。
 ///
 /// 参数和返回值遵循调用方所在模块的工作流约定，错误会显式向上传递或由 UI 状态承载。
-pub(super) fn context_node_picker_button(node_type: WorkflowNodeTypeDescriptor) -> Element<'static, Message> {
+pub(super) fn context_node_picker_button(
+    node_type: WorkflowNodeTypeDescriptor,
+) -> Element<'static, Message> {
     let accent = workflow_node_accent_color(node_type.block_type);
 
     button(

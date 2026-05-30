@@ -100,14 +100,15 @@ pub fn build_bulk_executor_selector<'a>(app: &'a App) -> Element<'a, Message> {
 
 fn build_selector<'a>(app: &'a App, kind: TaskBoardExecutorSelectorKind) -> Element<'a, Message> {
     let current_executor = kind.current_executor(app);
-    let executor_label_text = current_executor
-        .as_deref()
-        .unwrap_or(DEFAULT_TASK_EXECUTOR_LABEL)
-        .to_string();
+    let executor_label_text =
+        current_executor.as_deref().unwrap_or(DEFAULT_TASK_EXECUTOR_LABEL).to_string();
 
     let executor_toggle = button(
         row![
-            acp_agent_icon(current_executor.as_deref().unwrap_or(DEFAULT_TASK_EXECUTOR_LABEL), 14.0),
+            acp_agent_icon(
+                current_executor.as_deref().unwrap_or(DEFAULT_TASK_EXECUTOR_LABEL),
+                14.0
+            ),
             text(executor_label_text).size(14),
             svg::Svg::<iced::Theme>::new(assets::get_icon(Icon::ChevronDown))
                 .width(Length::Fixed(14.0))

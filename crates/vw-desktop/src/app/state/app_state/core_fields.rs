@@ -92,6 +92,8 @@
     pub(crate) chat_todo_expanded: bool,
     /// Todo 面板动画进度
     pub(crate) chat_todo_anim: f32,
+    /// Todo 面板显示位置
+    pub(crate) chat_todo_placement: TodoPanelPlacement,
     /// Todo 缓存所属会话 ID
     pub(crate) chat_todo_session_id: Option<String>,
     /// 当前活跃会话的 Todo 缓存

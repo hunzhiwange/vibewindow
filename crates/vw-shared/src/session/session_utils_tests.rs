@@ -8,14 +8,8 @@ fn generated_slug_has_expected_shape() {
 
 #[test]
 fn default_title_matches_only_generated_titles() {
-    assert!(super::is_default_title(
-        "New session - 2026-05-24T12:34:56.789Z"
-    ));
-    assert!(super::is_default_title(
-        "Child session - 2026-05-24T12:34:56.789Z"
-    ));
+    assert!(super::is_default_title("New session - 2026-05-24T12:34:56.789Z"));
+    assert!(super::is_default_title("Child session - 2026-05-24T12:34:56.789Z"));
     assert!(!super::is_default_title("New session - draft"));
-    assert!(!super::is_default_title(
-        "New session - 2026-05-24T12:34:56Z"
-    ));
+    assert!(!super::is_default_title("New session - 2026-05-24T12:34:56Z"));
 }

@@ -7,50 +7,42 @@ use super::*;
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
 pub(super) fn resolve_external_apps(
     cfg: &serde_json::Value,
-) -> (
-    Option<crate::app::state::RuntimePlatform>,
-    HashMap<ExternalOpenApp, bool>,
-    ExternalOpenApp,
-) {
+) -> (Option<crate::app::state::RuntimePlatform>, HashMap<ExternalOpenApp, bool>, ExternalOpenApp) {
     let mut open_external_exists = HashMap::new();
     open_external_exists.insert(ExternalOpenApp::Finder, true);
 
     #[cfg(target_os = "macos")]
     {
         let app_exists = |bundle_path: &str| std::path::Path::new(bundle_path).exists();
-        open_external_exists.insert(
-            ExternalOpenApp::VSCode,
-            app_exists("/Applications/Visual Studio Code.app"),
-        );
-        open_external_exists.insert(ExternalOpenApp::Cursor, app_exists("/Applications/Cursor.app"));
+        open_external_exists
+            .insert(ExternalOpenApp::VSCode, app_exists("/Applications/Visual Studio Code.app"));
+        open_external_exists
+            .insert(ExternalOpenApp::Cursor, app_exists("/Applications/Cursor.app"));
         open_external_exists.insert(
             ExternalOpenApp::Trae,
             app_exists("/Applications/Trae.app") || app_exists("/Applications/Trae IDE.app"),
         );
-        open_external_exists.insert(ExternalOpenApp::Windsurf, app_exists("/Applications/Windsurf.app"));
+        open_external_exists
+            .insert(ExternalOpenApp::Windsurf, app_exists("/Applications/Windsurf.app"));
         open_external_exists.insert(ExternalOpenApp::Kiro, app_exists("/Applications/Kiro.app"));
         open_external_exists.insert(ExternalOpenApp::Zed, app_exists("/Applications/Zed.app"));
-        open_external_exists.insert(ExternalOpenApp::TextMate, app_exists("/Applications/TextMate.app"));
-        open_external_exists.insert(
-            ExternalOpenApp::Antigravity,
-            app_exists("/Applications/Antigravity.app"),
-        );
+        open_external_exists
+            .insert(ExternalOpenApp::TextMate, app_exists("/Applications/TextMate.app"));
+        open_external_exists
+            .insert(ExternalOpenApp::Antigravity, app_exists("/Applications/Antigravity.app"));
         open_external_exists.insert(
             ExternalOpenApp::Terminal,
             app_exists("/System/Applications/Utilities/Terminal.app")
                 || app_exists("/Applications/Utilities/Terminal.app"),
         );
         open_external_exists.insert(ExternalOpenApp::ITerm2, app_exists("/Applications/iTerm.app"));
-        open_external_exists.insert(ExternalOpenApp::Ghostty, app_exists("/Applications/Ghostty.app"));
+        open_external_exists
+            .insert(ExternalOpenApp::Ghostty, app_exists("/Applications/Ghostty.app"));
         open_external_exists.insert(ExternalOpenApp::Xcode, app_exists("/Applications/Xcode.app"));
-        open_external_exists.insert(
-            ExternalOpenApp::AndroidStudio,
-            app_exists("/Applications/Android Studio.app"),
-        );
-        open_external_exists.insert(
-            ExternalOpenApp::SublimeText,
-            app_exists("/Applications/Sublime Text.app"),
-        );
+        open_external_exists
+            .insert(ExternalOpenApp::AndroidStudio, app_exists("/Applications/Android Studio.app"));
+        open_external_exists
+            .insert(ExternalOpenApp::SublimeText, app_exists("/Applications/Sublime Text.app"));
     }
 
     #[cfg(windows)]
@@ -103,9 +95,8 @@ pub(super) fn resolve_external_apps(
 }
 
 fn configured_external_app(cfg: &serde_json::Value) -> Option<ExternalOpenApp> {
-    cfg.get("open_external_app")
-        .and_then(|value: &serde_json::Value| value.as_str())
-        .and_then(|value| match value {
+    cfg.get("open_external_app").and_then(|value: &serde_json::Value| value.as_str()).and_then(
+        |value| match value {
             "finder" => Some(ExternalOpenApp::Finder),
             "vscode" => Some(ExternalOpenApp::VSCode),
             "cursor" => Some(ExternalOpenApp::Cursor),
@@ -123,7 +114,8 @@ fn configured_external_app(cfg: &serde_json::Value) -> Option<ExternalOpenApp> {
             "powershell" => Some(ExternalOpenApp::PowerShell),
             "sublime-text" => Some(ExternalOpenApp::SublimeText),
             _ => None,
-        })
+        },
+    )
 }
 
 fn priority_external_apps(
@@ -172,7 +164,6 @@ fn priority_external_apps(
         ]
     }
 }
-
 
 #[cfg(test)]
 #[path = "external_apps_tests.rs"]

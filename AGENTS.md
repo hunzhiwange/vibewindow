@@ -74,9 +74,8 @@ VibeWindow 是以 Rust 为先的自主代理运行时，优化目标为高性能
 一定不要执行这个命令 cargo fmt --all -- --check，除非用户明确要求执行
 一定不要执行这个命令 cargo check --target wasm32-unknown-unknown 除非用户明确要求执行
 一定不要执行这个命令 cargo test 除非用户明确要求执行
-一定不要执行 cargo 开头的所有命令 除非用户明确要求执行
-一定不要执行 Makefile 相关命令，除非用户明确要求执行，只有代码写完后
-代码写完成后，执行基础检测 cargo clippy --all-targets --all-features -- -D warnings，如果有错误，比如要修复问题，如果发现别的AI改变影响此次编译，先不要管。
+一定不要执行 Makefile 相关命令，除非用户明确要求执行
+代码写完成后，一定要执行基础检测 cargo clippy --all-targets --all-features -- -D warnings，如果有错误和警告，需要修复问题，如果发现别的AI改变影响此次编译，先不要管。
 单元测试文件必须单独放到一个独立文件，不能和逻辑放到一起。
 对于 Iced GUI framework UI 相关功能，特别注意要适配暗黑主题，避免在暗黑主题下出现文字、图标、背景颜色不协调导致看不清，注意容器垂直居中和水平居中，只要是滚动条宽度都是4px。
 ```

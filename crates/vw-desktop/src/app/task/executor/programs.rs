@@ -163,12 +163,7 @@ impl ExecutorCommand {
         if !prompt.trim().is_empty() {
             args.push(prompt.to_string());
         }
-        Self {
-            program,
-            args,
-            cwd: project_path.to_string(),
-            stdin_content: None,
-        }
+        Self { program, args, cwd: project_path.to_string(), stdin_content: None }
     }
 
     /// 公开的 for_claude 函数。

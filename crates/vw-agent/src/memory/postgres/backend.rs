@@ -1,5 +1,5 @@
-use super::tls::NoCertVerifier;
 use super::PostgresMemory;
+use super::tls::NoCertVerifier;
 use anyhow::{Context, Result};
 use postgres::{Client, NoTls};
 use std::time::Duration;
@@ -54,9 +54,7 @@ impl PostgresMemory {
             })
             .context("failed to spawn PostgreSQL initializer thread")?;
 
-        init_handle
-            .join()
-            .map_err(|_| anyhow::anyhow!("PostgreSQL initializer thread panicked"))?
+        init_handle.join().map_err(|_| anyhow::anyhow!("PostgreSQL initializer thread panicked"))?
     }
 
     /// 初始化 schema、表与索引。

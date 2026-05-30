@@ -1,4 +1,6 @@
-use super::git_diff_view::{append_preview_gap, append_preview_line, is_git_diff_tool, parse_git_diff_previews};
+use super::git_diff_view::{
+    append_preview_gap, append_preview_line, is_git_diff_tool, parse_git_diff_previews,
+};
 use serde_json::json;
 
 #[test]

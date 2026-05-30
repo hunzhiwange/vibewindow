@@ -1,5 +1,5 @@
-use super::*;
 use super::super::reactions as discord_reactions;
+use super::*;
 
 /// 测试 Unicode 表情符号的百分比编码
 /// 眼睛表情符号 (U+1F440) 应该被正确编码

@@ -8,9 +8,7 @@ use super::fs::{covers_target, expand_env_path, measure_cleanup_target};
 use super::scan::ScanDetailKind;
 use super::types::CleanupRequest;
 #[cfg(not(target_arch = "wasm32"))]
-use super::types::{
-    CleanerPlatform, current_platform, format_bytes, unsupported_platform_message,
-};
+use super::types::{CleanerPlatform, current_platform, format_bytes, unsupported_platform_message};
 
 #[cfg(not(target_arch = "wasm32"))]
 #[path = "run_macos.rs"]

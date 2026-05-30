@@ -45,10 +45,7 @@ fn parse_arbitrary_bracket_value<'a>(class_name: &'a str, prefix: &str) -> Optio
 }
 
 fn parse_arbitrary_px_value(class_name: &str, prefix: &str) -> Option<f32> {
-    parse_arbitrary_bracket_value(class_name, prefix)?
-        .strip_suffix("px")?
-        .parse::<f32>()
-        .ok()
+    parse_arbitrary_bracket_value(class_name, prefix)?.strip_suffix("px")?.parse::<f32>().ok()
 }
 
 fn parse_arbitrary_hex_color(value: &str) -> Option<Color> {
@@ -284,16 +281,14 @@ fn parse_flex_item_utility(style: &mut ParsedStyle, class_name: &str) -> bool {
         _ => {}
     }
 
-    if let Some(value) = class_name
-        .strip_prefix("grow-")
-        .and_then(|token| token.parse::<f32>().ok())
+    if let Some(value) =
+        class_name.strip_prefix("grow-").and_then(|token| token.parse::<f32>().ok())
     {
         style.flex_grow = Some(value);
         return true;
     }
-    if let Some(value) = class_name
-        .strip_prefix("shrink-")
-        .and_then(|token| token.parse::<f32>().ok())
+    if let Some(value) =
+        class_name.strip_prefix("shrink-").and_then(|token| token.parse::<f32>().ok())
     {
         style.flex_shrink = Some(value);
         return true;
@@ -448,17 +443,15 @@ fn parse_effect_utility(style: &mut ParsedStyle, class_name: &str) -> bool {
         _ => {}
     }
 
-    if let Some(value) = class_name
-        .strip_prefix("outline-offset-")
-        .and_then(|token| token.parse::<f32>().ok())
+    if let Some(value) =
+        class_name.strip_prefix("outline-offset-").and_then(|token| token.parse::<f32>().ok())
     {
         style.outline_offset = Some(value);
         return true;
     }
 
-    if let Some(value) = class_name
-        .strip_prefix("-outline-offset-")
-        .and_then(|token| token.parse::<f32>().ok())
+    if let Some(value) =
+        class_name.strip_prefix("-outline-offset-").and_then(|token| token.parse::<f32>().ok())
     {
         style.outline_offset = Some(-value);
         return true;

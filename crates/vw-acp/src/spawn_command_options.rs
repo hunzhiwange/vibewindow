@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::ffi::OsString;
 use tokio::process::Command;
+#[cfg(not(windows))]
 use vw_shared::shell::tokio_command;
 
 #[cfg(test)]

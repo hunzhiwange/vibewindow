@@ -8,7 +8,9 @@ use axum::routing::{get, post};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use crate::app::agent::approval::{ApprovalResponse, PendingApprovalError, PendingNonCliApprovalRequest};
+use crate::app::agent::approval::{
+    ApprovalResponse, PendingApprovalError, PendingNonCliApprovalRequest,
+};
 use crate::app::agent::config;
 use crate::app::agent::config::schema::save_config;
 use crate::app::agent::gateway::ApiError;
@@ -71,7 +73,9 @@ async fn permission_reply(
     Ok(Json(true))
 }
 
-fn permission_request_from_pending(request: PendingNonCliApprovalRequest) -> permission_next::Request {
+fn permission_request_from_pending(
+    request: PendingNonCliApprovalRequest,
+) -> permission_next::Request {
     let mut metadata = Map::new();
     if let Some(reason) = request.reason.as_ref().filter(|value| !value.trim().is_empty()) {
         metadata.insert("reason".to_string(), Value::String(reason.clone()));
@@ -80,10 +84,8 @@ fn permission_request_from_pending(request: PendingNonCliApprovalRequest) -> per
         metadata.insert("arguments".to_string(), request.arguments.clone());
     }
     metadata.insert("requested_by".to_string(), Value::String(request.requested_by.clone()));
-    metadata.insert(
-        "requested_channel".to_string(),
-        Value::String(request.requested_channel.clone()),
-    );
+    metadata
+        .insert("requested_channel".to_string(), Value::String(request.requested_channel.clone()));
     metadata.insert(
         "requested_reply_target".to_string(),
         Value::String(request.requested_reply_target.clone()),
@@ -99,7 +101,9 @@ fn permission_request_from_pending(request: PendingNonCliApprovalRequest) -> per
         metadata,
         always: vec![request.tool_name],
         tool: match (request.message_id, request.call_id) {
-            (Some(message_id), Some(call_id)) if !message_id.trim().is_empty() && !call_id.trim().is_empty() => {
+            (Some(message_id), Some(call_id))
+                if !message_id.trim().is_empty() && !call_id.trim().is_empty() =>
+            {
                 Some(permission_next::ToolInfo { message_id, call_id })
             }
             _ => None,
@@ -116,7 +120,8 @@ async fn reply_pending_request(
     let Some(request) = manager
         .list_non_cli_pending_requests(None, None, None)
         .into_iter()
-        .find(|request| request.request_id == request_id) else {
+        .find(|request| request.request_id == request_id)
+    else {
         return Ok(false);
     };
 
@@ -195,9 +200,7 @@ fn map_pending_approval_error(error: PendingApprovalError) -> ApiError {
     match error {
         PendingApprovalError::NotFound => ApiError::not_found("request not found"),
         PendingApprovalError::Expired => ApiError::bad_request("request expired"),
-        PendingApprovalError::RequesterMismatch => {
-            ApiError::bad_request("request actor mismatch")
-        }
+        PendingApprovalError::RequesterMismatch => ApiError::bad_request("request actor mismatch"),
     }
 }
 

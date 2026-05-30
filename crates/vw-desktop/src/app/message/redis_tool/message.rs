@@ -1,7 +1,7 @@
 use super::{
     GatewayRedisConnectionTestResponse, RedisCommandOutputEntry, RedisConnectionTab,
-    RedisDetailTab, RedisKeyAnalysis, RedisKeyPage, RedisKeyValueKind,
-    RedisRuntimeOverview, RedisToolGatewaySnapshot,
+    RedisDetailTab, RedisKeyAnalysis, RedisKeyPage, RedisKeyValueKind, RedisRuntimeOverview,
+    RedisToolGatewaySnapshot,
 };
 
 /// Redis 工具消息。
@@ -11,6 +11,8 @@ pub enum RedisToolMessage {
     CloseSettingsModal,
     OpenHistoryModal,
     CloseHistoryModal,
+    OpenConnectionModal,
+    CloseConnectionModal,
     NewConnection,
     SearchConnectionsChanged(String),
     SelectConnection(String),
@@ -89,6 +91,7 @@ pub enum RedisToolMessage {
     DraftReadOnlyToggled(bool),
     DraftKeyPatternChanged(String),
     SaveDraft,
+    SaveDraftCompleted(Result<RedisToolGatewaySnapshot, String>),
     DeleteSelected,
     TestSelected,
     TestSelectedCompleted(

@@ -6,22 +6,19 @@ use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Background, Color, Element, Length, Point, Theme};
 
 use crate::app::assets::Icon;
-use crate::app::components::system_settings_common::{
-    primary_action_btn_style, round_icon_btn_style, rounded_action_btn_style,
-    settings_muted_text_style, settings_panel_style,
-};
 use crate::app::components::input_panel::icons::icon_svg;
-use crate::app::components::status_animation::spinner_frame;
 use crate::app::components::overlays::PointBelowOverlay;
+use crate::app::components::status_animation::spinner_frame;
+use crate::app::components::system_settings_common::{
+    round_icon_btn_style, rounded_action_btn_style, settings_muted_text_style, settings_panel_style,
+};
 use crate::app::components::widgets::RightClickArea;
 use crate::app::message::TaskBoardMessage;
 use crate::app::{Message, message};
 use vw_shared::session::info as session;
 
 use super::super::styles::{is_dark_theme, session_row_highlight_color, tooltip_bubble};
-use super::super::utils::{
-    mix_color, session_title_max_chars, truncate_display_width,
-};
+use super::super::utils::{mix_color, session_title_max_chars, truncate_display_width};
 use super::new_session::new_session_button;
 
 fn icon_action_button_style(
@@ -43,12 +40,8 @@ fn icon_action_button_style(
             _ => Color::from_rgba8(252, 253, 255, 0.94),
         }));
         style.border.color = match status {
-            iced::widget::button::Status::Hovered => {
-                palette.primary.base.color.scale_alpha(0.28)
-            }
-            iced::widget::button::Status::Pressed => {
-                palette.primary.base.color.scale_alpha(0.36)
-            }
+            iced::widget::button::Status::Hovered => palette.primary.base.color.scale_alpha(0.28),
+            iced::widget::button::Status::Pressed => palette.primary.base.color.scale_alpha(0.36),
             _ => Color::from_rgba8(222, 227, 235, 0.98),
         };
         style.shadow = match status {
@@ -87,13 +80,21 @@ fn outline_panel_button_style(
     };
     let background = match status {
         iced::widget::button::Status::Hovered => {
-            if is_dark { palette.background.weak.color.scale_alpha(0.84) } else { Color::from_rgba8(243, 246, 249, 1.0) }
+            if is_dark {
+                palette.background.weak.color.scale_alpha(0.84)
+            } else {
+                Color::from_rgba8(243, 246, 249, 1.0)
+            }
         }
         iced::widget::button::Status::Pressed => {
             palette.background.strong.color.scale_alpha(if is_dark { 0.84 } else { 0.42 })
         }
         _ => {
-            if active { active_bg } else { Color::TRANSPARENT }
+            if active {
+                active_bg
+            } else {
+                Color::TRANSPARENT
+            }
         }
     };
     let border_color = if active {
@@ -128,54 +129,26 @@ fn session_row_button_style(
 ) -> iced::widget::button::Style {
     let palette = theme.extended_palette();
     let is_dark = is_dark_theme(theme);
-    let highlight_bg = session_row_highlight_color(theme);
-    let base_bg = if is_dark {
-        palette.background.base.color.scale_alpha(0.58)
-    } else {
-        Color::WHITE.scale_alpha(0.76)
-    };
+    let highlight_bg =
+        session_row_highlight_color(theme).scale_alpha(if is_dark { 0.72 } else { 0.58 });
     let background = match status {
         iced::widget::button::Status::Hovered => highlight_bg,
         iced::widget::button::Status::Pressed => {
-            palette.background.strong.color.scale_alpha(if is_dark { 0.82 } else { 0.48 })
+            palette.background.strong.color.scale_alpha(if is_dark { 0.42 } else { 0.22 })
         }
         _ => {
-            if active { highlight_bg } else { base_bg }
+            if active {
+                highlight_bg
+            } else {
+                Color::TRANSPARENT
+            }
         }
     };
-    let border_color = if active {
-        palette.primary.base.color.scale_alpha(if is_dark { 0.52 } else { 0.22 })
-    } else if matches!(status, iced::widget::button::Status::Hovered) {
-        palette.background.strong.color.scale_alpha(if is_dark { 0.62 } else { 0.86 })
-    } else {
-        palette.background.strong.color.scale_alpha(if is_dark { 0.70 } else { 0.40 })
-    };
-
     iced::widget::button::Style {
         background: Some(Background::Color(background)),
         text_color: theme.palette().text,
-        border: iced::Border {
-            radius: 16.0.into(),
-            width: 1.0,
-            color: border_color,
-        },
-        shadow: if active || matches!(status, iced::widget::button::Status::Hovered) {
-            iced::Shadow {
-                color: if active {
-                    palette.primary.base.color.scale_alpha(if is_dark { 0.18 } else { 0.09 })
-                } else {
-                    Color::BLACK.scale_alpha(if is_dark { 0.14 } else { 0.06 })
-                },
-                offset: iced::Vector::new(0.0, 10.0),
-                blur_radius: 20.0,
-            }
-        } else {
-            iced::Shadow {
-                color: Color::BLACK.scale_alpha(if is_dark { 0.08 } else { 0.03 }),
-                offset: iced::Vector::new(0.0, 4.0),
-                blur_radius: 10.0,
-            }
-        },
+        border: iced::Border { radius: 16.0.into(), width: 0.0, color: Color::TRANSPARENT },
+        shadow: iced::Shadow::default(),
         ..Default::default()
     }
 }
@@ -200,7 +173,11 @@ pub fn session_menu_button<'a>(label: &str, msg: Message) -> Element<'a, Message
             let is_dark = is_dark_theme(theme);
             let bg = match status {
                 iced::widget::button::Status::Hovered => {
-                    if is_dark { p.background.weak.color.scale_alpha(0.74) } else { Color::WHITE.scale_alpha(0.92) }
+                    if is_dark {
+                        p.background.weak.color.scale_alpha(0.74)
+                    } else {
+                        Color::WHITE.scale_alpha(0.92)
+                    }
                 }
                 iced::widget::button::Status::Pressed => {
                     p.background.strong.color.scale_alpha(if is_dark { 0.82 } else { 0.28 })
@@ -212,7 +189,11 @@ pub fn session_menu_button<'a>(label: &str, msg: Message) -> Element<'a, Message
                 text_color: theme.palette().text,
                 border: iced::Border {
                     radius: 10.0.into(),
-                    width: if matches!(status, iced::widget::button::Status::Hovered) { 1.0 } else { 0.0 },
+                    width: if matches!(status, iced::widget::button::Status::Hovered) {
+                        1.0
+                    } else {
+                        0.0
+                    },
                     color: p.background.strong.color.scale_alpha(0.42),
                 },
                 ..Default::default()
@@ -410,9 +391,7 @@ pub fn project_sessions_header<'a>(
             .on_close(Message::Project(message::ProjectMessage::ProjectToolsMenuClosed))
             .into();
 
-    let action_buttons = row![refresh_btn, tools]
-        .spacing(6)
-        .align_y(iced::Alignment::Center);
+    let action_buttons = row![refresh_btn, tools].spacing(6).align_y(iced::Alignment::Center);
 
     column![
         row![title_text, action_buttons]
@@ -519,20 +498,20 @@ pub fn session_items_list<'a>(
                         row![
                             container(
                                 text(spinner_frame(app.status_animation_frame))
-                                    .size(9)
+                                    .size(11)
                                     .line_height(iced::widget::text::LineHeight::Relative(1.0))
                                     .style(move |_: &Theme| text::Style {
                                         color: Some(running_badge_color),
                                     }),
                             )
-                            .height(Length::Fixed(10.0))
+                            .height(Length::Fixed(13.0))
                             .align_y(iced::alignment::Vertical::Center),
                             container(
                                 text("运行中")
-                                    .size(9)
+                                    .size(11)
                                     .line_height(iced::widget::text::LineHeight::Relative(1.0)),
                             )
-                            .height(Length::Fixed(10.0))
+                            .height(Length::Fixed(13.0))
                             .align_y(iced::alignment::Vertical::Center)
                         ]
                         .spacing(4)
@@ -553,7 +532,7 @@ pub fn session_items_list<'a>(
             }
             if queued > 0 {
                 status_badges = status_badges.push(
-                    container(text(format!("排队 {}", queued)).size(9)).padding([1, 6]).style(
+                    container(text(format!("排队 {}", queued)).size(11)).padding([1, 6]).style(
                         |_: &Theme| container::Style {
                             background: Some(Background::Color(
                                 Color::from_rgb8(245, 158, 11).scale_alpha(0.16),
@@ -570,9 +549,9 @@ pub fn session_items_list<'a>(
                 );
             }
             if has_unseen_success && !is_running && queued == 0 {
-                status_badges = status_badges.push(
-                    container(text("有更新").size(9)).padding([1, 6]).style(|_: &Theme| {
-                        container::Style {
+                status_badges =
+                    status_badges.push(container(text("有更新").size(11)).padding([1, 6]).style(
+                        |_: &Theme| container::Style {
                             background: Some(Background::Color(
                                 Color::from_rgb8(46, 184, 114).scale_alpha(0.16),
                             )),
@@ -583,9 +562,8 @@ pub fn session_items_list<'a>(
                             },
                             text_color: Some(Color::from_rgb8(46, 184, 114)),
                             ..Default::default()
-                        }
-                    }),
-                );
+                        },
+                    ));
             }
             let dynamic_title_max_chars = title_max_chars.saturating_add(6).max(14);
 
@@ -599,13 +577,14 @@ pub fn session_items_list<'a>(
                     .filter(|name| !name.is_empty())
                     .unwrap_or_else(|| "工作区".to_string())
             };
-            let workspace_meta = truncate_display_width(&workspace_label, dynamic_title_max_chars / 2 + 8);
+            let workspace_meta =
+                truncate_display_width(&workspace_label, dynamic_title_max_chars / 2 + 8);
             let change_stats = row![
                 text(format!("+{}", adds))
-                    .size(9)
+                    .size(11)
                     .style(|_: &Theme| text::Style { color: Some(Color::from_rgb8(46, 184, 114)) }),
                 text(format!("-{}", dels))
-                    .size(9)
+                    .size(11)
                     .style(|_: &Theme| text::Style { color: Some(Color::from_rgb8(239, 68, 68)) }),
             ]
             .spacing(4)
@@ -614,7 +593,7 @@ pub fn session_items_list<'a>(
             let header_row = row![
                 status_icon,
                 text(truncate_display_width(&session_title, dynamic_title_max_chars))
-                    .size(11)
+                    .size(13)
                     .font(iced::Font {
                         weight: if active {
                             iced::font::Weight::Bold
@@ -631,8 +610,8 @@ pub fn session_items_list<'a>(
             .width(Length::Fill);
 
             let mut footer_row = row![
-                text(workspace_meta).size(9).style(settings_muted_text_style),
-                text("·").size(9).style(settings_muted_text_style),
+                text(workspace_meta).size(11).style(settings_muted_text_style),
+                text("·").size(11).style(settings_muted_text_style),
                 change_stats,
             ]
             .align_y(iced::alignment::Vertical::Center)
@@ -655,7 +634,9 @@ pub fn session_items_list<'a>(
                     id.clone(),
                 )))
                 .width(Length::Fill)
-                .style(move |theme: &Theme, status| session_row_button_style(theme, active, status));
+                .style(move |theme: &Theme, status| {
+                    session_row_button_style(theme, active, status)
+                });
 
             let btn = iced::widget::tooltip::Tooltip::new(
                 btn,
@@ -709,7 +690,12 @@ pub fn session_items_list<'a>(
                 path.to_string(),
             )))
             .width(Length::Fill)
-            .style(|theme: &Theme, status| outline_panel_button_style(theme, false, status));
+            .style(|theme: &Theme, status| {
+                let mut style = outline_panel_button_style(theme, false, status);
+                style.border.width = 0.0;
+                style.border.color = Color::TRANSPARENT;
+                style
+            });
             session_items = session_items.push(load_more_btn);
         }
     } else {
@@ -768,7 +754,8 @@ pub fn project_sessions_panel(
         let sessions = app.project_sessions.get(&path);
         let inner_w = (panel_w - 24.0).max(0.0);
         let path_max_chars = (inner_w / 5.5).max(8.0) as usize;
-        let title_max_chars = session_title_max_chars((inner_w - session_list_width_reduction).max(0.0));
+        let title_max_chars =
+            session_title_max_chars((inner_w - session_list_width_reduction).max(0.0));
         let header = project_sessions_header(
             title,
             path.clone(),
@@ -800,16 +787,10 @@ pub fn project_sessions_panel(
         )
         .on_press(Message::TaskBoard(TaskBoardMessage::ToggleBoard))
         .padding([10, 14])
-        .style(move |theme: &Theme, status| {
-            if app.show_task_board {
-                let mut style = primary_action_btn_style(theme, status);
-                style.border.radius = 14.0.into();
-                style
-            } else {
-                let mut style = rounded_action_btn_style(theme, status);
-                style.border.radius = 14.0.into();
-                style
-            }
+        .style(|theme: &Theme, status| {
+            let mut style = rounded_action_btn_style(theme, status);
+            style.border.radius = 14.0.into();
+            style
         });
 
         let static_content = column![
@@ -824,14 +805,13 @@ pub fn project_sessions_panel(
         .width(Length::Fill);
 
         let path_for_scroll = path.clone();
-        let sessions_scroll = scrollable(
-            container(session_items).width(Length::Fill).padding(iced::Padding {
+        let sessions_scroll =
+            scrollable(container(session_items).width(Length::Fill).padding(iced::Padding {
                 top: 0.0,
                 right: session_list_width_reduction,
                 bottom: 0.0,
                 left: 0.0,
-            }),
-        )
+            }))
             .direction(iced::widget::scrollable::Direction::Vertical(
                 iced::widget::scrollable::Scrollbar::new().width(4).scroller_width(4),
             ))
@@ -855,19 +835,15 @@ pub fn project_sessions_panel(
             container(sessions_scroll)
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .padding(iced::Padding {
-                    top: 0.0,
-                    right: 4.0,
-                    bottom: 14.0,
-                    left: 6.0,
-                }),
+                .padding(iced::Padding { top: 0.0, right: 4.0, bottom: 14.0, left: 6.0 }),
         ]
         .width(Length::Fill)
         .height(Length::Fill)
         .into();
     }
 
-    let empty_label = if app.recent_projects.is_empty() { "暂无项目" } else { "请选择一个项目" };
+    let empty_label =
+        if app.recent_projects.is_empty() { "暂无项目" } else { "请选择一个项目" };
     container(text(empty_label).size(12))
         .padding([20, 20])
         .width(Length::Fill)

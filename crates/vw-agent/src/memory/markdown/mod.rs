@@ -6,8 +6,8 @@
 //! # 架构设计
 //!
 //! 存储布局：
-//! - `workspace/MEMORY.md` - 长期记忆的核心文件（可编辑）
-//! - `workspace/memory/YYYY-MM-DD.md` - 每日日志文件（仅追加）
+//! - `~/.vibewindow/worktree/<workspace-hash>/MEMORY.md` - 长期记忆的核心文件
+//! - `~/.vibewindow/worktree/<workspace-hash>/memory/YYYY-MM-DD.md` - 每日日志文件
 //!
 //! # 核心特性
 //!
@@ -41,6 +41,7 @@
 //! # }
 //! ```
 
+use super::paths;
 use super::traits::{Memory, MemoryCategory, MemoryEntry};
 use async_trait::async_trait;
 use chrono::Local;
@@ -63,7 +64,7 @@ use tokio::fs;
 /// 该实现通过 tokio 的异步文件操作保证并发安全。
 /// 注意：Markdown 内存采用仅追加设计，不支持删除操作。
 pub struct MarkdownMemory {
-    /// 工作空间根目录路径
+    /// 用户态记忆数据目录路径
     workspace_dir: PathBuf,
 }
 
@@ -73,7 +74,7 @@ impl MarkdownMemory {
     ///
     /// # 参数
     ///
-    /// - `workspace_dir`: 工作空间根目录，将在此目录下创建 `MEMORY.md` 和 `memory/` 子目录
+    /// - `workspace_dir`: 工作空间根目录，仅用于派生用户态记忆数据目录
     ///
     /// # 示例
     ///
@@ -85,7 +86,9 @@ impl MarkdownMemory {
     /// let memory = MarkdownMemory::new(workspace);
     /// ```
     pub fn new(workspace_dir: &Path) -> Self {
-        Self { workspace_dir: workspace_dir.to_path_buf() }
+        let workspace_dir = paths::project_data_dir_best_effort(workspace_dir);
+        let _ = std::fs::create_dir_all(&workspace_dir);
+        Self { workspace_dir }
     }
 
     /// 获取每日日志目录路径
@@ -276,7 +279,8 @@ impl MarkdownMemory {
     ///
     /// - `workspace_dir`: 工作空间根目录（在 WASM 中可能无法访问）
     pub fn new(workspace_dir: &Path) -> Self {
-        Self { workspace_dir: workspace_dir.to_path_buf() }
+        let workspace_dir = paths::project_data_dir_best_effort(workspace_dir);
+        Self { workspace_dir }
     }
 }
 

@@ -11,10 +11,8 @@ pub(super) fn build_start_visual_section<'a>(
     variables: &'a [super::state::WorkflowStartVariableDraft],
     validation: &'a super::state::WorkflowNodeEditorValidation,
 ) -> Element<'a, Message> {
-    let hovered_index = state
-        .node_editor
-        .as_ref()
-        .and_then(|editor| editor.hovered_start_variable_index);
+    let hovered_index =
+        state.node_editor.as_ref().and_then(|editor| editor.hovered_start_variable_index);
 
     column![
         build_start_variable_section(variables, hovered_index, validation),
@@ -174,25 +172,19 @@ pub(super) fn build_start_variable_summary_item<'a>(
     .align_y(Alignment::Center);
 
     let content: Element<'a, Message> = if let Some(error) = summary_error {
-        column![
-            row_content,
-            text(error).size(12).color(Color::from_rgba8(0xB4, 0x23, 0x18, 1.0)),
-        ]
-        .spacing(6)
-        .into()
+        column![row_content, text(error).size(12).color(Color::from_rgba8(0xB4, 0x23, 0x18, 1.0)),]
+            .spacing(6)
+            .into()
     } else {
         row_content.into()
     };
 
-    mouse_area(
-        container(content)
-            .width(Length::Fill)
-            .padding([10, 12])
-            .style(value_card_style),
-    )
-    .on_enter(Message::WorkflowTool(WorkflowMessage::NodeEditorStartVariableHovered(Some(index))))
-    .on_exit(Message::WorkflowTool(WorkflowMessage::NodeEditorStartVariableHovered(None)))
-    .into()
+    mouse_area(container(content).width(Length::Fill).padding([10, 12]).style(value_card_style))
+        .on_enter(Message::WorkflowTool(WorkflowMessage::NodeEditorStartVariableHovered(Some(
+            index,
+        ))))
+        .on_exit(Message::WorkflowTool(WorkflowMessage::NodeEditorStartVariableHovered(None)))
+        .into()
 }
 
 fn build_start_variable_action_button(
@@ -201,16 +193,20 @@ fn build_start_variable_action_button(
     message: Message,
 ) -> Element<'static, Message> {
     button(
-        svg(assets::get_icon(icon))
-            .width(Length::Fixed(12.0))
-            .height(Length::Fixed(12.0))
-            .style(move |theme: &Theme, _status| iced::widget::svg::Style {
+        svg(assets::get_icon(icon)).width(Length::Fixed(12.0)).height(Length::Fixed(12.0)).style(
+            move |theme: &Theme, _status| iced::widget::svg::Style {
                 color: Some(if danger {
-                    Color::from_rgba8(0xDC, 0x45, 0x45, if is_dark_theme(theme) { 0.92 } else { 0.84 })
+                    Color::from_rgba8(
+                        0xDC,
+                        0x45,
+                        0x45,
+                        if is_dark_theme(theme) { 0.92 } else { 0.84 },
+                    )
                 } else {
                     theme.palette().text.scale_alpha(if is_dark_theme(theme) { 0.76 } else { 0.70 })
                 }),
-            }),
+            },
+        ),
     )
     .padding(6)
     .style(round_icon_btn_style)
@@ -234,7 +230,9 @@ pub(super) fn build_start_builtin_variables_section(state: &WorkflowState) -> El
 /// 构建 start builtin variable item 对应的界面元素。
 ///
 /// 参数由当前工作流状态或编辑草稿提供；返回值是可直接嵌入 iced 视图树的元素。
-pub(super) fn build_start_builtin_variable_item(item: StartBuiltinVariableItem) -> Element<'static, Message> {
+pub(super) fn build_start_builtin_variable_item(
+    item: StartBuiltinVariableItem,
+) -> Element<'static, Message> {
     container(
         row![
             column![

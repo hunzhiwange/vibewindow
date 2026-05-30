@@ -46,10 +46,7 @@ fn bool_row<'a>(
     field_row(
         label,
         description,
-        checkbox(checked)
-            .label(checkbox_label)
-            .on_toggle(on_toggle)
-            .style(settings_checkbox_style),
+        checkbox(checked).label(checkbox_label).on_toggle(on_toggle).style(settings_checkbox_style),
     )
 }
 
@@ -81,9 +78,7 @@ fn slider_row<'a>(
     field_row(
         label,
         description,
-        row![slider.into(), settings_value_badge(value)]
-            .spacing(12)
-            .align_y(Alignment::Center),
+        row![slider.into(), settings_value_badge(value)].spacing(12).align_y(Alignment::Center),
     )
 }
 

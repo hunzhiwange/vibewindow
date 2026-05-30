@@ -1,7 +1,7 @@
 //! 会话处理器的提示词组装逻辑，负责把当前会话历史整理成模型可消费的输入。
 
-use crate::session::prompt;
 use crate::app::agent::session::session::{Role, Session};
+use crate::session::prompt;
 
 /// 执行 build_prompt 操作，并返回调用方需要的结果。
 pub(crate) fn build_prompt(

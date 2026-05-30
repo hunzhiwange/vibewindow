@@ -10,10 +10,10 @@ use iced::widget::{button, text};
 /// 重新导出 use iced::{Alignment, Background, Border, Color, Element, Length, Theme}，让上层模块通过稳定路径访问。
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
-/// 重新导出 use crate::app::assets::{self, Icon}，让上层模块通过稳定路径访问。
-use crate::app::assets::{self, Icon};
 /// 重新导出 use crate::app::Message，让上层模块通过稳定路径访问。
 use crate::app::Message;
+/// 重新导出 use crate::app::assets::{self, Icon}，让上层模块通过稳定路径访问。
+use crate::app::assets::{self, Icon};
 
 /// 根据主题与语义状态计算 muted icon color。
 ///

@@ -66,15 +66,13 @@ pub fn build_base_layout(
     .width(Length::Fill)
     .height(Length::Fill);
 
-    let right_column_base: Element<'_, Message> = if app.chat_panel_fullscreen
-        || app.git_diff_fullscreen
-        || !app.terminal.is_visible
-    {
-        column![main].height(Length::Fill)
-    } else {
-        column![main, bottom_panel(app)].spacing(0).height(Length::Fill)
-    }
-    .into();
+    let right_column_base: Element<'_, Message> =
+        if app.chat_panel_fullscreen || app.git_diff_fullscreen || !app.terminal.is_visible {
+            column![main].height(Length::Fill)
+        } else {
+            column![main, bottom_panel(app)].spacing(0).height(Length::Fill)
+        }
+        .into();
     let right_overlay: Element<'_, Message> = chat_panel::tool_dialog_overlay(app)
         .unwrap_or_else(|| Space::new().width(Length::Fill).height(Length::Fill).into());
     let right_column: Element<'_, Message> =

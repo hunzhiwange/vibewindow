@@ -161,7 +161,8 @@ pub(crate) async fn describe_non_cli_approvals(
     if runtime_auto.is_empty() {
         response.push_str("- Runtime auto_approve (effective): (none)\n");
     } else {
-        let _ = writeln!(response, "- Runtime auto_approve (effective): {}", runtime_auto.join(", "));
+        let _ =
+            writeln!(response, "- Runtime auto_approve (effective): {}", runtime_auto.join(", "));
     }
 
     let mut runtime_always =
@@ -170,7 +171,8 @@ pub(crate) async fn describe_non_cli_approvals(
     if runtime_always.is_empty() {
         response.push_str("- Runtime always_ask (effective): (none)\n");
     } else {
-        let _ = writeln!(response, "- Runtime always_ask (effective): {}", runtime_always.join(", "));
+        let _ =
+            writeln!(response, "- Runtime always_ask (effective): {}", runtime_always.join(", "));
     }
 
     let mut session_grants =
@@ -202,16 +204,14 @@ pub(crate) async fn describe_non_cli_approvals(
         );
     }
 
-    let default_mode =
-        non_cli_natural_language_mode_label(ctx.approval_manager.non_cli_natural_language_approval_mode());
+    let default_mode = non_cli_natural_language_mode_label(
+        ctx.approval_manager.non_cli_natural_language_approval_mode(),
+    );
     let effective_mode = non_cli_natural_language_mode_label(
         ctx.approval_manager.non_cli_natural_language_approval_mode_for_channel(channel),
     );
-    let _ = writeln!(
-        response,
-        "- Runtime non_cli_natural_language_approval_mode: {}",
-        default_mode
-    );
+    let _ =
+        writeln!(response, "- Runtime non_cli_natural_language_approval_mode: {}", default_mode);
     let _ = writeln!(
         response,
         "- Runtime non_cli_natural_language_approval_mode (current channel `{channel}`): {}",
@@ -246,7 +246,8 @@ pub(crate) async fn describe_non_cli_approvals(
     } else {
         response.push_str("- Pending approvals (sender+chat/channel scoped):\n");
         for req in pending_requests {
-            let reason = req.reason.as_deref().filter(|text| !text.trim().is_empty()).unwrap_or("n/a");
+            let reason =
+                req.reason.as_deref().filter(|text| !text.trim().is_empty()).unwrap_or("n/a");
             let _ = writeln!(
                 response,
                 "  - {}: tool={}, expires_at={}, reason={}",
@@ -299,11 +300,8 @@ pub(crate) async fn describe_non_cli_approvals(
         if always_ask.is_empty() {
             response.push_str("- Persisted autonomy.always_ask: (none)\n");
         } else {
-            let _ = writeln!(
-                response,
-                "- Persisted autonomy.always_ask: {}",
-                always_ask.join(", ")
-            );
+            let _ =
+                writeln!(response, "- Persisted autonomy.always_ask: {}", always_ask.join(", "));
         }
     }
 

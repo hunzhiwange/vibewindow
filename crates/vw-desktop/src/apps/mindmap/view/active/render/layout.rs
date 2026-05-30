@@ -120,10 +120,8 @@ pub(super) fn build_layout(
     }
 
     if let Some(anchor) = tab.context_menu_anchor {
-        ui_blocked_rects.push(Rectangle::new(
-            Point::new(anchor.x, anchor.y + 6.0),
-            Size::new(260.0, 44.0),
-        ));
+        ui_blocked_rects
+            .push(Rectangle::new(Point::new(anchor.x, anchor.y + 6.0), Size::new(260.0, 44.0)));
     }
 
     ui_blocked_rects.push(Rectangle::new(

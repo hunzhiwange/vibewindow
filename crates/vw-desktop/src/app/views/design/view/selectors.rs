@@ -86,11 +86,7 @@ fn design_model_toggle_label(app: &App, auto_model: bool, model: &str) -> String
 
     let parsed = if model.contains('/') {
         let parts = model.splitn(2, '/').collect::<Vec<_>>();
-        if parts.len() == 2 {
-            Some((parts[0].to_string(), parts[1].to_string()))
-        } else {
-            None
-        }
+        if parts.len() == 2 { Some((parts[0].to_string(), parts[1].to_string())) } else { None }
     } else {
         None
     };
@@ -103,9 +99,11 @@ fn design_model_toggle_label(app: &App, auto_model: bool, model: &str) -> String
             .find(|p| &p.id == provider_id)
             .and_then(|p| p.models.iter().find(|m| &m.id == model_id))
             .map(|m| m.name.clone()),
-        None => app.model_settings.providers.iter().find_map(|p| {
-            p.models.iter().find(|m| m.id == model).map(|m| m.name.clone())
-        }),
+        None => app
+            .model_settings
+            .providers
+            .iter()
+            .find_map(|p| p.models.iter().find(|m| m.id == model).map(|m| m.name.clone())),
     };
 
     display.unwrap_or_else(|| {
@@ -162,7 +160,8 @@ pub(super) fn render_design_executor_selector<'a>(
     let executor_tip = container(text(format!("ACP 智能体：{}", current_label)).size(12))
         .style(design_tooltip_dark_style)
         .padding([6, 8]);
-    let executor_toggle = Tooltip::new(executor_toggle_btn, executor_tip, TooltipPosition::Top).gap(8);
+    let executor_toggle =
+        Tooltip::new(executor_toggle_btn, executor_tip, TooltipPosition::Top).gap(8);
 
     let mut executor_list = column![].spacing(4);
     let default_selected = current_agent.is_none();
@@ -510,7 +509,9 @@ pub(super) fn render_design_device_selector<'a>(state: &'a DesignState) -> Eleme
                     text(device.label()).size(13),
                     text(device.description()).size(11).style(|theme: &Theme| {
                         iced::widget::text::Style {
-                            color: Some(theme.extended_palette().background.base.text.scale_alpha(0.7)),
+                            color: Some(
+                                theme.extended_palette().background.base.text.scale_alpha(0.7),
+                            ),
                         }
                     }),
                 ]
@@ -706,13 +707,12 @@ pub(super) fn render_design_model_selector<'a>(
         }
 
         if !any_models {
-            model_list = model_list.push(
-                text("暂无可选模型（请先在系统设置里启用模型）").size(13).style(
+            model_list =
+                model_list.push(text("暂无可选模型（请先在系统设置里启用模型）").size(13).style(
                     |t: &Theme| iced::widget::text::Style {
                         color: Some(t.extended_palette().background.base.text),
                     },
-                ),
-            );
+                ));
         }
     }
 
@@ -732,7 +732,8 @@ pub(super) fn render_design_model_selector<'a>(
         .padding(0)
         .style(design_square_icon_button_style)
         .on_press(Message::View(ViewMessage::OpenSystemSettingsTab(SystemTab::Models)));
-        let tip = container(text("管理模型").size(12)).style(design_tooltip_dark_style).padding([6, 8]);
+        let tip =
+            container(text("管理模型").size(12)).style(design_tooltip_dark_style).padding([6, 8]);
         Tooltip::new(btn, tip, TooltipPosition::Right).gap(8).into()
     };
 
@@ -758,10 +759,12 @@ pub(super) fn render_design_model_selector<'a>(
         )
         .padding(0)
         .style(design_square_icon_button_style)
-        .on_press_maybe(can_add_provider.then_some(Message::View(
-            ViewMessage::OpenSystemSettingsTab(SystemTab::Providers),
-        )));
-        let tip = container(text("连接供应商").size(12)).style(design_tooltip_dark_style).padding([6, 8]);
+        .on_press_maybe(
+            can_add_provider
+                .then_some(Message::View(ViewMessage::OpenSystemSettingsTab(SystemTab::Providers))),
+        );
+        let tip =
+            container(text("连接供应商").size(12)).style(design_tooltip_dark_style).padding([6, 8]);
         Tooltip::new(btn, tip, TooltipPosition::Right).gap(8).into()
     };
 
@@ -779,7 +782,9 @@ pub(super) fn render_design_model_selector<'a>(
                                 }),
                         )
                         .on_press(Message::Design(
-                            DesignMessage::DesignGenerationModelSelected(TASK_MODEL_AUTO.to_string(),)
+                            DesignMessage::DesignGenerationModelSelected(
+                                TASK_MODEL_AUTO.to_string(),
+                            )
                         )),
                         container(text("自动模型自动选择可用模型").size(12))
                             .style(design_tooltip_dark_style)
@@ -790,7 +795,8 @@ pub(super) fn render_design_model_selector<'a>(
                     text("自动模型").style(|theme: &Theme| {
                         let palette = theme.palette();
                         let is_dark =
-                            palette.background.r + palette.background.g + palette.background.b < 1.5;
+                            palette.background.r + palette.background.g + palette.background.b
+                                < 1.5;
                         iced::widget::text::Style {
                             color: Some(if is_dark {
                                 palette.text.scale_alpha(0.85)

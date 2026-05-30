@@ -93,15 +93,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "启用后沿用应用当前主题。",
         checkbox(app.editor_follow_system_theme)
             .label("启用")
-            .on_toggle(|v| { Message::Editor(message::EditorMessage::ToggleFollowSystemTheme(v)) })
+            .on_toggle(|v| Message::Editor(message::EditorMessage::ToggleFollowSystemTheme(v)))
             .style(settings_checkbox_style),
     );
 
-    let editor_theme_row = field_row(
-        "编辑器主题",
-        "关闭跟随系统主题时使用的编辑器配色。",
-        theme_pick,
-    );
+    let editor_theme_row =
+        field_row("编辑器主题", "关闭跟随系统主题时使用的编辑器配色。", theme_pick);
 
     let size_slider = row![
         slider(10.0..=30.0, app.current_font_size, |v| {

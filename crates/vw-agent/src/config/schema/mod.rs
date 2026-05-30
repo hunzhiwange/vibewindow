@@ -18,14 +18,14 @@ mod config_validate;
 pub(crate) mod workspace;
 
 #[cfg(test)]
-#[path = "config_io_tests.rs"]
-mod config_io_tests;
-#[cfg(test)]
 #[path = "config_env_tests.rs"]
 mod config_env_tests;
 #[cfg(test)]
 #[path = "config_helpers_tests.rs"]
 mod config_helpers_tests;
+#[cfg(test)]
+#[path = "config_io_tests.rs"]
+mod config_io_tests;
 #[cfg(test)]
 #[path = "config_load_tests.rs"]
 mod config_load_tests;
@@ -36,11 +36,11 @@ mod config_save_tests;
 #[path = "config_secrets_tests.rs"]
 mod config_secrets_tests;
 #[cfg(test)]
-#[path = "config_validate_tests.rs"]
-mod config_validate_tests;
-#[cfg(test)]
 #[path = "config_tests.rs"]
 mod config_tests;
+#[cfg(test)]
+#[path = "config_validate_tests.rs"]
+mod config_validate_tests;
 #[cfg(test)]
 #[path = "proxy_tests.rs"]
 mod proxy_tests;

@@ -275,7 +275,8 @@ fn dialogue_flow_ui_settings_save_task(
             // WASM32 平台不支持文件系统操作，直接返回成功
             #[cfg(target_arch = "wasm32")]
             {
-                let _ = (show_reasoning_summary, expand_shell_tool_section, expand_edit_tool_section);
+                let _ =
+                    (show_reasoning_summary, expand_shell_tool_section, expand_edit_tool_section);
                 return Ok(());
             }
             // 非 WASM32 平台：保存对话流 UI 设置
@@ -356,7 +357,11 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         // 对话流设置加载完成，更新状态或显示错误消息
         SettingsMessage::DialogueFlowUiSettingsLoaded(res) => {
             match res {
-                Ok((show_reasoning_summary, expand_shell_tool_section, expand_edit_tool_section)) => {
+                Ok((
+                    show_reasoning_summary,
+                    expand_shell_tool_section,
+                    expand_edit_tool_section,
+                )) => {
                     app.dialogue_flow_show_reasoning_summary = show_reasoning_summary;
                     app.dialogue_flow_expand_shell_tool_section = expand_shell_tool_section;
                     app.dialogue_flow_expand_edit_tool_section = expand_edit_tool_section;

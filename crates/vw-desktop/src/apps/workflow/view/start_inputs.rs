@@ -6,7 +6,8 @@ use iced::widget::{column, row};
 /// 提供 start variable file type options 功能。
 ///
 /// 参数和返回值遵循调用方所在模块的工作流约定，错误会显式向上传递或由 UI 状态承载。
-pub(super) fn start_variable_file_type_options() -> [(&'static str, &'static str, &'static str); 5] {
+pub(super) fn start_variable_file_type_options() -> [(&'static str, &'static str, &'static str); 5]
+{
     [
         ("document", "文档", "pdf, doc, docx, txt, md"),
         ("image", "图片", "png, jpg, jpeg, webp, gif"),
@@ -177,9 +178,7 @@ fn build_start_variable_default_file_button(
 ) -> Element<'static, Message> {
     button(
         row![
-            svg(assets::get_icon(icon))
-                .width(Length::Fixed(14.0))
-                .height(Length::Fixed(14.0)),
+            svg(assets::get_icon(icon)).width(Length::Fixed(14.0)).height(Length::Fixed(14.0)),
             text(label).size(13),
         ]
         .spacing(8)
@@ -204,14 +203,9 @@ fn build_start_variable_file_default_value<'a>(
     } else {
         1
     };
-    let supports_local = variable
-        .allowed_file_upload_methods
-        .iter()
-        .any(|item| item == "local_file");
-    let supports_url = variable
-        .allowed_file_upload_methods
-        .iter()
-        .any(|item| item == "remote_url");
+    let supports_local =
+        variable.allowed_file_upload_methods.iter().any(|item| item == "local_file");
+    let supports_url = variable.allowed_file_upload_methods.iter().any(|item| item == "remote_url");
 
     let action_row: Element<'a, Message> = match (supports_local, supports_url) {
         (true, true) => row![
@@ -238,52 +232,53 @@ fn build_start_variable_file_default_value<'a>(
             "粘贴文件链接",
             WorkflowMessage::NodeEditorStartVariableEditorOpenDefaultFileUrlInput,
         ),
-        (false, false) => container(
-            text("请先选择至少一种上传方式。")
-                .size(12)
-                .style(settings_muted_text_style),
-        )
-        .padding([10, 12])
-        .style(value_card_style)
-        .into(),
+        (false, false) => {
+            container(text("请先选择至少一种上传方式。").size(12).style(settings_muted_text_style))
+                .padding([10, 12])
+                .style(value_card_style)
+                .into()
+        }
     };
 
-    let url_input_overlay: Element<'a, Message> = if start_variable_editor.show_default_file_url_input {
-        container(
-            column![
-                row![
-                    workflow_text_input(
-                        "输入文件链接",
-                        &start_variable_editor.default_file_url_input,
-                        |value| Message::WorkflowTool(
-                            WorkflowMessage::NodeEditorStartVariableEditorDefaultFileUrlChanged(value),
+    let url_input_overlay: Element<'a, Message> =
+        if start_variable_editor.show_default_file_url_input {
+            container(
+                column![
+                    row![
+                        workflow_text_input(
+                            "输入文件链接",
+                            &start_variable_editor.default_file_url_input,
+                            |value| Message::WorkflowTool(
+                                WorkflowMessage::NodeEditorStartVariableEditorDefaultFileUrlChanged(
+                                    value
+                                ),
+                            ),
                         ),
-                    ),
-                    button(text("好的").size(12))
-                        .style(primary_action_btn_style)
-                        .padding([10, 12])
+                        button(text("好的").size(12))
+                            .style(primary_action_btn_style)
+                            .padding([10, 12])
+                            .on_press(Message::WorkflowTool(
+                                WorkflowMessage::NodeEditorStartVariableEditorSubmitDefaultFileUrl,
+                            )),
+                    ]
+                    .spacing(8)
+                    .align_y(Alignment::Center),
+                    button(text("取消").size(12))
+                        .style(rounded_action_btn_style)
+                        .padding([8, 10])
                         .on_press(Message::WorkflowTool(
-                            WorkflowMessage::NodeEditorStartVariableEditorSubmitDefaultFileUrl,
+                            WorkflowMessage::NodeEditorStartVariableEditorCloseDefaultFileUrlInput,
                         )),
                 ]
-                .spacing(8)
-                .align_y(Alignment::Center),
-                button(text("取消").size(12))
-                    .style(rounded_action_btn_style)
-                    .padding([8, 10])
-                    .on_press(Message::WorkflowTool(
-                        WorkflowMessage::NodeEditorStartVariableEditorCloseDefaultFileUrlInput,
-                    )),
-            ]
-            .spacing(10),
-        )
-        .padding([12, 14])
-        .width(Length::Fixed(330.0))
-        .style(floating_panel_style)
-        .into()
-    } else {
-        container(Space::new().width(1).height(1)).into()
-    };
+                .spacing(10),
+            )
+            .padding([12, 14])
+            .width(Length::Fixed(330.0))
+            .style(floating_panel_style)
+            .into()
+        } else {
+            container(Space::new().width(1).height(1)).into()
+        };
 
     let current_value_preview: Element<'a, Message> = if variable.default_file_values.is_empty() {
         container(Space::new().width(1).height(1)).into()
@@ -313,7 +308,9 @@ fn build_start_variable_file_default_value<'a>(
                                 .padding(6)
                                 .style(round_icon_btn_style)
                                 .on_press(Message::WorkflowTool(
-                                    WorkflowMessage::NodeEditorStartVariableEditorRemoveDefaultFile(index),
+                                    WorkflowMessage::NodeEditorStartVariableEditorRemoveDefaultFile(
+                                        index
+                                    ),
                                 )),
                             ]
                             .spacing(8)
@@ -331,9 +328,7 @@ fn build_start_variable_file_default_value<'a>(
         .into()
     };
 
-    column![action_row, url_input_overlay, current_value_preview]
-        .spacing(8)
-        .into()
+    column![action_row, url_input_overlay, current_value_preview].spacing(8).into()
 }
 
 /// 构建 start variable file settings 对应的界面元素。
@@ -386,8 +381,9 @@ pub(super) fn build_start_variable_file_settings<'a>(
         };
 
     let max_upload_count_field: Element<'a, Message> = if variable.input_type == "file-list" {
-        let current_value =
-            super::state::normalized_start_variable_file_list_max_length(&variable.max_length_input);
+        let current_value = super::state::normalized_start_variable_file_list_max_length(
+            &variable.max_length_input,
+        );
         build_editor_field(
             "最大上传数",
             column![
@@ -419,18 +415,22 @@ pub(super) fn build_start_variable_file_settings<'a>(
         container(Space::new().width(1).height(1)).into()
     };
 
-    let default_value_field: Element<'a, Message> = if matches!(variable.input_type.as_str(), "file" | "file-list") {
-        build_editor_field("默认值", build_start_variable_file_default_value(start_variable_editor))
-    } else {
-        container(
-            text("文件列表默认值暂未可视化，仍可在“高级 DSL”里直接编辑。")
-                .size(12)
-                .style(settings_muted_text_style),
-        )
-        .padding([10, 12])
-        .style(value_card_style)
-        .into()
-    };
+    let default_value_field: Element<'a, Message> =
+        if matches!(variable.input_type.as_str(), "file" | "file-list") {
+            build_editor_field(
+                "默认值",
+                build_start_variable_file_default_value(start_variable_editor),
+            )
+        } else {
+            container(
+                text("文件列表默认值暂未可视化，仍可在“高级 DSL”里直接编辑。")
+                    .size(12)
+                    .style(settings_muted_text_style),
+            )
+            .padding([10, 12])
+            .style(value_card_style)
+            .into()
+        };
 
     column![
         build_editor_field(
@@ -502,11 +502,9 @@ pub(super) fn build_start_variable_card<'a>(
             "默认值",
             pick_list(options, selected, |value| {
                 let normalized = if value == "默认勾选" { "true" } else { "false" };
-                Message::WorkflowTool(
-                    WorkflowMessage::NodeEditorStartVariableEditorDefaultChanged(
-                        normalized.to_string(),
-                    ),
-                )
+                Message::WorkflowTool(WorkflowMessage::NodeEditorStartVariableEditorDefaultChanged(
+                    normalized.to_string(),
+                ))
             })
             .padding([10, 12])
             .text_size(13)
@@ -553,12 +551,7 @@ pub(super) fn build_start_variable_card<'a>(
             )
         };
 
-        column![
-            max_length_field,
-            default_value_field,
-        ]
-        .spacing(12)
-        .into()
+        column![max_length_field, default_value_field,].spacing(12).into()
     };
 
     container(

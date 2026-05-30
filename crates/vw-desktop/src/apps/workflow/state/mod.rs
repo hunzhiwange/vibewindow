@@ -5,8 +5,8 @@
 use super::model::{
     LoadedWorkflow, WorkflowAppMeta, WorkflowConnectionDraft, WorkflowConnectionEndpoint,
     WorkflowConversationVariable, WorkflowDocument, WorkflowEdge, WorkflowEnvironmentVariable,
-    WorkflowHandleKind, WorkflowNode, create_node_from_type, default_node_data_yaml, node_data_yaml,
-    pretty_block_type, rebuild_node_from_parts, yaml_map,
+    WorkflowHandleKind, WorkflowNode, create_node_from_type, default_node_data_yaml,
+    node_data_yaml, pretty_block_type, rebuild_node_from_parts, yaml_map,
 };
 use iced::{Point, Vector, widget::text_editor};
 use serde_yaml::{Mapping, Value};
@@ -308,10 +308,7 @@ impl WorkflowNodeEditorValidation {
     }
 
     pub fn first_error_for(&self, path: &str) -> Option<&str> {
-        self.field_errors
-            .iter()
-            .find(|item| item.path == path)
-            .map(|item| item.message.as_str())
+        self.field_errors.iter().find(|item| item.path == path).map(|item| item.message.as_str())
     }
 }
 

@@ -2,7 +2,8 @@ use super::*;
 
 #[test]
 fn parse_outgoing_content_extracts_only_remote_image_markers() {
-    let (text, images) = parse_outgoing_content("hello\n[IMAGE:https://example.com/a.png]\n[IMAGE:/tmp/a.png]");
+    let (text, images) =
+        parse_outgoing_content("hello\n[IMAGE:https://example.com/a.png]\n[IMAGE:/tmp/a.png]");
 
     assert_eq!(text, "hello\n[IMAGE:/tmp/a.png]");
     assert_eq!(images, vec!["https://example.com/a.png".to_string()]);
@@ -18,7 +19,10 @@ fn compose_message_content_combines_text_and_image_attachments() {
         }]
     });
 
-    assert_eq!(compose_message_content(&payload), Some("hello\n\n[IMAGE:https://example.com/a.png]".to_string()));
+    assert_eq!(
+        compose_message_content(&payload),
+        Some("hello\n\n[IMAGE:https://example.com/a.png]".to_string())
+    );
 }
 
 #[test]

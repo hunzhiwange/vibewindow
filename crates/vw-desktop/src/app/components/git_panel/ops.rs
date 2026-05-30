@@ -34,16 +34,17 @@ use std::process::Command;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn git_repo_path_for_app(app: &App) -> Option<String> {
     if let Some(active_id) = app.active_session_id.as_ref()
-        && let Some(info) = app.sessions.iter().find(|s| &s.id == active_id) {
-            let dir = info.directory.trim();
-            if !dir.is_empty() {
-                let dir_path = std::path::Path::new(dir);
-                // 确保目录存在且是有效的 Git 仓库
-                if dir_path.exists() && git2::Repository::open(dir).is_ok() {
-                    return Some(dir.to_string());
-                }
+        && let Some(info) = app.sessions.iter().find(|s| &s.id == active_id)
+    {
+        let dir = info.directory.trim();
+        if !dir.is_empty() {
+            let dir_path = std::path::Path::new(dir);
+            // 确保目录存在且是有效的 Git 仓库
+            if dir_path.exists() && git2::Repository::open(dir).is_ok() {
+                return Some(dir.to_string());
             }
         }
+    }
     // 回退到项目路径
     app.project_path.clone()
 }
@@ -376,15 +377,17 @@ pub fn get_diff_file_metas_for_repo_path(path: &str) -> Vec<DiffFileMeta> {
         }
 
         // 对于删除的文件，如果行统计为 0，则从仓库中读取旧内容计算行数
-        if matches!(status, FileStatus::Deleted) && deletions == 0
-            && let Some(oid) = old_oid {
-                let content = repo
-                    .find_blob(oid)
-                    .map(|b| String::from_utf8_lossy(b.content()).to_string())
-                    .unwrap_or_default();
-                deletions = content.lines().count();
-                insertions = 0;
-            }
+        if matches!(status, FileStatus::Deleted)
+            && deletions == 0
+            && let Some(oid) = old_oid
+        {
+            let content = repo
+                .find_blob(oid)
+                .map(|b| String::from_utf8_lossy(b.content()).to_string())
+                .unwrap_or_default();
+            deletions = content.lines().count();
+            insertions = 0;
+        }
 
         results.push(DiffFileMeta {
             path: path_str,

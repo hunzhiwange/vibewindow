@@ -9,8 +9,8 @@
 //!
 //! 这里不引入状态层或缓存逻辑，只保留稳定、可复用的 gateway 调用入口。
 
-use std::path::PathBuf;
 use serde::Deserialize;
+use std::path::PathBuf;
 use vw_gateway_client::GatewaySessionCreateBody;
 use vw_shared::session::ui_types::{ChatSession, ChatSessionMeta};
 
@@ -73,10 +73,7 @@ impl GatewayUiRuntime {
         let session_id = normalize_optional_str_ref(Some(session.id.as_str()))
             .ok_or_else(|| "session_ui save requires a non-empty session id".to_string())?;
         let directory = self.directory_value();
-        self.client()
-            .session_ui_save(session_id, directory.as_deref(), session)
-            .await
-            .map(|_| ())
+        self.client().session_ui_save(session_id, directory.as_deref(), session).await.map(|_| ())
     }
 
     /// 读取当前 runtime 作用域下的 session_ui 预览列表。
@@ -115,10 +112,7 @@ impl GatewayUiRuntime {
 
     /// 更新当前全局 session scope。
     pub(crate) async fn session_scope_put(&self, scope: Option<&str>) -> Result<(), String> {
-        self.client()
-            .session_scope_put(normalize_optional_str_ref(scope))
-            .await
-            .map(|_| ())
+        self.client().session_scope_put(normalize_optional_str_ref(scope)).await.map(|_| ())
     }
 
     #[cfg(not(target_arch = "wasm32"))]

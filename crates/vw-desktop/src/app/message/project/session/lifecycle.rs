@@ -7,10 +7,7 @@ use crate::app::message::project::ProjectMessage;
 use crate::app::message::project::helpers::{
     find_session_project_path, now_ms, prepare_session_ui_chunks_task, prepare_session_ui_task,
 };
-use crate::app::{
-    App, Message, models,
-    state::ActiveSessionViewState,
-};
+use crate::app::{App, Message, models, state::ActiveSessionViewState};
 use serde_json::{Map, Value};
 use vw_shared::message::types as agent_message;
 
@@ -26,11 +23,7 @@ fn push_loaded_chat_message(
         return;
     }
 
-    chat.push(models::ChatMessage {
-        role,
-        content,
-        think_timing,
-    });
+    chat.push(models::ChatMessage { role, content, think_timing });
     message_ids.push(message_id);
 }
 
@@ -89,11 +82,7 @@ fn merged_tool_metadata(
         merged.insert("callID".to_string(), Value::String(call_id.to_string()));
     }
 
-    if merged.is_empty() {
-        None
-    } else {
-        Some(merged)
-    }
+    if merged.is_empty() { None } else { Some(merged) }
 }
 
 fn lift_tool_metadata(payload: &mut Map<String, Value>, metadata: &Map<String, Value>) {
@@ -109,10 +98,8 @@ fn lift_tool_metadata(payload: &mut Map<String, Value>, metadata: &Map<String, V
         payload.entry("summary".to_string()).or_insert(value);
     }
 
-    if let Some(value) = metadata
-        .get("renderHint")
-        .cloned()
-        .or_else(|| metadata.get("render_hint").cloned())
+    if let Some(value) =
+        metadata.get("renderHint").cloned().or_else(|| metadata.get("render_hint").cloned())
     {
         payload.entry("renderHint".to_string()).or_insert(value);
     }
@@ -358,6 +345,7 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
                     s.title = title.clone();
                 }
             }
+            app.refresh_task_pet_session_title(&id, &title);
 
             let project_path = find_session_project_path(app, &id);
             Some(iced::Task::perform(

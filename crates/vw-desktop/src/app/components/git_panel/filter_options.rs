@@ -24,26 +24,56 @@
 //! └─────────────────────────────────────┘
 //! ```
 
-use iced::widget::{button, column, container, row, text, text_input, toggler};
+use iced::widget::{button, column, container, row, svg, text, text_input, toggler};
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
+use crate::app::assets::Icon;
 use crate::app::components::system_settings_common::{
-    round_icon_btn_style, rounded_action_btn_style, settings_muted_text_style, settings_panel_style,
+    icon_svg, round_icon_btn_style, rounded_action_btn_style, settings_panel_style,
     settings_text_input_style, settings_value_badge,
 };
 use crate::app::{App, Message, message};
+
+pub(super) const FILTER_HELP_TITLE: &str = "筛选选项";
+
+pub(super) const FILTER_HELP_TEXT: &str = r#"筛选选项说明
+
+路径筛选
+
+在输入框中输入文件名或路径片段，只显示匹配的变更文件。
+
+已包含到提交
+
+只显示当前已选中、会被本次提交包含的文件。
+
+已排除出提交
+
+只显示当前未选中、不会被本次提交包含的文件。
+
+新增文件
+
+只显示 Git 状态为新增或未跟踪的文件。
+
+修改文件
+
+只显示 Git 状态为修改或重命名的文件。
+
+删除文件
+
+只显示 Git 状态为删除的文件。
+
+清除筛选
+
+重置路径查询和所有状态开关，恢复完整变更列表。"#;
 
 fn filter_toggle_row<'a>(
     title: &'static str,
     count: usize,
     control: impl Into<Element<'a, Message>>,
 ) -> Element<'a, Message> {
-    let title_block = row![
-        text(title).size(13),
-        settings_value_badge(count.to_string()),
-    ]
-    .spacing(8)
-    .align_y(Alignment::Center);
+    let title_block = row![text(title).size(13), settings_value_badge(count.to_string()),]
+        .spacing(8)
+        .align_y(Alignment::Center);
 
     let control = container(control.into())
         .width(Length::Fixed(40.0))
@@ -51,12 +81,9 @@ fn filter_toggle_row<'a>(
         .center_y(Length::Shrink);
 
     container(
-        row![
-            container(title_block).width(Length::Fill).center_y(Length::Shrink),
-            control,
-        ]
-        .spacing(12)
-        .align_y(Alignment::Center),
+        row![container(title_block).width(Length::Fill).center_y(Length::Shrink), control,]
+            .spacing(12)
+            .align_y(Alignment::Center),
     )
     .padding([10, 12])
     .width(Length::Fill)
@@ -127,21 +154,39 @@ pub fn view(
     modified_count: usize,
     deleted_count: usize,
 ) -> Element<'_, Message> {
-    let active_filter_count = usize::from(!app.git_filter_query.trim().is_empty())
-        + usize::from(app.git_filter_included)
-        + usize::from(app.git_filter_excluded)
-        + usize::from(app.git_filter_new)
-        + usize::from(app.git_filter_modified)
-        + usize::from(app.git_filter_deleted);
+    let help_btn = button(
+        container(icon_svg(Icon::QuestionCircle, 14.0).style(|theme: &Theme, _status| {
+            svg::Style { color: Some(theme.palette().text.scale_alpha(0.78)) }
+        }))
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .align_x(iced::alignment::Horizontal::Center)
+        .align_y(iced::alignment::Vertical::Center),
+    )
+    .padding(0)
+    .width(Length::Fixed(24.0))
+    .height(Length::Fixed(24.0))
+    .style(|theme: &Theme, status| {
+        let palette = theme.extended_palette();
+        let is_hovered = matches!(
+            status,
+            iced::widget::button::Status::Hovered | iced::widget::button::Status::Pressed
+        );
 
-    // 标题栏：包含"筛选选项"文本和关闭按钮
+        iced::widget::button::Style {
+            background: is_hovered.then(|| palette.background.weak.color.scale_alpha(0.72).into()),
+            text_color: theme.palette().text,
+            border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 999.0.into() },
+            ..Default::default()
+        }
+    })
+    .on_press(Message::Git(message::GitMessage::FilterHelpOpen));
+
+    // 标题栏：包含"筛选选项"文本、帮助入口和关闭按钮
     let title_text = container(
         row![
             text("筛选选项").size(14),
-            settings_value_badge(format!("{} 项启用", active_filter_count)),
-            text("按路径与变更状态快速聚焦文件列表。")
-                .size(11)
-                .style(settings_muted_text_style),
+            container(help_btn).center_x(Length::Shrink).center_y(Length::Shrink),
         ]
         .spacing(8)
         .align_y(Alignment::Center),
@@ -153,7 +198,15 @@ pub fn view(
         title_text,
         // 关闭按钮，点击后隐藏筛选选项面板
         container(
-            button(text("✕").size(12))
+            button(
+                container(
+                    text("×").size(18).line_height(iced::widget::text::LineHeight::Relative(1.0))
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .align_x(iced::alignment::Horizontal::Center)
+                .align_y(iced::alignment::Vertical::Center)
+            )
             .padding(0)
             .width(Length::Fixed(28.0))
             .height(Length::Fixed(28.0))
@@ -208,22 +261,10 @@ pub fn view(
             filter_input,
             // 各筛选选项行：开关 + 标签（含数量）
             column![
-                filter_toggle_row(
-                    "已包含到提交",
-                    included_count,
-                    included,
-                ),
-                filter_toggle_row(
-                    "已排除出提交",
-                    excluded_count,
-                    excluded,
-                ),
+                filter_toggle_row("已包含到提交", included_count, included,),
+                filter_toggle_row("已排除出提交", excluded_count, excluded,),
                 filter_toggle_row("新增文件", new_count, newf),
-                filter_toggle_row(
-                    "修改文件",
-                    modified_count,
-                    modifiedf,
-                ),
+                filter_toggle_row("修改文件", modified_count, modifiedf,),
                 filter_toggle_row("删除文件", deleted_count, deletedf),
             ]
             .spacing(6),
@@ -231,8 +272,8 @@ pub fn view(
                 container(text("")).width(Length::Fill).center_y(Length::Shrink),
                 container(clear).center_x(Length::Shrink).center_y(Length::Shrink)
             ]
-                .align_y(Alignment::Center)
-                .spacing(8)
+            .align_y(Alignment::Center)
+            .spacing(8)
         ]
         .spacing(12),
     )

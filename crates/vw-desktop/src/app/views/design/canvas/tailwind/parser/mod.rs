@@ -153,9 +153,7 @@ impl TailwindParser {
         let class_start = html.find(class_start_marker).map(|i| i + class_start_marker.len());
 
         let class_str = if let Some(start) = class_start {
-            html[start..]
-                .find('"')
-                .map(|end| html[start..start + end].to_string())
+            html[start..].find('"').map(|end| html[start..start + end].to_string())
         } else {
             None
         };
@@ -164,11 +162,7 @@ impl TailwindParser {
         let content_end = html.rfind('<');
 
         let text_content = if let (Some(start), Some(end)) = (content_start, content_end) {
-            if end > start {
-                Some(html[start..end].trim().to_string())
-            } else {
-                None
-            }
+            if end > start { Some(html[start..end].trim().to_string()) } else { None }
         } else {
             None
         };

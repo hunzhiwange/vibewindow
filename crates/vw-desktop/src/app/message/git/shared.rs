@@ -127,6 +127,7 @@ pub(super) async fn execute_selected_commit_via_gateway(
             project_id: context.project_id,
             worktree_id: context.worktree_id,
             message: request.message,
+            stage_all: false,
             selected_files: request.selected_files,
             selected_hunks: request
                 .selected_hunks
@@ -240,11 +241,7 @@ where
     let tasks: Vec<_> =
         files.into_iter().filter_map(|file| take_diff_content_task(app, file)).collect();
 
-    if tasks.is_empty() {
-        Task::none()
-    } else {
-        Task::batch(tasks)
-    }
+    if tasks.is_empty() { Task::none() } else { Task::batch(tasks) }
 }
 
 /// normalize_range 处理当前模块对应的消息或状态转换。
@@ -648,4 +645,3 @@ pub(super) fn persist_file_tree_expanded(app: &App) {
     );
     set_config_field("file_tree_expanded", arr);
 }
-

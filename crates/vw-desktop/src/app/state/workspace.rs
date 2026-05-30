@@ -209,7 +209,6 @@ pub struct UsageModelInfo {
     pub cost_cache_write_per_million: f64,
 }
 
-
 #[cfg(test)]
 #[path = "workspace_tests.rs"]
 mod workspace_tests;

@@ -30,10 +30,8 @@ pub(crate) fn with_permission_modal<'a>(
     if pending_requests.is_empty() {
         pending_requests.push(req.clone());
     }
-    let current_index = pending_requests
-        .iter()
-        .position(|request| request.id == req.id)
-        .unwrap_or(0);
+    let current_index =
+        pending_requests.iter().position(|request| request.id == req.id).unwrap_or(0);
 
     let mut content = column![text(permission_modal_title(&req)).size(16)].spacing(12);
 
@@ -42,9 +40,8 @@ pub(crate) fn with_permission_modal<'a>(
             .checked_sub(1)
             .and_then(|idx| pending_requests.get(idx))
             .map(|request| request.id.clone());
-        let next_request_id = pending_requests
-            .get(current_index + 1)
-            .map(|request| request.id.clone());
+        let next_request_id =
+            pending_requests.get(current_index + 1).map(|request| request.id.clone());
 
         let mut nav_row = row![
             text(format!("待审批 {}/{}", current_index + 1, pending_requests.len())).size(13),
@@ -95,9 +92,8 @@ pub(crate) fn with_permission_modal<'a>(
             pending_list = pending_list.push(item_button);
         }
         if pending_requests.len() > 6 {
-            pending_list = pending_list.push(
-                text(format!("还有 {} 项待审批…", pending_requests.len() - 6)).size(12),
-            );
+            pending_list = pending_list
+                .push(text(format!("还有 {} 项待审批…", pending_requests.len() - 6)).size(12));
         }
         content = content.push(pending_list);
     }
@@ -157,9 +153,7 @@ pub(crate) fn with_permission_modal<'a>(
                     }
                 })
                 .into();
-            patterns = patterns.push(
-                pattern_text,
-            );
+            patterns = patterns.push(pattern_text);
         }
         if req.patterns.len() > 8 {
             patterns = patterns.push(text(format!("还有 {} 项…", req.patterns.len() - 8)).size(12));
@@ -168,11 +162,13 @@ pub(crate) fn with_permission_modal<'a>(
     }
 
     if !req.always.is_empty() {
-        content = content.push(text(format!("始终允许将记住 {} 个模式", req.always.len())).size(12).style(
-            |theme: &Theme| iced::widget::text::Style {
-                color: Some(theme.extended_palette().secondary.base.text.scale_alpha(0.82)),
-            },
-        ));
+        content = content.push(
+            text(format!("始终允许将记住 {} 个模式", req.always.len())).size(12).style(
+                |theme: &Theme| iced::widget::text::Style {
+                    color: Some(theme.extended_palette().secondary.base.text.scale_alpha(0.82)),
+                },
+            ),
+        );
     }
 
     if let Some(arguments_preview) = permission_arguments_preview(&req) {
@@ -192,7 +188,8 @@ pub(crate) fn with_permission_modal<'a>(
         .padding([6, 12])
         .style(primary_action_btn_style);
 
-    let action_row = row![Space::new().width(Length::Fill), reject, always, approve_once].spacing(8);
+    let action_row =
+        row![Space::new().width(Length::Fill), reject, always, approve_once].spacing(8);
 
     content = content.push(action_row);
 
@@ -221,7 +218,9 @@ fn permission_modal_title(req: &vw_gateway_client::PendingPermissionRequestDto) 
         })
 }
 
-fn permission_request_selector_label(req: &vw_gateway_client::PendingPermissionRequestDto) -> String {
+fn permission_request_selector_label(
+    req: &vw_gateway_client::PendingPermissionRequestDto,
+) -> String {
     let prefix = tool_verb(&req.permission);
     let summary = permission_argument_summary(req).unwrap_or_else(|| req.permission.clone());
     truncate_chars(&format!("{} · {}", prefix, summary), 80).to_string()
@@ -230,11 +229,7 @@ fn permission_request_selector_label(req: &vw_gateway_client::PendingPermissionR
 fn permission_meta_line<'a>(label: &str, value: &str) -> iced::widget::Row<'a, Message> {
     use iced::widget::{row, text};
 
-    row![
-        text(format!("{}：", label)).size(12),
-        text(value.to_string()).size(13),
-    ]
-    .spacing(6)
+    row![text(format!("{}：", label)).size(12), text(value.to_string()).size(13),].spacing(6)
 }
 
 fn permission_metadata_text(
@@ -249,7 +244,9 @@ fn permission_metadata_text(
         .map(ToOwned::to_owned)
 }
 
-fn permission_argument_summary(req: &vw_gateway_client::PendingPermissionRequestDto) -> Option<String> {
+fn permission_argument_summary(
+    req: &vw_gateway_client::PendingPermissionRequestDto,
+) -> Option<String> {
     let arguments = req.metadata.get("arguments")?;
     let raw_input = match arguments {
         Value::Null => return None,
@@ -260,17 +257,15 @@ fn permission_argument_summary(req: &vw_gateway_client::PendingPermissionRequest
     tool_inline_summary(&req.permission, &raw_input).or_else(|| match arguments {
         Value::String(text) => {
             let trimmed = text.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(truncate_chars(trimmed, 80).to_string())
-            }
+            if trimmed.is_empty() { None } else { Some(truncate_chars(trimmed, 80).to_string()) }
         }
         _ => None,
     })
 }
 
-fn permission_arguments_preview(req: &vw_gateway_client::PendingPermissionRequestDto) -> Option<String> {
+fn permission_arguments_preview(
+    req: &vw_gateway_client::PendingPermissionRequestDto,
+) -> Option<String> {
     let arguments = req.metadata.get("arguments")?;
     if matches!(arguments, Value::Null) {
         return None;
@@ -287,18 +282,13 @@ fn permission_arguments_preview(req: &vw_gateway_client::PendingPermissionReques
     Some(truncate_chars(trimmed, 320).to_string())
 }
 
-fn permission_detail_block<'a>(
-    label: &'a str,
-    value: String,
-) -> iced::widget::Column<'a, Message> {
+fn permission_detail_block<'a>(label: &'a str, value: String) -> iced::widget::Column<'a, Message> {
     use iced::widget::{column, container, text};
 
     column![
         text(label).size(13),
-        container(text(value).size(12))
-            .width(Length::Fill)
-            .padding([10, 12])
-            .style(|theme: &Theme| {
+        container(text(value).size(12)).width(Length::Fill).padding([10, 12]).style(
+            |theme: &Theme| {
                 let palette = theme.extended_palette();
                 iced::widget::container::Style {
                     background: Some(palette.background.weak.color.scale_alpha(0.45).into()),
@@ -309,7 +299,8 @@ fn permission_detail_block<'a>(
                     },
                     ..Default::default()
                 }
-            })
+            }
+        )
     ]
     .spacing(6)
 }

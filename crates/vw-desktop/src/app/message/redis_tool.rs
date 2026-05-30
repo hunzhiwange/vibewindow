@@ -10,11 +10,11 @@
 
 use crate::app::config::{
     REDIS_HISTORY_PAGE_SIZE, RedisToolGatewaySnapshot, load_redis_tool_snapshot_async,
-    redis_command_execute_async, redis_connection_activate_async,
-    redis_connection_key_analyze_async, redis_connection_key_create_async,
-    redis_connection_create_async, redis_connection_delete_async,
-    redis_connection_keys_async, redis_connection_overview_async, redis_connection_test_async,
-    redis_connection_update_async, redis_settings_update_async,
+    redis_command_execute_async, redis_connection_activate_async, redis_connection_create_async,
+    redis_connection_delete_async, redis_connection_key_analyze_async,
+    redis_connection_key_create_async, redis_connection_keys_async,
+    redis_connection_overview_async, redis_connection_test_async, redis_connection_update_async,
+    redis_settings_update_async,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::app::config::{redis_export_async, redis_import_async};
@@ -24,6 +24,8 @@ use crate::app::state::{
 };
 use crate::app::{App, Message};
 use iced::Task;
+#[cfg(not(target_arch = "wasm32"))]
+use vw_gateway_client::GatewayRedisConfigBundle;
 use vw_gateway_client::vw_api_types::tool::{
     GatewayRedisSentinelConfig, GatewayRedisSshTunnelConfig, GatewayRedisTlsCertConfig,
 };
@@ -31,8 +33,6 @@ use vw_gateway_client::{
     GatewayRedisConnectionTestResponse, GatewayRedisConnectionUpsertBody,
     GatewayRedisHistoryListQuery,
 };
-#[cfg(not(target_arch = "wasm32"))]
-use vw_gateway_client::GatewayRedisConfigBundle;
 
 mod draft;
 mod draft_inputs;

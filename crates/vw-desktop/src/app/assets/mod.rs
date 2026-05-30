@@ -25,12 +25,8 @@ mod svg_icons;
 pub use icon::Icon;
 pub use images::get_image;
 pub use named_icons::{
-    NamedIconFamily,
-    canonical_named_icon_family,
-    get_named_icon_image,
-    get_named_icon_image_with_weight,
-    named_icon_catalog,
-    named_icon_family_json,
+    NamedIconFamily, canonical_named_icon_family, get_named_icon_image,
+    get_named_icon_image_with_weight, named_icon_catalog, named_icon_family_json,
     named_icon_family_label,
 };
 pub use provider_icons::get_provider_icon;

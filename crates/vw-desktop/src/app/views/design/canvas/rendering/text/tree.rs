@@ -196,13 +196,13 @@ pub fn draw_texts_tree(
     } else {
         None
     };
-    let children: &[DesignElement] = slot_children_buf
-        .as_deref()
-        .unwrap_or_else(|| element.children.as_slice());
+    let children: &[DesignElement] =
+        slot_children_buf.as_deref().unwrap_or_else(|| element.children.as_slice());
 
     let draw_children = |frame: &mut iced::widget::canvas::Frame| {
         if let Some(direction) = layout {
-            let layouts = compute_layout(direction, children, content_size, element, doc, theme_mode);
+            let layouts =
+                compute_layout(direction, children, content_size, element, doc, theme_mode);
 
             for (child, layout) in children.iter().zip(layouts.into_iter()) {
                 if let Some(map) = overrides

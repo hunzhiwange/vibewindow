@@ -157,28 +157,29 @@ pub fn resolve_element_size(
     });
 
     if element.kind == "ref"
-        && let Some(inst) = resolve_ref_instance(element, &doc.children, None) {
-            let inst_size = resolve_element_size(&inst, _parent_size, doc, theme_mode);
-            let width_specified = element.width.is_some() || is_fill_w;
-            let height_specified = element.height.is_some() || is_fill_h;
-            if is_fit_w {
-                width = inst_size.width;
-            } else if !width_specified {
-                width = inst_size.width;
-            }
-            if is_fit_h {
-                height = inst_size.height;
-            } else if !height_specified {
-                height = inst_size.height;
-            }
-            if let Some(min_w) = fit_w_min {
-                width = width.max(min_w);
-            }
-            if let Some(min_h) = fit_h_min {
-                height = height.max(min_h);
-            }
-            return Size::new(width, height);
+        && let Some(inst) = resolve_ref_instance(element, &doc.children, None)
+    {
+        let inst_size = resolve_element_size(&inst, _parent_size, doc, theme_mode);
+        let width_specified = element.width.is_some() || is_fill_w;
+        let height_specified = element.height.is_some() || is_fill_h;
+        if is_fit_w {
+            width = inst_size.width;
+        } else if !width_specified {
+            width = inst_size.width;
         }
+        if is_fit_h {
+            height = inst_size.height;
+        } else if !height_specified {
+            height = inst_size.height;
+        }
+        if let Some(min_w) = fit_w_min {
+            width = width.max(min_w);
+        }
+        if let Some(min_h) = fit_h_min {
+            height = height.max(min_h);
+        }
+        return Size::new(width, height);
+    }
 
     // Handle fit_content for children (containers)
     if (is_fit_w || is_fit_h) && !element.children.is_empty() {
@@ -194,9 +195,10 @@ pub fn resolve_element_size(
         let layout = parse_layout(&element.layout)
             .or_else(|| {
                 if let Some(l) = &element.layout
-                    && l == "none" {
-                        return None;
-                    }
+                    && l == "none"
+                {
+                    return None;
+                }
                 if element.justify_content.is_some()
                     || element.align_items.is_some()
                     || element.gap.is_some()

@@ -43,9 +43,7 @@ pub(crate) struct TuiPromptSuggestion {
 pub(crate) enum TuiSlashCommandOutcome {
     Continue,
     Quit,
-    Resume {
-        session_id: Option<String>,
-    },
+    Resume { session_id: Option<String> },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -152,11 +150,7 @@ pub(crate) fn prompt_suggestions(state: &TuiState) -> Vec<TuiPromptSuggestion> {
         .iter()
         .filter(|spec| partial.is_empty() || slash_command_matches(spec, partial.as_str()))
         .map(|spec| TuiPromptSuggestion {
-            replacement: format!(
-                "/{}{}",
-                spec.name,
-                if spec.takes_argument { " " } else { "" }
-            ),
+            replacement: format!("/{}{}", spec.name, if spec.takes_argument { " " } else { "" }),
             label: format!("/{}", spec.name),
             detail: Some(command_detail(spec)),
         })
@@ -217,11 +211,7 @@ pub(crate) fn execute_slash_command(
 ) -> TuiSlashCommandOutcome {
     match invocation.kind {
         Some(TuiSlashCommandKind::Help) => {
-            push_local_system_message(
-                state,
-                slash_command_help_text(),
-                UiSystemMessageLevel::Info,
-            );
+            push_local_system_message(state, slash_command_help_text(), UiSystemMessageLevel::Info);
             TuiSlashCommandOutcome::Continue
         }
         Some(TuiSlashCommandKind::Exit) => {
@@ -279,9 +269,7 @@ pub(crate) fn execute_slash_command(
             TuiSlashCommandOutcome::Continue
         }
         Some(TuiSlashCommandKind::Resume) => {
-            TuiSlashCommandOutcome::Resume {
-                session_id: invocation.argument.clone(),
-            }
+            TuiSlashCommandOutcome::Resume { session_id: invocation.argument.clone() }
         }
         None => {
             let label = if invocation.token.trim().is_empty() {
@@ -302,19 +290,12 @@ pub(crate) fn execute_slash_command(
 fn slash_command_spec(token: &str) -> Option<&'static TuiSlashCommandSpec> {
     SLASH_COMMANDS.iter().find(|spec| {
         spec.name.eq_ignore_ascii_case(token)
-            || spec
-                .aliases
-                .iter()
-                .any(|alias| alias.eq_ignore_ascii_case(token))
+            || spec.aliases.iter().any(|alias| alias.eq_ignore_ascii_case(token))
     })
 }
 
 fn slash_command_matches(spec: &TuiSlashCommandSpec, partial: &str) -> bool {
-    spec.name.starts_with(partial)
-        || spec
-            .aliases
-            .iter()
-            .any(|alias| alias.starts_with(partial))
+    spec.name.starts_with(partial) || spec.aliases.iter().any(|alias| alias.starts_with(partial))
 }
 
 fn argument_suggestions(
@@ -358,7 +339,10 @@ fn model_argument_suggestions(
         }
 
         let qualified_id = entry.qualified_id();
-        if active_model.is_some_and(|model| model.eq_ignore_ascii_case(qualified_id.as_str()) || model.eq_ignore_ascii_case(entry.model_id.as_str())) {
+        if active_model.is_some_and(|model| {
+            model.eq_ignore_ascii_case(qualified_id.as_str())
+                || model.eq_ignore_ascii_case(entry.model_id.as_str())
+        }) {
             catalog_contains_active_model = true;
         }
         if qualified_id.eq_ignore_ascii_case(query) {
@@ -412,11 +396,7 @@ fn command_detail(spec: &TuiSlashCommandSpec) -> String {
 
 fn normalize_argument(argument: &str) -> Option<String> {
     let argument = argument.trim();
-    if argument.is_empty() {
-        None
-    } else {
-        Some(argument.to_string())
-    }
+    if argument.is_empty() { None } else { Some(argument.to_string()) }
 }
 
 fn candidate_matches_query(candidate: &str, query: &str) -> bool {
@@ -446,10 +426,7 @@ fn provider_name_for_model_input(state: &TuiState, model: &str) -> Option<String
             })
         })
         .or_else(|| {
-            state
-                .model_catalog
-                .iter()
-                .find(|entry| entry.model_id.eq_ignore_ascii_case(model))
+            state.model_catalog.iter().find(|entry| entry.model_id.eq_ignore_ascii_case(model))
         })
         .map(|entry| entry.provider_id.clone())
         .or_else(|| state.status.provider_name.clone())

@@ -6,8 +6,8 @@ use crate::apps::mindmap::canvas::layout::{Layout, layout_node_rect};
 use crate::apps::mindmap::canvas::style::{dash_segments_px, rgba_u32_to_color};
 use crate::apps::mindmap::canvas::transform::screen_from_world;
 use crate::apps::mindmap::state::{
-    BracketLayoutFormat, EdgeStyle, FishboneLayoutFormat, MindMapDiagramType,
-    OrgChartLayoutFormat, TreeLayoutFormat,
+    BracketLayoutFormat, EdgeStyle, FishboneLayoutFormat, MindMapDiagramType, OrgChartLayoutFormat,
+    TreeLayoutFormat,
 };
 use iced::widget::canvas::{Frame, LineCap, LineDash, Path, Stroke};
 use iced::{Color, Point, Rectangle, Size};
@@ -49,19 +49,12 @@ pub(super) fn draw_special_diagram_backdrop(
 
     let tail_x = extreme_x + spine_dir * 320.0;
     let spine_y = root.pos.y;
-    let apex_x = if spine_dir < 0.0 {
-        root_rect.x
-    } else {
-        root_rect.x + root_rect.width
-    };
+    let apex_x = if spine_dir < 0.0 { root_rect.x } else { root_rect.x + root_rect.width };
     let apex = Point::new(apex_x, spine_y);
     let base = Point::new(apex.x + spine_dir * 18.0, spine_y);
     let tail = Point::new(tail_x, spine_y);
-    let spine_color = current_theme
-        .line_color
-        .map(rgba_u32_to_color)
-        .unwrap_or(stroke_color)
-        .scale_alpha(0.55);
+    let spine_color =
+        current_theme.line_color.map(rgba_u32_to_color).unwrap_or(stroke_color).scale_alpha(0.55);
 
     let tail_s = screen_from_world(tail, canvas.pan, canvas.zoom);
     let base_s = screen_from_world(base, canvas.pan, canvas.zoom);
@@ -94,10 +87,7 @@ pub(super) fn draw_special_diagram_backdrop(
 /// 构建或更新 fishbone meta 相关行为。
 ///
 /// 参数由调用方提供，返回值直接交给上层视图或状态处理；本函数不执行额外错误恢复。
-pub(super) fn fishbone_meta(
-    canvas: &MindMapCanvas<'_>,
-    layout: &Layout,
-) -> Option<FishboneMeta> {
+pub(super) fn fishbone_meta(canvas: &MindMapCanvas<'_>, layout: &Layout) -> Option<FishboneMeta> {
     if canvas.diagram_type != MindMapDiagramType::Fishbone {
         return None;
     }
@@ -143,11 +133,7 @@ pub(super) fn draw_edges(
         let start = screen_from_world(start_world, canvas.pan, canvas.zoom);
         let end = screen_from_world(end_world, canvas.pan, canvas.zoom);
         let path = edge_path(canvas, edge, start, end, fishbone_meta.is_some());
-        let style = canvas
-            .edge_styles
-            .get(&edge.to)
-            .copied()
-            .unwrap_or(canvas.edge_style);
+        let style = canvas.edge_styles.get(&edge.to).copied().unwrap_or(canvas.edge_style);
         let color = edge_color(canvas, current_theme, &edge.to, stroke_color);
         frame.stroke(&path, edge_stroke(style, color, stroke_width, canvas.zoom));
     }
@@ -169,10 +155,7 @@ fn draw_bracket_edges(
 ) {
     let mut children_by_parent: HashMap<Vec<usize>, Vec<Vec<usize>>> = HashMap::new();
     for edge in &layout.edges {
-        children_by_parent
-            .entry(edge.from.clone())
-            .or_default()
-            .push(edge.to.clone());
+        children_by_parent.entry(edge.from.clone()).or_default().push(edge.to.clone());
     }
 
     let gap = (14.0 * canvas.zoom).clamp(10.0, 26.0);
@@ -184,17 +167,11 @@ fn draw_bracket_edges(
         };
 
         let parent_world = layout_node_rect(parent_node);
-        let parent_top_left = screen_from_world(
-            Point::new(parent_world.x, parent_world.y),
-            canvas.pan,
-            canvas.zoom,
-        );
+        let parent_top_left =
+            screen_from_world(Point::new(parent_world.x, parent_world.y), canvas.pan, canvas.zoom);
         let parent_rect = Rectangle::new(
             parent_top_left,
-            Size::new(
-                parent_world.width * canvas.zoom,
-                parent_world.height * canvas.zoom,
-            ),
+            Size::new(parent_world.width * canvas.zoom, parent_world.height * canvas.zoom),
         );
         let parent_center_y = parent_rect.y + parent_rect.height / 2.0;
         let mut children = Vec::new();
@@ -212,10 +189,7 @@ fn draw_bracket_edges(
             );
             let child_rect = Rectangle::new(
                 child_top_left,
-                Size::new(
-                    child_world.width * canvas.zoom,
-                    child_world.height * canvas.zoom,
-                ),
+                Size::new(child_world.width * canvas.zoom, child_world.height * canvas.zoom),
             );
             children.push(BracketChild {
                 path: child_node.path.clone(),
@@ -256,26 +230,14 @@ fn draw_bracket_group(
     }
 
     let first_path = &children[0].path;
-    let style = canvas
-        .edge_styles
-        .get(first_path)
-        .copied()
-        .unwrap_or(canvas.edge_style);
+    let style = canvas.edge_styles.get(first_path).copied().unwrap_or(canvas.edge_style);
     let color = edge_color(canvas, current_theme, first_path, Color::BLACK);
     let stroke = edge_stroke(style, color, stroke_width, canvas.zoom);
-    let parent_edge_x = if on_right {
-        parent_rect.x + parent_rect.width
-    } else {
-        parent_rect.x
-    };
+    let parent_edge_x = if on_right { parent_rect.x + parent_rect.width } else { parent_rect.x };
 
     if children.len() == 1 {
         let child = &children[0];
-        let child_edge_x = if on_right {
-            child.rect.x
-        } else {
-            child.rect.x + child.rect.width
-        };
+        let child_edge_x = if on_right { child.rect.x } else { child.rect.x + child.rect.width };
         let start = Point::new(parent_edge_x, parent_center_y);
         let end = Point::new(child_edge_x, child.center_y);
         frame.stroke(&Path::line(start, end), stroke);
@@ -293,11 +255,7 @@ fn draw_bracket_group(
     }
 
     let y_mid = (y_top + y_bottom) / 2.0;
-    let x0 = if on_right {
-        parent_rect.x + parent_rect.width + gap
-    } else {
-        parent_rect.x - gap
-    };
+    let x0 = if on_right { parent_rect.x + parent_rect.width + gap } else { parent_rect.x - gap };
     let concave_dir = if on_right { 1.0 } else { -1.0 };
     let h = (y_bottom - y_top).max(1.0);
     let w = (10.0 * canvas.zoom).clamp(8.0, 22.0);
@@ -338,11 +296,7 @@ fn draw_bracket_group(
     frame.stroke(&connector, stroke);
 
     for child in children {
-        let child_edge_x = if on_right {
-            child.rect.x
-        } else {
-            child.rect.x + child.rect.width
-        };
+        let child_edge_x = if on_right { child.rect.x } else { child.rect.x + child.rect.width };
         let start = Point::new(notch_x, child.center_y);
         let end = Point::new(child_edge_x, child.center_y);
         frame.stroke(&Path::line(start, end), stroke);
@@ -379,18 +333,10 @@ fn edge_endpoints(
         if from_len == 1 && to_len == 2 {
             let branch_dx = base_branch_dx.max(root_size.width / 2.0 + a.size.width / 2.0 + 140.0);
             let spine_x = a.pos.x - spine_dir * branch_dx;
-            let parent_attach_x = if *spine_dir > 0.0 {
-                a_rect.x
-            } else {
-                a_rect.x + a_rect.width
-            };
+            let parent_attach_x = if *spine_dir > 0.0 { a_rect.x } else { a_rect.x + a_rect.width };
             let y = b.pos.y;
             let denom = a.pos.y - spine_y;
-            let t = if denom.abs() < 1.0 {
-                1.0
-            } else {
-                ((y - spine_y) / denom).clamp(0.0, 1.0)
-            };
+            let t = if denom.abs() < 1.0 { 1.0 } else { ((y - spine_y) / denom).clamp(0.0, 1.0) };
             let rib_x = spine_x + t * (parent_attach_x - spine_x);
             let start_world = Point::new(rib_x, y);
             let end_world = if *spine_dir > 0.0 {
@@ -421,19 +367,12 @@ fn edge_endpoints(
                 OrgChartLayoutFormat::TopDown | OrgChartLayoutFormat::LeftRight,
             ) =>
         {
-            (
-                Point::new(a.pos.x, a_rect.y + a_rect.height),
-                Point::new(b.pos.x, b_rect.y),
-            )
+            (Point::new(a.pos.x, a_rect.y + a_rect.height), Point::new(b.pos.x, b_rect.y))
         }
         MindMapDiagramType::Timeline if edge.from.len() == 1 && edge.to.len() >= 2 => {
             let up = b.pos.y < a.pos.y;
             let attach_y = if up { a_rect.y } else { a_rect.y + a_rect.height };
-            let end_x = if b.pos.x >= a.pos.x {
-                b_rect.x
-            } else {
-                b_rect.x + b_rect.width
-            };
+            let end_x = if b.pos.x >= a.pos.x { b_rect.x } else { b_rect.x + b_rect.width };
             (Point::new(a.pos.x, attach_y), Point::new(end_x, b.pos.y))
         }
         MindMapDiagramType::Tree => {
@@ -553,28 +492,19 @@ fn edge_color(
     path: &[usize],
     stroke_color: Color,
 ) -> Color {
-    canvas
-        .edge_colors
-        .get(path)
-        .copied()
-        .map(rgba_u32_to_color)
-        .unwrap_or_else(|| {
-            if let Some(color) = current_theme.line_color {
-                rgba_u32_to_color(color)
-            } else if path.is_empty() {
-                stroke_color
-            } else {
-                rgba_u32_to_color(current_theme.palette(path[0]))
-            }
-        })
+    canvas.edge_colors.get(path).copied().map(rgba_u32_to_color).unwrap_or_else(|| {
+        if let Some(color) = current_theme.line_color {
+            rgba_u32_to_color(color)
+        } else if path.is_empty() {
+            stroke_color
+        } else {
+            rgba_u32_to_color(current_theme.palette(path[0]))
+        }
+    })
 }
 
 fn edge_stroke(style: EdgeStyle, color: Color, width: f32, zoom: f32) -> Stroke<'static> {
-    let mut stroke = Stroke {
-        style: color.into(),
-        width,
-        ..Stroke::default()
-    };
+    let mut stroke = Stroke { style: color.into(), width, ..Stroke::default() };
     let dash_segments = dash_segments_px(style, zoom);
     if let Some(segments) = dash_segments.as_ref() {
         stroke.line_dash = LineDash { segments, offset: 0 };

@@ -47,10 +47,7 @@ fn bool_row<'a>(
     field_row(
         label,
         description,
-        checkbox(checked)
-            .label(checkbox_label)
-            .on_toggle(on_toggle)
-            .style(settings_checkbox_style),
+        checkbox(checked).label(checkbox_label).on_toggle(on_toggle).style(settings_checkbox_style),
     )
 }
 
@@ -115,9 +112,15 @@ pub fn view(app: &App) -> Element<'_, Message> {
         WebSearchMessage::HelpOpen,
     )));
 
-    let enabled_row = bool_row("启用", "控制是否启用网页搜索工具。", s.enabled, "启用网页搜索工具", |value| {
-        Message::Settings(SettingsMessage::WebSearch(WebSearchMessage::EnabledToggled(value)))
-    });
+    let enabled_row = bool_row(
+        "启用",
+        "控制是否启用网页搜索工具。",
+        s.enabled,
+        "启用网页搜索工具",
+        |value| {
+            Message::Settings(SettingsMessage::WebSearch(WebSearchMessage::EnabledToggled(value)))
+        },
+    );
 
     let provider_pick = pick_list(
         [
@@ -142,8 +145,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let mut content = column![
         row![
-            container(settings_page_intro("网页搜索配置", "配置网页搜索工具的提供方、鉴权信息和请求参数。"))
-                .width(Length::Fill),
+            container(settings_page_intro(
+                "网页搜索配置",
+                "配置网页搜索工具的提供方、鉴权信息和请求参数。"
+            ))
+            .width(Length::Fill),
             help_btn
         ]
         .align_y(Alignment::Start),
@@ -179,9 +185,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
         } else {
             "搜索服务 API 密钥"
         };
-        content = content.push(text_row("API 密钥", "搜索服务请求所需的认证密钥。", placeholder, &s.api_key_input, |value| {
-            Message::Settings(SettingsMessage::WebSearch(WebSearchMessage::ApiKeyChanged(value)))
-        }));
+        content = content.push(text_row(
+            "API 密钥",
+            "搜索服务请求所需的认证密钥。",
+            placeholder,
+            &s.api_key_input,
+            |value| {
+                Message::Settings(SettingsMessage::WebSearch(WebSearchMessage::ApiKeyChanged(
+                    value,
+                )))
+            },
+        ));
     }
 
     if shows_api_url(&s.provider) {
@@ -202,26 +216,48 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     content = content
         .push(settings_section_card("请求参数", "控制返回数量、超时和请求头。"))
-        .push(settings_panel(column![
-        text_row("结果数量", "最终会限制在 1-10 之间。", "1-10", &s.max_results_input, |value| {
-            Message::Settings(SettingsMessage::WebSearch(WebSearchMessage::MaxResultsChanged(
-                value,
-            )))
-        }),
-        settings_divider(),
-        text_row("超时时间", "留空时回退到默认值 15 秒。", "15", &s.timeout_secs_input, |value| {
-            Message::Settings(SettingsMessage::WebSearch(WebSearchMessage::TimeoutSecsChanged(
-                value,
-            )))
-        }),
-        settings_divider(),
-        text_row("User-Agent", "搜索请求携带的 User-Agent。", "VibeWindow/1.0", &s.user_agent, |value| {
-            Message::Settings(SettingsMessage::WebSearch(WebSearchMessage::UserAgentChanged(value)))
-        })
-        ].spacing(0)))
+        .push(settings_panel(
+            column![
+                text_row(
+                    "结果数量",
+                    "最终会限制在 1-10 之间。",
+                    "1-10",
+                    &s.max_results_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::WebSearch(
+                            WebSearchMessage::MaxResultsChanged(value),
+                        ))
+                    }
+                ),
+                settings_divider(),
+                text_row(
+                    "超时时间",
+                    "留空时回退到默认值 15 秒。",
+                    "15",
+                    &s.timeout_secs_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::WebSearch(
+                            WebSearchMessage::TimeoutSecsChanged(value),
+                        ))
+                    }
+                ),
+                settings_divider(),
+                text_row(
+                    "User-Agent",
+                    "搜索请求携带的 User-Agent。",
+                    "VibeWindow/1.0",
+                    &s.user_agent,
+                    |value| {
+                        Message::Settings(SettingsMessage::WebSearch(
+                            WebSearchMessage::UserAgentChanged(value),
+                        ))
+                    }
+                )
+            ]
+            .spacing(0),
+        ))
         .push(hint_row("仅接受正整数；最终会限制在 1-10 之间。"))
-        .push(hint_row("仅接受正整数秒；留空时回退到默认值 15。"))
-        ;
+        .push(hint_row("仅接受正整数秒；留空时回退到默认值 15。"));
 
     if let Some(err) = &s.save_error {
         content = content.push(settings_error_banner(err));

@@ -1,8 +1,7 @@
 #[test]
 fn token_usage_defaults_reasoning_tokens() {
     let usage: super::TokenUsage =
-        serde_json::from_str(r#"{"input_tokens":1,"output_tokens":2,"cached_tokens":3}"#)
-            .unwrap();
+        serde_json::from_str(r#"{"input_tokens":1,"output_tokens":2,"cached_tokens":3}"#).unwrap();
 
     assert_eq!(usage.reasoning_tokens, 0);
 }

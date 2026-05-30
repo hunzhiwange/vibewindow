@@ -22,18 +22,15 @@ pub(super) fn render_tailwind_inspector_panel<'a>(
     _app: &'a App,
     state: &'a DesignState,
 ) -> Element<'a, Message> {
-    let element_id = state
-        .selected_element_id
-        .as_ref()
-        .and_then(|id| state.doc.find_element(id).map(|el| (id, el)))
-        .and_then(|(id, el)| {
-            if el.kind.eq_ignore_ascii_case("tailwind") {
-                Some(id.clone())
-            } else {
-                None
-            }
-        })
-        .or_else(|| state.doc.tailwind_selection.as_ref().map(|(id, _)| id.clone()));
+    let element_id =
+        state
+            .selected_element_id
+            .as_ref()
+            .and_then(|id| state.doc.find_element(id).map(|el| (id, el)))
+            .and_then(|(id, el)| {
+                if el.kind.eq_ignore_ascii_case("tailwind") { Some(id.clone()) } else { None }
+            })
+            .or_else(|| state.doc.tailwind_selection.as_ref().map(|(id, _)| id.clone()));
 
     let Some(element_id) = element_id else {
         return Space::new().into();
@@ -82,11 +79,8 @@ pub(super) fn render_tailwind_inspector_panel<'a>(
         )
     };
 
-    let collapse_icon = if state.tailwind_inspector_collapsed {
-        Icon::ChevronUp
-    } else {
-        Icon::ChevronDown
-    };
+    let collapse_icon =
+        if state.tailwind_inspector_collapsed { Icon::ChevronUp } else { Icon::ChevronDown };
     let collapse_btn: Element<'a, Message> = button(icon_svg(collapse_icon, 0.75))
         .on_press(Message::Design(DesignMessage::ToggleTailwindInspectorCollapsed))
         .style(header_btn_style)
@@ -116,10 +110,7 @@ pub(super) fn render_tailwind_inspector_panel<'a>(
             .on_press(Message::Design(DesignMessage::Redo))
             .into()
     } else {
-        button(icon_svg(Icon::ArrowClockwise, 0.25))
-            .style(header_btn_style)
-            .padding(6)
-            .into()
+        button(icon_svg(Icon::ArrowClockwise, 0.25)).style(header_btn_style).padding(6).into()
     };
 
     let header = row![

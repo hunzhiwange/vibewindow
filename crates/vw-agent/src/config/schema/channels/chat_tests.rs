@@ -1,5 +1,5 @@
-use super::chat::ChannelsConfigExt;
 use super::ChannelsConfig;
+use super::chat::ChannelsConfigExt;
 
 #[test]
 fn channels_list_adds_webhook_after_regular_channels() {

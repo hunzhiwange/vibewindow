@@ -60,6 +60,7 @@ fn task_status_tag_colors(status: TaskStatus) -> (Color, Color) {
     match status {
         TaskStatus::Pool => (Color::from_rgb8(107, 114, 128), Color::from_rgb8(243, 244, 246)),
         TaskStatus::Pending => (Color::from_rgb8(37, 99, 235), Color::from_rgb8(219, 234, 254)),
+        TaskStatus::Planning => (Color::from_rgb8(79, 70, 229), Color::from_rgb8(224, 231, 255)),
         TaskStatus::Running => (Color::from_rgb8(147, 51, 234), Color::from_rgb8(243, 232, 255)),
         TaskStatus::Failed => (Color::from_rgb8(220, 38, 38), Color::from_rgb8(254, 226, 226)),
         TaskStatus::Paused => (Color::from_rgb8(202, 138, 4), Color::from_rgb8(254, 249, 195)),
@@ -168,24 +169,28 @@ fn build_status_column<'a>(app: &'a App, status: TaskStatus, now_ms: u64) -> Ele
         container(text(count.to_string()).size(11)).padding([2, 6]).style(move |theme: &Theme| {
             let p = theme.extended_palette();
             container::Style {
-                background: Some(Background::Color(if theme.palette().background.r
-                    + theme.palette().background.g
-                    + theme.palette().background.b
-                    < 1.5
-                {
-                    p.background.strong.color.scale_alpha(0.56)
-                } else {
-                    p.primary.base.color.scale_alpha(0.10)
-                })),
-                text_color: Some(if theme.palette().background.r
-                    + theme.palette().background.g
-                    + theme.palette().background.b
-                    < 1.5
-                {
-                    p.background.base.text
-                } else {
-                    p.primary.base.color
-                }),
+                background: Some(Background::Color(
+                    if theme.palette().background.r
+                        + theme.palette().background.g
+                        + theme.palette().background.b
+                        < 1.5
+                    {
+                        p.background.strong.color.scale_alpha(0.56)
+                    } else {
+                        p.primary.base.color.scale_alpha(0.10)
+                    },
+                )),
+                text_color: Some(
+                    if theme.palette().background.r
+                        + theme.palette().background.g
+                        + theme.palette().background.b
+                        < 1.5
+                    {
+                        p.background.base.text
+                    } else {
+                        p.primary.base.color
+                    },
+                ),
                 border: Border {
                     radius: 999.0.into(),
                     width: 1.0,
@@ -337,10 +342,8 @@ fn build_status_column<'a>(app: &'a App, status: TaskStatus, now_ms: u64) -> Ele
 
     let mut tasks_col = column![].spacing(0);
 
-    let dragging_task_id = app
-        .task_board_dragging
-        .as_ref()
-        .map(|(id, _): &(String, TaskStatus)| id.as_str());
+    let dragging_task_id =
+        app.task_board_dragging.as_ref().map(|(id, _): &(String, TaskStatus)| id.as_str());
     let cursor_position = app.cursor_position;
     let context_menu = app.task_board_context_menu.clone();
     let is_dragging_active = app.task_board_dragging.is_some();
@@ -652,7 +655,9 @@ fn build_task_card<'a>(
                 theme.palette().primary.scale_alpha(0.14)
             } else if is_selected {
                 theme.palette().primary.scale_alpha(0.08)
-            } else if theme.palette().background.r + theme.palette().background.g + theme.palette().background.b
+            } else if theme.palette().background.r
+                + theme.palette().background.g
+                + theme.palette().background.b
                 < 1.5
             {
                 theme.extended_palette().background.weak.color.scale_alpha(0.18)
@@ -674,7 +679,11 @@ fn build_task_card<'a>(
                     radius: 16.0.into(),
                 },
                 shadow: iced::Shadow {
-                    color: Color::BLACK.scale_alpha(if is_dragging || is_selected { 0.14 } else { 0.06 }),
+                    color: Color::BLACK.scale_alpha(if is_dragging || is_selected {
+                        0.14
+                    } else {
+                        0.06
+                    }),
                     offset: iced::Vector::new(0.0, 10.0),
                     blur_radius: 22.0,
                 },
@@ -708,14 +717,15 @@ fn build_task_card<'a>(
     ));
 
     if let Some((open_id, x, y)) = context_menu
-        && open_id == task.id {
-            return PointBelowOverlay::new(right_click, build_context_menu(task.clone()))
-                .show(true)
-                .anchor(iced::Point::new(x, y))
-                .gap(2.0)
-                .on_close(Message::TaskBoard(TaskBoardMessage::ContextMenuClosed))
-                .into();
-        }
+        && open_id == task.id
+    {
+        return PointBelowOverlay::new(right_click, build_context_menu(task.clone()))
+            .show(true)
+            .anchor(iced::Point::new(x, y))
+            .gap(2.0)
+            .on_close(Message::TaskBoard(TaskBoardMessage::ContextMenuClosed))
+            .into();
+    }
 
     right_click
 }

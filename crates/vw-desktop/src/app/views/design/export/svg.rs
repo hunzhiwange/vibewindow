@@ -1,7 +1,9 @@
 //! 设计导出模块，负责把内部设计文档转换为 HTML、SVG 或共享的 CSS/尺寸表示。
 
-use super::util::{color_to_hex, parse_fills_to_css, parse_size_val_opt, process_color_value,
-    resolve_variable_value};
+use super::util::{
+    color_to_hex, parse_fills_to_css, parse_size_val_opt, process_color_value,
+    resolve_variable_value,
+};
 use crate::app::views::design::canvas::tailwind::{ParsedStyle, TailwindParser};
 use crate::app::views::design::models::{DesignDoc, DesignElement};
 

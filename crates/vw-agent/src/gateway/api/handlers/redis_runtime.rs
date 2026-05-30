@@ -69,20 +69,15 @@ pub(super) fn scan_redis_keys(
     count: u32,
     pattern: &str,
 ) -> Result<GatewayRedisKeyPage, String> {
-    let pattern = if pattern.trim().is_empty() {
-        "*".to_string()
-    } else {
-        pattern.trim().to_string()
-    };
+    let pattern =
+        if pattern.trim().is_empty() { "*".to_string() } else { pattern.trim().to_string() };
 
     let (next_cursor, mut keys) = with_redis_connection(connection, |redis_connection| {
         let mut command = ::redis::cmd("SCAN");
         command.arg(cursor);
         command.arg("MATCH").arg(&pattern);
         command.arg("COUNT").arg(count);
-        command
-            .query::<(u64, Vec<String>)>(redis_connection)
-            .map_err(|error| error.to_string())
+        command.query::<(u64, Vec<String>)>(redis_connection).map_err(|error| error.to_string())
     })?;
     keys.sort();
 
@@ -120,7 +115,8 @@ pub(super) fn analyze_redis_key(
 
     let raw_type = query_redis_string(connection, "TYPE", &[key])?;
     let key_kind = classify_runtime_key_kind(&raw_type);
-    if matches!(key_kind, RuntimeRedisKeyKind::Unknown(_)) && raw_type.eq_ignore_ascii_case("none") {
+    if matches!(key_kind, RuntimeRedisKeyKind::Unknown(_)) && raw_type.eq_ignore_ascii_case("none")
+    {
         return Err("Key 不存在或已被删除".to_string());
     }
 
@@ -128,13 +124,10 @@ pub(super) fn analyze_redis_key(
         .ok()
         .and_then(|value| redis_value_to_i64(&value))
         .unwrap_or(-2);
-    let memory_usage_bytes = query_redis_value(
-        connection,
-        "MEMORY",
-        &["USAGE".to_string(), key.to_string()],
-    )
-    .ok()
-    .and_then(|value| redis_value_to_u64(&value));
+    let memory_usage_bytes =
+        query_redis_value(connection, "MEMORY", &["USAGE".to_string(), key.to_string()])
+            .ok()
+            .and_then(|value| redis_value_to_u64(&value));
 
     let (preview_command_name, preview_args) = preview_command_for_key_kind(&key_kind, key);
     let preview_command = build_preview_command(&preview_command_name, &preview_args);
@@ -214,7 +207,8 @@ pub(super) fn execute_redis_command(
     connection: &GatewayRedisConnectionConfig,
     command_line: &str,
 ) -> Result<String, String> {
-    let parts = shell_words::split(command_line).map_err(|error| format!("命令解析失败: {error}"))?;
+    let parts =
+        shell_words::split(command_line).map_err(|error| format!("命令解析失败: {error}"))?;
     let Some(command_name) = parts.first() else {
         return Err("请输入 Redis 命令".to_string());
     };
@@ -243,16 +237,11 @@ fn parse_info_entries(info_output: &str) -> Vec<GatewayRedisInfoEntry> {
 }
 
 fn info_value(entries: &[GatewayRedisInfoEntry], key: &str) -> Option<String> {
-    entries
-        .iter()
-        .find(|entry| entry.key == key)
-        .map(|entry| entry.value.clone())
+    entries.iter().find(|entry| entry.key == key).map(|entry| entry.value.clone())
 }
 
 fn parse_info_u64(entries: &[GatewayRedisInfoEntry], key: &str) -> u64 {
-    info_value(entries, key)
-        .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(0)
+    info_value(entries, key).and_then(|value| value.parse::<u64>().ok()).unwrap_or(0)
 }
 
 fn parse_keyspace_stats(entries: &[GatewayRedisInfoEntry]) -> Vec<GatewayRedisKeyspaceStat> {
@@ -276,12 +265,7 @@ fn parse_keyspace_stats(entries: &[GatewayRedisInfoEntry]) -> Vec<GatewayRedisKe
                 }
             }
 
-            Some(GatewayRedisKeyspaceStat {
-                db: entry.key.clone(),
-                keys,
-                expires,
-                avg_ttl,
-            })
+            Some(GatewayRedisKeyspaceStat { db: entry.key.clone(), keys, expires, avg_ttl })
         })
         .collect::<Vec<_>>();
 
@@ -429,9 +413,7 @@ fn query_redis_string(
         for argument in arguments {
             command.arg(argument);
         }
-        command
-            .query::<String>(redis_connection)
-            .map_err(|error| error.to_string())
+        command.query::<String>(redis_connection).map_err(|error| error.to_string())
     })
 }
 
@@ -445,9 +427,7 @@ fn query_redis_value(
         for argument in arguments {
             command.arg(argument);
         }
-        command
-            .query::<::redis::Value>(redis_connection)
-            .map_err(|error| error.to_string())
+        command.query::<::redis::Value>(redis_connection).map_err(|error| error.to_string())
     })
 }
 
@@ -491,7 +471,8 @@ fn with_redis_connection<T>(
             builder = builder.set_client_to_redis_username(username);
         }
         if !connection.password.trim().is_empty() {
-            builder = builder.set_client_to_sentinel_password(connection.password.trim().to_string());
+            builder =
+                builder.set_client_to_sentinel_password(connection.password.trim().to_string());
         }
 
         let redis_password = if !connection.sentinel.node_password.trim().is_empty() {
@@ -640,9 +621,10 @@ fn parse_create_key_kind(value: &str) -> Result<RuntimeRedisKeyKind, String> {
         "zset" => RuntimeRedisKeyKind::Zset,
         "stream" => RuntimeRedisKeyKind::Stream,
         "rejson" | "json" => RuntimeRedisKeyKind::ReJson,
-        _ => {
-            return Err("暂不支持该 Key 类型，当前仅支持 String / Hash / List / Set / Zset / Stream / ReJSON".to_string())
-        }
+        _ => return Err(
+            "暂不支持该 Key 类型，当前仅支持 String / Hash / List / Set / Zset / Stream / ReJSON"
+                .to_string(),
+        ),
     };
 
     Ok(kind)
@@ -654,29 +636,21 @@ fn create_default_command_for_key_kind(
 ) -> (&'static str, Vec<String>) {
     match key_kind {
         RuntimeRedisKeyKind::String => ("SET", vec![key.to_string(), String::new()]),
-        RuntimeRedisKeyKind::Hash => (
-            "HSET",
-            vec![key.to_string(), "field".to_string(), String::new()],
-        ),
+        RuntimeRedisKeyKind::Hash => {
+            ("HSET", vec![key.to_string(), "field".to_string(), String::new()])
+        }
         RuntimeRedisKeyKind::List => ("RPUSH", vec![key.to_string(), "item".to_string()]),
         RuntimeRedisKeyKind::Set => ("SADD", vec![key.to_string(), "member".to_string()]),
-        RuntimeRedisKeyKind::Zset => (
-            "ZADD",
-            vec![key.to_string(), "0".to_string(), "member".to_string()],
-        ),
+        RuntimeRedisKeyKind::Zset => {
+            ("ZADD", vec![key.to_string(), "0".to_string(), "member".to_string()])
+        }
         RuntimeRedisKeyKind::Stream => (
             "XADD",
-            vec![
-                key.to_string(),
-                "*".to_string(),
-                "field".to_string(),
-                "value".to_string(),
-            ],
+            vec![key.to_string(), "*".to_string(), "field".to_string(), "value".to_string()],
         ),
-        RuntimeRedisKeyKind::ReJson => (
-            "JSON.SET",
-            vec![key.to_string(), "$".to_string(), "{}".to_string()],
-        ),
+        RuntimeRedisKeyKind::ReJson => {
+            ("JSON.SET", vec![key.to_string(), "$".to_string(), "{}".to_string()])
+        }
         RuntimeRedisKeyKind::Unknown(_) => ("SET", vec![key.to_string(), String::new()]),
     }
 }
@@ -688,19 +662,13 @@ fn preview_command_for_key_kind(
     match key_kind {
         RuntimeRedisKeyKind::String => (Some("GET"), vec![key.to_string()]),
         RuntimeRedisKeyKind::Hash => (Some("HGETALL"), vec![key.to_string()]),
-        RuntimeRedisKeyKind::List => (
-            Some("LRANGE"),
-            vec![key.to_string(), "0".to_string(), "99".to_string()],
-        ),
+        RuntimeRedisKeyKind::List => {
+            (Some("LRANGE"), vec![key.to_string(), "0".to_string(), "99".to_string()])
+        }
         RuntimeRedisKeyKind::Set => (Some("SMEMBERS"), vec![key.to_string()]),
         RuntimeRedisKeyKind::Zset => (
             Some("ZRANGE"),
-            vec![
-                key.to_string(),
-                "0".to_string(),
-                "99".to_string(),
-                "WITHSCORES".to_string(),
-            ],
+            vec![key.to_string(), "0".to_string(), "99".to_string(), "WITHSCORES".to_string()],
         ),
         RuntimeRedisKeyKind::Stream => (
             Some("XRANGE"),
@@ -712,10 +680,7 @@ fn preview_command_for_key_kind(
                 "50".to_string(),
             ],
         ),
-        RuntimeRedisKeyKind::ReJson => (
-            Some("JSON.GET"),
-            vec![key.to_string(), "$".to_string()],
-        ),
+        RuntimeRedisKeyKind::ReJson => (Some("JSON.GET"), vec![key.to_string(), "$".to_string()]),
         RuntimeRedisKeyKind::Unknown(_) => (None, Vec::new()),
     }
 }
@@ -726,11 +691,7 @@ fn build_preview_command(command_name: &Option<&'static str>, arguments: &[Strin
     };
 
     std::iter::once(command_name.to_string())
-        .chain(
-            arguments
-                .iter()
-                .map(|argument| shell_words::quote(argument).into_owned()),
-        )
+        .chain(arguments.iter().map(|argument| shell_words::quote(argument).into_owned()))
         .collect::<Vec<_>>()
         .join(" ")
 }
@@ -924,9 +885,7 @@ fn build_sentinel_addr(connection: &GatewayRedisConnectionConfig) -> ::redis::Co
 fn ping_redis(uri: String) -> Result<String, String> {
     let client = ::redis::Client::open(uri).map_err(|error| error.to_string())?;
     let mut connection = client.get_connection().map_err(|error| error.to_string())?;
-    ::redis::cmd("PING")
-        .query::<String>(&mut connection)
-        .map_err(|error| error.to_string())
+    ::redis::cmd("PING").query::<String>(&mut connection).map_err(|error| error.to_string())
 }
 
 #[cfg(test)]

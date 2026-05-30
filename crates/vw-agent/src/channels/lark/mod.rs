@@ -74,9 +74,7 @@ pub(crate) use parsing::{normalize_group_reply_allowed_sender_ids, should_respon
 
 /// 重导出令牌管理函数
 #[allow(unused_imports)]
-pub(crate) use token::{
-    ensure_lark_send_success, should_refresh_lark_tenant_token,
-};
+pub(crate) use token::{ensure_lark_send_success, should_refresh_lark_tenant_token};
 #[cfg(test)]
 pub(crate) use token::{extract_lark_token_ttl_seconds, next_token_refresh_deadline};
 

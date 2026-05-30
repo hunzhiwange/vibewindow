@@ -51,9 +51,8 @@ pub(crate) fn build_write_tool_view<'a>(
         .visible
         .split_once('\n')
         .and_then(|(_, rest)| serde_json::from_str::<serde_json::Value>(rest.trim()).ok());
-    let permission_state = tool_value
-        .as_ref()
-        .and_then(|value| tool_permission_state(&view_ctx.tool_name, value));
+    let permission_state =
+        tool_value.as_ref().and_then(|value| tool_permission_state(&view_ctx.tool_name, value));
     let permission_target = tool_value
         .as_ref()
         .and_then(|value| tool_permission_target_summary(&view_ctx.tool_name, value));
@@ -75,11 +74,8 @@ pub(crate) fn build_write_tool_view<'a>(
     } else {
         let detail_text = if view_ctx.is_running {
             format!("{}中…", view_ctx.verb)
-        } else if let Some(error_text) = view_ctx
-            .error_text
-            .as_deref()
-            .map(str::trim)
-            .filter(|text| !text.is_empty())
+        } else if let Some(error_text) =
+            view_ctx.error_text.as_deref().map(str::trim).filter(|text| !text.is_empty())
         {
             error_text.to_string()
         } else {
@@ -103,9 +99,7 @@ pub(crate) fn build_write_tool_view<'a>(
         .into()
     };
 
-    let fallback_context_text = selected_context_text
-        .clone()
-        .unwrap_or(fallback_summary);
+    let fallback_context_text = selected_context_text.clone().unwrap_or(fallback_summary);
     let content: Element<'a, Message> = RightClickArea::new(
         body,
         Box::new(move |point| {

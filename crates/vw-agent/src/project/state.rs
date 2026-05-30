@@ -72,9 +72,8 @@ where
             let cell = {
                 let mut lock = STATE.lock().unwrap_or_else(|e| e.into_inner());
                 // 锁只保护表结构，初始化本身交给 OnceCell，避免持锁等待用户异步代码。
-                let entry = lock.records.entry(key).or_default().entry(name).or_insert_with(|| Entry {
-                    cell: Arc::new(OnceCell::new()),
-                    dispose: dispose.clone(),
+                let entry = lock.records.entry(key).or_default().entry(name).or_insert_with(|| {
+                    Entry { cell: Arc::new(OnceCell::new()), dispose: dispose.clone() }
                 });
                 entry.cell.clone()
             };

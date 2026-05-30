@@ -10,10 +10,10 @@ pub use vw_shared::question::*;
 use crate::app::agent::bus;
 use crate::app::agent::id;
 use crate::app::agent::util::log;
-use std::sync::LazyLock;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use tokio::sync::oneshot;
 

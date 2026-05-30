@@ -16,6 +16,9 @@ fn task_status_tag_colors(status: crate::app::task::TaskStatus) -> (Color, Color
         crate::app::task::TaskStatus::Pending => {
             (Color::from_rgb8(37, 99, 235), Color::from_rgb8(219, 234, 254))
         }
+        crate::app::task::TaskStatus::Planning => {
+            (Color::from_rgb8(79, 70, 229), Color::from_rgb8(224, 231, 255))
+        }
         crate::app::task::TaskStatus::Running => {
             (Color::from_rgb8(147, 51, 234), Color::from_rgb8(243, 232, 255))
         }
@@ -55,20 +58,21 @@ fn task_status_tag_colors(status: crate::app::task::TaskStatus) -> (Color, Color
 /// 此函数不返回 `Result`；不可用状态会通过空视图、禁用控件或回退文案表达。
 pub fn build_drag_preview_layer<'a>(app: &'a App) -> Element<'a, Message> {
     if let Some((task_id, _)) = &app.task_board_dragging
-        && let Some(task) = app.task_board_tasks.iter().find(|t| &t.id == task_id) {
-            let mut x = app.cursor_position.x;
-            let mut y = app.cursor_position.y;
-            x = x.clamp(0.0, (app.window_size.0 - 220.0).max(0.0));
-            y = y.clamp(0.0, (app.window_size.1 - 80.0).max(0.0));
+        && let Some(task) = app.task_board_tasks.iter().find(|t| &t.id == task_id)
+    {
+        let mut x = app.cursor_position.x;
+        let mut y = app.cursor_position.y;
+        x = x.clamp(0.0, (app.window_size.0 - 220.0).max(0.0));
+        y = y.clamp(0.0, (app.window_size.1 - 80.0).max(0.0));
 
-            let preview_card = build_drag_preview_card(task);
+        let preview_card = build_drag_preview_card(task);
 
-            return container(preview_card)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .padding(iced::Padding { top: y - 40.0, right: 0.0, bottom: 0.0, left: x - 100.0 })
-                .into();
-        }
+        return container(preview_card)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(iced::Padding { top: y - 40.0, right: 0.0, bottom: 0.0, left: x - 100.0 })
+            .into();
+    }
     container(Space::new()).width(Length::Fill).height(Length::Fill).into()
 }
 

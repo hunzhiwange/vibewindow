@@ -6,9 +6,9 @@ use super::{DesignMessage, ImageImportPayload};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::app::views::design::canvas::creation::create_image_element;
 use crate::app::views::design::canvas::creation::create_sticky_note_element;
-use crate::app::views::design::models::{DesignDoc, StickyNoteKind};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::app::views::design::models::DesignElement;
+use crate::app::views::design::models::{DesignDoc, StickyNoteKind};
 use crate::app::views::design::state::ImageImportTarget;
 use crate::app::{App, Message};
 #[cfg(not(target_arch = "wasm32"))]
@@ -84,9 +84,7 @@ fn prepare_image_bytes_for_canvas(
 
 #[cfg(not(target_arch = "wasm32"))]
 fn decode_data_url(source: &str) -> Result<Vec<u8>, String> {
-    let (header, payload) = source
-        .split_once(',')
-        .ok_or_else(|| "无效的 data URL".to_string())?;
+    let (header, payload) = source.split_once(',').ok_or_else(|| "无效的 data URL".to_string())?;
     if header.contains(";base64") {
         decode_base64_payload(payload)
     } else {
@@ -289,10 +287,7 @@ fn apply_image_import_payload(app: &mut App, payload: ImageImportPayload) -> Tas
                 (-state.pan.x + 220.0) / state.zoom,
                 (-state.pan.y + 160.0) / state.zoom,
             );
-            state
-                .doc
-                .images
-                .insert(payload.source.clone(), Handle::from_bytes(payload.bytes));
+            state.doc.images.insert(payload.source.clone(), Handle::from_bytes(payload.bytes));
             if let Some(size) = payload.size_opt {
                 state.doc.image_sizes.insert(payload.source.clone(), size);
             }
@@ -304,10 +299,7 @@ fn apply_image_import_payload(app: &mut App, payload: ImageImportPayload) -> Tas
                 start_editing: false,
             }))
         }
-        ImageImportTarget::Fill {
-            element_id,
-            fill_index,
-        } => {
+        ImageImportTarget::Fill { element_id, fill_index } => {
             if let Some(el) = state.doc.find_element(&element_id) {
                 let fills = match &el.fill {
                     Some(v) => {
@@ -330,10 +322,7 @@ fn apply_image_import_payload(app: &mut App, payload: ImageImportPayload) -> Tas
                     img.mode = "fill_width".to_string();
                 }
 
-                state
-                    .doc
-                    .images
-                    .insert(payload.source.clone(), Handle::from_bytes(payload.bytes));
+                state.doc.images.insert(payload.source.clone(), Handle::from_bytes(payload.bytes));
                 if let Some(size) = payload.size_opt {
                     state.doc.image_sizes.insert(payload.source.clone(), size);
                 }
@@ -443,10 +432,11 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
             }
             Some(Task::none())
         }
-        DesignMessage::PasteImageImportInput => Some(
-            iced::clipboard::read()
-                .map(|content| Message::Design(DesignMessage::ImageImportClipboardReceived(content))),
-        ),
+        DesignMessage::PasteImageImportInput => {
+            Some(iced::clipboard::read().map(|content| {
+                Message::Design(DesignMessage::ImageImportClipboardReceived(content))
+            }))
+        }
         DesignMessage::ImageImportClipboardReceived(content) => {
             if let Some(state) = app.active_design_state_mut() {
                 match content.map(|value| value.trim().to_string()) {
@@ -465,9 +455,8 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
         DesignMessage::ChooseImageImportFile => {
             #[cfg(not(target_arch = "wasm32"))]
             {
-                let Some(target) = app
-                    .active_design_state()
-                    .and_then(|state| state.image_import_target.clone())
+                let Some(target) =
+                    app.active_design_state().and_then(|state| state.image_import_target.clone())
                 else {
                     return Some(Task::none());
                 };
@@ -501,12 +490,7 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
                                     std::fs::read(path.as_path()).map_err(|err| err.to_string())?;
                                 let (bytes, size_opt) =
                                     prepare_image_bytes_for_canvas(&source, raw_bytes)?;
-                                Ok(Some(ImageImportPayload {
-                                    target,
-                                    source,
-                                    bytes,
-                                    size_opt,
-                                }))
+                                Ok(Some(ImageImportPayload { target, source, bytes, size_opt }))
                             },
                         )
                         .await
@@ -567,13 +551,9 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
 
                 Some(Task::perform(
                     async move {
-                        let (bytes, size_opt) = load_design_image_bytes_async(source.clone()).await?;
-                        Ok(ImageImportPayload {
-                            target,
-                            source,
-                            bytes,
-                            size_opt,
-                        })
+                        let (bytes, size_opt) =
+                            load_design_image_bytes_async(source.clone()).await?;
+                        Ok(ImageImportPayload { target, source, bytes, size_opt })
                     },
                     |result| Message::Design(DesignMessage::ImageImportResolved(result)),
                 ))
@@ -605,4 +585,3 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
         _ => None,
     }
 }
-

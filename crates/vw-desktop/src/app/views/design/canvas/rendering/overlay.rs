@@ -363,61 +363,58 @@ pub fn draw_hover_edit_overlay(
 
             // 如果是内容区域且有布局，递归显示其子元素
             if lower.contains("content")
-                && let Some(child_direction) = child_layout {
-                    let child_padding =
-                        parse_padding(&child.padding, &doc.variables, child_theme_mode);
-                    let child_container_size = if zoom.abs() > f32::EPSILON {
-                        Size::new(child_rect.width / zoom, child_rect.height / zoom)
-                    } else {
-                        Size::new(0.0, 0.0)
-                    };
-                    let child_content_size = Size::new(
-                        (child_container_size.width - child_padding.left - child_padding.right)
-                            .max(0.0),
-                        (child_container_size.height - child_padding.top - child_padding.bottom)
-                            .max(0.0),
-                    );
+                && let Some(child_direction) = child_layout
+            {
+                let child_padding = parse_padding(&child.padding, &doc.variables, child_theme_mode);
+                let child_container_size = if zoom.abs() > f32::EPSILON {
+                    Size::new(child_rect.width / zoom, child_rect.height / zoom)
+                } else {
+                    Size::new(0.0, 0.0)
+                };
+                let child_content_size = Size::new(
+                    (child_container_size.width - child_padding.left - child_padding.right)
+                        .max(0.0),
+                    (child_container_size.height - child_padding.top - child_padding.bottom)
+                        .max(0.0),
+                );
 
-                    // 计算孙子元素的布局
-                    let inner_layouts = compute_layout(
-                        child_direction,
-                        &child.children,
-                        child_content_size,
-                        child,
-                        doc,
-                        child_theme_mode,
-                    );
-                    // 为孙子元素绘制虚线边框
-                    for (grandchild, inner_layout) in
-                        child.children.iter().zip(inner_layouts.into_iter())
-                    {
-                        if !should_show_dashed(grandchild) {
-                            continue;
-                        }
-                        let gc_rect = Rectangle::new(
-                            Point::new(
-                                child_rect.x + (child_padding.left + inner_layout.offset.x) * zoom,
-                                child_rect.y + (child_padding.top + inner_layout.offset.y) * zoom,
-                            ),
-                            Size::new(
-                                inner_layout.size.width * zoom,
-                                inner_layout.size.height * zoom,
-                            ),
-                        );
-                        let gc_path = Path::rounded_rectangle(
-                            Point::new(gc_rect.x, gc_rect.y),
-                            Size::new(gc_rect.width, gc_rect.height),
-                            3.0.into(),
-                        );
-                        let mut stroke = Stroke {
-                            style: internal_border_color.into(),
-                            width: 1.0,
-                            ..Stroke::default()
-                        };
-                        stroke.line_dash = LineDash { segments: &dash_segments, offset: 0 };
-                        frame.stroke(&gc_path, stroke);
+                // 计算孙子元素的布局
+                let inner_layouts = compute_layout(
+                    child_direction,
+                    &child.children,
+                    child_content_size,
+                    child,
+                    doc,
+                    child_theme_mode,
+                );
+                // 为孙子元素绘制虚线边框
+                for (grandchild, inner_layout) in
+                    child.children.iter().zip(inner_layouts.into_iter())
+                {
+                    if !should_show_dashed(grandchild) {
+                        continue;
                     }
+                    let gc_rect = Rectangle::new(
+                        Point::new(
+                            child_rect.x + (child_padding.left + inner_layout.offset.x) * zoom,
+                            child_rect.y + (child_padding.top + inner_layout.offset.y) * zoom,
+                        ),
+                        Size::new(inner_layout.size.width * zoom, inner_layout.size.height * zoom),
+                    );
+                    let gc_path = Path::rounded_rectangle(
+                        Point::new(gc_rect.x, gc_rect.y),
+                        Size::new(gc_rect.width, gc_rect.height),
+                        3.0.into(),
+                    );
+                    let mut stroke = Stroke {
+                        style: internal_border_color.into(),
+                        width: 1.0,
+                        ..Stroke::default()
+                    };
+                    stroke.line_dash = LineDash { segments: &dash_segments, offset: 0 };
+                    frame.stroke(&gc_path, stroke);
                 }
+            }
         }
     }
 }

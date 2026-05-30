@@ -1,4 +1,7 @@
-use super::data::{AiDataConnectionDto, AiDataConnectionKind, AiDataCountMode, AiDataQueryRequest, AiDataReportSourceDto, AiDataSettings};
+use super::data::{
+    AiDataConnectionDto, AiDataConnectionKind, AiDataCountMode, AiDataQueryRequest,
+    AiDataReportSourceDto, AiDataSettings,
+};
 use serde_json::json;
 use std::collections::BTreeMap;
 

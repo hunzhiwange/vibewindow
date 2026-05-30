@@ -96,9 +96,10 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
             if app.project_path_input.is_empty() {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Ok(cd) = std::env::current_dir()
-                    && let Some(path) = cd.to_str() {
-                        return Some(app.open_project_and_index(path.to_string()));
-                    }
+                    && let Some(path) = cd.to_str()
+                {
+                    return Some(app.open_project_and_index(path.to_string()));
+                }
             } else {
                 return Some(app.open_project_and_index(app.project_path_input.clone()));
             }
@@ -303,10 +304,9 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
             if let Some(path) = app.project_path.clone() {
                 app.set_file_index(&path, result.files);
             }
-            if result.needs_refresh
-                && app.project_path.is_some() {
-                    return Some(crate::app::message::project::helpers::refresh_file_index(app));
-                }
+            if result.needs_refresh && app.project_path.is_some() {
+                return Some(crate::app::message::project::helpers::refresh_file_index(app));
+            }
             Some(iced::Task::none())
         }
         // 处理文件索引就绪事件

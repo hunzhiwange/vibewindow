@@ -7,10 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(not(target_arch = "wasm32"))]
 fn test_data_dir(test_name: &str) -> PathBuf {
-    let unique = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
+    let unique = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
     std::env::temp_dir().join(format!("vw-shared-{test_name}-{}-{unique}", std::process::id()))
 }
 

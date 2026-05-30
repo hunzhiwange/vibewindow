@@ -29,10 +29,7 @@ pub(crate) struct PromptCursor {
 impl PromptCursor {
     /// 把 cursor 放到给定文本末尾。
     pub(crate) fn at_end(value: &str) -> Self {
-        Self {
-            char_index: value.chars().count(),
-            preferred_column: None,
-        }
+        Self { char_index: value.chars().count(), preferred_column: None }
     }
 }
 
@@ -219,11 +216,7 @@ impl PromptState {
     /// 基于初始值创建 prompt 状态。
     pub(crate) fn new(value: impl Into<String>) -> Self {
         let value = value.into();
-        Self {
-            cursor: PromptCursor::at_end(&value),
-            value,
-            ..Self::default()
-        }
+        Self { cursor: PromptCursor::at_end(&value), value, ..Self::default() }
     }
 
     /// 覆盖当前输入值，并把 cursor 移到末尾。
@@ -253,7 +246,8 @@ impl PromptState {
         self.selected_suggestion_index = None;
         self.history.reset_navigation();
         let end = byte_index_for_char_index(&self.value, self.cursor.char_index);
-        let start = byte_index_for_char_index(&self.value, self.cursor.char_index.saturating_sub(1));
+        let start =
+            byte_index_for_char_index(&self.value, self.cursor.char_index.saturating_sub(1));
         self.value.replace_range(start..end, "");
         self.cursor.char_index = self.cursor.char_index.saturating_sub(1);
         self.cursor.preferred_column = None;
@@ -287,10 +281,7 @@ impl PromptState {
             }
             PromptMotion::Right => {
                 self.cursor.preferred_column = None;
-                self.cursor
-                    .char_index
-                    .saturating_add(1)
-                    .min(self.value.chars().count())
+                self.cursor.char_index.saturating_add(1).min(self.value.chars().count())
             }
             PromptMotion::Home => {
                 self.cursor.preferred_column = None;
@@ -316,10 +307,17 @@ impl PromptState {
         match motion {
             PromptMotion::Left => self.cursor.char_index > 0,
             PromptMotion::Right => self.cursor.char_index < self.value.chars().count(),
-            PromptMotion::Home => self.cursor.char_index > line_start_char_index(&self.value, self.cursor.char_index),
-            PromptMotion::End => self.cursor.char_index < line_end_char_index(&self.value, self.cursor.char_index),
+            PromptMotion::Home => {
+                self.cursor.char_index > line_start_char_index(&self.value, self.cursor.char_index)
+            }
+            PromptMotion::End => {
+                self.cursor.char_index < line_end_char_index(&self.value, self.cursor.char_index)
+            }
             PromptMotion::Up => current_line_index(&self.value, self.cursor.char_index) > 0,
-            PromptMotion::Down => current_line_index(&self.value, self.cursor.char_index) + 1 < line_count(&self.value),
+            PromptMotion::Down => {
+                current_line_index(&self.value, self.cursor.char_index) + 1
+                    < line_count(&self.value)
+            }
         }
     }
 
@@ -374,11 +372,7 @@ impl PromptState {
 
     /// 取出下一条待执行命令。
     pub(crate) fn pop_queued_command(&mut self) -> Option<QueuedPromptCommand> {
-        if self.queued_commands.is_empty() {
-            None
-        } else {
-            Some(self.queued_commands.remove(0))
-        }
+        if self.queued_commands.is_empty() { None } else { Some(self.queued_commands.remove(0)) }
     }
 
     /// 当前 prompt 是否处于 busy 状态。
@@ -408,7 +402,8 @@ impl PromptState {
             return false;
         }
 
-        self.cursor.char_index = char_index_for_line_column(&self.value, target_line, preferred_column);
+        self.cursor.char_index =
+            char_index_for_line_column(&self.value, target_line, preferred_column);
         self.cursor.preferred_column = Some(preferred_column);
         true
     }
@@ -432,11 +427,7 @@ impl PromptState {
 }
 
 fn byte_index_for_char_index(value: &str, char_index: usize) -> usize {
-    value
-        .char_indices()
-        .nth(char_index)
-        .map(|(index, _)| index)
-        .unwrap_or_else(|| value.len())
+    value.char_indices().nth(char_index).map(|(index, _)| index).unwrap_or_else(|| value.len())
 }
 
 fn line_count(value: &str) -> usize {

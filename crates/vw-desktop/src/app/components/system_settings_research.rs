@@ -177,12 +177,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let min_len_row = field_row(
         "最短消息",
         "触发方式为长度时的最小消息阈值。",
-        row![
-        min_len_slider,
-        settings_value_badge(format!("{} 字", s.min_message_length)),
-        ]
-        .spacing(16)
-        .align_y(Alignment::Center),
+        row![min_len_slider, settings_value_badge(format!("{} 字", s.min_message_length)),]
+            .spacing(16)
+            .align_y(Alignment::Center),
     );
 
     let max_iter_slider = slider(1.0..=100.0, s.max_iterations as f32, |v| {
@@ -193,12 +190,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let max_iter_row = field_row(
         "最大迭代",
         "限制单次 Research 的工具调用轮次。",
-        row![
-        max_iter_slider,
-        settings_value_badge(format!("{} 次", s.max_iterations)),
-        ]
-        .spacing(16)
-        .align_y(Alignment::Center),
+        row![max_iter_slider, settings_value_badge(format!("{} 次", s.max_iterations)),]
+            .spacing(16)
+            .align_y(Alignment::Center),
     );
 
     let progress_row = field_row(
@@ -206,9 +200,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "控制是否输出 Research 过程日志。",
         checkbox(s.show_progress)
             .label("显示 Research 过程日志")
-            .on_toggle(|v| Message::Settings(
-                message::SettingsMessage::ResearchShowProgressToggled(v)
-            ))
+            .on_toggle(|v| {
+                Message::Settings(message::SettingsMessage::ResearchShowProgressToggled(v))
+            })
             .style(settings_checkbox_style),
     );
 
@@ -217,20 +211,24 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "可选的自定义 research 指令前缀。",
         "可选，自定义 research 指令前缀",
         &s.system_prompt_prefix,
-        |v| {
-                Message::Settings(message::SettingsMessage::ResearchSystemPromptPrefixChanged(v))
-            },
+        |v| Message::Settings(message::SettingsMessage::ResearchSystemPromptPrefixChanged(v)),
     );
 
     let mut col = column![
         row![
-            container(settings_page_intro("研究配置", "配置 Research 预检阶段的触发条件、预算与日志输出。"))
-                .width(Length::Fill),
+            container(settings_page_intro(
+                "研究配置",
+                "配置 Research 预检阶段的触发条件、预算与日志输出。"
+            ))
+            .width(Length::Fill),
             help_btn
         ]
         .align_y(Alignment::Start),
         settings_section_card("基础行为", "控制研究阶段启用状态与触发方式。"),
-        settings_panel(column![enabled_row, settings_divider(), trigger_row, settings_divider(), keywords_row].spacing(0)),
+        settings_panel(
+            column![enabled_row, settings_divider(), trigger_row, settings_divider(), keywords_row]
+                .spacing(0)
+        ),
         keywords_hint,
         settings_section_card("预算与输出", "配置长度阈值、最大迭代和过程输出。"),
         settings_panel(

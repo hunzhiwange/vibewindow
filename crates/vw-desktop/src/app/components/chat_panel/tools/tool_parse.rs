@@ -13,8 +13,8 @@ use serde_json::{Map, Value};
 
 use crate::app::components::chat_panel::utils::normalize_file_reference_to_path;
 
-use super::types::{ChangeFile, ChangeFileSummary};
 use super::super::tool_names::canonical_tool_name;
+use super::types::{ChangeFile, ChangeFileSummary};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExploreToolKind {
@@ -78,14 +78,7 @@ pub fn tool_name_from_raw(raw: &str) -> Option<String> {
 }
 
 fn call_id_from_object(object: &Map<String, Value>) -> Option<String> {
-    [
-        "tool_call_id",
-        "toolCallId",
-        "call_id",
-        "callId",
-        "tool_use_id",
-        "toolUseId",
-    ]
+    ["tool_call_id", "toolCallId", "call_id", "callId", "tool_use_id", "toolUseId"]
         .into_iter()
         .filter_map(|key| object.get(key))
         .filter_map(Value::as_str)
@@ -186,9 +179,7 @@ fn result_object(value: &Value) -> Option<&Map<String, Value>> {
 }
 
 pub(crate) fn tool_result_data(value: &Value) -> Option<&Value> {
-    result_object(value)
-        .and_then(|result| result.get("data"))
-        .or_else(|| value.get("data"))
+    result_object(value).and_then(|result| result.get("data")).or_else(|| value.get("data"))
 }
 
 fn render_hint_object(value: &Value) -> Option<&Map<String, Value>> {
@@ -206,11 +197,9 @@ fn render_hint_object(value: &Value) -> Option<&Map<String, Value>> {
         })
 }
 
-    pub(crate) fn tool_render_hint_metadata(value: &Value) -> Option<&Map<String, Value>> {
-        render_hint_object(value)
-        .and_then(|hint| hint.get("metadata"))
-        .and_then(Value::as_object)
-    }
+pub(crate) fn tool_render_hint_metadata(value: &Value) -> Option<&Map<String, Value>> {
+    render_hint_object(value).and_then(|hint| hint.get("metadata")).and_then(Value::as_object)
+}
 
 fn extract_text_value(value: &Value) -> Option<String> {
     match value {
@@ -297,11 +286,8 @@ fn structured_patch_hunks(value: &Value) -> Vec<StructuredPatchHunkView> {
             if path.is_empty() {
                 continue;
             }
-            let header = raw_hunk
-                .get("header")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string();
+            let header =
+                raw_hunk.get("header").and_then(Value::as_str).unwrap_or_default().to_string();
             let lines = raw_hunk
                 .get("lines")
                 .and_then(Value::as_array)
@@ -324,10 +310,7 @@ pub fn tool_status(value: &Value) -> &str {
     if let Some(status) = value.get("status").and_then(Value::as_str) {
         return status;
     }
-    match result_object(value)
-        .and_then(|result| result.get("success"))
-        .and_then(Value::as_bool)
-    {
+    match result_object(value).and_then(|result| result.get("success")).and_then(Value::as_bool) {
         Some(true) => "completed",
         Some(false) => "error",
         None => "",
@@ -351,7 +334,9 @@ pub fn tool_output_text(value: &Value) -> Option<String> {
                 .and_then(|result| result.get("model_result"))
                 .and_then(extract_text_value)
         })
-        .or_else(|| result_object(value).and_then(|result| result.get("data")).and_then(extract_text_value))
+        .or_else(|| {
+            result_object(value).and_then(|result| result.get("data")).and_then(extract_text_value)
+        })
         .or_else(|| tool_structured_diff_text(value))
 }
 
@@ -362,13 +347,7 @@ pub fn tool_error_text(value: &Value) -> Option<String> {
         .map(str::trim)
         .filter(|text| !text.is_empty())
         .map(ToString::to_string)
-        .or_else(|| {
-            if tool_status(value) == "error" {
-                tool_output_text(value)
-            } else {
-                None
-            }
-        })
+        .or_else(|| if tool_status(value) == "error" { tool_output_text(value) } else { None })
 }
 
 pub fn tool_summary_text(value: &Value) -> Option<String> {

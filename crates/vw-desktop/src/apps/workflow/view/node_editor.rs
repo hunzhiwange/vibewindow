@@ -182,7 +182,11 @@ pub(super) fn build_node_editor_tabs(
     let mut tabs = row![].spacing(8);
 
     if has_visual_tab {
-        tabs = tabs.push(build_node_editor_tab_button("配置", WorkflowNodeEditorTab::Visual, active_tab));
+        tabs = tabs.push(build_node_editor_tab_button(
+            "配置",
+            WorkflowNodeEditorTab::Visual,
+            active_tab,
+        ));
     }
 
     tabs = tabs

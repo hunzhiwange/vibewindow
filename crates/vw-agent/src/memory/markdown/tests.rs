@@ -28,6 +28,16 @@ fn temp_workspace() -> (TempDir, MarkdownMemory) {
     (tmp, mem)
 }
 
+#[test]
+fn markdown_memory_uses_user_scoped_data_dir() {
+    let workspace = TempDir::new().unwrap();
+    let storage = paths::project_data_dir(workspace.path()).unwrap();
+    let mem = MarkdownMemory::new(workspace.path());
+
+    assert!(mem.core_path().starts_with(&storage));
+    assert!(!mem.core_path().starts_with(workspace.path()));
+}
+
 /// 测试 MarkdownMemory 的名称标识
 ///
 /// 验证 MarkdownMemory 实例返回正确的后端名称标识符 "markdown"，

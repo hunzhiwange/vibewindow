@@ -254,8 +254,8 @@ pub async fn start_channels(config: Config) -> Result<()> {
         "Send a Pushover notification to your device. Requires PUSHOVER_TOKEN and PUSHOVER_USER_KEY in .env file.",
     ));
 
-    // 如果配置了子代理，添加代理相关工具
-    if !config.agents.is_empty() {
+    // 如果实际注册了子代理工具，添加代理相关工具说明。
+    if tools_registry.iter().any(|tool| tool.name() == "AgentTool") {
         tool_descs.push((
             "AgentTool",
             "Launch a specialized agent through a single unified interface. Use it for synchronous sub-agent execution or background agent sessions, and use action=list/get/stop to inspect or control running sessions.",

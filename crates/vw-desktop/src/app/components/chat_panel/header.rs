@@ -27,9 +27,7 @@ use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
 use super::utils::{get_session_title, icon_svg, mix_color};
 use crate::app::assets::Icon;
-use crate::app::components::input_panel::styles::{
-    round_icon_button_style, tooltip_dark_style,
-};
+use crate::app::components::input_panel::styles::{round_icon_button_style, tooltip_dark_style};
 use crate::app::components::input_panel::usage::{
     UsageRing, get_usage_details, get_usage_rate_percent,
 };
@@ -37,31 +35,10 @@ use crate::app::components::overlays::BelowOverlay;
 use crate::app::components::status_animation::spinner_frame;
 use crate::app::{App, Message, message};
 
-fn header_surface_style(theme: &Theme) -> iced::widget::container::Style {
-    let is_dark = theme.palette().background.r
-        + theme.palette().background.g
-        + theme.palette().background.b
-        < 1.5;
+fn header_surface_style(_theme: &Theme) -> iced::widget::container::Style {
     iced::widget::container::Style {
-        background: Some(Background::Color(if is_dark {
-            Color::from_rgba8(20, 21, 24, 0.96)
-        } else {
-            Color::from_rgba8(252, 252, 253, 1.0)
-        })),
-        border: Border {
-            width: 1.0,
-            color: if is_dark {
-                Color::from_rgba8(44, 47, 53, 0.94)
-            } else {
-                Color::from_rgba8(226, 231, 237, 1.0)
-            },
-            radius: 16.0.into(),
-        },
-        shadow: iced::Shadow {
-            color: Color::BLACK.scale_alpha(if is_dark { 0.16 } else { 0.04 }),
-            offset: iced::Vector::new(0.0, 8.0),
-            blur_radius: 24.0,
-        },
+        background: None,
+        border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 0.0.into() },
         ..Default::default()
     }
 }
@@ -205,6 +182,35 @@ fn get_session_status(app: &App) -> (bool, usize, bool, f32, Color) {
     }
 }
 
+pub(super) fn header_icon_button<'a>(
+    icon: Icon,
+    tooltip_label: &'static str,
+    msg: Message,
+) -> Element<'a, Message> {
+    let icon = icon_svg(icon).width(Length::Fixed(13.0)).height(Length::Fixed(13.0)).style(
+        |theme: &Theme, _status| svg::Style { color: Some(theme.palette().text.scale_alpha(0.88)) },
+    );
+
+    let content = container(icon)
+        .width(Length::Fixed(26.0))
+        .height(Length::Fixed(26.0))
+        .align_x(iced::alignment::Horizontal::Center)
+        .align_y(iced::alignment::Vertical::Center);
+
+    let button = button(content)
+        .padding(0)
+        .style(|theme: &Theme, status| round_icon_button_style(theme, status, true))
+        .on_press(msg);
+
+    Tooltip::new(
+        button,
+        container(text(tooltip_label).size(12)).padding([6, 8]).style(tooltip_dark_style),
+        TooltipPosition::Bottom,
+    )
+    .gap(6)
+    .into()
+}
+
 /// 构建聊天面板的头部视图
 ///
 /// 创建包含会话标题、状态指示器、工作区徽章、使用率统计和操作菜单的头部栏。
@@ -273,11 +279,11 @@ pub fn chat_header_view(app: &App) -> Element<'_, Message> {
             badges_row = badges_row.push(
                 container(
                     row![
-                        text(spinner_frame(app.status_animation_frame))
-                            .size(9)
-                            .style(move |_: &Theme| iced::widget::text::Style {
+                        text(spinner_frame(app.status_animation_frame)).size(9).style(
+                            move |_: &Theme| iced::widget::text::Style {
                                 color: Some(running_badge_color),
-                            }),
+                            }
+                        ),
                         text("运行中").size(9)
                     ]
                     .spacing(4)
@@ -324,13 +330,28 @@ pub fn chat_header_view(app: &App) -> Element<'_, Message> {
         })
         .into();
 
+    let half_fullscreen_button = header_icon_button(
+        Icon::LayoutTextWindow,
+        "半屏",
+        Message::Chat(message::ChatMessage::ToggleHalfFullscreen),
+    );
+
+    let fullscreen_icon =
+        if app.chat_panel_fullscreen { Icon::FullscreenExit } else { Icon::Fullscreen };
+    let fullscreen_label = if app.chat_panel_fullscreen { "退出全屏" } else { "全屏" };
+    let fullscreen_button = header_icon_button(
+        fullscreen_icon,
+        fullscreen_label,
+        Message::Chat(message::ChatMessage::ToggleFullscreen),
+    );
+
     let usage_ring = canvas(UsageRing { percent: usage_percent })
-        .width(Length::Fixed(22.0))
-        .height(Length::Fixed(22.0));
+        .width(Length::Fixed(20.0))
+        .height(Length::Fixed(20.0));
 
     let usage_btn_inner = container(usage_ring)
-        .width(Length::Fixed(32.0))
-        .height(Length::Fixed(32.0))
+        .width(Length::Fixed(28.0))
+        .height(Length::Fixed(28.0))
         .align_x(iced::alignment::Horizontal::Center)
         .align_y(iced::alignment::Vertical::Center);
 
@@ -363,13 +384,13 @@ pub fn chat_header_view(app: &App) -> Element<'_, Message> {
         Tooltip::new(usage_btn, usage_tooltip_content, TooltipPosition::Bottom).into();
 
     let session_menu_icon = icon_svg(Icon::Gear)
-        .width(Length::Fixed(14.0))
-        .height(Length::Fixed(14.0))
+        .width(Length::Fixed(13.0))
+        .height(Length::Fixed(13.0))
         .style(|theme: &Theme, _status| svg::Style { color: Some(theme.palette().text) });
 
     let session_menu_content = container(session_menu_icon)
-        .width(Length::Fixed(32.0))
-        .height(Length::Fixed(32.0))
+        .width(Length::Fixed(28.0))
+        .height(Length::Fixed(28.0))
         .align_x(iced::alignment::Horizontal::Center)
         .align_y(iced::alignment::Vertical::Center);
 
@@ -397,13 +418,15 @@ pub fn chat_header_view(app: &App) -> Element<'_, Message> {
             left,
             Space::new().width(Length::Fill),
             usage_rate_btn,
-            session_menu_btn
+            session_menu_btn,
+            half_fullscreen_button,
+            fullscreen_button
         ]
-            .spacing(10)
-            .align_y(Alignment::Center),
+        .spacing(10)
+        .align_y(Alignment::Center),
     )
     .width(Length::Fill)
-    .padding(iced::Padding { top: 10.0, right: 12.0, bottom: 10.0, left: 12.0 })
+    .padding(iced::Padding { top: 6.0, right: 10.0, bottom: 6.0, left: 10.0 })
     .style(header_surface_style)
     .into()
 }

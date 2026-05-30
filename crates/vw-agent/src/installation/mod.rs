@@ -6,7 +6,6 @@
 use crate::app::agent::bus;
 use crate::app::agent::flag;
 use crate::app::agent::util::log;
-use std::sync::LazyLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::cmp::Ordering;
@@ -14,6 +13,7 @@ use std::env;
 use std::fmt;
 use std::path::Path;
 use std::process::{Command, Output};
+use std::sync::LazyLock;
 
 static LOGGER: LazyLock<log::Logger> = LazyLock::new(|| {
     let mut tags = Map::new();

@@ -28,14 +28,11 @@ async fn session_query_engine(
 
     let config = state.config.lock().clone();
     let created = Arc::new(tokio::sync::Mutex::new(
-        crate::app::agent::agent::loop_::query_engine::QueryEngine::new(config, session_id)
-            .await?,
+        crate::app::agent::agent::loop_::query_engine::QueryEngine::new(config, session_id).await?,
     ));
 
     let mut engines = state.session_query_engines.lock().await;
-    Ok(Arc::clone(
-        engines.entry(session_id.to_string()).or_insert_with(|| Arc::clone(&created)),
-    ))
+    Ok(Arc::clone(engines.entry(session_id.to_string()).or_insert_with(|| Arc::clone(&created))))
 }
 
 pub(crate) async fn invalidate_session_query_engine(state: &AppState, session_id: &str) {
@@ -65,10 +62,7 @@ pub(crate) async fn fork_session_query_engine(
     forked_engine.restore_snapshot(snapshot);
 
     let mut engines = state.session_query_engines.lock().await;
-    engines.insert(
-        target_session_id.to_string(),
-        Arc::new(tokio::sync::Mutex::new(forked_engine)),
-    );
+    engines.insert(target_session_id.to_string(), Arc::new(tokio::sync::Mutex::new(forked_engine)));
     Ok(())
 }
 
@@ -235,9 +229,8 @@ pub fn sanitize_gateway_response(response: &str, tools: &[Box<dyn Tool>]) -> Str
     // 调用通道响应净化函数进行内容清理
     let sanitized = crate::app::agent::channels::sanitize_channel_response(response, tools);
     let sanitized = truncate_with_ellipsis(&sanitized, 16_000);
-    let sanitized = sanitized.strip_suffix("...").map_or(sanitized.clone(), |prefix| {
-        format!("{prefix}…")
-    });
+    let sanitized =
+        sanitized.strip_suffix("...").map_or(sanitized.clone(), |prefix| format!("{prefix}…"));
     // 检查净化结果：如果净化后为空但原始内容非空，说明发生了内容丢失
     if sanitized.is_empty() && !response.trim().is_empty() {
         // 返回友好的错误提示，避免返回空响应

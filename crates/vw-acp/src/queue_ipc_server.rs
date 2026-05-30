@@ -29,21 +29,21 @@ use tokio::sync::{Mutex as AsyncMutex, Notify, watch};
 #[cfg(unix)]
 use tokio::task::JoinHandle;
 
+#[cfg(not(unix))]
+use crate::NonInteractivePermissionPolicy;
 use crate::errors::QueueConnectionError;
 #[cfg(unix)]
 use crate::perf_metrics::record_perf_duration;
 use crate::prompt_content::PromptInput;
+use crate::queue_messages::QueueOwnerMessage;
 #[cfg(unix)]
 use crate::queue_messages::{QueueRequest, parse_queue_request};
-use crate::queue_messages::QueueOwnerMessage;
 #[cfg(unix)]
 use crate::types::{OutputErrorCode, OutputErrorOrigin, PermissionMode, SessionResumePolicy};
 #[cfg(not(unix))]
 use crate::types::{PermissionMode, SessionResumePolicy};
 #[cfg(unix)]
 use crate::{NonInteractivePermissionPolicy, text_prompt};
-#[cfg(not(unix))]
-use crate::NonInteractivePermissionPolicy;
 
 /// 当前队列所有者占有的套接字租约信息。
 ///

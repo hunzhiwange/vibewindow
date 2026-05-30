@@ -4,6 +4,8 @@
 
 use super::*;
 use serde_yaml::Value;
+#[cfg(not(target_arch = "wasm32"))]
+use std::fmt::Write as _;
 
 #[cfg(test)]
 #[path = "utils_tests.rs"]
@@ -82,9 +84,7 @@ pub(super) fn wrap_text_lines(text: &str, max_width: usize, max_lines: usize) ->
 }
 
 pub(super) fn display_width(text: &str) -> usize {
-    text.chars()
-        .map(|ch| UnicodeWidthChar::width(ch).unwrap_or(1).max(1))
-        .sum()
+    text.chars().map(|ch| UnicodeWidthChar::width(ch).unwrap_or(1).max(1)).sum()
 }
 
 pub(super) fn accent_color(kind: &str) -> Color {
@@ -110,11 +110,7 @@ pub(super) fn node_glyph(kind: &str) -> &'static str {
 }
 
 pub(super) fn line_block_height(line_count: usize, font_size: f32, line_step: f32) -> f32 {
-    if line_count == 0 {
-        0.0
-    } else {
-        font_size + line_step * line_count.saturating_sub(1) as f32
-    }
+    if line_count == 0 { 0.0 } else { font_size + line_step * line_count.saturating_sub(1) as f32 }
 }
 
 pub(super) fn start_variable_badge_text(value_type: &str) -> &'static str {
@@ -252,11 +248,8 @@ pub(crate) fn export_svg(document: &WorkflowDocument) -> String {
     let text_secondary = Color::from_rgba8(71, 85, 105, 0.92);
 
     let handle_slots = build_handle_slots(document);
-    let node_map = document
-        .nodes
-        .iter()
-        .map(|node| (node.id.as_str(), node))
-        .collect::<HashMap<_, _>>();
+    let node_map =
+        document.nodes.iter().map(|node| (node.id.as_str(), node)).collect::<HashMap<_, _>>();
     let mut edges = document.edges.iter().collect::<Vec<_>>();
     edges.sort_by(|left, right| left.z_index.total_cmp(&right.z_index));
     let mut nodes = document.nodes.iter().collect::<Vec<_>>();
@@ -266,12 +259,7 @@ pub(crate) fn export_svg(document: &WorkflowDocument) -> String {
     let _ = writeln!(
         svg,
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{:.0}\" height=\"{:.0}\" viewBox=\"{:.2} {:.2} {:.2} {:.2}\">",
-        view_width,
-        view_height,
-        view_x,
-        view_y,
-        view_width,
-        view_height,
+        view_width, view_height, view_x, view_y, view_width, view_height,
     );
     let _ = writeln!(
         svg,
@@ -375,18 +363,23 @@ pub(crate) fn export_svg(document: &WorkflowDocument) -> String {
         let title_x = rect.x + 14.0 + 24.0 + 12.0;
         let title_width = (rect.x + rect.width - title_x - 14.0).max(rect.width - 96.0);
         let title_max_chars = (title_width / (title_font_size * 0.63)).floor().max(8.0) as usize;
-        let title_lines = wrap_text_lines(&title, title_max_chars, if rect.height > 120.0 { 2 } else { 1 });
-        let desc_max_chars = ((rect.width - 28.0) / (desc_font_size * 0.62)).floor().max(10.0) as usize;
-        let desc_lines = if !show_start_variables && rect.height >= 84.0 && !description.trim().is_empty() {
+        let title_lines =
+            wrap_text_lines(&title, title_max_chars, if rect.height > 120.0 { 2 } else { 1 });
+        let desc_max_chars =
+            ((rect.width - 28.0) / (desc_font_size * 0.62)).floor().max(10.0) as usize;
+        let desc_lines = if !show_start_variables
+            && rect.height >= 84.0
+            && !description.trim().is_empty()
+        {
             wrap_text_lines(&description, desc_max_chars, if rect.height > 140.0 { 3 } else { 2 })
         } else {
             Vec::new()
         };
-        let title_block_height = line_block_height(title_lines.len(), title_font_size, title_line_step);
+        let title_block_height =
+            line_block_height(title_lines.len(), title_font_size, title_line_step);
         let desc_block_height = line_block_height(desc_lines.len(), desc_font_size, desc_line_step);
         let start_variable_block_height = if show_start_variables {
-            14.0
-                + start_variables.len() as f32 * 34.0
+            14.0 + start_variables.len() as f32 * 34.0
                 + start_variables.len().saturating_sub(1) as f32 * 8.0
         } else {
             0.0
@@ -394,12 +387,7 @@ pub(crate) fn export_svg(document: &WorkflowDocument) -> String {
         let text_block_height = if show_start_variables {
             title_block_height + start_variable_block_height
         } else {
-            title_block_height
-                + if desc_lines.is_empty() {
-                    0.0
-                } else {
-                    10.0 + desc_block_height
-                }
+            title_block_height + if desc_lines.is_empty() { 0.0 } else { 10.0 + desc_block_height }
         };
         let content_block_height = if show_start_variables {
             24.0_f32.max(title_block_height) + start_variable_block_height
@@ -480,9 +468,8 @@ pub(crate) fn export_svg(document: &WorkflowDocument) -> String {
 
         if show_start_variables {
             let row_width = rect.width - 28.0;
-            let row_label_max_chars = ((row_width - 24.0 - 18.0 - 10.0) / (12.0 * 0.62))
-                .floor()
-                .max(6.0) as usize;
+            let row_label_max_chars =
+                ((row_width - 24.0 - 18.0 - 10.0) / (12.0 * 0.62)).floor().max(6.0) as usize;
 
             for (index, variable) in start_variables.iter().enumerate() {
                 let row_x = rect.x + 14.0;

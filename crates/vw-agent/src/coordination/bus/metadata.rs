@@ -1,7 +1,5 @@
 use crate::app::agent::coordination::bus::InMemoryMessageBus;
-use crate::app::agent::coordination::types::{
-    InMemoryMessageBusLimits, InMemoryMessageBusStats,
-};
+use crate::app::agent::coordination::types::{InMemoryMessageBusLimits, InMemoryMessageBusStats};
 
 #[cfg(test)]
 #[path = "metadata_tests.rs"]

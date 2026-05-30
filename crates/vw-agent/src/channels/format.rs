@@ -214,7 +214,8 @@ pub(crate) fn strip_tool_call_tags(message: &str) -> String {
 
         // 如果未找到闭标签，尝试提取 JSON 后的位置
         if let Some(consumed_end) = extract_first_json_end(after_open) {
-            remaining = trim_block_close_boundary(strip_leading_close_tags(&after_open[consumed_end..]));
+            remaining =
+                trim_block_close_boundary(strip_leading_close_tags(&after_open[consumed_end..]));
             continue;
         }
 

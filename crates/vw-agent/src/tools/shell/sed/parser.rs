@@ -67,9 +67,9 @@ impl SedEdit {
         let SedValidationResult::Allowed { kind, in_place, files, extended_regex } = validation
         else {
             let SedValidationResult::Blocked { reason } = validation else { unreachable!() };
-            if parse_invocation(cmd).is_some_and(|invocation| {
-                invocation.in_place && invocation.script.starts_with('s')
-            }) {
+            if parse_invocation(cmd)
+                .is_some_and(|invocation| invocation.in_place && invocation.script.starts_with('s'))
+            {
                 return Err(SedParseError::MalformedSubstitute);
             }
             return Err(SedParseError::Validation(reason));

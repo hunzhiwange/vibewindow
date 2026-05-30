@@ -69,10 +69,11 @@ impl<'a> SvgPathParser<'a> {
     fn next_command(&mut self) -> Option<char> {
         self.skip_whitespace();
         if let Some(c) = self.current_char
-            && c.is_ascii_alphabetic() {
-                self.advance();
-                return Some(c);
-            }
+            && c.is_ascii_alphabetic()
+        {
+            self.advance();
+            return Some(c);
+        }
         None
     }
 
@@ -81,21 +82,23 @@ impl<'a> SvgPathParser<'a> {
         let mut num_str = String::new();
 
         if let Some(c) = self.current_char
-            && (c == '-' || c == '+') {
-                num_str.push(c);
-                self.advance();
-            }
+            && (c == '-' || c == '+')
+        {
+            num_str.push(c);
+            self.advance();
+        }
 
         let mut has_dot = false;
         let mut has_digits = false;
 
         // Check for leading dot
         if let Some(c) = self.current_char
-            && c == '.' {
-                has_dot = true;
-                num_str.push(c);
-                self.advance();
-            }
+            && c == '.'
+        {
+            has_dot = true;
+            num_str.push(c);
+            self.advance();
+        }
 
         while let Some(c) = self.current_char {
             if c.is_ascii_digit() {
@@ -129,10 +132,11 @@ impl<'a> SvgPathParser<'a> {
     fn next_flag(&mut self) -> Option<f32> {
         self.skip_whitespace();
         if let Some(c) = self.current_char
-            && (c == '0' || c == '1') {
-                self.advance();
-                return Some(if c == '1' { 1.0 } else { 0.0 });
-            }
+            && (c == '0' || c == '1')
+        {
+            self.advance();
+            return Some(if c == '1' { 1.0 } else { 0.0 });
+        }
         None
     }
 }

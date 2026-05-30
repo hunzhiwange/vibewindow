@@ -12,18 +12,18 @@
 //!
 //! 该模块属于输入面板（input_panel）组件的一部分，负责渲染任务模式下的配置表单。
 
-use iced::widget::svg;
-use iced::widget::scrollable::{Direction, Scrollbar};
-use iced::widget::{Space, button, column, container, row, text, text_editor, text_input};
 use iced::widget::scrollable;
+use iced::widget::scrollable::{Direction, Scrollbar};
+use iced::widget::svg;
+use iced::widget::{Space, button, column, container, row, text, text_editor, text_input};
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
 use crate::app::assets::Icon;
 use crate::app::components::input_panel::icons::{acp_agent_icon, icon_svg};
 use crate::app::components::input_panel::styles::{
     popover_style, selectable_list_button_style, selector_chevron_color, selector_label_font,
-    selector_pill_button_style, selector_text_color,
-    square_icon_button_style, subtask_editor_style,
+    selector_pill_button_style, selector_text_color, square_icon_button_style,
+    subtask_editor_style,
 };
 use crate::app::components::overlays::AboveOverlay;
 use crate::app::state::SessionRuntimeState;
@@ -250,12 +250,11 @@ pub fn task_mode_form<'a>(
     let executor_toggle = button(
         row![
             acp_agent_icon(effective_acp_agent.as_deref().unwrap_or("ACP 智能体"), 14.0),
-            text(label)
-                .size(13)
-                .font(selector_label_font())
-                .style(move |theme: &Theme| iced::widget::text::Style {
-                    color: Some(selector_text_color(theme, highlight_toggle))
-                }),
+            text(label).size(13).font(selector_label_font()).style(move |theme: &Theme| {
+                iced::widget::text::Style {
+                    color: Some(selector_text_color(theme, highlight_toggle)),
+                }
+            }),
             icon_svg(Icon::ChevronDown, 14.0).style(move |theme: &Theme, _| svg::Style {
                 color: Some(selector_chevron_color(theme, highlight_toggle)),
             })
@@ -263,9 +262,7 @@ pub fn task_mode_form<'a>(
         .spacing(8)
         .align_y(Alignment::Center),
     )
-    .style(move |theme: &Theme, status| {
-        selector_pill_button_style(theme, status, highlight_toggle)
-    })
+    .style(move |theme: &Theme, status| selector_pill_button_style(theme, status, highlight_toggle))
     .padding([6, 12])
     .on_press(Message::View(message::ViewMessage::ToggleExecutorPopover));
 

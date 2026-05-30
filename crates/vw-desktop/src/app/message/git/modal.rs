@@ -2,8 +2,10 @@
 //!
 //! 注释聚焦模块职责、消息边界和失败处理方式，帮助维护者在不改变逻辑的前提下理解代码。
 
-use super::shared::{configure_git_code_editor, dismiss_preview_transient_ui, text_too_large_for_code_editor};
 use super::GitMessage;
+use super::shared::{
+    configure_git_code_editor, dismiss_preview_transient_ui, text_too_large_for_code_editor,
+};
 use crate::app::{App, Message, state::ChatTextDiff};
 use iced::Task;
 
@@ -71,8 +73,10 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
             app.show_git_custom_diff_modal = true;
             app.git_custom_diff_hide_inputs = true;
             app.git_custom_diff_title = title;
-            app.git_custom_diff_before_editor = iced::widget::text_editor::Content::with_text(&before);
-            app.git_custom_diff_after_editor = iced::widget::text_editor::Content::with_text(&after);
+            app.git_custom_diff_before_editor =
+                iced::widget::text_editor::Content::with_text(&before);
+            app.git_custom_diff_after_editor =
+                iced::widget::text_editor::Content::with_text(&after);
             app.active_preview_path = None;
             app.show_diff = true;
             Task::none()
@@ -92,6 +96,8 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
             Task::none()
         }
         GitMessage::OpenDiffCopyMode(file) => {
+            #[cfg(target_arch = "wasm32")]
+            let _ = &file;
             #[cfg(not(target_arch = "wasm32"))]
             let mut patch = String::new();
             #[cfg(target_arch = "wasm32")]
@@ -197,4 +203,3 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
         _ => unreachable!("unexpected modal git message"),
     }
 }
-

@@ -161,11 +161,7 @@ fn memory_usage_label(memory_usage_bytes: Option<u64>) -> String {
 }
 
 fn non_empty_preview(value: &str) -> String {
-    if value.trim().is_empty() {
-        "(empty)".to_string()
-    } else {
-        value.to_string()
-    }
+    if value.trim().is_empty() { "(empty)".to_string() } else { value.to_string() }
 }
 
 fn preview_panel_style(theme: &Theme) -> iced::widget::container::Style {

@@ -42,7 +42,7 @@ use crate::app::views::design::properties::fill::ActiveFillPicker;
 use crate::app::views::design::properties::icon::ActiveIconPicker;
 use crate::app::views::design::properties::typography::ActiveFontPicker;
 use crate::app::views::design::state::{DesignPlannerCorner, DesignSettingsTab, DesignState};
-use crate::app::{DiffTheme, FocusArea, PreviewTab, Screen, SettingsTab};
+use crate::app::{DiffTheme, FocusArea, PreviewTab, Screen, SettingsTab, TodoPanelPlacement};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::app::{LspHoverPending, LspProgress};
 use vw_config_types::automation::ResearchTrigger;
@@ -50,6 +50,7 @@ use vw_config_types::tools::HttpRequestConfig;
 
 mod agent;
 mod app_state;
+mod pet;
 mod presentation;
 mod redis;
 mod runtime_tools;
@@ -62,18 +63,13 @@ mod runtime_tools_tests;
 pub(crate) use agent::*;
 pub use app_state::{App, CookieConfig, RecentProjectMeta, WebBookmark};
 pub(crate) use app_state::{
-    Notification,
-    Toast,
-    ToastKind,
-    default_recent_project_session_auto_refresh,
+    Notification, Toast, ToastKind, default_recent_project_session_auto_refresh,
     default_recent_project_session_refresh_interval_seconds,
 };
+pub(crate) use pet::*;
 pub use presentation::AppTab;
 pub(crate) use presentation::{
-    ConventionalCommitType,
-    ExternalOpenApp,
-    ModelPopoverHover,
-    RuntimePlatform,
+    ConventionalCommitType, ExternalOpenApp, ModelPopoverHover, RuntimePlatform,
 };
 pub(crate) use redis::*;
 pub(crate) use runtime_tools::*;

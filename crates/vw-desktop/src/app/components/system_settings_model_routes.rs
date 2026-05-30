@@ -54,8 +54,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let s = &app.model_routes_settings;
 
     let header = row![
-        container(settings_page_intro("模型路由", "将匹配模式映射到指定 provider/model，并与查询分类优先级保持一致。"))
-            .width(Length::Fill),
+        container(settings_page_intro(
+            "模型路由",
+            "将匹配模式映射到指定 provider/model，并与查询分类优先级保持一致。"
+        ))
+        .width(Length::Fill),
         button(text("新增路由"))
             .on_press(Message::Settings(
                 SettingsMessage::ModelRoutes(ModelRoutesMessage::AddRoute,)
@@ -68,7 +71,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let mut list = column![
         header,
-        settings_section_card("路由规则", "优先级越高的规则越先命中，并会同步到 query classification。"),
+        settings_section_card(
+            "路由规则",
+            "优先级越高的规则越先命中，并会同步到 query classification。"
+        ),
     ]
     .spacing(16);
 
@@ -78,9 +84,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     if s.routes.is_empty() {
         list = list.push(settings_panel(
-            column![text("暂无模型路由，点击右上角“新增路由”开始配置")
-                .size(13)
-                .style(settings_muted_text_style)]
+            column![
+                text("暂无模型路由，点击右上角“新增路由”开始配置")
+                    .size(13)
+                    .style(settings_muted_text_style)
+            ]
             .spacing(0),
         ));
     }
@@ -106,9 +114,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
                             "匹配模式",
                             "定义命中的任务场景，例如 reasoning / fast / code。",
                             text_input("如：reasoning / fast / code", &route.pattern)
-                                .on_input(move |value| Message::Settings(SettingsMessage::ModelRoutes(
-                                    ModelRoutesMessage::PatternChanged(idx, value),
-                                )))
+                                .on_input(move |value| Message::Settings(
+                                    SettingsMessage::ModelRoutes(
+                                        ModelRoutesMessage::PatternChanged(idx, value),
+                                    )
+                                ))
                                 .padding([10, 12])
                                 .size(13)
                                 .style(settings_text_input_style)
@@ -118,9 +128,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
                             "提供商",
                             "命中后要切换到的 provider。",
                             text_input("如：openai", &route.provider)
-                                .on_input(move |value| Message::Settings(SettingsMessage::ModelRoutes(
-                                    ModelRoutesMessage::ProviderChanged(idx, value),
-                                )))
+                                .on_input(move |value| Message::Settings(
+                                    SettingsMessage::ModelRoutes(
+                                        ModelRoutesMessage::ProviderChanged(idx, value),
+                                    )
+                                ))
                                 .padding([10, 12])
                                 .size(13)
                                 .style(settings_text_input_style)
@@ -130,9 +142,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
                             "模型",
                             "命中后优先使用的模型。",
                             text_input("如：gpt-5", &route.model)
-                                .on_input(move |value| Message::Settings(SettingsMessage::ModelRoutes(
-                                    ModelRoutesMessage::ModelChanged(idx, value),
-                                )))
+                                .on_input(move |value| Message::Settings(
+                                    SettingsMessage::ModelRoutes(ModelRoutesMessage::ModelChanged(
+                                        idx, value
+                                    ),)
+                                ))
                                 .padding([10, 12])
                                 .size(13)
                                 .style(settings_text_input_style)
@@ -142,9 +156,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
                             "优先级",
                             "越大优先级越高；保存时同步生成 query_classification 规则。",
                             text_input("0", &route.priority_input)
-                                .on_input(move |value| Message::Settings(SettingsMessage::ModelRoutes(
-                                    ModelRoutesMessage::PriorityChanged(idx, value),
-                                )))
+                                .on_input(move |value| Message::Settings(
+                                    SettingsMessage::ModelRoutes(
+                                        ModelRoutesMessage::PriorityChanged(idx, value),
+                                    )
+                                ))
                                 .padding([10, 12])
                                 .size(13)
                                 .style(settings_text_input_style)

@@ -5,34 +5,31 @@
 
 use std::collections::HashMap;
 
-use iced::widget::{Space, button, column, container, row, text, Column};
+use iced::widget::{Column, Space, button, column, container, row, text};
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
 use crate::app::models::{self, ParsedChatBlock};
 use crate::app::{App, Message};
 
+use super::super::tool_text_support::{chat_text_font_name, is_safe_for_text_editor};
+use super::super::tools::{
+    ExploreItem, ToolTextTarget, is_explore_tool, pending_permission_badge_label,
+    pending_permission_request_badge_label, pending_permission_request_for_tool_call,
+    pending_permission_targets_message, pending_permission_targets_tool_call,
+    render_shared_tool_view, tool_call_id_from_raw, tool_explore_summary_view,
+    tool_identity_from_raw, tool_name_from_raw, tool_text_editor,
+};
+use super::super::utils::{chat_secondary_text_color, is_dark_theme};
 use super::assistant_error::assistant_api_error_view;
 use super::styles::MESSAGE_TEXT_SIZE;
 use super::text::{
-    message_editor_body, message_text_body, should_segment_text_block, MAX_EDITOR_CHARS,
+    MAX_EDITOR_CHARS, message_editor_body, message_text_body, should_segment_text_block,
 };
-use super::think_block::{
-    should_render_think_block, think_block_is_running, think_block_view,
-};
+use super::think_block::{should_render_think_block, think_block_is_running, think_block_view};
 use super::tool_summaries::{
     normalized_visible_text, should_hide_explore_link_box, should_hide_post_explore_tool_block,
     trailing_tool_tail_text_source_block_idx,
 };
-use super::super::tool_text_support::{chat_text_font_name, is_safe_for_text_editor};
-use super::super::tools::{
-    is_explore_tool, render_shared_tool_view, tool_explore_summary_view, tool_identity_from_raw,
-    tool_name_from_raw,
-    pending_permission_badge_label, pending_permission_request_badge_label,
-    pending_permission_request_for_tool_call, pending_permission_targets_message,
-    pending_permission_targets_tool_call, tool_call_id_from_raw,
-    tool_text_editor, ExploreItem, ToolTextTarget,
-};
-use super::super::utils::{chat_secondary_text_color, is_dark_theme};
 
 fn count_visible_non_explore_tool_cards(
     blocks: &[ParsedChatBlock],
@@ -103,7 +100,10 @@ fn pending_permission_badge_style(theme: &Theme) -> iced::widget::container::Sty
     }
 }
 
-fn pending_permission_tool_badge<'a>(label: String, on_press: Option<Message>) -> Element<'a, Message> {
+fn pending_permission_tool_badge<'a>(
+    label: String,
+    on_press: Option<Message>,
+) -> Element<'a, Message> {
     let label = text(label).size(11).style(|theme: &Theme| iced::widget::text::Style {
         color: Some(if is_dark_theme(theme) {
             Color::from_rgba8(255, 235, 177, 0.96)
@@ -112,9 +112,9 @@ fn pending_permission_tool_badge<'a>(label: String, on_press: Option<Message>) -
         }),
     });
 
-    let content = container(label).padding([2, 8]).style(|theme: &Theme| {
-        pending_permission_badge_style(theme)
-    });
+    let content = container(label)
+        .padding([2, 8])
+        .style(|theme: &Theme| pending_permission_badge_style(theme));
 
     if let Some(on_press) = on_press {
         button(content)
@@ -140,13 +140,16 @@ fn wrap_pending_permission_tool_card<'a>(
     request_id: Option<String>,
     is_active: bool,
 ) -> Element<'a, Message> {
-    let on_press = request_id.map(|request_id| Message::Chat(
-        crate::app::message::chat::ChatMessage::PermissionSelectRequest(request_id),
-    ));
+    let on_press = request_id.map(|request_id| {
+        Message::Chat(crate::app::message::chat::ChatMessage::PermissionSelectRequest(request_id))
+    });
 
     let card = column![
-        row![container(Space::new()).width(Length::Fill), pending_permission_tool_badge(label, on_press)]
-            .align_y(Alignment::Center),
+        row![
+            container(Space::new()).width(Length::Fill),
+            pending_permission_tool_badge(label, on_press)
+        ]
+        .align_y(Alignment::Center),
         content
     ]
     .spacing(6);
@@ -187,11 +190,9 @@ pub(crate) fn should_highlight_pending_permission_tool(
     matches_permission_tool: bool,
 ) -> bool {
     matches_permission_tool
-        || matched_request_id
-            .zip(current_request_id)
-            .is_some_and(|(matched_request_id, current_request_id)| {
-                matched_request_id == current_request_id
-            })
+        || matched_request_id.zip(current_request_id).is_some_and(
+            |(matched_request_id, current_request_id)| matched_request_id == current_request_id,
+        )
 }
 
 pub(crate) fn deduped_tool_last_indices(blocks: &[ParsedChatBlock]) -> HashMap<String, usize> {
@@ -311,10 +312,8 @@ pub(super) fn render_assistant_body<'a>(
         } else {
             0
         };
-        let total_think_blocks = blocks
-            .iter()
-            .filter(|block| matches!(block, ParsedChatBlock::Think { .. }))
-            .count();
+        let total_think_blocks =
+            blocks.iter().filter(|block| matches!(block, ParsedChatBlock::Think { .. })).count();
 
         let trailing_tool_tail_text_block_idx = trailing_tool_tail_text_source_block_idx(&blocks);
 
@@ -338,20 +337,20 @@ pub(super) fn render_assistant_body<'a>(
                         timing,
                     );
 
-                    if should_render {
-                        body = push_explore_summary(
-                            body,
-                            app,
-                            idx,
-                            explore_group_idx,
-                            &explore_items,
-                            explore_group_force_running,
-                            true,
-                        );
-                        explore_items.clear();
-                        explore_group_force_running = false;
-                        explore_group_idx = explore_group_idx.saturating_add(1);
+                    body = push_explore_summary(
+                        body,
+                        app,
+                        idx,
+                        explore_group_idx,
+                        &explore_items,
+                        explore_group_force_running,
+                        true,
+                    );
+                    explore_items.clear();
+                    explore_group_force_running = false;
+                    explore_group_idx = explore_group_idx.saturating_add(1);
 
+                    if should_render {
                         body = body.push(think_block_view(
                             app,
                             idx,
@@ -430,11 +429,12 @@ pub(super) fn render_assistant_body<'a>(
                     let rendered = render_shared_tool_view(app, idx, tool_idx, &raw_text);
 
                     if let Some(view) = rendered {
-                        let should_highlight_permission_tool = should_highlight_pending_permission_tool(
-                            matched_permission_request.map(|request| request.id.as_str()),
-                            app.permission_modal_request_id.as_deref(),
-                            matches_permission_tool,
-                        );
+                        let should_highlight_permission_tool =
+                            should_highlight_pending_permission_tool(
+                                matched_permission_request.map(|request| request.id.as_str()),
+                                app.permission_modal_request_id.as_deref(),
+                                matches_permission_tool,
+                            );
                         let view = if let Some(request) = matched_permission_request {
                             let label = if app.permission_modal_request_id.as_deref()
                                 == Some(request.id.as_str())
@@ -524,7 +524,8 @@ pub(super) fn render_assistant_body<'a>(
                         continue;
                     }
 
-                    body = push_special_text_block(body, app, idx, current_text_idx, text, use_editor);
+                    body =
+                        push_special_text_block(body, app, idx, current_text_idx, text, use_editor);
                 }
             }
         }

@@ -241,10 +241,8 @@ data:
     let editor = minimal_code_editor("code_1");
 
     let options = build_code_variable_reference_options(&state, &editor);
-    let selector_keys = options
-        .iter()
-        .map(|option| option.selector_key.as_str())
-        .collect::<Vec<_>>();
+    let selector_keys =
+        options.iter().map(|option| option.selector_key.as_str()).collect::<Vec<_>>();
 
     assert!(selector_keys.contains(&"start.query"));
     assert!(selector_keys.contains(&"start.uploads"));

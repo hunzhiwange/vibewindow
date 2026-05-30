@@ -12,4 +12,3 @@ fn auth_error_display_is_stable() {
     assert_eq!(Error::MissingCode.to_string(), "missing code");
     assert_eq!(Error::Unsupported.to_string(), "unsupported auth method");
 }
-

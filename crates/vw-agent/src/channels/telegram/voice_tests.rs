@@ -1,4 +1,4 @@
-use super::{voice::VoiceMetadata, TelegramChannel};
+use super::{TelegramChannel, voice::VoiceMetadata};
 
 #[test]
 fn voice_metadata_parser_reads_required_file_id() {

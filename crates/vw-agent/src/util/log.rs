@@ -37,12 +37,12 @@
 //! ```
 
 use crate::app::agent::global;
-use std::sync::LazyLock;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -431,10 +431,7 @@ fn cleanup(dir: &Path) {
         .flatten()
         .map(|e| e.path())
         .filter(|p| {
-            p.file_name()
-                .and_then(|s| s.to_str())
-                .map(is_timestamp_log_name)
-                .unwrap_or(false)
+            p.file_name().and_then(|s| s.to_str()).map(is_timestamp_log_name).unwrap_or(false)
         })
         .collect();
 
@@ -539,7 +536,8 @@ struct LoggerInner {
 /// 全局日志记录器缓存
 ///
 /// 按 service 名称缓存日志记录器实例，避免重复创建。
-static LOGGERS: LazyLock<Mutex<HashMap<String, Logger>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static LOGGERS: LazyLock<Mutex<HashMap<String, Logger>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// 默认日志记录器
 ///
@@ -553,8 +551,9 @@ static LOGGERS: LazyLock<Mutex<HashMap<String, Logger>>> = LazyLock::new(|| Mute
 ///
 /// DEFAULT.info("应用启动", None);
 /// ```
-pub static DEFAULT: LazyLock<Logger> =
-    LazyLock::new(|| create(Some(map_from_pairs([("service", Value::String("default".to_string()))]))));
+pub static DEFAULT: LazyLock<Logger> = LazyLock::new(|| {
+    create(Some(map_from_pairs([("service", Value::String("default".to_string()))])))
+});
 
 /// 创建新的日志记录器
 ///

@@ -1,11 +1,11 @@
 //! 封装 Redis 工具访问桌面网关的异步加载任务。
 
+use super::helpers::{current_default_load_count, current_history_query};
 use super::{
     App, Message, RedisToolMessage, Task, load_redis_tool_snapshot_async,
     redis_connection_key_analyze_async, redis_connection_keys_async,
     redis_connection_overview_async,
 };
-use super::helpers::{current_default_load_count, current_history_query};
 
 /// 处理 `start_snapshot_reload` 对应的用户输入、异步结果或状态转换。
 ///
@@ -18,15 +18,9 @@ pub(super) fn start_snapshot_reload(
 ) -> Task<Message> {
     app.redis_tool.begin_gateway_request(loading_label);
     let query = current_history_query(app, Some(offset));
-    Task::perform(
-        async move { load_redis_tool_snapshot_async(query).await },
-        move |result| {
-            Message::RedisTool(RedisToolMessage::SnapshotLoaded {
-                success_message,
-                result,
-            })
-        },
-    )
+    Task::perform(async move { load_redis_tool_snapshot_async(query).await }, move |result| {
+        Message::RedisTool(RedisToolMessage::SnapshotLoaded { success_message, result })
+    })
 }
 
 #[cfg(test)]
@@ -75,13 +69,11 @@ pub(super) fn start_key_page_reload(
     let cursor = if append { app.redis_tool.key_browser_cursor } else { 0 };
     let count = current_default_load_count(app);
     Task::perform(
-        async move { redis_connection_keys_async(&request_connection_id, &pattern, cursor, count).await },
+        async move {
+            redis_connection_keys_async(&request_connection_id, &pattern, cursor, count).await
+        },
         move |result| {
-            Message::RedisTool(RedisToolMessage::KeyPageLoaded {
-                connection_id,
-                append,
-                result,
-            })
+            Message::RedisTool(RedisToolMessage::KeyPageLoaded { connection_id, append, result })
         },
     )
 }
@@ -101,11 +93,7 @@ pub(super) fn start_key_analysis_reload(
     Task::perform(
         async move { redis_connection_key_analyze_async(&request_connection_id, &request_key).await },
         move |result| {
-            Message::RedisTool(RedisToolMessage::KeyAnalysisLoaded {
-                connection_id,
-                key,
-                result,
-            })
+            Message::RedisTool(RedisToolMessage::KeyAnalysisLoaded { connection_id, key, result })
         },
     )
 }

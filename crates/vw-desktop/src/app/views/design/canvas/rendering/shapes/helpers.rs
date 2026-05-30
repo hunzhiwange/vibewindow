@@ -15,9 +15,7 @@ use crate::app::views::design::models::DesignElement;
 /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
 pub(super) fn is_brush_path_class(class_name: Option<&str>) -> bool {
     class_name.is_some_and(|class_name| {
-        class_name
-            .split_whitespace()
-            .any(|token| token == BRUSH_STROKE_CLASS)
+        class_name.split_whitespace().any(|token| token == BRUSH_STROKE_CLASS)
     })
 }
 
@@ -37,11 +35,7 @@ pub(super) fn draw_slot_hatch(frame: &mut Frame, bounds: Rectangle, zoom: f32, c
 
     let mut s = -h;
     while s <= w {
-        let (sx, sy) = if s < 0.0 {
-            (bounds.x, bounds.y - s)
-        } else {
-            (bounds.x + s, bounds.y)
-        };
+        let (sx, sy) = if s < 0.0 { (bounds.x, bounds.y - s) } else { (bounds.x + s, bounds.y) };
         let (ex, ey) = if s + h > w {
             (bounds.x + w, bounds.y + w - s)
         } else {

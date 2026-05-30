@@ -2,7 +2,8 @@ use super::*;
 
 #[test]
 fn parse_skills_sh_source_accepts_query_and_fragment() {
-    let source = parse_skills_sh_source("https://skills.sh/acme/tools/review?version=1#readme").unwrap();
+    let source =
+        parse_skills_sh_source("https://skills.sh/acme/tools/review?version=1#readme").unwrap();
     assert_eq!(source.owner, "acme");
     assert_eq!(source.repo, "tools");
     assert_eq!(source.skill, "review");

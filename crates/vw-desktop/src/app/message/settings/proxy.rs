@@ -92,8 +92,12 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         SettingsMessage::ProxyScopeTextChanged(v) => {
             // 将输入文本标准化为小写并去除空白，然后匹配对应的作用域枚举
             app.proxy_settings.scope = match v.trim().to_ascii_lowercase().as_str() {
-                "environment" | "env" | "系统环境" => vw_config_types::proxy::ProxyScope::Environment,
-                "services" | "service" | "指定服务" => vw_config_types::proxy::ProxyScope::Services,
+                "environment" | "env" | "系统环境" => {
+                    vw_config_types::proxy::ProxyScope::Environment
+                }
+                "services" | "service" | "指定服务" => {
+                    vw_config_types::proxy::ProxyScope::Services
+                }
                 _ => vw_config_types::proxy::ProxyScope::Vibewindow,
             };
             app.proxy_settings.save_error = None;

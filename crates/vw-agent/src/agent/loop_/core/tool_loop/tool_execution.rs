@@ -23,8 +23,7 @@ use super::super::super::execution::{
 };
 use super::super::super::parsing::{ParsedToolCall, tool_call_signature};
 use super::super::super::progress::{
-    DRAFT_PROGRESS_SENTINEL, DRAFT_WS_EVENT_SENTINEL, tool_progress_actions,
-    tool_progress_label,
+    DRAFT_PROGRESS_SENTINEL, DRAFT_WS_EVENT_SENTINEL, tool_progress_actions, tool_progress_label,
 };
 use super::super::super::utils::scrub_credentials;
 
@@ -105,17 +104,20 @@ pub(super) async fn execute_tool_calls_and_update_history(
             );
             ordered_results[idx] = Some(immediate_failure(
                 tool_name.clone(),
-                history_tool_call_id(call.tool_call_id.as_deref(), use_native_tools, iteration, idx),
+                history_tool_call_id(
+                    call.tool_call_id.as_deref(),
+                    use_native_tools,
+                    iteration,
+                    idx,
+                ),
                 blocked,
             ));
             continue;
         }
 
         let mut signature = tool_call_signature(&tool_name, &tool_args);
-        if let Some(tool_call_id) = call
-            .tool_call_id
-            .as_deref()
-            .filter(|id| !id.starts_with("fallback_"))
+        if let Some(tool_call_id) =
+            call.tool_call_id.as_deref().filter(|id| !id.starts_with("fallback_"))
         {
             signature.1 = format!("{}#{}", signature.1, tool_call_id);
         }
@@ -141,7 +143,12 @@ pub(super) async fn execute_tool_calls_and_update_history(
             );
             ordered_results[idx] = Some(immediate_failure(
                 tool_name,
-                history_tool_call_id(call.tool_call_id.as_deref(), use_native_tools, iteration, idx),
+                history_tool_call_id(
+                    call.tool_call_id.as_deref(),
+                    use_native_tools,
+                    iteration,
+                    idx,
+                ),
                 duplicate,
             ));
             continue;
@@ -206,10 +213,8 @@ pub(super) async fn execute_tool_calls_and_update_history(
         executed_outcomes.append(&mut batch_outcomes);
     }
 
-    for ((idx, call), outcome) in executable_indices
-        .iter()
-        .zip(executable_calls.iter())
-        .zip(executed_outcomes.into_iter())
+    for ((idx, call), outcome) in
+        executable_indices.iter().zip(executable_calls.iter()).zip(executed_outcomes.into_iter())
     {
         runtime_trace::record_event(
             "tool_call_result",
@@ -255,7 +260,8 @@ pub(super) async fn execute_tool_calls_and_update_history(
             }
         }
 
-        ordered_results[*idx] = Some((outcome.tool_name.clone(), call.tool_call_id.clone(), outcome));
+        ordered_results[*idx] =
+            Some((outcome.tool_name.clone(), call.tool_call_id.clone(), outcome));
     }
 
     // ordered_results 按原始工具调用顺序填充，确保写回历史的顺序与模型请求一致，

@@ -54,11 +54,7 @@ pub(crate) fn response_preview(text: &str) -> String {
 /// 构建用于日志输出的工具调用预览。
 pub(crate) fn tool_call_preview(tool_name: &str, arguments: &str) -> String {
     let sanitized = utils::sanitize_tool_input(tool_name, arguments);
-    format!(
-        "{}({})",
-        tool_name,
-        crate::app::agent::util::truncate_with_ellipsis(&sanitized, 120)
-    )
+    format!("{}({})", tool_name, crate::app::agent::util::truncate_with_ellipsis(&sanitized, 120))
 }
 
 /// 判断当前请求是否走 ACP 代理路径。

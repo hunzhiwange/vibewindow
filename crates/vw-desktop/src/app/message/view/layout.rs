@@ -13,8 +13,32 @@ use iced::Task;
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
 pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
     match message {
-        ViewMessage::WindowMoved(x, y) => {
-            app.window_position = (x, y);
+        ViewMessage::WindowMoved(window_id, x, y) => {
+            if app.main_window_id == Some(window_id) {
+                app.window_position = (x, y);
+            } else if app.task_pet_window_id == Some(window_id) {
+                app.move_task_pet_window_to(x, y);
+            }
+            Task::none()
+        }
+        ViewMessage::WindowClosed(window_id) => {
+            if app.main_window_id == Some(window_id) {
+                app.main_window_id = None;
+            }
+            if app.task_pet_window_id == Some(window_id) {
+                app.task_pet_window_id = None;
+            }
+            if app.main_window_id.is_none() && app.task_pet_window_id.is_none() {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    for child in app.independent_webview_children.iter_mut() {
+                        let child: &mut std::process::Child = child;
+                        let _ = child.kill();
+                    }
+                    app.independent_webview_children.clear();
+                }
+                return iced::exit();
+            }
             Task::none()
         }
         ViewMessage::SplitDragStarted => {
@@ -116,6 +140,9 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
                 let ratio = (app.split_drag_start_ratio + delta / w).clamp(0.2, 0.8);
                 app.split_ratio = ratio;
             }
+            if app.task_pet_dragging {
+                app.drag_task_pet_to(x, y);
+            }
             if app.terminal.is_dragging {
                 if app.terminal.drag_anchor_y.is_none() {
                     app.terminal.drag_anchor_y = Some(y);
@@ -141,7 +168,10 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             }
             Task::none()
         }
-        ViewMessage::WindowResized(w, h) => {
+        ViewMessage::WindowResized(window_id, w, h) => {
+            if app.main_window_id != Some(window_id) {
+                return Task::none();
+            }
             let window_w = w.max(1.0);
             let window_h = h.max(1.0);
             app.window_size = (window_w, window_h);
@@ -159,9 +189,10 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             app.startup_resize_checked = true;
             #[cfg(not(target_arch = "wasm32"))]
             if window_w > window_h * 2.0 {
-                return iced::window::latest().and_then(move |id| {
-                    iced::window::resize::<Message>(id, iced::Size::new(window_w * 0.5, window_h))
-                });
+                return iced::window::resize::<Message>(
+                    window_id,
+                    iced::Size::new(window_w * 0.5, window_h),
+                );
             }
             Task::none()
         }
@@ -187,7 +218,11 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             Task::none()
         }
         ViewMessage::WindowDragPressed => {
-            iced::window::latest().and_then(iced::window::drag)
+            if let Some(window_id) = app.main_window_id {
+                iced::window::drag(window_id)
+            } else {
+                Task::none()
+            }
         }
         ViewMessage::GlobalMouseReleased => {
             app.task_board_drag_pending = None;
@@ -204,59 +239,50 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             }
             if app.dragging_layer.is_some()
                 && let Some(drag_id) = app.dragging_layer.take()
-                    && let Some(target_id) = app.drag_target_layer.take()
-                        && drag_id != target_id
-                            && let Some(state) = app.active_design_state_mut() {
-                                let doc = &mut state.doc;
-                                fn remove_node(
-                                    children: &mut Vec<
-                                        crate::app::views::design::models::DesignElement,
-                                    >,
-                                    id: &str,
-                                ) -> Option<crate::app::views::design::models::DesignElement>
-                                {
-                                    if let Some(idx) = children.iter().position(|c| c.id == id) {
-                                        return Some(children.remove(idx));
-                                    }
-                                    for child in children {
-                                        if let Some(el) = remove_node(&mut child.children, id) {
-                                            return Some(el);
-                                        }
-                                    }
-                                    None
-                                }
-                                fn insert_node(
-                                    children: &mut Vec<
-                                        crate::app::views::design::models::DesignElement,
-                                    >,
-                                    target_id: &str,
-                                    element: crate::app::views::design::models::DesignElement,
-                                ) -> Result<(), crate::app::views::design::models::DesignElement>
-                                {
-                                    if let Some(idx) =
-                                        children.iter().position(|c| c.id == target_id)
-                                    {
-                                        children.insert(idx, element);
-                                        return Ok(());
-                                    }
-                                    let mut element = element;
-                                    for child in children {
-                                        match insert_node(&mut child.children, target_id, element) {
-                                            Ok(_) => return Ok(()),
-                                            Err(returned) => element = returned,
-                                        }
-                                    }
-                                    Err(element)
-                                }
-                                if let Some(element) = remove_node(&mut doc.children, &drag_id) {
-                                    if let Err(element) =
-                                        insert_node(&mut doc.children, &target_id, element)
-                                    {
-                                        doc.children.push(element);
-                                    }
-                                    state.canvas_cache.clear();
-                                }
-                            }
+                && let Some(target_id) = app.drag_target_layer.take()
+                && drag_id != target_id
+                && let Some(state) = app.active_design_state_mut()
+            {
+                let doc = &mut state.doc;
+                fn remove_node(
+                    children: &mut Vec<crate::app::views::design::models::DesignElement>,
+                    id: &str,
+                ) -> Option<crate::app::views::design::models::DesignElement> {
+                    if let Some(idx) = children.iter().position(|c| c.id == id) {
+                        return Some(children.remove(idx));
+                    }
+                    for child in children {
+                        if let Some(el) = remove_node(&mut child.children, id) {
+                            return Some(el);
+                        }
+                    }
+                    None
+                }
+                fn insert_node(
+                    children: &mut Vec<crate::app::views::design::models::DesignElement>,
+                    target_id: &str,
+                    element: crate::app::views::design::models::DesignElement,
+                ) -> Result<(), crate::app::views::design::models::DesignElement> {
+                    if let Some(idx) = children.iter().position(|c| c.id == target_id) {
+                        children.insert(idx, element);
+                        return Ok(());
+                    }
+                    let mut element = element;
+                    for child in children {
+                        match insert_node(&mut child.children, target_id, element) {
+                            Ok(_) => return Ok(()),
+                            Err(returned) => element = returned,
+                        }
+                    }
+                    Err(element)
+                }
+                if let Some(element) = remove_node(&mut doc.children, &drag_id) {
+                    if let Err(element) = insert_node(&mut doc.children, &target_id, element) {
+                        doc.children.push(element);
+                    }
+                    state.canvas_cache.clear();
+                }
+            }
             app.hovered_layer_id = None;
             if app.dragging_properties_panel {
                 app.dragging_properties_panel = false;
@@ -295,6 +321,9 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             }
             if app.dragging_split {
                 app.dragging_split = false;
+            }
+            if app.task_pet_dragging {
+                app.finish_task_pet_drag();
             }
             if app.terminal.is_dragging {
                 app.terminal.is_dragging = false;

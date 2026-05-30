@@ -18,9 +18,9 @@
 //! - `staleness_secs`: 离线判定阈值（秒）
 
 use crate::app::components::system_settings_common::{
-    SETTINGS_LABEL_WIDTH, settings_checkbox_style, settings_error_banner,
-    settings_help_button, settings_muted_text_style, settings_page_intro, settings_panel,
-    settings_section_card, settings_text_input_style, settings_value_badge, with_settings_help_modal,
+    SETTINGS_LABEL_WIDTH, settings_checkbox_style, settings_error_banner, settings_help_button,
+    settings_muted_text_style, settings_page_intro, settings_panel, settings_section_card,
+    settings_text_input_style, settings_value_badge, with_settings_help_modal,
 };
 use crate::app::{App, Message, message};
 use iced::widget::{checkbox, column, container, row, slider, text, text_input};
@@ -118,8 +118,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let mut col = column![
         row![
-            container(settings_page_intro("代理通信配置", "配置同一主机上多个 VibeWindow 进程之间的 IPC 发现与通信。"))
-                .width(Length::Fill),
+            container(settings_page_intro(
+                "代理通信配置",
+                "配置同一主机上多个 VibeWindow 进程之间的 IPC 发现与通信。"
+            ))
+            .width(Length::Fill),
             help_btn
         ]
         .align_y(Alignment::Start),

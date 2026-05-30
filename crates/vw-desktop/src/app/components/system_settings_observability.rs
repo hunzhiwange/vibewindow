@@ -23,9 +23,8 @@
 
 use crate::app::components::system_settings_common::{
     SETTINGS_LABEL_WIDTH, settings_divider, settings_error_banner, settings_help_button,
-    settings_muted_text_style, settings_page_intro, settings_panel,
-    settings_segment_button_style, settings_section_card, settings_text_input_style,
-    settings_value_badge,
+    settings_muted_text_style, settings_page_intro, settings_panel, settings_section_card,
+    settings_segment_button_style, settings_text_input_style, settings_value_badge,
 };
 use crate::app::{App, Message, message};
 use iced::widget::{button, column, container, row, slider, text, text_input};
@@ -131,7 +130,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             backend_btn("Prometheus", "prometheus"),
             backend_btn("OTel", "otel"),
         ]
-        .spacing(8)
+        .spacing(8),
     );
 
     let otel_endpoint_row = text_row(
@@ -139,9 +138,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "仅 backend=otel 时生效。",
         "http://localhost:4318",
         &s.otel_endpoint_input,
-        |v| {
-                Message::Settings(message::SettingsMessage::ObservabilityOtelEndpointChanged(v))
-            },
+        |v| Message::Settings(message::SettingsMessage::ObservabilityOtelEndpointChanged(v)),
     );
 
     let otel_service_row = text_row(
@@ -149,9 +146,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "OTel 上报时使用的 service.name。",
         "vibewindow",
         &s.otel_service_name_input,
-        |v| {
-                Message::Settings(message::SettingsMessage::ObservabilityOtelServiceNameChanged(v))
-            },
+        |v| Message::Settings(message::SettingsMessage::ObservabilityOtelServiceNameChanged(v)),
     );
 
     let trace_mode_btn = |label: &'static str, v: &'static str| {
@@ -174,7 +169,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             trace_mode_btn("滚动", "rolling"),
             trace_mode_btn("完整", "full"),
         ]
-        .spacing(8)
+        .spacing(8),
     );
 
     let trace_path_row = text_row(
@@ -182,9 +177,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "运行时追踪文件路径。",
         "state/runtime-trace.jsonl",
         &s.runtime_trace_path_input,
-        |v| {
-                Message::Settings(message::SettingsMessage::ObservabilityRuntimeTracePathChanged(v))
-            },
+        |v| Message::Settings(message::SettingsMessage::ObservabilityRuntimeTracePathChanged(v)),
     );
 
     let max_entries_slider = slider(1.0..=100_000.0, s.runtime_trace_max_entries as f32, |v| {
@@ -204,20 +197,35 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let mut col = column![
         row![
-            container(settings_page_intro("可观测性配置", "配置运行时观测后端、OTEL 上报和追踪存储策略。"))
-                .width(Length::Fill),
+            container(settings_page_intro(
+                "可观测性配置",
+                "配置运行时观测后端、OTEL 上报和追踪存储策略。"
+            ))
+            .width(Length::Fill),
             help_btn
         ]
         .align_y(Alignment::Start),
         settings_section_card("观测后端", "选择观测后端并配置 OTel 端点。"),
         settings_panel(
-            column![backend_row, settings_divider(), otel_endpoint_row, settings_divider(), otel_service_row]
-                .spacing(0),
+            column![
+                backend_row,
+                settings_divider(),
+                otel_endpoint_row,
+                settings_divider(),
+                otel_service_row
+            ]
+            .spacing(0),
         ),
         settings_section_card("运行时追踪", "控制 trace 模式、文件路径和 rolling 保留量。"),
         settings_panel(
-            column![trace_mode_row, settings_divider(), trace_path_row, settings_divider(), max_entries_row]
-                .spacing(0),
+            column![
+                trace_mode_row,
+                settings_divider(),
+                trace_path_row,
+                settings_divider(),
+                max_entries_row
+            ]
+            .spacing(0),
         ),
     ]
     .spacing(16)

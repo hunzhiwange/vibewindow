@@ -15,7 +15,9 @@ use crate::app::{App, Message, message};
 
 use super::canonical_tool_name;
 use super::tool_meta::tool_header_title;
-use super::tool_parse::{tool_error_text, tool_input, tool_output_text, tool_result_data, tool_status};
+use super::tool_parse::{
+    tool_error_text, tool_input, tool_output_text, tool_result_data, tool_status,
+};
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -66,7 +68,9 @@ fn parse_config_result_from_output(output: &str) -> Option<ConfigResultData> {
 fn parse_config_result(value: &Value) -> Option<ConfigResultData> {
     tool_result_data(value)
         .and_then(|data| serde_json::from_value::<ConfigResultData>(data.clone()).ok())
-        .or_else(|| tool_output_text(value).and_then(|output| parse_config_result_from_output(&output)))
+        .or_else(|| {
+            tool_output_text(value).and_then(|output| parse_config_result_from_output(&output))
+        })
 }
 
 fn parse_config_input(input: &str) -> Option<ConfigInputData> {
@@ -96,7 +100,8 @@ fn summary_from_result(result: &ConfigResultData) -> String {
 }
 
 fn summary_from_input(input: &ConfigInputData) -> String {
-    if let Some(setting) = input.setting.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+    if let Some(setting) = input.setting.as_deref().map(str::trim).filter(|value| !value.is_empty())
+    {
         if let Some(value) = input.value.as_ref() {
             return format!("设置 {} = {}", setting, value_label(value));
         }
@@ -117,17 +122,16 @@ fn success_body<'a>(result: &ConfigResultData) -> Option<Element<'a, Message>> {
                 let display = value_label(value);
                 return Some(
                     row![
-                        text(setting.clone())
-                            .size(12)
-                            .font(bold_font())
-                            .style(|theme: &Theme| iced::widget::text::Style {
+                        text(setting.clone()).size(12).font(bold_font()).style(|theme: &Theme| {
+                            iced::widget::text::Style {
                                 color: Some(chat_secondary_text_color(theme)),
-                            }),
-                        text(truncate_chars(&display, 180).to_string())
-                            .size(12)
-                            .style(|theme: &Theme| iced::widget::text::Style {
+                            }
+                        }),
+                        text(truncate_chars(&display, 180).to_string()).size(12).style(
+                            |theme: &Theme| iced::widget::text::Style {
                                 color: Some(chat_secondary_muted_text_color(theme)),
-                            })
+                            }
+                        )
                     ]
                     .spacing(8)
                     .into(),
@@ -165,17 +169,16 @@ fn success_body<'a>(result: &ConfigResultData) -> Option<Element<'a, Message>> {
                 let display = value_label(previous_value);
                 body = body.push(
                     row![
-                        text("旧值")
-                            .size(12)
-                            .font(bold_font())
-                            .style(|theme: &Theme| iced::widget::text::Style {
+                        text("旧值").size(12).font(bold_font()).style(|theme: &Theme| {
+                            iced::widget::text::Style {
                                 color: Some(chat_secondary_text_color(theme)),
-                            }),
-                        text(truncate_chars(&display, 180).to_string())
-                            .size(12)
-                            .style(|theme: &Theme| iced::widget::text::Style {
+                            }
+                        }),
+                        text(truncate_chars(&display, 180).to_string()).size(12).style(
+                            |theme: &Theme| iced::widget::text::Style {
                                 color: Some(chat_secondary_muted_text_color(theme)),
-                            })
+                            }
+                        )
                     ]
                     .spacing(8),
                 );
@@ -185,17 +188,16 @@ fn success_body<'a>(result: &ConfigResultData) -> Option<Element<'a, Message>> {
                 let display = value_label(new_value);
                 body = body.push(
                     row![
-                        text("新值")
-                            .size(12)
-                            .font(bold_font())
-                            .style(|theme: &Theme| iced::widget::text::Style {
+                        text("新值").size(12).font(bold_font()).style(|theme: &Theme| {
+                            iced::widget::text::Style {
                                 color: Some(chat_secondary_text_color(theme)),
-                            }),
-                        text(truncate_chars(&display, 180).to_string())
-                            .size(12)
-                            .style(|theme: &Theme| iced::widget::text::Style {
+                            }
+                        }),
+                        text(truncate_chars(&display, 180).to_string()).size(12).style(
+                            |theme: &Theme| iced::widget::text::Style {
                                 color: Some(chat_secondary_muted_text_color(theme)),
-                            })
+                            }
+                        )
                     ]
                     .spacing(8),
                 );
@@ -232,7 +234,8 @@ pub fn tool_config_view<'a>(
     }
 
     let input = parse_config_input(tool_input(&value));
-    let is_error = matches!(status, "error" | "denied") || result.as_ref().is_some_and(|item| !item.success);
+    let is_error =
+        matches!(status, "error" | "denied") || result.as_ref().is_some_and(|item| !item.success);
     let summary = if is_running {
         input.as_ref().map(summary_from_input).unwrap_or_default()
     } else {
@@ -273,11 +276,8 @@ pub fn tool_config_view<'a>(
         tool_idx,
         visible.to_string(),
     )));
-    let detail_slot: Element<'a, Message> = if is_hovered {
-        detail_btn.into()
-    } else {
-        Space::new().width(Length::Fixed(22.0)).into()
-    };
+    let detail_slot: Element<'a, Message> =
+        if is_hovered { detail_btn.into() } else { Space::new().width(Length::Fixed(22.0)).into() };
 
     let head_row = row![
         row![
@@ -302,13 +302,11 @@ pub fn tool_config_view<'a>(
             .unwrap_or_else(|| "配置操作失败".to_string());
 
         Some(
-            container(
-                text(truncate_chars(&error_text, 220).to_string())
-                    .size(12)
-                    .style(|theme: &Theme| iced::widget::text::Style {
-                        color: Some(theme.extended_palette().danger.base.color),
-                    }),
-            )
+            container(text(truncate_chars(&error_text, 220).to_string()).size(12).style(
+                |theme: &Theme| iced::widget::text::Style {
+                    color: Some(theme.extended_palette().danger.base.color),
+                },
+            ))
             .padding([8, 10])
             .width(Length::Fill)
             .style(|theme: &Theme| {
@@ -350,10 +348,7 @@ pub fn tool_config_view<'a>(
 
     Some(
         mouse_area(
-            container(content)
-                .padding([8, 10])
-                .width(Length::Fill)
-                .style(simplified_block_style),
+            container(content).padding([8, 10]).width(Length::Fill).style(simplified_block_style),
         )
         .on_enter(Message::Chat(message::ChatMessage::ToolHover(msg_idx, tool_idx)))
         .on_exit(Message::Chat(message::ChatMessage::ToolHoverLeave))

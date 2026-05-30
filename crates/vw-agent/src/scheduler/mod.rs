@@ -46,12 +46,12 @@
 //! ```
 
 use crate::app::agent::util::log;
-use std::sync::LazyLock;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -206,7 +206,8 @@ static GLOBAL: LazyLock<Mutex<Entry>> = LazyLock::new(|| Mutex::new(Entry::new()
 /// 实例任务存储
 ///
 /// 使用互斥锁保护的映射表，键为实例 ID，值为该实例的任务条目。
-static INSTANCES: LazyLock<Mutex<HashMap<String, Entry>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static INSTANCES: LazyLock<Mutex<HashMap<String, Entry>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// 获取或创建 Tokio 运行时（非 WASM 平台）
 ///

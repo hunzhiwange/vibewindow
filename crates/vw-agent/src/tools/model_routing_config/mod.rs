@@ -195,6 +195,13 @@ impl Tool for ModelRoutingConfigTool {
                         {"type": "array", "items": {"type": "string"}}
                     ]
                 },
+                "allowed_skills": {
+                    "description": "Allowed skills for delegate agent prompt context (string or string array)",
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "array", "items": {"type": "string"}}
+                    ]
+                },
                 "max_iterations": {
                     "type": ["integer", "null"],
                     "minimum": 1,

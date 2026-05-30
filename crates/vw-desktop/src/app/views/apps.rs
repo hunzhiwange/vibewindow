@@ -16,8 +16,8 @@
 //! - `tiles`: 磁贴渲染，负责生成应用磁贴网格
 //! - `ui`: UI 组件，提供通用界面元素
 
-use crate::app::{App, Message};
 use crate::app::components::system_settings_common::{settings_panel_style, settings_section_card};
+use crate::app::{App, Message};
 use iced::widget::{Space, column, container, mouse_area, opaque, scrollable, stack};
 use iced::{Background, Color, Element, Length};
 
@@ -84,35 +84,32 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     // 构建基础内容容器
     // 包含头部、间距和磁贴网格的垂直布局
-    let header_panel: Element<'_, Message> = container(header)
+    let header_panel: Element<'_, Message> =
+        container(header).padding([18, 20]).width(Length::Fill).style(settings_panel_style).into();
+
+    let grid_panel: Element<'_, Message> =
+        container(
+            column![
+                settings_section_card(
+                    "全部应用",
+                    "从内置工具、网址书签和常用动作中快速打开目标入口。",
+                ),
+                Space::new().height(Length::Fixed(14.0)),
+                grid,
+            ]
+            .spacing(0)
+            .width(Length::Fill),
+        )
         .padding([18, 20])
         .width(Length::Fill)
         .style(settings_panel_style)
         .into();
 
-    let grid_panel: Element<'_, Message> = container(
-        column![
-            settings_section_card(
-                "全部应用",
-                "从内置工具、网址书签和常用动作中快速打开目标入口。",
-            ),
-            Space::new().height(Length::Fixed(14.0)),
-            grid,
-        ]
-        .spacing(0)
-        .width(Length::Fill),
-    )
-    .padding([18, 20])
-    .width(Length::Fill)
-    .style(settings_panel_style)
-    .into();
-
-    let base_content: Element<'_, Message> = container(
-        column![header_panel, grid_panel].spacing(14).width(Length::Fill),
-    )
-    .width(Length::Fill)
-    .padding([18, 24])
-    .into();
+    let base_content: Element<'_, Message> =
+        container(column![header_panel, grid_panel].spacing(14).width(Length::Fill))
+            .width(Length::Fill)
+            .padding([18, 24])
+            .into();
 
     // 将基础内容包装在可滚动容器中
     // 确保内容超出视口时可以滚动查看

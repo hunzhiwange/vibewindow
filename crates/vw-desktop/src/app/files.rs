@@ -391,10 +391,11 @@ fn index_files_with_cache(root: &str, cache: Option<&FileIndexCache>) -> FileInd
         let mtime = dir_mtime(dir);
         if let Some(cache_map) = cache_map
             && let Some(cached) = cache_map.get(rel_dir)
-                && cached.mtime == mtime {
-                    collect_cached_subtree(rel_dir, cache_map, files_out, entries_out);
-                    return;
-                }
+            && cached.mtime == mtime
+        {
+            collect_cached_subtree(rel_dir, cache_map, files_out, entries_out);
+            return;
+        }
 
         let Ok(read_dir) = std::fs::read_dir(dir) else {
             return;

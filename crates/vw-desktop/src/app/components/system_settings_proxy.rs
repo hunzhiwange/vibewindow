@@ -75,22 +75,16 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .style(settings_checkbox_style),
     );
 
-    let scope_pick = pick_list(
-        PROXY_SCOPE_OPTIONS,
-        Some(proxy_scope_label(s.scope)),
-        |v| Message::Settings(message::SettingsMessage::ProxyScopeTextChanged(v.to_string())),
-    )
+    let scope_pick = pick_list(PROXY_SCOPE_OPTIONS, Some(proxy_scope_label(s.scope)), |v| {
+        Message::Settings(message::SettingsMessage::ProxyScopeTextChanged(v.to_string()))
+    })
     .padding([10, 14])
     .text_size(13)
     .style(settings_pick_list_style)
     .menu_style(settings_pick_list_menu_style)
     .width(Length::Fixed(280.0));
 
-    let scope_row = field_row(
-        "生效范围",
-        "决定代理应用到环境、全局流量或指定服务。",
-        scope_pick,
-    );
+    let scope_row = field_row("生效范围", "决定代理应用到环境、全局流量或指定服务。", scope_pick);
 
     let http_row = field_row(
         "HTTP 代理",
@@ -161,7 +155,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         settings_panel(column![enabled_row, settings_divider(), scope_row].spacing(0)),
         settings_section_card("代理地址", "分别配置 HTTP、HTTPS 与兜底代理地址。"),
         settings_panel(
-            column![http_row, settings_divider(), https_row, settings_divider(), all_row].spacing(0),
+            column![http_row, settings_divider(), https_row, settings_divider(), all_row]
+                .spacing(0),
         ),
         settings_section_card("排除与路由", "配置 NO_PROXY 和指定服务选择器。"),
         settings_panel(column![no_proxy_row, settings_divider(), services_row].spacing(0)),

@@ -15,9 +15,8 @@
 //! - 提供详细的帮助文档模态框说明各参数含义
 
 use crate::app::components::system_settings_common::{
-    SETTINGS_LABEL_WIDTH, settings_error_banner, settings_help_button,
-    settings_muted_text_style, settings_page_intro, settings_panel, settings_section_card,
-    settings_value_badge,
+    SETTINGS_LABEL_WIDTH, settings_error_banner, settings_help_button, settings_muted_text_style,
+    settings_page_intro, settings_panel, settings_section_card, settings_value_badge,
 };
 use crate::app::{App, Message, message};
 use iced::widget::{column, container, row, slider, text};
@@ -82,12 +81,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let provider_retries_row = field_row(
         "Provider 重试",
         "请求失败时的最大重试次数。",
-        row![
-        provider_retries_slider,
-        settings_value_badge(format!("{}", s.provider_retries)),
-        ]
-        .spacing(16)
-        .align_y(Alignment::Center),
+        row![provider_retries_slider, settings_value_badge(format!("{}", s.provider_retries)),]
+            .spacing(16)
+            .align_y(Alignment::Center),
     );
 
     let provider_backoff_slider = slider(0.0..=60_000.0, s.provider_backoff_ms as f32, |v| {
@@ -101,8 +97,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "Provider 退避",
         "重试之间的基础退避时间。",
         row![
-        provider_backoff_slider,
-        settings_value_badge(format!("{} ms", s.provider_backoff_ms)),
+            provider_backoff_slider,
+            settings_value_badge(format!("{} ms", s.provider_backoff_ms)),
         ]
         .spacing(16)
         .align_y(Alignment::Center),
@@ -119,8 +115,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "频道初始退避",
         "频道或守护进程重连时的初始退避秒数。",
         row![
-        channel_initial_slider,
-        settings_value_badge(format!("{} s", s.channel_initial_backoff_secs)),
+            channel_initial_slider,
+            settings_value_badge(format!("{} s", s.channel_initial_backoff_secs)),
         ]
         .spacing(16)
         .align_y(Alignment::Center),
@@ -137,16 +133,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
     )
     .width(Length::Fixed(280.0));
 
-    let channel_max_row = field_row(
-        "频道最大退避",
-        "退避算法允许增长到的最大等待时间。",
-        row![
-        channel_max_slider,
-        settings_value_badge(format!("{} s", s.channel_max_backoff_secs)),
-        ]
-        .spacing(16)
-        .align_y(Alignment::Center),
-    );
+    let channel_max_row =
+        field_row(
+            "频道最大退避",
+            "退避算法允许增长到的最大等待时间。",
+            row![
+                channel_max_slider,
+                settings_value_badge(format!("{} s", s.channel_max_backoff_secs)),
+            ]
+            .spacing(16)
+            .align_y(Alignment::Center),
+        );
 
     let scheduler_poll_slider = slider(1.0..=3600.0, s.scheduler_poll_secs as f32, |v| {
         Message::Settings(message::SettingsMessage::ReliabilitySchedulerPollSecsChanged(
@@ -158,12 +155,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let scheduler_poll_row = field_row(
         "调度轮询间隔",
         "调度器检查任务的轮询频率。",
-        row![
-        scheduler_poll_slider,
-        settings_value_badge(format!("{} s", s.scheduler_poll_secs)),
-        ]
-        .spacing(16)
-        .align_y(Alignment::Center),
+        row![scheduler_poll_slider, settings_value_badge(format!("{} s", s.scheduler_poll_secs)),]
+            .spacing(16)
+            .align_y(Alignment::Center),
     );
 
     let scheduler_retries_slider = slider(0.0..=20.0, s.scheduler_retries as f32, |v| {
@@ -176,18 +170,18 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let scheduler_retries_row = field_row(
         "调度重试次数",
         "任务执行失败时允许的重试次数。",
-        row![
-        scheduler_retries_slider,
-        settings_value_badge(format!("{}", s.scheduler_retries)),
-        ]
-        .spacing(16)
-        .align_y(Alignment::Center),
+        row![scheduler_retries_slider, settings_value_badge(format!("{}", s.scheduler_retries)),]
+            .spacing(16)
+            .align_y(Alignment::Center),
     );
 
     let mut col = column![
         row![
-            container(settings_page_intro("可靠性配置", "统一配置 provider 重试、频道重连退避和调度重试策略。"))
-                .width(Length::Fill),
+            container(settings_page_intro(
+                "可靠性配置",
+                "统一配置 provider 重试、频道重连退避和调度重试策略。"
+            ))
+            .width(Length::Fill),
             help_btn
         ]
         .align_y(Alignment::Start),

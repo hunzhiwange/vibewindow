@@ -9,19 +9,26 @@
 //! - 自动截断过长的命令和输出内容
 
 use iced::widget::{Space, button, container, mouse_area, row, text};
-use iced::{Alignment, Element, Length, Theme};
+use iced::{Alignment, Color, Element, Length, Theme};
 
 use crate::app::assets::Icon;
 use crate::app::{App, Message, message};
 
 use super::{
-    ToolTextTarget, canonical_tool_name, tool_header_label, tool_header_title,
-    tool_inline_summary, tool_inline_text_editor,
+    ToolTextTarget, canonical_tool_name, tool_header_label, tool_header_title, tool_inline_summary,
+    tool_inline_text_editor,
 };
 use crate::app::components::chat_panel::utils::{
     bold_font, chat_secondary_muted_text_color, chat_secondary_text_color, eye_icon_button_style,
     eye_icon_svg_style, icon_svg, simplified_block_style, truncate_chars,
 };
+
+fn bash_block_style(theme: &Theme) -> iced::widget::container::Style {
+    let mut style = simplified_block_style(theme);
+    style.border.width = 0.0;
+    style.border.color = Color::TRANSPARENT;
+    style
+}
 
 /// 渲染 Bash 工具的视图组件
 ///
@@ -162,5 +169,5 @@ pub fn tool_bash_view<'a>(
         .on_exit(Message::Chat(message::ChatMessage::ToolHoverLeave));
 
     // 组装最终视图：仅保留头部，运行结果不在 chat 卡片中展示
-    Some(container(head).padding([2, 6]).width(Length::Fill).style(simplified_block_style).into())
+    Some(container(head).padding([2, 6]).width(Length::Fill).style(bash_block_style).into())
 }

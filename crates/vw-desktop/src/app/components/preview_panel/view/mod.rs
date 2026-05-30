@@ -33,8 +33,8 @@ use crate::app::components::editor_toolbar;
 use crate::app::{App, Message, message};
 /// 重新导出 use iced::widget::svg，让上层模块通过稳定路径访问。
 use iced::widget::svg;
-/// 重新导出 use iced::widget::{MouseArea, Space, button, column, container, row, stack, text}，让上层模块通过稳定路径访问。
-use iced::widget::{MouseArea, Space, button, column, container, row, stack, text};
+/// 重新导出 use iced::widget::{Space, button, column, container, row, text}，让上层模块通过稳定路径访问。
+use iced::widget::{Space, button, column, container, row, text};
 /// 重新导出 use iced::{Background, Border, Color, Element, Length, Padding, Theme}，让上层模块通过稳定路径访问。
 use iced::{Background, Border, Color, Element, Length, Padding, Theme};
 /// 重新导出 use std::path::Path，让上层模块通过稳定路径访问。
@@ -68,7 +68,7 @@ pub use settings::build_settings_overlay;
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
 pub fn view(app: &App) -> Element<'_, Message> {
-    let show_fullscreen_overlay = matches!(app.screen, crate::app::Screen::Project);
+    let show_fullscreen_controls = matches!(app.screen, crate::app::Screen::Project);
 
     let header_tabs = build_header_tabs(app);
 
@@ -110,17 +110,16 @@ pub fn view(app: &App) -> Element<'_, Message> {
             Space::new().into()
         };
 
-        #[cfg(not(target_arch = "wasm32"))]
-        let mut trace_row = row![breadcrumb].spacing(6).align_y(iced::Alignment::Center);
-        #[cfg(target_arch = "wasm32")]
         let trace_row = row![breadcrumb].spacing(6).align_y(iced::Alignment::Center);
 
         #[cfg(not(target_arch = "wasm32"))]
-        if let Some(lsp_badge) = active_preview_lsp_badge(app) {
-            trace_row = trace_row.push(lsp_badge);
-        }
+        let trace_row = if let Some(lsp_badge) = active_preview_lsp_badge(app) {
+            trace_row.push(lsp_badge)
+        } else {
+            trace_row
+        };
 
-        container(trace_row).padding([0, 4]).into()
+        container(trace_row).padding([0, 4]).width(Length::Fill).into()
     };
 
     let content_base = build_content_base(app);
@@ -140,12 +139,19 @@ pub fn view(app: &App) -> Element<'_, Message> {
         column![content_container].spacing(0)
     };
     if !app.file_manager_show_changes {
-        layout = column![
-            container(header_tabs).padding([0, 4]).width(Length::Fill),
-            header_trace_nav,
-            layout
-        ]
-        .spacing(0);
+        let header_row: Element<'_, Message> = if show_fullscreen_controls {
+            row![
+                container(header_tabs).padding([0, 4]).width(Length::Fill),
+                container(fullscreen_controls(app)).padding([0, 4]).width(Length::Shrink)
+            ]
+            .spacing(6)
+            .align_y(iced::Alignment::Start)
+            .into()
+        } else {
+            container(header_tabs).padding([0, 4]).width(Length::Fill).into()
+        };
+
+        layout = column![header_row, header_trace_nav, layout].spacing(0);
     }
 
     let menu_overlay_show = app.show_preview_context_menu;
@@ -178,11 +184,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let host: iced::Element<'_, Message> = menu_host;
 
-    if show_fullscreen_overlay {
-        stack![host, fullscreen_button_overlay(app)].width(Length::Fill).height(Length::Fill).into()
-    } else {
-        host
-    }
+    host
 }
 
 /// 处理 active preview lsp badge 对应的局部职责。
@@ -501,127 +503,48 @@ fn overlay_icon_button_style(theme: &Theme, status: button::Status) -> button::S
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn fullscreen_button_overlay<'a>(app: &'a App) -> Element<'a, Message> {
-    let overlay_controls: Element<'a, Message> = if app.show_preview_fullscreen_overlay {
-        let half_button: Element<'a, Message> = button(
-            svg::Svg::new(crate::app::assets::get_icon(Icon::LayoutTextWindow))
-                .width(Length::Fixed(11.0))
-                .height(Length::Fixed(11.0))
-                .style(move |theme: &Theme, _status| {
-                    let bg = theme.palette().background;
-                    let is_dark = bg.r + bg.g + bg.b < 1.5;
-                    svg::Style {
-                        // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        color: Some(if is_dark {
-                            // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                            Color::from_rgba(0.04, 0.04, 0.05, 1.0)
-                        } else {
-                            // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                            Color::from_rgba(1.0, 1.0, 1.0, 0.92)
-                        }),
-                    }
-                }),
-        )
-        .padding(4)
-        .width(Length::Fixed(21.0))
-        .height(Length::Fixed(21.0))
-        .style(overlay_icon_button_style)
-        .on_press(Message::Git(message::GitMessage::ToggleHalfFullscreen))
-        .into();
-
-        let fullscreen_icon =
-            if app.git_diff_fullscreen { Icon::FullscreenExit } else { Icon::Fullscreen };
-
-        let fullscreen_button: Element<'a, Message> = button(
-            svg::Svg::new(crate::app::assets::get_icon(fullscreen_icon))
-                .width(Length::Fixed(11.0))
-                .height(Length::Fixed(11.0))
-                .style(move |theme: &Theme, _status| {
-                    let bg = theme.palette().background;
-                    let is_dark = bg.r + bg.g + bg.b < 1.5;
-                    svg::Style {
-                        // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        color: Some(if is_dark {
-                            // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                            Color::from_rgba(0.04, 0.04, 0.05, 1.0)
-                        } else {
-                            // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                            Color::from_rgba(1.0, 1.0, 1.0, 0.92)
-                        }),
-                    }
-                }),
-        )
-        .padding(4)
-        .width(Length::Fixed(21.0))
-        .height(Length::Fixed(21.0))
-        .style(overlay_icon_button_style)
-        .on_press(Message::Git(message::GitMessage::ToggleFullscreen))
-        .into();
-
-        container(row![half_button, fullscreen_button].spacing(6).align_y(iced::Alignment::Center))
-            .padding([5, 8])
-            .style(|theme: &iced::Theme| {
-                let palette = theme.extended_palette();
-                let bg = theme.palette().background;
-                let is_dark = bg.r + bg.g + bg.b < 1.5;
-                iced::widget::container::Style {
-                    // text_color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                    text_color: Some(theme.palette().text),
-                    // background 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                    background: Some(Background::Color(if is_dark {
-                        // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        Color::from_rgba(1.0, 1.0, 1.0, 0.92)
-                    } else {
-                        // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        Color::from_rgba(0.04, 0.04, 0.05, 0.88)
-                    })),
-                    // border 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                    border: Border {
-                        // width 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        width: 1.0,
-                        // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        color: if is_dark {
-                            // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                            Color::from_rgba(1.0, 1.0, 1.0, 0.36)
-                        } else {
-                            palette.background.strong.color.scale_alpha(0.40)
-                        },
-                        // radius 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        radius: 999.0.into(),
-                    },
-                    // shadow 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                    shadow: iced::Shadow {
-                        // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        color: if is_dark {
-                            // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                            Color::from_rgba(1.0, 1.0, 1.0, 0.12)
-                        } else {
-                            // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                            Color::from_rgba(0.0, 0.0, 0.0, 0.28)
-                        },
-                        // offset 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        offset: iced::Vector::new(0.0, 6.0),
-                        // blur_radius 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        blur_radius: 18.0,
-                    },
-                    // snap 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                    snap: false,
-                }
-            })
-            .into()
-    } else {
-        // Space 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-        Space::new().width(Length::Fixed(21.0)).height(Length::Fixed(21.0)).into()
-    };
-
-    container(
-        MouseArea::new(overlay_controls)
-            .on_enter(Message::Preview(message::PreviewMessage::FullscreenOverlayEntered))
-            .on_exit(Message::Preview(message::PreviewMessage::FullscreenOverlayExited)),
+fn fullscreen_controls<'a>(app: &'a App) -> Element<'a, Message> {
+    let half_button: Element<'a, Message> = button(
+        svg::Svg::new(crate::app::assets::get_icon(Icon::LayoutTextWindow))
+            .width(Length::Fixed(11.0))
+            .height(Length::Fixed(11.0))
+            .style(move |theme: &Theme, _status| fullscreen_icon_style(theme)),
     )
-    .width(Length::Fill)
-    .height(Length::Fill)
-    .align_x(iced::alignment::Horizontal::Center)
-    .align_y(iced::alignment::Vertical::Top)
-    .into()
+    .padding(4)
+    .width(Length::Fixed(21.0))
+    .height(Length::Fixed(21.0))
+    .style(overlay_icon_button_style)
+    .on_press(Message::Git(message::GitMessage::ToggleHalfFullscreen))
+    .into();
+
+    let fullscreen_icon =
+        if app.git_diff_fullscreen { Icon::FullscreenExit } else { Icon::Fullscreen };
+
+    let fullscreen_button: Element<'a, Message> = button(
+        svg::Svg::new(crate::app::assets::get_icon(fullscreen_icon))
+            .width(Length::Fixed(11.0))
+            .height(Length::Fixed(11.0))
+            .style(move |theme: &Theme, _status| fullscreen_icon_style(theme)),
+    )
+    .padding(4)
+    .width(Length::Fixed(21.0))
+    .height(Length::Fixed(21.0))
+    .style(overlay_icon_button_style)
+    .on_press(Message::Git(message::GitMessage::ToggleFullscreen))
+    .into();
+
+    row![half_button, fullscreen_button].spacing(4).align_y(iced::Alignment::Center).into()
+}
+
+fn fullscreen_icon_style(theme: &Theme) -> svg::Style {
+    let bg = theme.palette().background;
+    let is_dark = bg.r + bg.g + bg.b < 1.5;
+    let palette = theme.extended_palette();
+    svg::Style {
+        color: Some(if is_dark {
+            palette.background.strong.text.scale_alpha(0.88)
+        } else {
+            Color::from_rgba8(30, 41, 59, 0.78)
+        }),
+    }
 }

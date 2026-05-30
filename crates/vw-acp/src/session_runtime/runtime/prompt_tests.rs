@@ -20,9 +20,6 @@ async fn noop_active_session_controller_denies_active_cancel() {
     assert!(controller.set_session_mode("default".to_string()).await.is_ok());
     assert!(controller.set_session_model("model".to_string()).await.is_ok());
     assert!(
-        controller
-            .set_session_config_option("id".to_string(), "value".to_string())
-            .await
-            .is_err()
+        controller.set_session_config_option("id".to_string(), "value".to_string()).await.is_err()
     );
 }

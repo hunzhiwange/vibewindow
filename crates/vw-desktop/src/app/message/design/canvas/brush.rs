@@ -11,9 +11,7 @@ use iced::Point;
 fn is_brush_path(element: &DesignElement) -> bool {
     element.kind == "path"
         && element.class.as_deref().is_some_and(|class_name| {
-            class_name
-                .split_whitespace()
-                .any(|token| token == BRUSH_STROKE_CLASS)
+            class_name.split_whitespace().any(|token| token == BRUSH_STROKE_CLASS)
         })
 }
 
@@ -182,7 +180,8 @@ pub(super) fn erase_brush_nodes(
                 .iter()
                 .map(|point| Point::new(point.x - parent_offset.x, point.y - parent_offset.y))
                 .collect();
-            if let Some(mut replacement) = create_brush_path_element(&segment_local, &color, width) {
+            if let Some(mut replacement) = create_brush_path_element(&segment_local, &color, width)
+            {
                 if segment_index == 0 {
                     replacement.id = base.id.clone();
                 }

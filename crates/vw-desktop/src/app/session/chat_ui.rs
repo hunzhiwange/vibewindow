@@ -285,7 +285,8 @@ fn sync_chat_explore_summary_animations_for_message(
 ) {
     let now_ms = crate::app::time::now_ms();
 
-    for (group_idx, (_, summary_text)) in render_entry.explore_summary_text_blocks.iter().enumerate()
+    for (group_idx, (_, summary_text)) in
+        render_entry.explore_summary_text_blocks.iter().enumerate()
     {
         let key = explore_summary_animation_key(msg_idx, group_idx);
         match app.chat_explore_summary_animations.entry(key) {
@@ -376,11 +377,7 @@ pub fn prepare_chat_ui_chunk_phase(
     is_base: bool,
 ) -> PreparedChatUiPhase {
     let chunk = build_prepared_chat_ui_chunk(chat_window, chunk_start_idx);
-    if is_base {
-        PreparedChatUiPhase::Base(chunk)
-    } else {
-        PreparedChatUiPhase::Chunk(chunk)
-    }
+    if is_base { PreparedChatUiPhase::Base(chunk) } else { PreparedChatUiPhase::Chunk(chunk) }
 }
 
 impl App {
@@ -858,16 +855,14 @@ impl App {
             let Some(render_entry) = render_cache.get(&idx) else {
                 is_chunk_fresh = false;
                 self.chat_render_cache.remove(&idx);
-                self.chat_explore_summary_animations
-                    .retain(|key, _| (*key >> 64) as usize != idx);
+                self.chat_explore_summary_animations.retain(|key, _| (*key >> 64) as usize != idx);
                 continue;
             };
 
             if render_entry.content_hash != expected_hash {
                 is_chunk_fresh = false;
                 self.chat_render_cache.remove(&idx);
-                self.chat_explore_summary_animations
-                    .retain(|key, _| (*key >> 64) as usize != idx);
+                self.chat_explore_summary_animations.retain(|key, _| (*key >> 64) as usize != idx);
                 continue;
             }
 

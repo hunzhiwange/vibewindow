@@ -54,56 +54,54 @@ pub(crate) fn build_file_list_column<'a>(
             .style(weak_file_button_style)
             .on_press(Message::Preview(message::PreviewMessage::Open(abs.clone())));
 
-        if view_ctx.is_edit_like && !render_state.is_search
-            && let Some(rel) = relative_to_project_root(app, abs) {
-                if let Some(change) = changes_by_path.get(rel.as_str()) {
-                    let preview_abs = Some(abs.as_str());
-                    let meta_pill: Element<'a, Message> =
-                        change_pills(change.additions, change.deletions);
-                    let title = format!("{}  +{}-{}", rel, change.additions, change.deletions);
-                    let file_name = file_row_label(app, view_ctx, display, abs);
-                    let light = matches!(view_ctx.verb, "读取" | "编辑");
-                    let left =
-                        tool_file_left(view_ctx.verb, file_name, light, view_ctx.read_range.clone());
+        if view_ctx.is_edit_like
+            && !render_state.is_search
+            && let Some(rel) = relative_to_project_root(app, abs)
+        {
+            if let Some(change) = changes_by_path.get(rel.as_str()) {
+                let preview_abs = Some(abs.as_str());
+                let meta_pill: Element<'a, Message> =
+                    change_pills(change.additions, change.deletions);
+                let title = format!("{}  +{}-{}", rel, change.additions, change.deletions);
+                let file_name = file_row_label(app, view_ctx, display, abs);
+                let light = matches!(view_ctx.verb, "读取" | "编辑");
+                let left =
+                    tool_file_left(view_ctx.verb, file_name, light, view_ctx.read_range.clone());
 
-                    let diff_row = row![
-                        left,
-                        preview_eye_button_slot(
-                            app,
-                            view_ctx.msg_idx,
-                            view_ctx.tool_idx,
-                            preview_abs,
-                        ),
-                        container(Space::new()).width(Length::Fill),
-                        meta_pill,
-                        view_changes_pill()
-                    ]
-                    .spacing(10)
-                    .align_y(Alignment::Center);
+                let diff_row = row![
+                    left,
+                    preview_eye_button_slot(app, view_ctx.msg_idx, view_ctx.tool_idx, preview_abs,),
+                    container(Space::new()).width(Length::Fill),
+                    meta_pill,
+                    view_changes_pill()
+                ]
+                .spacing(10)
+                .align_y(Alignment::Center);
 
-                    let diff_button: Element<'a, Message> = button(diff_row)
-                        .padding([6, 10])
-                        .width(Length::Fill)
-                        .style(weak_file_button_style)
-                        .on_press(Message::Git(message::GitMessage::OpenChatTextDiff {
-                            title,
-                            file: rel.clone(),
-                            before: change.before.clone(),
-                            after: change.after.clone(),
-                        }))
-                        .into();
-                    let diff_button = wrap_tool_file_hover(
-                        view_ctx.msg_idx,
-                        view_ctx.tool_idx,
-                        preview_abs,
-                        diff_button,
-                    );
-                    column_view = column_view.push(diff_button);
-                    continue;
-                }
+                let diff_button: Element<'a, Message> = button(diff_row)
+                    .padding([6, 10])
+                    .width(Length::Fill)
+                    .style(weak_file_button_style)
+                    .on_press(Message::Git(message::GitMessage::OpenChatTextDiff {
+                        title,
+                        file: rel.clone(),
+                        before: change.before.clone(),
+                        after: change.after.clone(),
+                    }))
+                    .into();
+                let diff_button = wrap_tool_file_hover(
+                    view_ctx.msg_idx,
+                    view_ctx.tool_idx,
+                    preview_abs,
+                    diff_button,
+                );
+                column_view = column_view.push(diff_button);
+                continue;
             }
+        }
 
-        if let Some((title, file, after)) = fallback_edit_diff_payload(app, view_ctx, display, abs) {
+        if let Some((title, file, after)) = fallback_edit_diff_payload(app, view_ctx, display, abs)
+        {
             let preview_abs = Some(abs.as_str());
             let light = matches!(view_ctx.verb, "读取" | "编辑");
             let left = tool_file_left(
@@ -115,12 +113,7 @@ pub(crate) fn build_file_list_column<'a>(
 
             let diff_row = row![
                 left,
-                preview_eye_button_slot(
-                    app,
-                    view_ctx.msg_idx,
-                    view_ctx.tool_idx,
-                    preview_abs,
-                ),
+                preview_eye_button_slot(app, view_ctx.msg_idx, view_ctx.tool_idx, preview_abs,),
                 container(Space::new()).width(Length::Fill),
                 view_changes_pill()
             ]
@@ -138,12 +131,8 @@ pub(crate) fn build_file_list_column<'a>(
                     after,
                 }))
                 .into();
-            let diff_button = wrap_tool_file_hover(
-                view_ctx.msg_idx,
-                view_ctx.tool_idx,
-                preview_abs,
-                diff_button,
-            );
+            let diff_button =
+                wrap_tool_file_hover(view_ctx.msg_idx, view_ctx.tool_idx, preview_abs, diff_button);
             column_view = column_view.push(diff_button);
             continue;
         }
@@ -153,13 +142,11 @@ pub(crate) fn build_file_list_column<'a>(
 
     if render_state.tail_omitted > 0 {
         column_view = column_view.push(
-            container(
-                text(format!("… 省略{}条", render_state.tail_omitted))
-                    .size(14)
-                    .style(|theme: &Theme| iced::widget::text::Style {
-                        color: Some(theme.extended_palette().secondary.base.text.scale_alpha(0.8)),
-                    }),
-            )
+            container(text(format!("… 省略{}条", render_state.tail_omitted)).size(14).style(
+                |theme: &Theme| iced::widget::text::Style {
+                    color: Some(theme.extended_palette().secondary.base.text.scale_alpha(0.8)),
+                },
+            ))
             .padding([2, 6])
             .width(Length::Fill),
         );
@@ -206,11 +193,7 @@ pub(super) fn file_row_label(
         return relative_to_project_root(app, abs).unwrap_or_else(|| display.to_string());
     }
 
-    Path::new(display)
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or(display)
-        .to_string()
+    Path::new(display).file_name().and_then(|value| value.to_str()).unwrap_or(display).to_string()
 }
 
 pub(super) fn fallback_edit_diff_payload(
@@ -241,9 +224,10 @@ pub(super) fn fallback_edit_diff_payload(
 
 fn view_changes_pill<'a>() -> Element<'a, Message> {
     container(text("查看变更").size(14).style(|theme: &Theme| {
-        let is_dark =
-            theme.palette().background.r + theme.palette().background.g + theme.palette().background.b
-                < 1.5;
+        let is_dark = theme.palette().background.r
+            + theme.palette().background.g
+            + theme.palette().background.b
+            < 1.5;
         iced::widget::text::Style {
             color: Some(if is_dark {
                 theme.palette().text.scale_alpha(0.88)
@@ -255,9 +239,10 @@ fn view_changes_pill<'a>() -> Element<'a, Message> {
     .padding([2, 8])
     .style(|theme: &Theme| {
         let ext = theme.extended_palette();
-        let is_dark =
-            theme.palette().background.r + theme.palette().background.g + theme.palette().background.b
-                < 1.5;
+        let is_dark = theme.palette().background.r
+            + theme.palette().background.g
+            + theme.palette().background.b
+            < 1.5;
         iced::widget::container::Style {
             background: Some(Background::Color(if is_dark {
                 ext.background.weak.color.scale_alpha(0.24)
@@ -345,9 +330,9 @@ fn wrap_tool_file_hover<'a>(
     };
 
     mouse_area(content)
-        .on_enter(Message::Chat(message::ChatMessage::ToolFileHover(
-            tool_file_hover_key(msg_idx, tool_idx, abs),
-        )))
+        .on_enter(Message::Chat(message::ChatMessage::ToolFileHover(tool_file_hover_key(
+            msg_idx, tool_idx, abs,
+        ))))
         .on_exit(Message::Chat(message::ChatMessage::ToolFileHoverLeave))
         .into()
 }
@@ -363,9 +348,10 @@ fn tool_file_left<'a>(
     read_range: Option<String>,
 ) -> Element<'a, Message> {
     let verb_text = text(verb).size(14).style(move |theme: &Theme| {
-        let is_dark =
-            theme.palette().background.r + theme.palette().background.g + theme.palette().background.b
-                < 1.5;
+        let is_dark = theme.palette().background.r
+            + theme.palette().background.g
+            + theme.palette().background.b
+            < 1.5;
         iced::widget::text::Style {
             color: Some(if light {
                 if is_dark {
@@ -380,9 +366,10 @@ fn tool_file_left<'a>(
     });
 
     let file_text = text(file_name).size(14).style(move |theme: &Theme| {
-        let is_dark =
-            theme.palette().background.r + theme.palette().background.g + theme.palette().background.b
-                < 1.5;
+        let is_dark = theme.palette().background.r
+            + theme.palette().background.g
+            + theme.palette().background.b
+            < 1.5;
         iced::widget::text::Style {
             color: Some(if light {
                 if is_dark {

@@ -107,10 +107,7 @@ fn dedupe_window_evicts_old_ids_and_allows_reuse_after_eviction() {
     );
     duplicate_recent.id = "msg-2".to_string();
     let error = bus.publish(duplicate_recent).expect_err("recent duplicate should be rejected");
-    assert_eq!(
-        error,
-        CoordinationError::DuplicateMessageId { message_id: "msg-2".to_string() }
-    );
+    assert_eq!(error, CoordinationError::DuplicateMessageId { message_id: "msg-2".to_string() });
 
     let stats = bus.stats();
     assert_eq!(stats.seen_message_id_evictions_total, 2);

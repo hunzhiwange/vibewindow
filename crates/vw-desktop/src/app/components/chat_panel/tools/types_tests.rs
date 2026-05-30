@@ -9,7 +9,8 @@ fn tool_types_preserve_explicit_fields() {
         before: "old".to_string(),
         after: "new".to_string(),
     };
-    let summary = ChangeFileSummary { kind: 'M', path: change.path.clone(), additions: 2, deletions: 1 };
+    let summary =
+        ChangeFileSummary { kind: 'M', path: change.path.clone(), additions: 2, deletions: 1 };
     let item = ExploreItem { tool_idx: EXPLORE_GROUP_TOOL_IDX, raw: "raw".to_string() };
 
     assert_eq!(summary.path, "src/main.rs");

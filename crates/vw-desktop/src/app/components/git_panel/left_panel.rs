@@ -20,23 +20,75 @@
 //! [可选详细描述]
 //! ```
 
-use iced::widget::tooltip::{Position as TooltipPosition, Tooltip};
-use iced::widget::{button, column, container, pick_list, row, text, text_editor, text_input};
-use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
+use iced::widget::{button, column, container, pick_list, row, svg, text, text_editor, text_input};
+use iced::{Alignment, Border, Color, Element, Length, Theme};
 
 use crate::app::assets::Icon;
-use crate::app::components::system_settings_common::{
-    round_icon_btn_style, settings_muted_text_style, settings_panel_style,
-    settings_pick_list_menu_style, settings_pick_list_style, settings_text_editor_style,
-    settings_text_input_style, settings_value_badge,
-};
 use crate::app::components::status_animation::spinner_frame;
+use crate::app::components::system_settings_common::{
+    icon_svg, settings_muted_text_style, settings_panel_style, settings_pick_list_menu_style,
+    settings_pick_list_style, settings_text_editor_style, settings_text_input_style,
+};
 use crate::app::state::ConventionalCommitType;
 use crate::app::{App, Message, message};
 
 use super::ui::{
     disabled_square_content_button_tiny, disabled_square_icon_button_tiny, square_icon_button_tiny,
 };
+
+pub(super) const COMMIT_HELP_TITLE: &str = "约定式提交";
+
+pub(super) const COMMIT_HELP_TEXT: &str = r#"约定式提交格式
+
+<类型>[可选作用域]: <摘要>
+
+[可选详细描述]
+
+核心提交类型
+
+feat: 新增功能（最小版本号增加）
+例：feat(auth): 新增用户登录模块
+
+fix: 修复 Bug（补丁版本号增加）
+例：fix: 修复首页图片加载失败的 bug
+
+docs: 仅文档更新
+例：docs: 更新 API 接口文档
+
+style: 代码风格调整（不影响逻辑）
+例：style: 按 ESLint 规则格式化代码
+
+refactor: 代码重构（非新增功能也非修复 bug）
+例：refactor: 优化用户查询函数的结构
+
+perf: 性能优化
+例：perf: 使用缓存优化列表渲染速度
+
+test: 增加或修改测试
+例：test: 为登录模块添加单元测试
+
+build: 构建系统或外部依赖变更
+例：build: 升级 webpack 至 v5
+
+ci: CI 配置或脚本变更
+例：ci: 在 GitHub Actions 中增加 Node 版本矩阵
+
+chore: 不修改源码或测试文件的杂项变更
+例：chore: 更新 npm 依赖包版本
+
+revert: 回退之前的提交
+例：revert: 回滚提交 abc123
+
+扩展与特殊类型
+
+init: 项目初始化或脚手架
+config: 配置文件修改
+release: 发布版本
+deploy: 部署相关
+merge: 合并分支
+wip: 进行中的工作（临时提交，慎用）
+typo: 修复拼写错误
+locale: 国际化/本地化相关"#;
 
 /// 构建 Git 面板左侧面板视图
 ///
@@ -183,82 +235,51 @@ pub fn view(app: &App) -> Element<'_, Message> {
             Message::Git(message::GitMessage::CommitSelected),
         )
     };
-    // 构建帮助提示内容容器，包含约定式提交规范的详细说明
-    // 内容分为核心提交类型和扩展特殊类型两部分
-    let help_tip_content = container(
-        column![
-            text("约定式提交（Conventional Commits）类型").size(13),
-            text("核心提交类型").size(12).style(settings_muted_text_style),
-            // feat: 新增功能，会增加最小版本号
-            text("feat: 新增功能（最小版本号增加）- 例：feat(auth): 新增用户登录模块").size(11),
-            // fix: 修复 Bug，会增加补丁版本号
-            text("fix: 修复 Bug（补丁版本号增加）- 例：fix: 修复首页图片加载失败的 bug").size(11),
-            // docs: 仅文档更新，不影响代码逻辑
-            text("docs: 仅文档更新 - 例：docs: 更新 API 接口文档").size(11),
-            // style: 代码风格调整，不影响功能逻辑
-            text("style: 代码风格调整（不影响逻辑）- 例：style: 按 ESLint 规则格式化代码").size(11),
-            // refactor: 代码重构，不增加新功能也不修复 Bug
-            text(
-                "refactor: 代码重构（非新增功能也非修复 bug）- 例：refactor: 优化用户查询函数的结构"
-            )
-            .size(11),
-            // perf: 性能优化
-            text("perf: 性能优化 - 例：perf: 使用缓存优化列表渲染速度").size(11),
-            // test: 测试相关变更
-            text("test: 增加或修改测试 - 例：test: 为登录模块添加单元测试").size(11),
-            // build: 构建系统或依赖变更
-            text("build: 构建系统/外部依赖变更 - 例：build: 升级 webpack 至 v5").size(11),
-            // ci: CI 配置变更
-            text("ci: CI 配置或脚本变更 - 例：ci: 在 GitHub Actions 中增加 Node 版本矩阵").size(11),
-            // chore: 杂项变更，不修改源码或测试
-            text("chore: 不修改源码或测试文件的杂项变更 - 例：chore: 更新 npm 依赖包版本").size(11),
-            // revert: 回退之前的提交
-            text("revert: 回退之前的提交 - 例：revert: 回滚提交 abc123").size(11),
-            text("扩展与特殊类型").size(12).style(settings_muted_text_style),
-            // 以下是扩展类型，用于特定场景
-            text("init: 项目初始化或脚手架").size(11),
-            text("config: 配置文件修改").size(11),
-            text("release: 发布版本").size(11),
-            text("deploy: 部署相关").size(11),
-            text("merge: 合并分支").size(11),
-            text("wip: 进行中的工作（临时提交，慎用）").size(11),
-            text("typo: 修复拼写错误").size(11),
-            text("locale: 国际化/本地化相关").size(11),
-        ]
-        .spacing(4),
+    // 构建帮助按钮，点击后显示约定式提交规范弹窗。
+    let help_btn = button(
+        container(icon_svg(Icon::QuestionCircle, 14.0).style(|theme: &Theme, _status| {
+            svg::Style { color: Some(theme.palette().text.scale_alpha(0.78)) }
+        }))
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .align_x(iced::alignment::Horizontal::Center)
+        .align_y(iced::alignment::Vertical::Center),
     )
-    .max_width(580)
-    .padding([14, 16])
-    .style(settings_panel_style);
-    // 构建帮助按钮（"?" 图标），点击后显示约定式提交规范提示
-    let help_btn = button(text("?").size(13))
-        .padding(0)
-        .width(Length::Fixed(28.0))
-        .height(Length::Fixed(28.0))
-        .style(round_icon_btn_style);
+    .padding(0)
+    .width(Length::Fixed(24.0))
+    .height(Length::Fixed(24.0))
+    .style(|theme: &Theme, status| {
+        let palette = theme.extended_palette();
+        let is_hovered = matches!(
+            status,
+            iced::widget::button::Status::Hovered | iced::widget::button::Status::Pressed
+        );
 
-    // 将帮助按钮和提示内容组合为工具提示组件
-    // 悬停时在按钮上方显示帮助内容，间隔 6 像素
-    let help_tooltip = Tooltip::new(help_btn, help_tip_content, TooltipPosition::Top).gap(6);
+        iced::widget::button::Style {
+            background: is_hovered.then(|| palette.background.weak.color.scale_alpha(0.72).into()),
+            text_color: theme.palette().text,
+            border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 999.0.into() },
+            ..Default::default()
+        }
+    })
+    .on_press(Message::Git(message::GitMessage::CommitHelpOpen));
 
     // 构建主内容列，按顺序添加摘要输入、描述编辑器和底部操作区
     let header_block = container(
         row![
             container(
                 column![
-                    text("提交所选变更").size(14),
+                    row![
+                        text("提交所选变更").size(14),
+                        container(help_btn).center_x(Length::Shrink).center_y(Length::Shrink),
+                    ]
+                    .spacing(6)
+                    .align_y(Alignment::Center),
                     text(mode_description).size(11).style(settings_muted_text_style),
                 ]
                 .spacing(4),
             )
             .width(Length::Fill)
-            .center_y(Length::Shrink),
-            container(settings_value_badge(if app.show_git_diff_summary {
-                "约定式提交"
-            } else {
-                "快速提交"
-            }))
-            .center_x(Length::Shrink)
             .center_y(Length::Shrink),
         ]
         .align_y(Alignment::Center),
@@ -266,62 +287,21 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .width(Length::Fill)
     .center_y(Length::Shrink);
 
-    let mut form_col = column![
-        header_block
-    ]
-    .spacing(12);
+    let mut form_col = column![header_block].spacing(12);
     if let Some(summary_input) = summary_input {
         form_col = form_col.push(summary_input);
     }
     form_col = form_col.push(
-        column![
-            text("详细描述").size(11).style(settings_muted_text_style),
-            desc_input,
-        ]
-        .spacing(6),
+        column![text("详细描述").size(11).style(settings_muted_text_style), desc_input,].spacing(6),
     );
 
-    let form_card = container(form_col)
-        .padding([14, 16])
-        .width(Length::Fill)
-        .style(|theme: &Theme| {
-            let palette = theme.extended_palette();
-            let is_dark = theme.palette().background.r
-                + theme.palette().background.g
-                + theme.palette().background.b
-                < 1.5;
-
-            iced::widget::container::Style {
-                background: Some(Background::Color(if is_dark {
-                    palette.background.weak.color.scale_alpha(0.20)
-                } else {
-                    Color::from_rgba8(246, 248, 252, 0.96)
-                })),
-                border: Border {
-                    width: 1.0,
-                    color: if is_dark {
-                        palette.background.strong.color.scale_alpha(0.80)
-                    } else {
-                        Color::from_rgba8(15, 23, 42, 0.06)
-                    },
-                    radius: 16.0.into(),
-                },
-                ..Default::default()
-            }
-        });
-
     let col = column![
-        form_card,
+        form_col,
         row![
             container(text(commit_hint).size(11).style(settings_muted_text_style))
                 .width(Length::Fill)
                 .center_y(Length::Shrink),
-            container(help_tooltip)
-                .center_x(Length::Shrink)
-                .center_y(Length::Shrink),
-            container(commit_btn)
-                .center_x(Length::Shrink)
-                .center_y(Length::Shrink),
+            container(commit_btn).center_x(Length::Shrink).center_y(Length::Shrink),
         ]
         .spacing(8)
         .align_y(Alignment::Center)
@@ -329,9 +309,5 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .spacing(12);
 
     // 包装为容器并应用最终样式，返回完整的面板元素
-    container(col)
-        .width(Length::Fill)
-        .padding([14, 16])
-        .style(settings_panel_style)
-        .into()
+    container(col).width(Length::Fill).padding([14, 16]).style(settings_panel_style).into()
 }

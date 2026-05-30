@@ -54,8 +54,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let s = &app.query_classification_settings;
 
     let header = row![
-        container(settings_page_intro("查询分类", "将 pattern 映射为 category，并同步回 query_classification 配置。"))
-            .width(Length::Fill),
+        container(settings_page_intro(
+            "查询分类",
+            "将 pattern 映射为 category，并同步回 query_classification 配置。"
+        ))
+        .width(Length::Fill),
         button(text("新增规则"))
             .on_press(Message::Settings(SettingsMessage::QueryClassification(
                 QueryClassificationMessage::AddRule,
@@ -69,17 +72,24 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let enabled_row = field_row(
         "启用",
         "控制是否开启查询分类规则。",
-        checkbox(s.enabled).label("启用查询分类").on_toggle(|value| Message::Settings(
-            SettingsMessage::QueryClassification(QueryClassificationMessage::EnabledToggled(value),)
-        ))
-        .style(settings_checkbox_style),
+        checkbox(s.enabled)
+            .label("启用查询分类")
+            .on_toggle(|value| {
+                Message::Settings(SettingsMessage::QueryClassification(
+                    QueryClassificationMessage::EnabledToggled(value),
+                ))
+            })
+            .style(settings_checkbox_style),
     );
 
     let mut list = column![
         header,
         settings_section_card("基础行为", "控制查询分类总开关以及规则优先级行为。"),
         settings_panel(column![enabled_row].spacing(0)),
-        settings_section_card("分类规则", "pattern 会同步到 patterns/keywords，category 会写入 hint。"),
+        settings_section_card(
+            "分类规则",
+            "pattern 会同步到 patterns/keywords，category 会写入 hint。"
+        ),
     ]
     .spacing(16);
 
@@ -89,9 +99,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     if s.rules.is_empty() {
         list = list.push(settings_panel(
-            column![text("暂无分类规则，点击右上角“新增规则”开始配置")
-                .size(13)
-                .style(settings_muted_text_style)]
+            column![
+                text("暂无分类规则，点击右上角“新增规则”开始配置")
+                    .size(13)
+                    .style(settings_muted_text_style)
+            ]
             .spacing(0),
         ));
     }

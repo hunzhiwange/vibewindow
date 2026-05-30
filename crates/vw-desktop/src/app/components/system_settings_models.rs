@@ -33,9 +33,7 @@ use crate::app::components::system_settings_common::{
     settings_value_badge,
 };
 use crate::app::{App, Message, message};
-use iced::widget::{
-    button, column, container, row, scrollable, text, text_input, toggler,
-};
+use iced::widget::{button, column, container, row, scrollable, text, text_input, toggler};
 use iced::{Alignment, Element, Length};
 
 /// 渲染模型设置的主视图
@@ -198,7 +196,11 @@ pub fn main_view(app: &App) -> Element<'_, Message> {
     }
 
     if !any {
-        let empty_title = if s.loading { "正在刷新模型目录…" } else { "暂无已连接的提供商或模型" };
+        let empty_title = if s.loading {
+            "正在刷新模型目录…"
+        } else {
+            "暂无已连接的提供商或模型"
+        };
         let empty_description = if s.loading {
             "稍后会展示当前已发现的 provider 与模型。"
         } else {
@@ -246,13 +248,19 @@ pub fn main_view(app: &App) -> Element<'_, Message> {
 
     let mut content = column![
         row![
-            container(settings_page_intro("模型配置", "浏览已连接 provider 的模型目录，搜索、筛选并切换模型可用状态。"))
-                .width(Length::Fill),
+            container(settings_page_intro(
+                "模型配置",
+                "浏览已连接 provider 的模型目录，搜索、筛选并切换模型可用状态。"
+            ))
+            .width(Length::Fill),
             refresh_btn,
         ]
         .spacing(12)
         .align_y(Alignment::Start),
-        settings_section_card("搜索与过滤", "按 provider 名称、provider ID、模型名称或模型 ID 过滤结果。"),
+        settings_section_card(
+            "搜索与过滤",
+            "按 provider 名称、provider ID、模型名称或模型 ID 过滤结果。"
+        ),
         filter_panel,
     ]
     .spacing(16)
@@ -361,18 +369,11 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
                 .into()
         };
 
-        let modal_col = column![
-            header,
-            meta_row,
-            settings_divider(),
-            body
-        ]
-        .spacing(14)
-        .height(Length::Fill);
+        let modal_col =
+            column![header, meta_row, settings_divider(), body].spacing(14).height(Length::Fill);
 
-        let card = settings_modal_card(modal_col)
-            .width(Length::Fixed(780.0))
-            .height(Length::Fixed(520.0));
+        let card =
+            settings_modal_card(modal_col).width(Length::Fixed(780.0)).height(Length::Fixed(520.0));
         base = settings_modal_overlay(Some(base), close_message, card);
     }
 

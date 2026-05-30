@@ -57,7 +57,8 @@ pub(super) fn design_project_pen_saved(
         match result {
             Ok(Some(path)) => {
                 state.file_path = Some(path.clone());
-                state.design_generation_summary = Some(format!("项目 .json 已保存: {}", path.display()));
+                state.design_generation_summary =
+                    Some(format!("项目 .json 已保存: {}", path.display()));
             }
             Ok(None) => {
                 state.design_generation_summary = Some("已取消保存项目 .pen。".to_string());
@@ -82,7 +83,8 @@ pub(super) fn save_generated_page_as_pen(
     let Some(state) = app.active_design_state() else {
         return Task::none();
     };
-    let Some(page) = state.design_generation_pages.iter().find(|page| page.frame_id == page_frame_id)
+    let Some(page) =
+        state.design_generation_pages.iter().find(|page| page.frame_id == page_frame_id)
     else {
         return Task::none();
     };
@@ -121,7 +123,8 @@ pub(super) fn generated_page_pen_saved(
     if let Some(state) = app.active_design_state_mut() {
         match result {
             Ok(Some(path)) => {
-                state.design_generation_summary = Some(format!("模块子文档已保存: {}", path.display()));
+                state.design_generation_summary =
+                    Some(format!("模块子文档已保存: {}", path.display()));
             }
             Ok(None) => {
                 state.design_generation_summary = Some("已取消保存模块子文档。".to_string());
@@ -179,8 +182,10 @@ pub(super) fn generated_page_pen_imported(
         let mut title = None;
         let mut imported_doc = None;
         let mut generated_target_frame_id = None;
-        if let Some(page) = find_generation_page_mut(&mut state.design_generation_pages, &page_frame_id)
-            && let Some(module) = page.modules.iter_mut().find(|module| module.module_id == page_task_id)
+        if let Some(page) =
+            find_generation_page_mut(&mut state.design_generation_pages, &page_frame_id)
+            && let Some(module) =
+                page.modules.iter_mut().find(|module| module.module_id == page_task_id)
         {
             title = Some(module.title.clone());
             target_frame_id = Some(module.target_frame_id.clone());
@@ -203,12 +208,14 @@ pub(super) fn generated_page_pen_imported(
                 DesignGenerationStatus::Generated,
             );
         }
-        if let (Some(target_frame_id), Some(doc), Some(title)) = (target_frame_id, imported_doc, title)
+        if let (Some(target_frame_id), Some(doc), Some(title)) =
+            (target_frame_id, imported_doc, title)
         {
             if let Err(error) = apply_module_doc_to_canvas(state, &target_frame_id, &doc) {
                 state.design_generation_summary = Some(error);
             } else {
-                state.design_generation_summary = Some(format!("已导入 .json 子文档到模块“{}”。", title));
+                state.design_generation_summary =
+                    Some(format!("已导入 .json 子文档到模块“{}”。", title));
                 state.layer_tree_metrics = compute_tree_metrics(&state.doc);
                 state.canvas_cache.clear();
             }
@@ -216,4 +223,3 @@ pub(super) fn generated_page_pen_imported(
     }
     Task::done(Message::Design(DesignMessage::Snapshot))
 }
-

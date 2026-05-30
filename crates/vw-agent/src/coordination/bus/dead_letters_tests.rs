@@ -16,8 +16,5 @@ fn dead_letter_readers_filter_by_correlation() {
 
     assert_eq!(bus.dead_letter_count(), 1);
     assert_eq!(bus.dead_letter_count_for_correlation("corr-a"), 1);
-    assert_eq!(
-        bus.dead_letters_recent_for_correlation("corr-a", 0, 1)[0].reason,
-        "undeliverable"
-    );
+    assert_eq!(bus.dead_letters_recent_for_correlation("corr-a", 0, 1)[0].reason, "undeliverable");
 }

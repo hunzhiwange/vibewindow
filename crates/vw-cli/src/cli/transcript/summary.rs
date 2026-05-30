@@ -17,11 +17,11 @@
 //! 它依赖于上游的解析器（`parse_assistant_segments`）和样式工具
 //!（`transcript_prefix_style`）来完成完整的内容渲染。
 
-use crate::app::agent::agent::loop_::cli::theme::TEXT_MUTED;
 use super::{
     ThinkBlockMeta, TranscriptEntry, TranscriptRole, assistant_segments_to_lines_with_meta,
     default_empty_transcript_line, parse_assistant_segments, transcript_prefix_style,
 };
+use crate::app::agent::agent::loop_::cli::theme::TEXT_MUTED;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use std::collections::BTreeSet;
@@ -135,11 +135,7 @@ pub(crate) fn transcript_to_lines<'a>(
 
             if matches!(entry.role, TranscriptRole::Assistant) {
                 let think_duration_secs = last_visible_entry_at.map(|at| {
-                    entry.at
-                        .signed_duration_since(at)
-                        .num_seconds()
-                        .max(0)
-                        .cast_unsigned()
+                    entry.at.signed_duration_since(at).num_seconds().max(0).cast_unsigned()
                 });
                 let (mut rendered, mut rendered_meta) = assistant_segments_to_lines_with_meta(
                     parse_assistant_segments(&entry.text),

@@ -36,7 +36,12 @@ fn default_start_variables_value() -> Value {
     ])
 }
 
-pub(super) fn blank_node_value(block_type: &str, node_id: String, position: Point, z_index: f32) -> Value {
+pub(super) fn blank_node_value(
+    block_type: &str,
+    node_id: String,
+    position: Point,
+    z_index: f32,
+) -> Value {
     let size = default_node_size(block_type);
     yaml_map(vec![
         ("data", default_node_data_value(block_type)),
@@ -45,14 +50,8 @@ pub(super) fn blank_node_value(block_type: &str, node_id: String, position: Poin
         ("position", point_value(position.x, position.y)),
         ("positionAbsolute", point_value(position.x, position.y)),
         ("selected", Value::Bool(false)),
-        (
-            "sourcePosition",
-            Value::String(default_source_side(block_type).to_string()),
-        ),
-        (
-            "targetPosition",
-            Value::String(default_target_side(block_type).to_string()),
-        ),
+        ("sourcePosition", Value::String(default_source_side(block_type).to_string())),
+        ("targetPosition", Value::String(default_target_side(block_type).to_string())),
         ("type", Value::String("custom".to_string())),
         ("width", yaml_value(size.width as f64)),
         ("zIndex", yaml_value(z_index as f64)),
@@ -95,10 +94,7 @@ pub(super) fn default_node_data_value(block_type: &str) -> Value {
             ("variables", default_start_variables_value()),
         ]),
         "answer" => yaml_map(vec![
-            (
-                "answer",
-                Value::String("你好，这是一条新的回复节点。".to_string()),
-            ),
+            ("answer", Value::String("你好，这是一条新的回复节点。".to_string())),
             ("desc", Value::String(String::new())),
             ("selected", Value::Bool(false)),
             ("title", Value::String(title)),
@@ -135,10 +131,7 @@ pub(super) fn default_node_data_value(block_type: &str) -> Value {
             ("title", Value::String(title)),
             ("type", Value::String("llm".to_string())),
             ("variables", Value::Sequence(Vec::new())),
-            (
-                "vision",
-                yaml_map(vec![("enabled", Value::Bool(false))]),
-            ),
+            ("vision", yaml_map(vec![("enabled", Value::Bool(false))])),
         ]),
         "if-else" => yaml_map(vec![
             (
@@ -174,14 +167,8 @@ pub(super) fn default_node_data_value(block_type: &str) -> Value {
                     ("top_k", yaml_value(5_u64)),
                 ]),
             ),
-            (
-                "query_attachment_selector",
-                Value::Sequence(Vec::new()),
-            ),
-            (
-                "query_variable_selector",
-                Value::Sequence(Vec::new()),
-            ),
+            ("query_attachment_selector", Value::Sequence(Vec::new())),
+            ("query_variable_selector", Value::Sequence(Vec::new())),
             ("retrieval_mode", Value::String("multiple".to_string())),
             ("selected", Value::Bool(false)),
             (
@@ -220,10 +207,7 @@ pub(super) fn default_node_data_value(block_type: &str) -> Value {
             ("agent_parameters", yaml_map(vec![])),
             ("agent_strategy_label", Value::String(String::new())),
             ("agent_strategy_name", Value::String(String::new())),
-            (
-                "agent_strategy_provider_name",
-                Value::String(String::new()),
-            ),
+            ("agent_strategy_provider_name", Value::String(String::new())),
             ("desc", Value::String(String::new())),
             (
                 "memory",

@@ -372,9 +372,7 @@ impl PromptSection for ToolsSection {
             let _ = writeln!(
                 out,
                 "- **{}**: {}\n  Parameters: `{}`",
-                spec.id,
-                spec.description,
-                spec.input_schema
+                spec.id, spec.description, spec.input_schema
             );
         }
 

@@ -82,11 +82,12 @@ pub(super) fn build_start_variable_draft(value: &Value) -> WorkflowStartVariable
     draft
 }
 
-pub(super) fn merge_start_variable_value(variable: &WorkflowStartVariableDraft) -> Result<Value, String> {
+pub(super) fn merge_start_variable_value(
+    variable: &WorkflowStartVariableDraft,
+) -> Result<Value, String> {
     let mut raw = ensure_root_mapping(variable.raw_variable.clone());
-    let variable_map = raw
-        .as_mapping_mut()
-        .ok_or_else(|| "开始节点变量必须是对象映射（YAML map）".to_string())?;
+    let variable_map =
+        raw.as_mapping_mut().ok_or_else(|| "开始节点变量必须是对象映射（YAML map）".to_string())?;
 
     set_mapping_string(variable_map, "label", &variable.label);
     set_mapping_string(variable_map, "variable", &variable.variable);
@@ -140,10 +141,7 @@ pub(super) fn merge_start_variable_value(variable: &WorkflowStartVariableDraft) 
         variable_map.insert(
             yaml_key("allowed_file_extensions"),
             Value::Sequence(
-                normalized_extensions
-                    .iter()
-                    .map(|item| Value::String(item.clone()))
-                    .collect(),
+                normalized_extensions.iter().map(|item| Value::String(item.clone())).collect(),
             ),
         );
         variable_map.insert(
@@ -246,10 +244,7 @@ pub(super) fn build_if_else_case_draft(value: &Value) -> WorkflowIfElseCaseDraft
             .and_then(|map| mapping_value(map, "conditions"))
             .and_then(Value::as_sequence)
             .map(|conditions: &Vec<Value>| {
-                conditions
-                    .iter()
-                    .map(build_if_else_condition_draft)
-                    .collect::<Vec<_>>()
+                conditions.iter().map(build_if_else_condition_draft).collect::<Vec<_>>()
             })
             .unwrap_or_else(|| vec![default_if_else_condition_draft()]),
         raw_case,
@@ -269,10 +264,7 @@ pub(super) fn merge_if_else_case_value(case: &WorkflowIfElseCaseDraft) -> Result
     let conditions = if case.conditions.is_empty() {
         vec![merge_if_else_condition_value(&default_if_else_condition_draft())?]
     } else {
-        case.conditions
-            .iter()
-            .map(merge_if_else_condition_value)
-            .collect::<Result<Vec<_>, _>>()?
+        case.conditions.iter().map(merge_if_else_condition_value).collect::<Result<Vec<_>, _>>()?
     };
 
     case_map.insert(yaml_key("conditions"), Value::Sequence(conditions));
@@ -306,7 +298,9 @@ pub(super) fn build_if_else_condition_draft(value: &Value) -> WorkflowIfElseCond
     }
 }
 
-pub(super) fn merge_if_else_condition_value(condition: &WorkflowIfElseConditionDraft) -> Result<Value, String> {
+pub(super) fn merge_if_else_condition_value(
+    condition: &WorkflowIfElseConditionDraft,
+) -> Result<Value, String> {
     let mut raw_condition = ensure_root_mapping(condition.raw_condition.clone());
     let condition_map = raw_condition
         .as_mapping_mut()
@@ -314,11 +308,7 @@ pub(super) fn merge_if_else_condition_value(condition: &WorkflowIfElseConditionD
     if !condition_map.contains_key(&yaml_key("id")) {
         set_mapping_string(condition_map, "id", &generate_condition_id());
     }
-    set_mapping_string(
-        condition_map,
-        "comparison_operator",
-        &condition.comparison_operator,
-    );
+    set_mapping_string(condition_map, "comparison_operator", &condition.comparison_operator);
     set_mapping_string(condition_map, "value", &condition.compare_value);
     set_mapping_string(condition_map, "varType", &condition.var_type);
     condition_map.insert(
@@ -346,10 +336,7 @@ pub(super) fn default_start_variable_draft() -> WorkflowStartVariableDraft {
             ("hide", Value::Bool(false)),
             ("hint", Value::String(String::new())),
             ("label", Value::String("新变量".to_string())),
-            (
-                "max_length",
-                serde_yaml::to_value(48_u64).unwrap_or(Value::String("48".to_string())),
-            ),
+            ("max_length", serde_yaml::to_value(48_u64).unwrap_or(Value::String("48".to_string()))),
             ("options", Value::Sequence(Vec::new())),
             ("placeholder", Value::String(String::new())),
             ("required", Value::Bool(true)),

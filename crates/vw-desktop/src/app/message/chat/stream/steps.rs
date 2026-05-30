@@ -1,7 +1,9 @@
 //! 处理聊天流式会话事件。
 //! 本模块把网关轮询和流式增量落到会话状态，避免 UI 层理解传输细节。
 
-use super::{ChatMessage, load_session_or_default, now_ms, save_session_task, session_directory_for_save};
+use super::{
+    ChatMessage, load_session_or_default, now_ms, save_session_task, session_directory_for_save,
+};
 use crate::app::{App, Message, models};
 use iced::Task;
 
@@ -122,10 +124,7 @@ async fn compute_step_cost(
         Some(s) => {
             if s.contains('/') {
                 let parsed = provider::parse_model(&s);
-                if provider::get_model(&parsed.provider_id, &parsed.model_id)
-                    .await
-                    .is_ok()
-                {
+                if provider::get_model(&parsed.provider_id, &parsed.model_id).await.is_ok() {
                     Some(parsed)
                 } else {
                     let providers = provider::list().await;
@@ -189,7 +188,8 @@ pub(super) fn handle_agent_step_start(
     }
     let mut session = load_session_or_default(app, session_id.clone());
     upsert_step_start(&mut session, step_index, created_ms, model, None);
-    let save_task = save_session_task(session.clone(), session_directory_for_save(app, &session_id));
+    let save_task =
+        save_session_task(session.clone(), session_directory_for_save(app, &session_id));
     if app.active_session_id.as_ref() == Some(&session_id) {
         app.active_session_view_state.updated_ms = session.updated_ms;
         if let Some(step) = session.steps.iter().find(|step| step.index == step_index) {
@@ -235,7 +235,8 @@ pub(super) fn handle_agent_step_finish(
         finish_reason,
         model.clone(),
     );
-    let save_task = save_session_task(session.clone(), session_directory_for_save(app, &session_id));
+    let save_task =
+        save_session_task(session.clone(), session_directory_for_save(app, &session_id));
     if app.active_session_id.as_ref() == Some(&session_id) {
         app.active_session_view_state.updated_ms = session.updated_ms;
         if let Some(step) = session.steps.iter().find(|step| step.index == step_index) {
@@ -293,7 +294,8 @@ pub(super) fn handle_agent_step_cost_loaded(
         session.steps.sort_by_key(|s| s.index);
     }
     session.updated_ms = session.updated_ms.max(now_ms());
-    let save_task = save_session_task(session.clone(), session_directory_for_save(app, &session_id));
+    let save_task =
+        save_session_task(session.clone(), session_directory_for_save(app, &session_id));
     if app.active_session_id.as_ref() == Some(&session_id) {
         app.active_session_view_state.updated_ms = session.updated_ms;
         if let Some(step) = session.steps.iter().find(|step| step.index == step_index) {

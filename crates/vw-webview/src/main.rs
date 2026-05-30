@@ -66,8 +66,7 @@ fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
 
     // 第一个参数作为目标地址（URL 或本地路径），默认加载示例站点
-    let target =
-        args.first().cloned().unwrap_or_else(|| "https://example.com/".to_string());
+    let target = args.first().cloned().unwrap_or_else(|| "https://example.com/".to_string());
 
     /// 规范化 URL 字符串
     ///

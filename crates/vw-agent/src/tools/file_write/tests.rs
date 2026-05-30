@@ -332,7 +332,9 @@ mod tests {
         .unwrap();
 
         assert!(!result.is_success());
-        assert!(result.error_text().unwrap_or_default().contains("changed since the last file_read"));
+        assert!(
+            result.error_text().unwrap_or_default().contains("changed since the last file_read")
+        );
         let content = tokio::fs::read_to_string(dir.join("exist.txt")).await.unwrap();
         assert_eq!(content, "newer");
 

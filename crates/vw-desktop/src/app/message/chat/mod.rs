@@ -14,7 +14,7 @@
 //! - `context`：处理上下文插入相关的消息（文件路径、代码片段、位置选择）
 //! - `session`：处理会话管理相关的消息（发送、取消、队列操作、模型选择）
 
-use crate::app::{App, Message, message, models};
+use crate::app::{App, Message, TodoPanelPlacement, message, models};
 use iced::Task;
 use iced::widget::{scrollable, text_editor};
 use std::time::Duration;
@@ -99,6 +99,12 @@ pub enum ChatMessage {
     /// 用户点击发送按钮或按下回车键时触发，开始处理用户消息
     SendPressed,
 
+    /// 将输入追加到指定的已有会话
+    SendToSession {
+        session_id: String,
+        input: String,
+    },
+
     /// 取消按钮按下
     ///
     /// 用户点击取消按钮时触发，用于中断正在进行的 Agent 响应
@@ -129,6 +135,12 @@ pub enum ChatMessage {
     /// 切换会话工具弹窗标签
     SessionToolSelectorTabSelected(crate::app::state::SessionToolSelectorTab),
 
+    /// 修改会话工具弹窗搜索关键词
+    SessionToolSelectorSearchChanged(String),
+
+    /// 切换会话技能目录筛选
+    SessionToolSelectorSkillDirectoryScopeChanged(crate::app::state::SkillsDirectoryScope),
+
     /// 切换会话工具分组折叠状态
     SessionToolGroupCollapsedToggled(crate::app::state::SessionToolGroup),
 
@@ -143,6 +155,12 @@ pub enum ChatMessage {
 
     /// 切换单个会话工具
     SessionToolToggled(String),
+
+    /// 切换手动工具上下文选中状态
+    SessionManualToolSelected(String),
+
+    /// 切换技能上下文选中状态
+    SessionSkillSelected(String),
 
     /// 重置会话级工具分桶
     SessionToolSelectorReset,
@@ -457,6 +475,9 @@ pub enum ChatMessage {
     /// 显示或隐藏待办事项面板
     ToggleTodoPanel,
 
+    /// 设置待办事项面板显示位置。
+    SetTodoPanelPlacement(TodoPanelPlacement),
+
     /// 待办事项动画时钟滴答
     ///
     /// 驱动待办事项面板展开/折叠动画
@@ -751,7 +772,8 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         | ChatMessage::TaskModeMoveSubtaskUp(_)
         | ChatMessage::TaskModeMoveSubtaskDown(_)
         | ChatMessage::ToggleResetMenu(_)
-        | ChatMessage::CloseResetMenu => input::update(app, message),
+        | ChatMessage::CloseResetMenu
+        | ChatMessage::SetTodoPanelPlacement(_) => input::update(app, message),
 
         // 流式响应相关消息：Agent 增量更新、步骤状态、会话标题、问题应答等
         ChatMessage::AgentStreamDelta(_, _)
@@ -793,6 +815,7 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
 
         // 会话管理相关消息：发送、取消、模型选择、队列操作等
         ChatMessage::SendPressed
+        | ChatMessage::SendToSession { .. }
         | ChatMessage::CancelPressed
         | ChatMessage::AutoModelToggled(_)
         | ChatMessage::AcpAgentSelected(_)
@@ -803,11 +826,15 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         | ChatMessage::ModelInputChanged(_)
         | ChatMessage::SessionToolBucketToggled(_)
         | ChatMessage::SessionToolSelectorTabSelected(_)
+        | ChatMessage::SessionToolSelectorSearchChanged(_)
+        | ChatMessage::SessionToolSelectorSkillDirectoryScopeChanged(_)
         | ChatMessage::SessionToolGroupCollapsedToggled(_)
         | ChatMessage::SessionToolGroupToolsToggled(_)
         | ChatMessage::SessionToolSelectorSelectAll
         | ChatMessage::SessionToolSelectorInvert
         | ChatMessage::SessionToolToggled(_)
+        | ChatMessage::SessionManualToolSelected(_)
+        | ChatMessage::SessionSkillSelected(_)
         | ChatMessage::SessionToolSelectorReset
         | ChatMessage::QueueRemove(_)
         | ChatMessage::QueueUp(_)
@@ -823,60 +850,60 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
     if is_stream_delta {
         // 获取最新的消息索引
         if let Some(i) = app.chat.len().checked_sub(1)
-            && let Some(m) = app.chat.get(i) {
-                // 解析消息内容中的思考块
-                // 返回：(思考块列表, 可见性标志, 是否有展开的思考块)
-                let (thinks, _visible, thinking_open) =
-                    crate::app::ui::chat::split_think(&m.content);
-                let think_count = thinks.len();
+            && let Some(m) = app.chat.get(i)
+        {
+            // 解析消息内容中的思考块
+            // 返回：(思考块列表, 可见性标志, 是否有展开的思考块)
+            let (thinks, _visible, thinking_open) = crate::app::ui::chat::split_think(&m.content);
+            let think_count = thinks.len();
 
-                // 计算当前应该展开的思考块索引
-                // 如果有正在思考的块且存在思考块，则展开最后一个
-                let open_idx = if thinking_open && think_count > 0 {
-                    Some(think_count.saturating_sub(1))
-                } else {
-                    None
-                };
+            // 计算当前应该展开的思考块索引
+            // 如果有正在思考的块且存在思考块，则展开最后一个
+            let open_idx = if thinking_open && think_count > 0 {
+                Some(think_count.saturating_sub(1))
+            } else {
+                None
+            };
 
-                // 获取之前的状态，用于检测变化
-                let prev_open_idx = if app.chat_stream_think_msg_idx == Some(i) {
-                    app.chat_stream_think_open_idx
-                } else {
-                    None
-                };
-                let prev_count = if app.chat_stream_think_msg_idx == Some(i) {
-                    app.chat_stream_think_count
-                } else {
-                    0
-                };
+            // 获取之前的状态，用于检测变化
+            let prev_open_idx = if app.chat_stream_think_msg_idx == Some(i) {
+                app.chat_stream_think_open_idx
+            } else {
+                None
+            };
+            let prev_count = if app.chat_stream_think_msg_idx == Some(i) {
+                app.chat_stream_think_count
+            } else {
+                0
+            };
 
-                // 更新当前跟踪的消息索引和思考块数量
-                if app.chat_stream_think_msg_idx != Some(i) {
-                    app.chat_stream_think_msg_idx = Some(i);
-                }
-                app.chat_stream_think_count = think_count;
-                app.chat_stream_think_open_idx = open_idx;
+            // 更新当前跟踪的消息索引和思考块数量
+            if app.chat_stream_think_msg_idx != Some(i) {
+                app.chat_stream_think_msg_idx = Some(i);
+            }
+            app.chat_stream_think_count = think_count;
+            app.chat_stream_think_open_idx = open_idx;
 
-                // 清理已删除思考块的编辑器状态
-                // 如果思考块数量减少，移除多余的编辑器
-                if prev_count > think_count {
-                    for think_idx in think_count..prev_count {
-                        let key = think_block_key(i, think_idx);
-                        app.chat_think_editors.remove(&key);
-                        app.chat_think_expanded.remove(&key);
-                        app.chat_think_collapsed.remove(&key);
-                    }
-                }
-
-                let think_state_changed = prev_open_idx != open_idx || prev_count != think_count;
-
-                if think_state_changed
-                    && open_idx.is_some()
-                    && let Some(scroll_task) = throttled_stream_autoscroll_task(app)
-                {
-                    task = task.chain(scroll_task);
+            // 清理已删除思考块的编辑器状态
+            // 如果思考块数量减少，移除多余的编辑器
+            if prev_count > think_count {
+                for think_idx in think_count..prev_count {
+                    let key = think_block_key(i, think_idx);
+                    app.chat_think_editors.remove(&key);
+                    app.chat_think_expanded.remove(&key);
+                    app.chat_think_collapsed.remove(&key);
                 }
             }
+
+            let think_state_changed = prev_open_idx != open_idx || prev_count != think_count;
+
+            if think_state_changed
+                && open_idx.is_some()
+                && let Some(scroll_task) = throttled_stream_autoscroll_task(app)
+            {
+                task = task.chain(scroll_task);
+            }
+        }
     } else {
         let (visible_start_idx, visible_end_idx) = app.visible_chat_message_window();
         app.sync_chat_message_editors_window(visible_start_idx, visible_end_idx);

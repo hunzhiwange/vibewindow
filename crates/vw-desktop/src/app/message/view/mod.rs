@@ -26,6 +26,70 @@ pub mod layout;
 pub mod panel;
 pub mod theme;
 
+fn task_pet_window_settings(size: iced::Size, position: iced::Point) -> iced::window::Settings {
+    iced::window::Settings {
+        size,
+        min_size: Some(size),
+        max_size: Some(size),
+        position: iced::window::Position::Specific(position),
+        resizable: false,
+        decorations: false,
+        transparent: true,
+        level: iced::window::Level::AlwaysOnTop,
+        exit_on_close_request: false,
+        ..Default::default()
+    }
+}
+
+fn open_task_pet_session(app: &mut App, session_id: String) -> Task<Message> {
+    if app.active_session_id.as_deref() == Some(session_id.as_str()) {
+        return Task::none();
+    }
+
+    if let Some(project_path) =
+        app.known_session_directory(&session_id).filter(|directory| !directory.trim().is_empty())
+    {
+        return Task::done(Message::Project(
+            crate::app::message::project::ProjectMessage::OpenProjectSessionPressed(
+                project_path,
+                session_id,
+            ),
+        ));
+    }
+
+    app.cache_active_session_chat();
+    app.active_session_id = Some(session_id.clone());
+    app.mark_active_session_viewed();
+    app.restore_chat_for_session(&session_id);
+    app.usage = crate::app::models::TokenUsage::default();
+    app.active_session_view_state.updated_ms = 0;
+    app.clear_active_session_steps();
+    app.active_session_view_state.ui_preparing = true;
+    app.active_session_view_state.base_ready = false;
+    app.invalidate_chat_ui_state();
+    app.sync_active_session_preferences();
+
+    let base_chunk_start = app.preferred_base_chat_ui_chunk_start();
+    let initial_prewarm_task = if app.chat.is_empty() {
+        Task::none()
+    } else {
+        app.mark_chat_ui_chunks_preparing(&[base_chunk_start]);
+        app.pin_chat_ui_chunk(Some(base_chunk_start));
+        crate::app::message::project::prepare_session_ui_task(
+            session_id.clone(),
+            app.active_shared_chat_messages(),
+            base_chunk_start,
+            true,
+        )
+    };
+
+    Task::batch([
+        initial_prewarm_task,
+        crate::app::message::project::helpers::load_session_messages_task_scoped(None, session_id),
+        Task::done(Message::Chat(crate::app::message::ChatMessage::LoadInputPanelTodos)),
+    ])
+}
+
 /// 菜单类型枚举
 ///
 /// 定义应用程序顶部菜单栏中的各个菜单分类。用于在菜单操作和悬停事件中
@@ -117,6 +181,28 @@ pub enum ViewMessage {
     OpenUsage,
     /// 推进通用状态动画帧
     ActivityAnimationTick,
+    /// 开启或关闭独立小宠物窗口
+    TaskPetToggleWindow,
+    /// 切换小宠物任务面板收起状态
+    TaskPetToggleCollapsed,
+    /// 开始拖拽小宠物任务面板
+    TaskPetDragStarted,
+    /// 小宠物本体悬停状态改变
+    TaskPetRobotHover(bool),
+    /// 切换小宠物形态
+    TaskPetAvatarCycle,
+    /// 点击小宠物任务条目
+    TaskPetItemClicked(u64),
+    /// 主动删除小宠物任务条目
+    TaskPetRemove(u64),
+    /// 小宠物任务条目悬停状态改变
+    TaskPetHover(Option<u64>),
+    /// 展开小宠物任务回复输入
+    TaskPetReplyPressed(u64),
+    /// 小宠物任务回复输入变化
+    TaskPetReplyInputChanged(String),
+    /// 提交小宠物任务回复
+    TaskPetReplySubmit,
     /// 切换指定菜单的展开/折叠状态
     ///
     /// # 参数
@@ -225,7 +311,9 @@ pub enum ViewMessage {
     /// # 参数
     /// - 新的宽度
     /// - 新的高度
-    WindowResized(f32, f32),
+    WindowResized(iced::window::Id, f32, f32),
+    /// 窗口关闭完成
+    WindowClosed(iced::window::Id),
     /// 全屏布局稳定完成
     FullscreenLayoutSettled,
     /// 窗口位置移动
@@ -233,7 +321,7 @@ pub enum ViewMessage {
     /// # 参数
     /// - 新的 x 坐标
     /// - 新的 y 坐标
-    WindowMoved(f32, f32),
+    WindowMoved(iced::window::Id, f32, f32),
     /// 全局未捕获键盘按下事件
     GlobalKeyPressed(iced::keyboard::Key, iced::keyboard::Modifiers),
     /// 返回首页
@@ -398,7 +486,7 @@ pub enum ViewMessage {
     /// - 可选的窗口高度
     OpenWebUrlWithTitleAndSize(String, String, Option<i32>, Option<i32>),
     /// 窗口关闭请求（用户点击关闭按钮）
-    CloseRequested,
+    CloseRequested(iced::window::Id),
     /// 使用量统计中的模型信息加载完成
     ///
     /// # 参数
@@ -479,7 +567,80 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
         ViewMessage::GlobalKeyPressed(key, modifiers) => handle_global_key(app, key, modifiers),
         ViewMessage::ActivityAnimationTick => {
             app.advance_status_animation_frame();
+            app.sync_task_pet_from_runtime();
+            if let Some(window_id) = app.task_pet_window_id
+                && let Some((size, position)) = app.advance_task_pet_expand_animation()
+            {
+                iced::window::resize(window_id, size)
+                    .chain(iced::window::move_to(window_id, position))
+            } else {
+                Task::none()
+            }
+        }
+        ViewMessage::TaskPetToggleWindow => {
+            if let Some(window_id) = app.task_pet_window_id {
+                iced::window::close(window_id)
+            } else {
+                let size = app.task_pet_window_size();
+                let position = app.task_pet_position;
+                let (window_id, open_task) =
+                    iced::window::open(task_pet_window_settings(size, position));
+                app.task_pet_window_id = Some(window_id);
+                open_task.map(|_| Message::None)
+            }
+        }
+        ViewMessage::TaskPetToggleCollapsed => {
+            app.toggle_task_pet_collapsed();
             Task::none()
+        }
+        ViewMessage::TaskPetDragStarted => {
+            if let Some(window_id) = app.task_pet_window_id {
+                app.pulse_task_pet_motion();
+                iced::window::drag(window_id)
+            } else {
+                app.start_task_pet_drag();
+                Task::none()
+            }
+        }
+        ViewMessage::TaskPetRobotHover(hovered) => {
+            app.set_task_pet_robot_hovered(hovered);
+            Task::none()
+        }
+        ViewMessage::TaskPetAvatarCycle => {
+            app.cycle_task_pet_avatar();
+            Task::none()
+        }
+        ViewMessage::TaskPetItemClicked(request_id) => {
+            if let Some(session_id) = app.task_pet_item_clicked(request_id) {
+                open_task_pet_session(app, session_id)
+            } else {
+                Task::none()
+            }
+        }
+        ViewMessage::TaskPetRemove(request_id) => {
+            app.dismiss_task_pet_item(request_id);
+            Task::none()
+        }
+        ViewMessage::TaskPetHover(request_id) => {
+            app.set_task_pet_hovered(request_id);
+            Task::none()
+        }
+        ViewMessage::TaskPetReplyPressed(request_id) => {
+            app.open_task_pet_reply(request_id);
+            Task::none()
+        }
+        ViewMessage::TaskPetReplyInputChanged(value) => {
+            app.update_task_pet_reply_input(value);
+            Task::none()
+        }
+        ViewMessage::TaskPetReplySubmit => {
+            let Some((session_id, input)) = app.take_task_pet_reply() else {
+                return Task::none();
+            };
+            Task::done(Message::Chat(crate::app::message::ChatMessage::SendToSession {
+                session_id,
+                input,
+            }))
         }
         // 面板相关消息：包括设置面板、系统设置、菜单、弹窗、工具窗口等
         // 这些消息统一委托给 panel 子模块处理
@@ -531,7 +692,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
         | ViewMessage::GoHome
         | ViewMessage::AutoMaxToggled(_)
         | ViewMessage::SelectChatSendBehavior(_) => panel::update(app, message),
-        | ViewMessage::ToggleDiffPanel
+        ViewMessage::ToggleDiffPanel
         | ViewMessage::ToggleGitDiffSummary
         | ViewMessage::ToggleTerminalPanel
         | ViewMessage::FileManagerPanelVisible(_)
@@ -591,7 +752,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
         | ViewMessage::WebBookmarkEditSave
         | ViewMessage::WebBookmarkEditCancel
         | ViewMessage::WebBookmarkRemove(_)
-        | ViewMessage::CloseRequested => panel::update(app, message),
+        | ViewMessage::CloseRequested(_) => panel::update(app, message),
 
         // 布局相关消息：包括窗口拖拽、调整大小、鼠标移动等
         // 这些消息统一委托给 layout 子模块处理
@@ -606,9 +767,10 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
         | ViewMessage::PointerMoved(_, _)
         | ViewMessage::HoveredFilePath(_)
         | ViewMessage::HoveredFilesLeft
-        | ViewMessage::WindowResized(_, _)
+        | ViewMessage::WindowResized(_, _, _)
+        | ViewMessage::WindowClosed(_)
         | ViewMessage::FullscreenLayoutSettled
-        | ViewMessage::WindowMoved(_, _)
+        | ViewMessage::WindowMoved(_, _, _)
         | ViewMessage::WindowDragPressed => layout::update(app, message),
 
         // 主题相关消息：包括主题选择和切换

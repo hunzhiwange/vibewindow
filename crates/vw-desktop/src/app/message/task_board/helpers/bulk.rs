@@ -45,8 +45,7 @@ pub(crate) fn prune_bulk_selection(app: &mut crate::app::App) {
         .filter(|task| !task.deleted && !task.archived)
         .map(|task| task.id.as_str())
         .collect::<std::collections::HashSet<_>>();
-    app.task_board_selected_tasks
-        .retain(|task_id| valid_ids.contains(task_id.as_str()));
+    app.task_board_selected_tasks.retain(|task_id| valid_ids.contains(task_id.as_str()));
 }
 
 /// 执行 clear_selected_task_ids 对应的领域操作。

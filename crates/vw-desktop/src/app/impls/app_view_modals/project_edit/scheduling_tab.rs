@@ -250,7 +250,10 @@ pub(super) fn scheduling_tab<'a>(app: &'a App) -> Element<'a, Message> {
     .align_y(iced::Alignment::Center);
 
     column![
-        settings_section_card("调度与保护", "限制并发、设置重试与超时，并控制 worktree 回收与合并锁。"),
+        settings_section_card(
+            "调度与保护",
+            "限制并发、设置重试与超时，并控制 worktree 回收与合并锁。"
+        ),
         settings_panel(
             column![
                 scheduler_tick_interval_row,

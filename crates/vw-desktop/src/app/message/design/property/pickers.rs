@@ -80,16 +80,8 @@ pub(super) fn select_font(app: &mut App, element_id: String, family: String) -> 
         };
         let weight_value = font_weight_value_from_label(&target_label);
 
-        doc.update_property(
-            &element_id,
-            "fontFamily",
-            serde_json::Value::String(family),
-        );
-        doc.update_property(
-            &element_id,
-            "fontWeight",
-            serde_json::Value::String(weight_value),
-        );
+        doc.update_property(&element_id, "fontFamily", serde_json::Value::String(family));
+        doc.update_property(&element_id, "fontWeight", serde_json::Value::String(weight_value));
         state.canvas_cache.clear();
     }
     app.active_font_picker = None;
@@ -172,11 +164,7 @@ pub(super) fn select_icon_family(
             let target_label = current_weight
                 .filter(|label| options.contains(label))
                 .unwrap_or_else(|| "Regular".to_string());
-            doc.update_property(
-                &element_id,
-                "weight",
-                icon_weight_value_from_label(&target_label),
-            );
+            doc.update_property(&element_id, "weight", icon_weight_value_from_label(&target_label));
         }
         state.canvas_cache.clear();
     }
@@ -203,21 +191,13 @@ pub(super) fn select_icon(
             "iconFontFamily",
             serde_json::Value::String(family.clone()),
         );
-        doc.update_property(
-            &element_id,
-            "iconFontName",
-            serde_json::Value::String(name),
-        );
+        doc.update_property(&element_id, "iconFontName", serde_json::Value::String(name));
         let options = icon_weight_options_for_family(&family);
         if !options.is_empty() {
             let target_label = current_weight
                 .filter(|label| options.contains(label))
                 .unwrap_or_else(|| "Regular".to_string());
-            doc.update_property(
-                &element_id,
-                "weight",
-                icon_weight_value_from_label(&target_label),
-            );
+            doc.update_property(&element_id, "weight", icon_weight_value_from_label(&target_label));
         }
         state.canvas_cache.clear();
     }
@@ -387,11 +367,8 @@ pub(super) fn change_fill_picker_color(app: &mut App, color: Color) -> Task<Mess
 
     if let Some(state) = app.active_design_state_mut() {
         let doc = &mut state.doc;
-        let fills_json = if let Some(el) = doc.find_element(&element_id) {
-            el.fill.clone()
-        } else {
-            None
-        };
+        let fills_json =
+            if let Some(el) = doc.find_element(&element_id) { el.fill.clone() } else { None };
 
         if let Some(fills_val) = fills_json {
             let mut fills = parse_fills(&fills_val);
@@ -660,10 +637,8 @@ pub(super) fn change_color_picker_color(app: &mut App, color: Color) -> Task<Mes
                 }
                 ColorPickerTarget::ContextFill { element_id } => {
                     let hex = format_rgba_to_hex(color.r, color.g, color.b, color.a);
-                    let fills = vec![FillItem::Object(FillObject::Solid {
-                        color: hex,
-                        enabled: true,
-                    })];
+                    let fills =
+                        vec![FillItem::Object(FillObject::Solid { color: hex, enabled: true })];
                     doc.update_property(&element_id, "fill", serde_json::json!(fills));
                     state.canvas_cache.clear();
                 }
@@ -680,10 +655,7 @@ pub(super) fn change_color_picker_color(app: &mut App, color: Color) -> Task<Mes
                             hex
                         )
                     } else {
-                        format!(
-                            "[{{\"type\":\"solid\",\"color\":\"{}\",\"opacity\":1.0}}]",
-                            hex
-                        )
+                        format!("[{{\"type\":\"solid\",\"color\":\"{}\",\"opacity\":1.0}}]", hex)
                     };
                     let stroke = Stroke {
                         align: Some("inside".to_string()),
@@ -739,4 +711,3 @@ pub(super) fn select_effect(app: &mut App, index: Option<usize>) -> Task<Message
     }
     Task::none()
 }
-

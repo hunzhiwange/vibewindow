@@ -5,8 +5,8 @@
 //! 捕获的进程环境。
 
 use crate::app::agent::util::context;
-use std::sync::LazyLock;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 
 /// 环境变量键值快照。
@@ -23,7 +23,8 @@ fn snapshot() -> Vars {
         .collect()
 }
 
-static ENV_CONTEXT: LazyLock<context::Context<Mutex<Vars>>> = LazyLock::new(|| context::create("env"));
+static ENV_CONTEXT: LazyLock<context::Context<Mutex<Vars>>> =
+    LazyLock::new(|| context::create("env"));
 static DEFAULT: LazyLock<Mutex<Vars>> = LazyLock::new(|| Mutex::new(snapshot()));
 
 /// 使用当前上下文中的环境变量集合执行闭包。

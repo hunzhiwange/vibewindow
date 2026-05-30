@@ -617,16 +617,9 @@ fn extract_output_text(value: &Value) -> Option<String> {
         Value::Bool(boolean) => Some(boolean.to_string()),
         Value::Array(values) => values.iter().find_map(extract_output_text),
         Value::Object(object) => {
-            for key in [
-                "model_result",
-                "output",
-                "content",
-                "text",
-                "stdout",
-                "stderr",
-                "message",
-                "data",
-            ] {
+            for key in
+                ["model_result", "output", "content", "text", "stdout", "stderr", "message", "data"]
+            {
                 if let Some(extracted) = object.get(key).and_then(extract_output_text)
                     && !extracted.trim().is_empty()
                 {

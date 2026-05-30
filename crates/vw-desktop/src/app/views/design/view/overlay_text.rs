@@ -9,7 +9,9 @@ use iced::{Element, Length};
 use crate::app::message::DesignMessage;
 use crate::app::views::design::canvas::layout::parse_padding;
 use crate::app::views::design::canvas::parse::{parse_color, parse_fill};
-use crate::app::views::design::canvas::{find_element_by_id, get_element_screen_bounds, parse_font_size};
+use crate::app::views::design::canvas::{
+    find_element_by_id, get_element_screen_bounds, parse_font_size,
+};
 use crate::app::views::design::state::DesignState;
 use crate::app::views::design::utils::transparent_editor_style;
 use crate::app::{App, Message};
@@ -48,11 +50,7 @@ pub fn inline_text_editor_overlay<'a>(state: &'a DesignState) -> Element<'a, Mes
         let content_h =
             (rect.height - (padding.top + padding.bottom) * state.zoom).max(font_size + 10.0);
 
-        let weight = match el
-            .font_weight
-            .as_ref()
-            .and_then(|v: &serde_json::Value| v.as_str())
-        {
+        let weight = match el.font_weight.as_ref().and_then(|v: &serde_json::Value| v.as_str()) {
             Some("300") => IcedWeight::Light,
             Some("400") | None => IcedWeight::Normal,
             Some("500") => IcedWeight::Medium,

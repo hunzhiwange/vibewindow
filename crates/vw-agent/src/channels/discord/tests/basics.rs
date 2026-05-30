@@ -48,13 +48,8 @@ fn wildcard_allows_everyone() {
 /// 只有在白名单中的用户才应该被允许
 #[test]
 fn specific_allowlist_filters() {
-    let ch = DiscordChannel::new(
-        "fake".into(),
-        None,
-        vec!["111".into(), "222".into()],
-        false,
-        false,
-    );
+    let ch =
+        DiscordChannel::new("fake".into(), None, vec!["111".into(), "222".into()], false, false);
     assert!(permissions::is_user_allowed(&ch.allowed_users, "111"));
     assert!(permissions::is_user_allowed(&ch.allowed_users, "222"));
     assert!(!permissions::is_user_allowed(&ch.allowed_users, "333"));
@@ -83,8 +78,7 @@ fn allowlist_empty_string_user_id() {
 /// 通配符应该允许所有用户，特定 ID 也应该被允许
 #[test]
 fn allowlist_with_wildcard_and_specific() {
-    let ch =
-        DiscordChannel::new("fake".into(), None, vec!["111".into(), "*".into()], false, false);
+    let ch = DiscordChannel::new("fake".into(), None, vec!["111".into(), "*".into()], false, false);
     assert!(permissions::is_user_allowed(&ch.allowed_users, "111"));
     assert!(permissions::is_user_allowed(&ch.allowed_users, "anyone_else"));
 }
@@ -144,8 +138,7 @@ fn normalize_incoming_content_requires_mention_when_enabled() {
 /// 提及标记应该被移除，消息应该被修剪
 #[test]
 fn normalize_incoming_content_strips_mentions_and_trims() {
-    let cleaned =
-        content::normalize_incoming_content("  <@!12345> run status  ", true, "12345");
+    let cleaned = content::normalize_incoming_content("  <@!12345> run status  ", true, "12345");
     assert_eq!(cleaned.as_deref(), Some("run status"));
 }
 
@@ -186,10 +179,7 @@ fn group_reply_sender_override_matches_exact_and_wildcard() {
         &ch.group_reply_allowed_sender_ids,
         "anyone"
     ));
-    assert!(!permissions::is_group_sender_trigger_enabled(
-        &ch.group_reply_allowed_sender_ids,
-        ""
-    ));
+    assert!(!permissions::is_group_sender_trigger_enabled(&ch.group_reply_allowed_sender_ids, ""));
 }
 
 /// 测试 with_workspace_dir 设置工作区目录字段

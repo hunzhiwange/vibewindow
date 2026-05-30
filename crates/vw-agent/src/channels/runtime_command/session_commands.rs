@@ -74,10 +74,7 @@ pub(super) async fn handle_set_provider(
 ///
 /// # 返回值
 /// 返回可直接发送给用户的模型帮助文本。
-pub(super) fn handle_show_model(
-    current: &ChannelRouteSelection,
-    workspace_dir: &Path,
-) -> String {
+pub(super) fn handle_show_model(current: &ChannelRouteSelection, workspace_dir: &Path) -> String {
     build_models_help_response(current, workspace_dir)
 }
 

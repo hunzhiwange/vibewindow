@@ -449,9 +449,10 @@ impl DesignDoc {
         self.themes = Some(DesignThemes { mode: modes.clone() });
 
         if let Some(current) = self.theme.as_mut()
-            && current.mode.trim().is_empty() {
-                current.mode = modes.first().cloned().unwrap_or_else(|| "Light".to_string());
-            }
+            && current.mode.trim().is_empty()
+        {
+            current.mode = modes.first().cloned().unwrap_or_else(|| "Light".to_string());
+        }
 
         modes
     }
@@ -605,20 +606,16 @@ impl DesignDoc {
 
 pub fn compute_tree_metrics(doc: &DesignDoc) -> (usize, u16) {
     fn name_len(el: &DesignElement) -> usize {
-        el.name
-            .as_deref()
-            .filter(|s| !s.is_empty())
-            .unwrap_or(el.kind.as_str())
-            .chars()
-            .count()
+        el.name.as_deref().filter(|s| !s.is_empty()).unwrap_or(el.kind.as_str()).chars().count()
     }
 
     fn children<'a>(doc: &'a DesignDoc, el: &'a DesignElement) -> &'a [DesignElement] {
         if el.kind == "ref"
             && let Some(ref_id) = &el.reference
-                && let Some(ref_el) = doc.find_element(ref_id) {
-                    return &ref_el.children;
-                }
+            && let Some(ref_el) = doc.find_element(ref_id)
+        {
+            return &ref_el.children;
+        }
         &el.children
     }
 

@@ -4,7 +4,7 @@
 //! 在 Git 不可用或非仓库目录时退回本地路径哈希。它同时维护 sandbox 列表、
 //! 初始化时间、用户可编辑的项目名称/图标/命令，并通过事件总线通知调用方。
 
-use super::{discover, extra, event, Error, Info, TimeInfo, UpdateInput, Vcs, LOGGER};
+use super::{Error, Info, LOGGER, TimeInfo, UpdateInput, Vcs, discover, event, extra};
 use crate::app::agent::bus;
 use crate::app::agent::flag;
 use crate::app::agent::shell::git_std_command;
@@ -85,28 +85,17 @@ fn run_git(cwd: &Path, args: &[&str]) -> Option<String> {
 
 fn roots_from_git(cwd: &Path) -> Option<Vec<String>> {
     let out = run_git(cwd, &["rev-list", "--max-parents=0", "--all"])?;
-    let mut roots = out
-        .split('\n')
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>();
+    let mut roots =
+        out.split('\n').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect::<Vec<_>>();
     // 多根历史的仓库按字典序取稳定首项，避免项目 ID 随 git 输出顺序漂移。
     roots.sort();
-    if roots.is_empty() {
-        None
-    } else {
-        Some(roots)
-    }
+    if roots.is_empty() { None } else { Some(roots) }
 }
 
 fn show_toplevel(cwd: &Path) -> Option<PathBuf> {
     let out = run_git(cwd, &["rev-parse", "--show-toplevel"])?;
     let p = PathBuf::from(out);
-    if p.is_absolute() {
-        Some(p)
-    } else {
-        Some(cwd.join(p))
-    }
+    if p.is_absolute() { Some(p) } else { Some(cwd.join(p)) }
 }
 
 fn git_common_dir_root(cwd: &Path) -> Option<PathBuf> {
@@ -115,11 +104,7 @@ fn git_common_dir_root(cwd: &Path) -> Option<PathBuf> {
     if dir == Path::new(".") {
         return Some(cwd.to_path_buf());
     }
-    if dir.is_absolute() {
-        Some(dir.to_path_buf())
-    } else {
-        Some(cwd.join(dir))
-    }
+    if dir.is_absolute() { Some(dir.to_path_buf()) } else { Some(cwd.join(dir)) }
 }
 
 fn fake_vcs() -> Option<Vcs> {
@@ -190,7 +175,8 @@ pub async fn from_directory(directory: impl AsRef<Path>) -> Result<(Info, String
             worktree = sandbox.clone();
 
             let cached = read_cached_id(&git_entry);
-            let cached_non_global = cached.as_deref().filter(|c| *c != "global").map(str::to_string);
+            let cached_non_global =
+                cached.as_deref().filter(|c| *c != "global").map(str::to_string);
             let has_git = git_available();
             let roots = if has_git { roots_from_git(&sandbox) } else { None };
 
@@ -317,7 +303,8 @@ pub async fn list() -> Result<Vec<Info>, Error> {
         }
         let id = key[1].clone();
         if let Ok(mut project) = storage::read::<Info>(&["project", &id]).await {
-            project.sandboxes = project.sandboxes.into_iter().filter(|p| Path::new(p).is_dir()).collect();
+            project.sandboxes =
+                project.sandboxes.into_iter().filter(|p| Path::new(p).is_dir()).collect();
             out.push(project);
         }
     }

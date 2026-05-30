@@ -4,8 +4,8 @@
 //! 避免调度器扩大未声明的并发能力。
 
 use super::*;
-use async_trait::async_trait;
 use crate::tools::ToolResult;
+use async_trait::async_trait;
 
 struct FakeTool {
     name: &'static str,
@@ -32,11 +32,7 @@ impl Tool for FakeTool {
     }
 
     async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        Ok(ToolResult {
-            success: true,
-            output: self.name.to_string(),
-            error: None,
-        })
+        Ok(ToolResult { success: true, output: self.name.to_string(), error: None })
     }
 
     fn is_read_only(&self) -> bool {
@@ -51,21 +47,9 @@ impl Tool for FakeTool {
 #[test]
 fn schedule_tool_calls_batches_parallel_and_serial_segments() {
     let registry: Vec<Box<dyn Tool>> = vec![
-        Box::new(FakeTool {
-            name: "read_a",
-            read_only: true,
-            concurrency_safe: true,
-        }),
-        Box::new(FakeTool {
-            name: "write_a",
-            read_only: false,
-            concurrency_safe: false,
-        }),
-        Box::new(FakeTool {
-            name: "read_b",
-            read_only: true,
-            concurrency_safe: true,
-        }),
+        Box::new(FakeTool { name: "read_a", read_only: true, concurrency_safe: true }),
+        Box::new(FakeTool { name: "write_a", read_only: false, concurrency_safe: false }),
+        Box::new(FakeTool { name: "read_b", read_only: true, concurrency_safe: true }),
     ];
 
     let calls = vec![
@@ -95,11 +79,8 @@ fn schedule_tool_calls_batches_parallel_and_serial_segments() {
 
 #[test]
 fn schedule_tool_calls_treats_unknown_tools_as_serial() {
-    let registry: Vec<Box<dyn Tool>> = vec![Box::new(FakeTool {
-        name: "read_a",
-        read_only: true,
-        concurrency_safe: true,
-    })];
+    let registry: Vec<Box<dyn Tool>> =
+        vec![Box::new(FakeTool { name: "read_a", read_only: true, concurrency_safe: true })];
 
     let calls = vec![PendingToolCall {
         name: "unknown_tool".to_string(),

@@ -453,19 +453,21 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         // 沙箱启用状态变更
         SettingsMessage::SecuritySandboxEnabledChanged(v) => {
             app.security_settings.sandbox_enabled_input = normalize_security_sandbox_enabled(&v);
-            app.security_settings.sandbox_backend_input = normalize_security_sandbox_backend_for_enabled(
-                &app.security_settings.sandbox_backend_input,
-                &app.security_settings.sandbox_enabled_input,
-            );
+            app.security_settings.sandbox_backend_input =
+                normalize_security_sandbox_backend_for_enabled(
+                    &app.security_settings.sandbox_backend_input,
+                    &app.security_settings.sandbox_enabled_input,
+                );
             save_security_settings(app)
         }
 
         // 沙箱后端类型变更
         SettingsMessage::SecuritySandboxBackendChanged(v) => {
-            app.security_settings.sandbox_backend_input = normalize_security_sandbox_backend_for_enabled(
-                &v,
-                &app.security_settings.sandbox_enabled_input,
-            );
+            app.security_settings.sandbox_backend_input =
+                normalize_security_sandbox_backend_for_enabled(
+                    &v,
+                    &app.security_settings.sandbox_enabled_input,
+                );
             save_security_settings(app)
         }
 
@@ -666,10 +668,11 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         SettingsMessage::SecuritySave => {
             app.security_settings.sandbox_enabled_input =
                 normalize_security_sandbox_enabled(&app.security_settings.sandbox_enabled_input);
-            app.security_settings.sandbox_backend_input = normalize_security_sandbox_backend_for_enabled(
-                &app.security_settings.sandbox_backend_input,
-                &app.security_settings.sandbox_enabled_input,
-            );
+            app.security_settings.sandbox_backend_input =
+                normalize_security_sandbox_backend_for_enabled(
+                    &app.security_settings.sandbox_backend_input,
+                    &app.security_settings.sandbox_enabled_input,
+                );
             app.security_settings.otp_method_input =
                 normalize_security_otp_method(&app.security_settings.otp_method_input);
             save_security_settings(app)

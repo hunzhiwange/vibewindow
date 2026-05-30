@@ -16,14 +16,12 @@ use std::collections::HashSet;
 
 use crate::app::assets::{self, Icon};
 use crate::app::components::animated_text::neutral_sweep_text_color;
-use crate::app::components::chat_panel::utils::{
-    bold_font, chat_secondary_subtle_text_color, chat_secondary_text_color,
-    eye_icon_svg_style, icon_svg, truncate_chars,
-};
 use crate::app::components::chat_panel::tool_text_support::chat_text_font;
-use crate::app::components::status_animation::{
-    EXPLORE_SUMMARY_FLIP_DURATION_MS, spinner_frame,
+use crate::app::components::chat_panel::utils::{
+    bold_font, chat_secondary_subtle_text_color, chat_secondary_text_color, eye_icon_svg_style,
+    icon_svg, truncate_chars,
 };
+use crate::app::components::status_animation::{EXPLORE_SUMMARY_FLIP_DURATION_MS, spinner_frame};
 use crate::app::{App, Message, message};
 
 use super::tool_meta::{tool_header_label, tool_inline_summary};
@@ -69,7 +67,16 @@ impl Program<Message> for FlipNumberText {
         let center_y = bounds.height * 0.5;
 
         if self.previous == self.current || progress <= 0.001 {
-            draw_flip_text(&mut frame, &self.current, center_x, center_y, self.font_size, 1.0, 0.0, color);
+            draw_flip_text(
+                &mut frame,
+                &self.current,
+                center_x,
+                center_y,
+                self.font_size,
+                1.0,
+                0.0,
+                color,
+            );
             return vec![frame.into_geometry()];
         }
 
@@ -137,13 +144,13 @@ fn draw_flip_text(
     });
 }
 
-pub(super) fn right_aligned_slot_char(chars: &[char], slot_idx: usize, total_slots: usize) -> String {
+pub(super) fn right_aligned_slot_char(
+    chars: &[char],
+    slot_idx: usize,
+    total_slots: usize,
+) -> String {
     let left_padding = total_slots.saturating_sub(chars.len());
-    if slot_idx < left_padding {
-        String::new()
-    } else {
-        chars[slot_idx - left_padding].to_string()
-    }
+    if slot_idx < left_padding { String::new() } else { chars[slot_idx - left_padding].to_string() }
 }
 
 pub(super) fn summary_animation_key(msg_idx: usize, group_idx: usize) -> u128 {
@@ -159,11 +166,11 @@ pub(crate) fn explore_summary_is_running(
 }
 
 pub(crate) fn explore_summary_expanded(
-    has_running_tool: bool,
+    _has_running_tool: bool,
     key: u64,
     expanded_groups: &HashSet<u64>,
 ) -> bool {
-    has_running_tool || expanded_groups.contains(&key)
+    expanded_groups.contains(&key)
 }
 
 pub(super) fn split_summary_segments(input: &str) -> Vec<(SummarySegmentKind, &str)> {
@@ -177,7 +184,11 @@ pub(super) fn split_summary_segments(input: &str) -> Vec<(SummarySegmentKind, &s
             None => in_number = Some(is_number),
             Some(current_kind) if current_kind != is_number => {
                 segments.push((
-                    if current_kind { SummarySegmentKind::Number } else { SummarySegmentKind::Text },
+                    if current_kind {
+                        SummarySegmentKind::Number
+                    } else {
+                        SummarySegmentKind::Text
+                    },
                     &input[start..idx],
                 ));
                 start = idx;
@@ -207,34 +218,31 @@ fn plain_summary_text<'a>(content: &str) -> Element<'a, Message> {
         .into()
 }
 
-fn running_explore_title<'a>(title: &str, now_ms: u64, animation_frame: usize) -> Element<'a, Message> {
+fn running_explore_title<'a>(
+    title: &str,
+    now_ms: u64,
+    animation_frame: usize,
+) -> Element<'a, Message> {
     let char_count = title.chars().count().max(1);
-    let mut content = row![
-        text(spinner_frame(animation_frame))
-            .size(13)
-            .style(|theme: &Theme| iced::widget::text::Style {
-                color: Some(chat_secondary_text_color(theme)),
-            })
-    ]
+    let mut content = row![text(spinner_frame(animation_frame)).size(13).style(|theme: &Theme| {
+        iced::widget::text::Style { color: Some(chat_secondary_text_color(theme)) }
+    })]
     .spacing(4)
     .align_y(Alignment::Center);
 
     for (char_idx, character) in title.chars().enumerate() {
-        content = content.push(
-            text(character.to_string())
-                .size(13)
-                .font(bold_font())
-                .style(move |theme: &Theme| iced::widget::text::Style {
-                    color: Some(neutral_sweep_text_color(
-                        theme,
-                        chat_secondary_text_color(theme),
-                        now_ms,
-                        char_idx,
-                        char_count,
-                        true,
-                    )),
-                }),
-        );
+        content = content.push(text(character.to_string()).size(13).font(bold_font()).style(
+            move |theme: &Theme| iced::widget::text::Style {
+                color: Some(neutral_sweep_text_color(
+                    theme,
+                    chat_secondary_text_color(theme),
+                    now_ms,
+                    char_idx,
+                    char_count,
+                    true,
+                )),
+            },
+        ));
     }
 
     content.into()
@@ -256,18 +264,19 @@ fn compact_eye_button_style(
 ) -> iced::widget::button::Style {
     iced::widget::button::Style {
         background: None,
-        border: iced::Border {
-            width: 0.0,
-            color: iced::Color::TRANSPARENT,
-            radius: 0.0.into(),
-        },
+        border: iced::Border { width: 0.0, color: iced::Color::TRANSPARENT, radius: 0.0.into() },
         text_color: chat_secondary_text_color(theme),
         shadow: iced::Shadow::default(),
         ..Default::default()
     }
 }
 
-fn flip_number_slot_view<'a>(previous: &str, current: &str, progress: f32, font_size: f32) -> Element<'a, Message> {
+fn flip_number_slot_view<'a>(
+    previous: &str,
+    current: &str,
+    progress: f32,
+    font_size: f32,
+) -> Element<'a, Message> {
     let width = (font_size * 0.64).ceil().max(font_size * 0.60);
     canvas(FlipNumberText {
         previous: previous.to_string(),
@@ -280,7 +289,12 @@ fn flip_number_slot_view<'a>(previous: &str, current: &str, progress: f32, font_
     .into()
 }
 
-fn flip_number_view<'a>(previous: &str, current: &str, progress: f32, font_size: f32) -> Element<'a, Message> {
+fn flip_number_view<'a>(
+    previous: &str,
+    current: &str,
+    progress: f32,
+    font_size: f32,
+) -> Element<'a, Message> {
     let previous_chars = previous.chars().collect::<Vec<_>>();
     let current_chars = current.chars().collect::<Vec<_>>();
     let slot_count = previous_chars.len().max(current_chars.len()).max(1);
@@ -289,12 +303,8 @@ fn flip_number_view<'a>(previous: &str, current: &str, progress: f32, font_size:
     for slot_idx in 0..slot_count {
         let previous_char = right_aligned_slot_char(&previous_chars, slot_idx, slot_count);
         let current_char = right_aligned_slot_char(&current_chars, slot_idx, slot_count);
-        content = content.push(flip_number_slot_view(
-            &previous_char,
-            &current_char,
-            progress,
-            font_size,
-        ));
+        content =
+            content.push(flip_number_slot_view(&previous_char, &current_char, progress, font_size));
     }
 
     content.into()
@@ -306,7 +316,8 @@ fn animated_summary_slot<'a>(
     group_idx: usize,
     summary_text: &str,
 ) -> Option<Element<'a, Message>> {
-    let state = app.chat_explore_summary_animations.get(&summary_animation_key(msg_idx, group_idx))?;
+    let state =
+        app.chat_explore_summary_animations.get(&summary_animation_key(msg_idx, group_idx))?;
     let changed_at_ms = state.changed_at_ms?;
     if state.current_summary_text != summary_text {
         return None;
@@ -336,7 +347,8 @@ fn animated_summary_slot<'a>(
                 let previous = previous_numbers.get(number_idx).copied().unwrap_or("0");
                 if previous != segment {
                     has_animated_number = true;
-                    summary_row = summary_row.push(flip_number_view(previous, segment, progress, 13.0));
+                    summary_row =
+                        summary_row.push(flip_number_view(previous, segment, progress, 13.0));
                 } else {
                     summary_row = summary_row.push(plain_summary_text(segment));
                 }
@@ -379,23 +391,19 @@ fn explore_item_compact_view<'a>(
             item.tool_idx,
             item.raw.clone(),
         )));
-    let detail_slot: Element<'a, Message> =
-        if is_hovered {
-            detail_btn.into()
-        } else {
-            Space::new()
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into()
-        };
+    let detail_slot: Element<'a, Message> = if is_hovered {
+        detail_btn.into()
+    } else {
+        Space::new().width(Length::Fixed(16.0)).height(Length::Fixed(16.0)).into()
+    };
 
     let row_container = container(
         row![
             text(tool_header_label(tool_name)).size(13).font(bold_font()).style(|theme: &Theme| {
                 iced::widget::text::Style { color: Some(chat_secondary_text_color(theme)) }
             },),
-            text(summary).size(13).font(chat_text_font()).style(|theme: &Theme| iced::widget::text::Style {
-                color: Some(chat_secondary_subtle_text_color(theme)),
+            text(summary).size(13).font(chat_text_font()).style(|theme: &Theme| {
+                iced::widget::text::Style { color: Some(chat_secondary_subtle_text_color(theme)) }
             }),
             detail_slot,
             container(Space::new()).width(Length::Fill)
@@ -414,10 +422,7 @@ fn explore_item_compact_view<'a>(
 }
 
 fn latest_explore_items(items: &[ExploreItem]) -> Vec<&ExploreItem> {
-    let item_keys = items
-        .iter()
-        .map(|item| explore_item_dedupe_key(&item.raw))
-        .collect::<Vec<_>>();
+    let item_keys = items.iter().map(|item| explore_item_dedupe_key(&item.raw)).collect::<Vec<_>>();
     let mut last_index_by_key: HashMap<&str, usize> = HashMap::new();
 
     for (idx, key) in item_keys.iter().enumerate() {
@@ -488,11 +493,8 @@ pub fn tool_explore_summary_view<'a>(
     let has_running_tool = latest_items
         .iter()
         .any(|item| tool_status_from_raw(&item.raw).as_deref() == Some("running"));
-    let has_running = explore_summary_is_running(
-        has_running_tool,
-        force_running,
-        closed_by_following_block,
-    );
+    let has_running =
+        explore_summary_is_running(has_running_tool, force_running, closed_by_following_block);
 
     // 遍历所有探索项，统计操作次数和运行状态
     for item in &latest_items {
@@ -518,8 +520,7 @@ pub fn tool_explore_summary_view<'a>(
         parts.push(format!("{} 次列出", ls_count));
     }
     let summary_text = if parts.is_empty() { "暂无".to_string() } else { parts.join("，") };
-    let summary_text =
-        truncate_chars(summary_text.replace(['\n', '\r'], " ").trim(), 64);
+    let summary_text = truncate_chars(summary_text.replace(['\n', '\r'], " ").trim(), 64);
 
     // 计算工具的唯一标识键
     // 键的计算基于消息索引和分组索引，运行中和已完成状态使用不同的键
@@ -536,8 +537,8 @@ pub fn tool_explore_summary_view<'a>(
     let now_ms = crate::app::time::now_ms();
 
     let title = if has_running { "正在探索" } else { "已探索" };
-    let summary_slot: Element<'a, Message> = animated_summary_slot(app, msg_idx, group_idx, &summary_text)
-        .unwrap_or_else(|| {
+    let summary_slot: Element<'a, Message> =
+        animated_summary_slot(app, msg_idx, group_idx, &summary_text).unwrap_or_else(|| {
             tool_inline_text_editor(
                 app,
                 ToolTextTarget::ToolCardText { msg_idx, tool_idx: group_tool_idx, text_idx: 0 },
@@ -575,8 +576,8 @@ pub fn tool_explore_summary_view<'a>(
             .align_y(Alignment::Center);
 
     // 创建可交互的头部区域
-    let head = container(column![Space::new().height(Length::Fixed(4.0)), head_row])
-        .width(Length::Fill);
+    let head =
+        container(column![Space::new().height(Length::Fixed(4.0)), head_row]).width(Length::Fill);
 
     let mut content = column![head].spacing(4);
     if expanded {

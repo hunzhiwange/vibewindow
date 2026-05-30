@@ -315,6 +315,9 @@ pub enum AgentsMessage {
     AllowedToolsSelectAll(String),
     AllowedToolsInvertSelection(String),
     AllowedToolsApplyPreset(String, String),
+    AllowedSkillToggled(String, String, bool),
+    AllowedSkillsSelectAll(String, crate::app::state::SkillsDirectoryScope),
+    AllowedSkillsInvertSelection(String, crate::app::state::SkillsDirectoryScope),
     MaxIterationsChanged(String, u32),
 }
 
@@ -335,6 +338,7 @@ pub enum SopMessage {
 pub enum SettingsMessage {
     TabSelected(SettingsTab),
     SystemTabSelected(SystemTab),
+    SystemTabQueryChanged(String),
     SystemHelpOpen(SystemTab),
     SystemHelpClose,
     ToggleSettingsSidebar,
@@ -578,6 +582,7 @@ pub enum SettingsMessage {
         skill_id: String,
         result: Result<String, String>,
     },
+    SkillsDirectoryProviderChanged(vw_config_types::skills::SkillsDirectoryProvider),
     SkillsOpenEnabledToggled(bool),
     SkillsOpenDirChanged(String),
     SkillsPromptInjectionModeChanged(vw_config_types::skills::SkillsPromptInjectionMode),

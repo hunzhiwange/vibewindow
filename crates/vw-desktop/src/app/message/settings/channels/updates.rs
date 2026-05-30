@@ -1,8 +1,8 @@
 //! 处理渠道设置子模块的状态变更、字段转换和持久化。
 
 use crate::app::{App, Message};
-use iced::widget::text_editor;
 use iced::Task;
+use iced::widget::text_editor;
 
 use super::super::messages::{ChannelsMessage, SettingsMessage};
 use super::changes::{
@@ -49,9 +49,7 @@ pub(super) fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             persist_channels_settings(app).unwrap_or_else(Task::none)
         }
         ChannelsMessage::TextChanged(key, value) => {
-            app.channels_settings
-                .text_inputs
-                .insert(key.clone(), value.clone());
+            app.channels_settings.text_inputs.insert(key.clone(), value.clone());
             apply_text_change(app, &key, value);
             persist_channels_settings(app).unwrap_or_else(Task::none)
         }
@@ -60,9 +58,7 @@ pub(super) fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             if let Some(editor) = app.channels_settings.text_editors.get_mut(&key) {
                 editor.perform(action);
                 let value = editor.text();
-                app.channels_settings
-                    .text_inputs
-                    .insert(key.clone(), value.clone());
+                app.channels_settings.text_inputs.insert(key.clone(), value.clone());
                 apply_text_change(app, &key, value);
             }
             if should_persist {

@@ -2,8 +2,10 @@
 //!
 //! 注释聚焦模块职责、消息边界和失败处理方式，帮助维护者在不改变逻辑的前提下理解代码。
 
-use super::shared::{load_missing_diff_contents, persist_file_tree_expanded, refresh_git_panel_data_task};
 use super::GitMessage;
+use super::shared::{
+    load_missing_diff_contents, persist_file_tree_expanded, refresh_git_panel_data_task,
+};
 use crate::app::{App, Message};
 use iced::Task;
 
@@ -72,7 +74,9 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
                     .unwrap_or_default();
                     (Some(path), metas)
                 },
-                |(repo_path, metas)| Message::Git(GitMessage::DiffFileMetasReady { repo_path, metas }),
+                |(repo_path, metas)| {
+                    Message::Git(GitMessage::DiffFileMetasReady { repo_path, metas })
+                },
             )
         }
         GitMessage::ChangedFilesReady(files) => {
@@ -132,4 +136,3 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
         _ => unreachable!("unexpected refresh git message"),
     }
 }
-

@@ -635,11 +635,7 @@ pub fn load_sessions_scoped(_data_dir: &Path, scope: Option<&str>) -> Vec<ChatSe
 }
 
 /// 覆盖保存指定 scope 下的会话索引列表。
-pub fn save_sessions_scoped(
-    _data_dir: &Path,
-    sessions: &[ChatSessionMeta],
-    scope: Option<&str>,
-) {
+pub fn save_sessions_scoped(_data_dir: &Path, sessions: &[ChatSessionMeta], scope: Option<&str>) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         let Ok(mut conn) = open_sessions_connection(_data_dir, scope) else {

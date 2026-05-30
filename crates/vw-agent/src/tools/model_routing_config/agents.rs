@@ -27,6 +27,11 @@ impl ModelRoutingConfigTool {
         } else {
             None
         };
+        let allowed_skills_update = if let Some(raw) = args.get("allowed_skills") {
+            Some(Self::parse_string_list(raw, "allowed_skills")?)
+        } else {
+            None
+        };
 
         let mut cfg = self.load_config_without_env()?;
 
@@ -47,6 +52,7 @@ impl ModelRoutingConfigTool {
             max_depth: DEFAULT_AGENT_MAX_DEPTH,
             agentic: false,
             allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
             options: HashMap::new(),
             permission: serde_json::Value::Null,
             max_iterations: DEFAULT_AGENT_MAX_ITERATIONS,
@@ -97,6 +103,9 @@ impl ModelRoutingConfigTool {
 
         if let Some(allowed_tools) = allowed_tools_update {
             next_agent.allowed_tools = allowed_tools;
+        }
+        if let Some(allowed_skills) = allowed_skills_update {
+            next_agent.allowed_skills = allowed_skills;
         }
 
         if next_agent.max_depth == 0 {

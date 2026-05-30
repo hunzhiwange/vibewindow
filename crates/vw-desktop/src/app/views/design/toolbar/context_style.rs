@@ -123,54 +123,55 @@ pub(super) fn render_fill_popover(
         }
     };
 
-    let mode_row = iced::widget::row![
-        button(
-            iced::widget::row![
-                svg(assets::get_icon(Icon::Square)).width(11).height(11).style(
-                    move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
-                ),
-                text("填充").size(12)
-            ]
-            .spacing(4)
-            .align_y(iced::Alignment::Center)
-        )
-        .padding([4, 9])
-        .style(tab_button_style(fill_mode == "fill"))
-        .on_press(Message::Design(DesignMessage::UpdateContextFill("填充".to_string()))),
-        button(
-            iced::widget::row![
-                svg(assets::get_icon(Icon::Square)).width(11).height(11).style(
-                    move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
-                ),
-                text("透明").size(12)
-            ]
-            .spacing(4)
-            .align_y(iced::Alignment::Center)
-        )
-        .padding([4, 9])
-        .style(tab_button_style(fill_mode == "transparent"))
-        .on_press(Message::Design(DesignMessage::UpdateContextFill("透明".to_string()))),
-        button(
-            iced::widget::row![
-                svg(assets::get_icon(Icon::Square)).width(11).height(11).style(
-                    move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
-                ),
-                text("无填充").size(12)
-            ]
-            .spacing(4)
-            .align_y(iced::Alignment::Center)
-        )
-        .padding([4, 9])
-        .style(tab_button_style(fill_mode == "none"))
-        .on_press(Message::Design(DesignMessage::UpdateContextFill("无填充".to_string())))
-    ]
-    .spacing(6)
-    .align_y(iced::Alignment::Center);
+    let mode_row =
+        iced::widget::row![
+            button(
+                iced::widget::row![
+                    svg(assets::get_icon(Icon::Square)).width(11).height(11).style(
+                        move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
+                    ),
+                    text("填充").size(12)
+                ]
+                .spacing(4)
+                .align_y(iced::Alignment::Center)
+            )
+            .padding([4, 9])
+            .style(tab_button_style(fill_mode == "fill"))
+            .on_press(Message::Design(DesignMessage::UpdateContextFill("填充".to_string()))),
+            button(
+                iced::widget::row![
+                    svg(assets::get_icon(Icon::Square)).width(11).height(11).style(
+                        move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
+                    ),
+                    text("透明").size(12)
+                ]
+                .spacing(4)
+                .align_y(iced::Alignment::Center)
+            )
+            .padding([4, 9])
+            .style(tab_button_style(fill_mode == "transparent"))
+            .on_press(Message::Design(DesignMessage::UpdateContextFill("透明".to_string()))),
+            button(
+                iced::widget::row![
+                    svg(assets::get_icon(Icon::Square)).width(11).height(11).style(
+                        move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
+                    ),
+                    text("无填充").size(12)
+                ]
+                .spacing(4)
+                .align_y(iced::Alignment::Center)
+            )
+            .padding([4, 9])
+            .style(tab_button_style(fill_mode == "none"))
+            .on_press(Message::Design(DesignMessage::UpdateContextFill("无填充".to_string())))
+        ]
+        .spacing(6)
+        .align_y(iced::Alignment::Center);
 
     let fill_colors = vec![
-        "#20252B", "#4B5159", "#F84D16", "#FFA640", "#FFD247", "#67D768", "#59D8F5",
-        "#3CA0FF", "#7F5BFF", "#F44BD0", "#FFFFFF", "#D0D2D5", "#F3F3F3", "#FFD9D5",
-        "#FFE8C9", "#FFF2D0", "#D7FCDD", "#D8FBFF", "#CAE9FF", "#E1D6FF", "#FFD8F7",
+        "#20252B", "#4B5159", "#F84D16", "#FFA640", "#FFD247", "#67D768", "#59D8F5", "#3CA0FF",
+        "#7F5BFF", "#F44BD0", "#FFFFFF", "#D0D2D5", "#F3F3F3", "#FFD9D5", "#FFE8C9", "#FFF2D0",
+        "#D7FCDD", "#D8FBFF", "#CAE9FF", "#E1D6FF", "#FFD8F7",
     ];
 
     let mut top_swatches = iced::widget::row![].spacing(6);
@@ -337,54 +338,55 @@ pub(super) fn render_border_popover(
         }
     };
 
-    let mode_row = iced::widget::row![
-        button(
-            iced::widget::row![
-                svg(assets::get_icon(Icon::Square)).width(11).height(11).style(
-                    move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
-                ),
-                text("实线").size(12)
-            ]
-            .spacing(4)
-            .align_y(iced::Alignment::Center)
-        )
-        .padding([4, 9])
-        .style(tab_button_style(border_mode == "solid"))
-        .on_press(Message::Design(DesignMessage::UpdateContextBorder("solid".to_string()))),
-        button(
-            iced::widget::row![
-                svg(assets::get_icon(Icon::ListUl)).width(11).height(11).style(
-                    move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
-                ),
-                text("虚线").size(12)
-            ]
-            .spacing(4)
-            .align_y(iced::Alignment::Center)
-        )
-        .padding([4, 9])
-        .style(tab_button_style(border_mode == "dashed"))
-        .on_press(Message::Design(DesignMessage::UpdateContextBorder("dashed".to_string()))),
-        button(
-            iced::widget::row![
-                svg(assets::get_icon(Icon::EyeSlash)).width(11).height(11).style(
-                    move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
-                ),
-                text("无边框").size(12)
-            ]
-            .spacing(4)
-            .align_y(iced::Alignment::Center)
-        )
-        .padding([4, 9])
-        .style(tab_button_style(border_mode == "none"))
-        .on_press(Message::Design(DesignMessage::UpdateContextBorder("none".to_string())))
-    ]
-    .spacing(6)
-    .align_y(iced::Alignment::Center);
+    let mode_row =
+        iced::widget::row![
+            button(
+                iced::widget::row![
+                    svg(assets::get_icon(Icon::Square)).width(11).height(11).style(
+                        move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
+                    ),
+                    text("实线").size(12)
+                ]
+                .spacing(4)
+                .align_y(iced::Alignment::Center)
+            )
+            .padding([4, 9])
+            .style(tab_button_style(border_mode == "solid"))
+            .on_press(Message::Design(DesignMessage::UpdateContextBorder("solid".to_string()))),
+            button(
+                iced::widget::row![
+                    svg(assets::get_icon(Icon::ListUl)).width(11).height(11).style(
+                        move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
+                    ),
+                    text("虚线").size(12)
+                ]
+                .spacing(4)
+                .align_y(iced::Alignment::Center)
+            )
+            .padding([4, 9])
+            .style(tab_button_style(border_mode == "dashed"))
+            .on_press(Message::Design(DesignMessage::UpdateContextBorder("dashed".to_string()))),
+            button(
+                iced::widget::row![
+                    svg(assets::get_icon(Icon::EyeSlash)).width(11).height(11).style(
+                        move |_theme: &Theme, _status| svg::Style { color: Some(text_color) }
+                    ),
+                    text("无边框").size(12)
+                ]
+                .spacing(4)
+                .align_y(iced::Alignment::Center)
+            )
+            .padding([4, 9])
+            .style(tab_button_style(border_mode == "none"))
+            .on_press(Message::Design(DesignMessage::UpdateContextBorder("none".to_string())))
+        ]
+        .spacing(6)
+        .align_y(iced::Alignment::Center);
 
     let border_colors = vec![
-        "#20252B", "#4B5159", "#F84D16", "#FFA640", "#FFD247", "#67D768", "#59D8F5",
-        "#3CA0FF", "#7F5BFF", "#F44BD0", "#FFFFFF", "#D0D2D5", "#F3F3F3", "#FFD9D5",
-        "#FFE8C9", "#FFF2D0", "#D7FCDD", "#D8FBFF", "#CAE9FF", "#E1D6FF", "#FFD8F7",
+        "#20252B", "#4B5159", "#F84D16", "#FFA640", "#FFD247", "#67D768", "#59D8F5", "#3CA0FF",
+        "#7F5BFF", "#F44BD0", "#FFFFFF", "#D0D2D5", "#F3F3F3", "#FFD9D5", "#FFE8C9", "#FFF2D0",
+        "#D7FCDD", "#D8FBFF", "#CAE9FF", "#E1D6FF", "#FFD8F7",
     ];
 
     let mut top_swatches = iced::widget::row![].spacing(6);

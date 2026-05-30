@@ -4,8 +4,8 @@
 //! 注释聚焦调用边界、返回值和错误传播方式，便于后续维护设置页与工具栏行为时快速定位职责。
 
 use crate::app::components::system_settings_common::{
-    danger_action_btn_style, primary_action_btn_style, rounded_action_btn_style,
-    SETTINGS_LABEL_WIDTH, settings_checkbox_style, settings_muted_text_style,
+    SETTINGS_LABEL_WIDTH, danger_action_btn_style, primary_action_btn_style,
+    rounded_action_btn_style, settings_checkbox_style, settings_muted_text_style,
     settings_page_intro, settings_panel, settings_panel_style, settings_section_card,
     settings_text_input_style,
 };
@@ -94,7 +94,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
     };
 
     let mut col = column![
-        settings_page_intro("项目配置", "配置项目打开入口、当前项目 Worktree 行为，以及历史项目管理。"),
+        settings_page_intro(
+            "项目配置",
+            "配置项目打开入口、当前项目 Worktree 行为，以及历史项目管理。"
+        ),
         settings_section_card("当前项目", "打开项目并控制当前项目的新会话 Worktree 策略。"),
         settings_panel(column![open_folder_btn, worktree_toggle].spacing(12)),
         settings_section_card("历史项目", "管理最近打开过的项目名称与快捷入口。"),

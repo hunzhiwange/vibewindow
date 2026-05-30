@@ -10,11 +10,7 @@ pub(super) fn floating_panel_style(theme: &Theme) -> iced::widget::container::St
 
     iced::widget::container::Style {
         background: Some(Background::Color(palette.background.base.color)),
-        border: Border {
-            width: 1.0,
-            color: palette.background.weak.color,
-            radius: 12.0.into(),
-        },
+        border: Border { width: 1.0, color: palette.background.weak.color, radius: 12.0.into() },
         shadow: Shadow {
             color: Color::BLACK.scale_alpha(0.12),
             offset: Vector::new(0.0, 10.0),

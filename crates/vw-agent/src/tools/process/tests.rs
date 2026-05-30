@@ -28,6 +28,7 @@ mod tests {
     use crate::app::agent::runtime::NativeRuntime;
     use crate::app::agent::security::{AutonomyLevel, SecurityPolicy, SyscallAnomalyDetector};
     use std::path::PathBuf;
+    use std::time::Duration;
     use tempfile::TempDir;
 
     /// 创建用于测试的安全策略
@@ -89,6 +90,53 @@ mod tests {
     /// 可立即用于测试的 `ProcessTool` 实例
     fn make_tool() -> ProcessTool {
         ProcessTool::new(test_security(), test_runtime())
+    }
+
+    async fn wait_for_process_status(
+        tool: &ProcessTool,
+        command: &str,
+        expected_status: &str,
+    ) -> serde_json::Value {
+        for _ in 0..50 {
+            let list_result = tool.execute(json!({"action": "list"})).await.unwrap();
+            assert!(list_result.success);
+            let entries: Vec<serde_json::Value> =
+                serde_json::from_str(&list_result.output).unwrap();
+            if let Some(entry) = entries
+                .into_iter()
+                .find(|entry| entry["command"].as_str() == Some(command))
+                .filter(|entry| entry["status"].as_str() == Some(expected_status))
+            {
+                return entry;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+
+        panic!("process {command:?} did not reach status {expected_status:?}");
+    }
+
+    async fn wait_for_output(tool: &ProcessTool, id: u64, needle: &str) -> ToolResult {
+        for _ in 0..50 {
+            let result = tool.execute(json!({"action": "output", "id": id})).await.unwrap();
+            assert!(result.success);
+            if result.output.contains(needle) {
+                return result;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+
+        panic!("process {id} output did not contain {needle:?}");
+    }
+
+    async fn wait_for_file(path: &std::path::Path) -> String {
+        for _ in 0..50 {
+            if let Ok(contents) = tokio::fs::read_to_string(path).await {
+                return contents;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+
+        panic!("file did not appear: {}", path.display());
     }
 
     /// 测试工具名称是否正确
@@ -194,16 +242,7 @@ mod tests {
             .unwrap();
         assert!(spawn_result.success);
 
-        // 等待进程完成退出
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-
-        let list_result = tool.execute(json!({"action": "list"})).await.unwrap();
-        assert!(list_result.success);
-        let entries: Vec<serde_json::Value> = serde_json::from_str(&list_result.output).unwrap();
-        let entry = entries
-            .iter()
-            .find(|entry| entry["command"].as_str() == Some("echo prune_test"))
-            .expect("已退出的进程条目应继续保留");
+        let entry = wait_for_process_status(&tool, "echo prune_test", "completed").await;
         assert_eq!(entry["status"], "completed");
     }
 
@@ -229,17 +268,7 @@ mod tests {
         let spawn_output: serde_json::Value = serde_json::from_str(&spawn_result.output).unwrap();
         let id = spawn_output["id"].as_u64().unwrap();
 
-        // 等待进程完成并捕获输出
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-
-        let result = tool
-            .execute(json!({
-                "action": "output",
-                "id": id
-            }))
-            .await
-            .unwrap();
-        assert!(result.success);
+        let result = wait_for_output(&tool, id, "output_capture_test").await;
         assert!(result.output.contains("output_capture_test"));
     }
 
@@ -319,12 +348,13 @@ mod tests {
     #[tokio::test]
     async fn process_metadata_update_changes_snapshot() {
         let tool = make_tool();
-        let spawn_result = tool.execute(json!({
-            "action": "spawn",
-            "command": "echo metadata_test"
-        }))
-        .await
-        .unwrap();
+        let spawn_result = tool
+            .execute(json!({
+                "action": "spawn",
+                "command": "echo metadata_test"
+            }))
+            .await
+            .unwrap();
         assert!(spawn_result.success);
         let output: serde_json::Value = serde_json::from_str(&spawn_result.output).unwrap();
         let id = output["id"].as_u64().unwrap() as usize;
@@ -629,19 +659,12 @@ mod tests {
             serde_json::from_str(&spawn_result.output).expect("spawn output should be json");
         let id = spawn_output["id"].as_u64().expect("process id should exist");
 
-        // 等待进程完成
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-
         // 第一次获取输出：应触发异常检测
-        let first_output = tool
-            .execute(json!({"action": "output", "id": id}))
-            .await
-            .expect("first output should return result");
+        let first_output = wait_for_output(&tool, id, "seccomp denied syscall=openat").await;
         assert!(first_output.success);
 
         // 验证异常日志被创建并包含未知系统调用记录
-        let first_log =
-            tokio::fs::read_to_string(&log_path).await.expect("first anomaly log should exist");
+        let first_log = wait_for_file(&log_path).await;
         let first_lines = first_log.lines().count();
         assert!(first_lines >= 1);
         assert!(first_log.contains("\"kind\":\"unknown_syscall\""));

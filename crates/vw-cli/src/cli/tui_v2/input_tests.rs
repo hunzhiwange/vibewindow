@@ -2,8 +2,8 @@
 //! 用例覆盖光标移动、文本修改和提交边界，保证终端输入可预测。
 
 use super::input::{
-    TuiSlashCommandKind, TuiSlashCommandOutcome, execute_slash_command,
-    parse_slash_command, prompt_suggestions,
+    TuiSlashCommandKind, TuiSlashCommandOutcome, execute_slash_command, parse_slash_command,
+    prompt_suggestions,
 };
 use super::state::{TuiAction, TuiModelCatalogEntry, TuiState, reduce_tui_state};
 
@@ -58,13 +58,11 @@ fn execute_slash_command_clear_opens_confirm_overlay_and_preserves_context() {
     reduce_tui_state(&mut state, TuiAction::StatusModelSet(Some("gpt-5.4".to_string())));
     reduce_tui_state(
         &mut state,
-        TuiAction::MessagePushed(super::model::UiMessage::System(
-            super::model::UiSystemMessage {
-                base: super::model::UiMessageBase::new(super::model::UiMessageId::local("sys-1")),
-                text: "stale".to_string(),
-                level: super::model::UiSystemMessageLevel::Info,
-            },
-        )),
+        TuiAction::MessagePushed(super::model::UiMessage::System(super::model::UiSystemMessage {
+            base: super::model::UiMessageBase::new(super::model::UiMessageId::local("sys-1")),
+            text: "stale".to_string(),
+            level: super::model::UiSystemMessageLevel::Info,
+        })),
     );
 
     let outcome = execute_slash_command(
@@ -125,7 +123,9 @@ fn execute_slash_command_model_and_unknown_emit_system_feedback() {
         &parse_slash_command("/does-not-exist").expect("unknown slash command should still parse"),
     );
     assert_eq!(unknown_outcome, TuiSlashCommandOutcome::Continue);
-    let super::model::UiMessage::System(message) = state.messages.last().expect("unknown command should emit warning") else {
+    let super::model::UiMessage::System(message) =
+        state.messages.last().expect("unknown command should emit warning")
+    else {
         panic!("unknown slash command should emit system feedback");
     };
     assert!(message.text.contains("未知的斜杠命令"));
@@ -139,10 +139,7 @@ fn execute_slash_command_resume_returns_restore_intent() {
         &mut state,
         &parse_slash_command("/resume").expect("resume command should parse"),
     );
-    assert_eq!(
-        latest,
-        TuiSlashCommandOutcome::Resume { session_id: None }
-    );
+    assert_eq!(latest, TuiSlashCommandOutcome::Resume { session_id: None });
 
     let explicit = execute_slash_command(
         &mut state,
@@ -150,8 +147,6 @@ fn execute_slash_command_resume_returns_restore_intent() {
     );
     assert_eq!(
         explicit,
-        TuiSlashCommandOutcome::Resume {
-            session_id: Some("session_123".to_string()),
-        }
+        TuiSlashCommandOutcome::Resume { session_id: Some("session_123".to_string()) }
     );
 }

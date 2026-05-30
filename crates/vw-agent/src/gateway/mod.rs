@@ -8,8 +8,8 @@
 //! - Header sanitization (handled by axum/hyper)
 
 mod agent;
-mod approval_state;
 pub mod api;
+mod approval_state;
 mod chat;
 mod error;
 mod handlers;
@@ -462,6 +462,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .merge(api::handlers::workflow::router())
         .merge(api::handlers::session::router())
         .merge(api::handlers::config::router())
+        .merge(api::handlers::desktop_skills::router())
         .merge(api::handlers::desktop::router());
 
     let app = Router::<AppState>::new()

@@ -1,4 +1,6 @@
-use super::web_view::{web_metadata_bool, web_metadata_field, web_metadata_number, web_metadata_text, web_string_field};
+use super::web_view::{
+    web_metadata_bool, web_metadata_field, web_metadata_number, web_metadata_text, web_string_field,
+};
 use serde_json::json;
 
 #[test]

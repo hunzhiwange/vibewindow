@@ -41,9 +41,17 @@ pub(super) async fn handle_ai_query(
     body: AiDataAiQueryRequest,
 ) -> Result<Json<AiDataAiQueryResponse>, ApiError> {
     let (connection, report, source) = resolve_ai_context(&connections, &reports, &body)?;
-    let catalog = runtime::connection_catalog(&connection, settings.default_timeout_secs).await.ok();
-    let raw_model_response = plan_with_model(&state, &body, &connection, report.as_ref(), source.as_ref(), catalog.as_ref())
-        .await?;
+    let catalog =
+        runtime::connection_catalog(&connection, settings.default_timeout_secs).await.ok();
+    let raw_model_response = plan_with_model(
+        &state,
+        &body,
+        &connection,
+        report.as_ref(),
+        source.as_ref(),
+        catalog.as_ref(),
+    )
+    .await?;
     let mut plan = parse_execution_plan(&raw_model_response)?;
 
     if plan.connection_id.trim().is_empty() {

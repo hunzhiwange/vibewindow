@@ -133,6 +133,10 @@ pub enum TaskBoardMessage {
         task_id: String,
         result: Result<String, String>,
     },
+    TaskPlanningCompleted {
+        task_id: String,
+        result: Result<crate::app::task::TaskPlanGenerationOutcome, String>,
+    },
     TaskCodeReviewCompleted {
         task_id: String,
         result: Result<String, String>,
@@ -207,6 +211,9 @@ pub enum TaskBoardMessage {
         subtasks: Vec<SubTask>,
     },
     PromotePoolTasksTick,
+    PoolTasksScheduled(
+        Result<vw_gateway_client::vw_api_types::task::TaskPoolScheduleResponse, String>,
+    ),
     UpdateNewSubtaskContent(String),
     DescEditorAction(iced::widget::text_editor::Action),
     PromptEditorAction(iced::widget::text_editor::Action),

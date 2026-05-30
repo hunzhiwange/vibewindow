@@ -305,8 +305,10 @@ pub fn view_file(
 ) -> Element<'static, Message> {
     let expanded = app.is_diff_file_expanded(file);
     let (old_content, new_content) = contents.unwrap_or(("", ""));
-    let old_lines: Vec<&str> = if expanded { old_content.lines().collect() } else { Default::default() };
-    let new_lines: Vec<&str> = if expanded { new_content.lines().collect() } else { Default::default() };
+    let old_lines: Vec<&str> =
+        if expanded { old_content.lines().collect() } else { Default::default() };
+    let new_lines: Vec<&str> =
+        if expanded { new_content.lines().collect() } else { Default::default() };
     let mut diff_groups = None;
     let line_selection_state = if contents.is_some() {
         let changed_line_sets = match status {

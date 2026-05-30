@@ -69,16 +69,10 @@ pub(super) fn build_variable_panel_modal(state: &WorkflowState) -> Element<'_, M
         .push(settings_close_button(Message::WorkflowTool(WorkflowMessage::CloseVariablePanel)));
 
     container(
-        container(
-            column![
-                header_row,
-                body,
-            ]
-            .spacing(14),
-        )
-        .width(Length::Fixed(780.0))
-        .padding([20, 22])
-        .style(modal_card_style),
+        container(column![header_row, body,].spacing(14))
+            .width(Length::Fixed(780.0))
+            .padding([20, 22])
+            .style(modal_card_style),
     )
     .width(Length::Fill)
     .height(Length::Fill)
@@ -167,7 +161,9 @@ pub(super) fn build_variable_editor_modal(state: &WorkflowState) -> Element<'_, 
                     text_editor(&editor.raw_value_editor)
                         .placeholder("输入变量值，支持字符串、数字、对象或数组 YAML")
                         .on_action(|action| {
-                            Message::WorkflowTool(WorkflowMessage::VariableEditorValueAction(action))
+                            Message::WorkflowTool(WorkflowMessage::VariableEditorValueAction(
+                                action,
+                            ))
                         })
                         .padding([10, 12])
                         .height(Length::Fixed(220.0))
@@ -353,7 +349,10 @@ pub(super) fn variable_card(
 /// 提供 variable value preview 功能。
 ///
 /// 参数和返回值遵循调用方所在模块的工作流约定，错误会显式向上传递或由 UI 状态承载。
-pub(super) fn variable_value_preview(value: &serde_yaml::Value, value_type: Option<&str>) -> String {
+pub(super) fn variable_value_preview(
+    value: &serde_yaml::Value,
+    value_type: Option<&str>,
+) -> String {
     if value_type.is_some_and(|kind| kind.eq_ignore_ascii_case("secret")) {
         return "******".to_string();
     }
@@ -373,7 +372,10 @@ pub(super) fn variable_value_preview(value: &serde_yaml::Value, value_type: Opti
 /// 构建 editor field 对应的界面元素。
 ///
 /// 参数由当前工作流状态或编辑草稿提供；返回值是可直接嵌入 iced 视图树的元素。
-pub(super) fn build_editor_field<'a>(label: &'a str, control: Element<'a, Message>) -> Element<'a, Message> {
+pub(super) fn build_editor_field<'a>(
+    label: &'a str,
+    control: Element<'a, Message>,
+) -> Element<'a, Message> {
     build_editor_field_validated(label, control, None)
 }
 
@@ -385,7 +387,8 @@ pub(super) fn build_editor_field_validated<'a>(
     control: Element<'a, Message>,
     error: Option<&'a str>,
 ) -> Element<'a, Message> {
-    let mut content = column![text(label).size(12).style(settings_muted_text_style), control].spacing(6);
+    let mut content =
+        column![text(label).size(12).style(settings_muted_text_style), control].spacing(6);
 
     if let Some(error) = error {
         content =

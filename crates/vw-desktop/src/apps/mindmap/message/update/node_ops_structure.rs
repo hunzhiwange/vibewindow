@@ -22,7 +22,8 @@ pub(super) fn add_child(app: &mut App) -> Task<Message> {
 
         push_undo(tab);
 
-        if let Some(new_path) = mind_map::add_child(&mut tab.doc, &parent_path, "新节点".to_string())
+        if let Some(new_path) =
+            mind_map::add_child(&mut tab.doc, &parent_path, "新节点".to_string())
         {
             tab.selected_path = Some(new_path);
             relayout_keep_root(tab);
@@ -96,7 +97,8 @@ fn add_sibling_inner(app: &mut App, path: Option<Vec<usize>>) -> Task<Message> {
         shift_on_insert(&mut tab.edge_colors, &parent_path, insert_at);
         shift_set_on_insert(&mut tab.collapsed_paths, &parent_path, insert_at);
 
-        if let Some(new_path) = mind_map::add_sibling(&mut tab.doc, &path, "新节点".to_string()) {
+        if let Some(new_path) = mind_map::add_sibling(&mut tab.doc, &path, "新节点".to_string())
+        {
             tab.selected_path = Some(new_path);
             relayout_keep_root(tab);
             tab.canvas_cache.clear();

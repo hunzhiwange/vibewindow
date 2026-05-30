@@ -25,11 +25,28 @@ TEST_TIMEOUT ?= 600
 COVERAGE_DIR ?= coverage
 PACKAGE ?=
 TEST_ARGS ?=
+RELEASE_CHECK_CLEAN ?= 0
+RELEASE_CHECK_DENY ?= 1
+RELEASE_CHECK_DIST ?= 1
+RELEASE_CHECK_PUBLISH ?= 0
+RELEASE_CHECK_WASM ?= 1
 TARGET_DIR := $(CARGO_TARGET_DIR)
 LOCAL_TARGET := $(shell rustc -vV 2>/dev/null | awk '/^host:/ { print $$2 }')
 CLOC_SOURCE_DIRS := $(sort $(wildcard crates/*))
 CLOC_EXCLUDE_DIRS := target,node_modules,dist,coverage,.turbo,.vite,.next
 CLOC_INCLUDE_EXT := rs,html,js,ts,tsx,jsx,mjs,cjs,css,scss,less
+RELEASE_PUBLISH_PACKAGES := \
+        vw-api-types \
+        vw-fig2json \
+        vw-shared \
+        vw-config-types \
+        vw-gateway-client \
+        vw-acp \
+        vw-provider-resolver \
+        vw-agent \
+        vw-cli \
+        vw-webview \
+        vw-desktop
 export CARGO_HOME
 export CARGO_TARGET_DIR
 
@@ -53,6 +70,9 @@ WINDOWS_ARM := aarch64-pc-windows-msvc
 # 伪目标
 .PHONY: help \
         release-all release-local release-macos release-linux release-windows \
+        release-check release-check-clean release-check-fetch release-check-version \
+        release-check-clippy release-check-test release-check-wasm \
+        release-check-dist-plan release-check-deny release-check-publish-dry-run \
         release-package-target \
         release-package-local release-cli-local release-acp-local release-desktop-local \
         release-package-macos-x64 release-package-macos-arm \
@@ -110,6 +130,8 @@ help: ## 显示帮助信息
 	@echo "$(GREEN)环境变量:$(RESET)"
 	@echo "  PROFILE=$(PROFILE) OUT_DIR=$(OUT_DIR) RELEASE_DIR=$(RELEASE_DIR) PACKAGE=$(PACKAGE) TEST_ARGS=$(TEST_ARGS)"
 	@echo "  RELEASE_KIND=$(RELEASE_KIND) RELEASE_TARGET=$(RELEASE_TARGET) RELEASE_BUILD_FLAGS=$(RELEASE_BUILD_FLAGS)"
+	@echo "  RELEASE_CHECK_CLEAN=$(RELEASE_CHECK_CLEAN) RELEASE_CHECK_DENY=$(RELEASE_CHECK_DENY) RELEASE_CHECK_DIST=$(RELEASE_CHECK_DIST)"
+	@echo "  RELEASE_CHECK_PUBLISH=$(RELEASE_CHECK_PUBLISH) RELEASE_CHECK_WASM=$(RELEASE_CHECK_WASM)"
 
 info: ## 显示构建信息
 	@echo "版本: $(VERSION)"
@@ -194,6 +216,74 @@ release-goreleaser-check: ## 校验 GoReleaser 发布配置
 release-goreleaser-snapshot: ## 用 GoReleaser 在本地生成 snapshot 发布产物
 	@command -v goreleaser >/dev/null || { echo "$(RED)Error: goreleaser not found.$(RESET)"; exit 1; }
 	goreleaser release --snapshot --clean --skip=publish
+
+release-check: release-check-clean release-check-fetch release-check-version release-check-clippy release-check-test ## 发版前本地校验，尽量提前覆盖 CI 发布失败点
+	@if [ "$(RELEASE_CHECK_WASM)" = "1" ]; then \
+		$(MAKE) release-check-wasm; \
+	else \
+		echo "$(YELLOW)Skipping wasm release check (RELEASE_CHECK_WASM=0).$(RESET)"; \
+	fi
+	@if [ "$(RELEASE_CHECK_DIST)" = "1" ]; then \
+		$(MAKE) release-check-dist-plan; \
+	else \
+		echo "$(YELLOW)Skipping cargo-dist release check (RELEASE_CHECK_DIST=0).$(RESET)"; \
+	fi
+	@if [ "$(RELEASE_CHECK_DENY)" = "1" ]; then \
+		$(MAKE) release-check-deny; \
+	else \
+		echo "$(YELLOW)Skipping cargo-deny release check (RELEASE_CHECK_DENY=0).$(RESET)"; \
+	fi
+	@if [ "$(RELEASE_CHECK_PUBLISH)" = "1" ]; then \
+		$(MAKE) release-check-publish-dry-run; \
+	else \
+		echo "$(YELLOW)Skipping cargo publish dry-run (RELEASE_CHECK_PUBLISH=0).$(RESET)"; \
+	fi
+	@echo "$(GREEN)Release check passed.$(RESET)"
+
+release-check-clean: ## 可选检查 git 工作区是否干净: RELEASE_CHECK_CLEAN=1
+	@if [ "$(RELEASE_CHECK_CLEAN)" = "1" ]; then \
+		echo "$(CYAN)Checking git worktree cleanliness...$(RESET)"; \
+		git diff --quiet --ignore-submodules -- && git diff --cached --quiet --ignore-submodules -- || { \
+			echo "$(RED)Error: git worktree has uncommitted changes.$(RESET)"; \
+			exit 1; \
+		}; \
+	else \
+		echo "$(YELLOW)Skipping clean worktree check (RELEASE_CHECK_CLEAN=0).$(RESET)"; \
+	fi
+
+release-check-fetch: ## 校验 Cargo.lock 可解析且依赖能按锁文件获取
+	@echo "$(CYAN)Checking locked dependency resolution...$(RESET)"
+	cargo fetch --locked
+
+release-check-version: ## 校验 workspace crate 版本保持一致
+	@echo "$(CYAN)Checking workspace package versions...$(RESET)"
+	@cargo metadata --no-deps --format-version 1 | perl -0MJSON::PP -e 'my $$m = decode_json(<>); my %versions; for my $$p (@{$$m->{packages}}) { push @{$$versions{$$p->{version}}}, $$p->{name}; } if (keys(%versions) != 1) { for my $$version (sort keys %versions) { print STDERR "$$version: ", join(", ", sort @{$$versions{$$version}}), "\n"; } exit 1; } my ($$version) = keys %versions; print "workspace version: $$version\n";'
+
+release-check-clippy: ## 对齐 CI clippy: 所有 target + 所有 feature + warnings deny
+	cargo clippy --all-targets --all-features -- -D warnings
+
+release-check-test: ## 对齐 CI 测试: workspace lib/bin/tests
+	mkdir -p target/test-home
+	CARGO_HOME="$${CARGO_HOME:-$$HOME/.cargo}" RUSTUP_HOME="$${RUSTUP_HOME:-$$HOME/.rustup}" HOME="$(CURDIR)/target/test-home" RUST_TEST_THREADS=1 perl -e 'alarm shift; exec @ARGV' $(TEST_TIMEOUT) cargo test --workspace --lib --bins --tests
+
+release-check-wasm: ensure-wasm-target ## 对齐 CI wasm 构建
+	cargo build -p vw-desktop --target wasm32-unknown-unknown --bin vibe-window
+
+release-check-dist-plan: ## 校验 cargo-dist 发布矩阵和配置
+	@command -v dist >/dev/null || { echo "$(RED)Error: dist not found. Install cargo-dist first.$(RESET)"; exit 1; }
+	@mkdir -p "$(TARGET_DIR)/release-check"
+	dist plan --output-format=json > "$(TARGET_DIR)/release-check/dist-plan.json"
+	@echo "$(GREEN)Wrote $(TARGET_DIR)/release-check/dist-plan.json$(RESET)"
+
+release-check-deny: ## 校验依赖安全公告、许可证与来源策略
+	@command -v cargo-deny >/dev/null || { echo "$(RED)Error: cargo-deny not found. Install it with: cargo install cargo-deny --locked$(RESET)"; exit 1; }
+	cargo deny check
+
+release-check-publish-dry-run: ## 可选校验 crates.io 打包流程: RELEASE_CHECK_PUBLISH=1
+	@for package in $(RELEASE_PUBLISH_PACKAGES); do \
+		echo "$(CYAN)Checking cargo publish dry-run for $$package...$(RESET)"; \
+		cargo publish -p "$$package" --dry-run --locked; \
+	done
 
 ## ============================================================================
 ## CLI 构建 - macOS

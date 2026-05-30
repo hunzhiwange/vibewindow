@@ -1,4 +1,6 @@
-use super::config_secrets::{decrypt_map_secrets, decrypt_vec_secrets, encrypt_map_secrets, encrypt_vec_secrets};
+use super::config_secrets::{
+    decrypt_map_secrets, decrypt_vec_secrets, encrypt_map_secrets, encrypt_vec_secrets,
+};
 use crate::app::agent::security::SecretStore;
 use std::collections::HashMap;
 

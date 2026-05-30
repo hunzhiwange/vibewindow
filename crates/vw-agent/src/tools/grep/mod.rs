@@ -8,7 +8,9 @@
 //! 结果按文件修改时间排序，自动跳过二进制文件。
 
 use super::external_directory;
-use super::traits::{Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec};
+use super::traits::{
+    Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec,
+};
 use crate::app::agent::file::ripgrep;
 use crate::app::agent::security::SecurityPolicy;
 use async_trait::async_trait;
@@ -347,8 +349,12 @@ impl GrepTool {
         let (output, data, summary) = match args.output_mode {
             OutputMode::FilesWithMatches => {
                 let files = unique_paths(&matches);
-                let sliced_files =
-                    files.iter().skip(offset.min(files.len())).take(head_limit).cloned().collect::<Vec<_>>();
+                let sliced_files = files
+                    .iter()
+                    .skip(offset.min(files.len()))
+                    .take(head_limit)
+                    .cloned()
+                    .collect::<Vec<_>>();
                 let truncated = offset + sliced_files.len() < files.len();
                 let mut output_lines = if sliced_files.is_empty() {
                     vec!["未找到匹配".to_string()]
@@ -357,7 +363,8 @@ impl GrepTool {
                 };
                 if truncated {
                     output_lines.push(String::new());
-                    output_lines.push("（结果已截断。请考虑使用更具体的 path 或 pattern。）".to_string());
+                    output_lines
+                        .push("（结果已截断。请考虑使用更具体的 path 或 pattern。）".to_string());
                 }
                 if has_errors {
                     output_lines.push(String::new());
@@ -403,13 +410,15 @@ impl GrepTool {
                 };
                 if truncated {
                     output_lines.push(String::new());
-                    output_lines.push("（结果已截断。请考虑使用更具体的 path 或 pattern。）".to_string());
+                    output_lines
+                        .push("（结果已截断。请考虑使用更具体的 path 或 pattern。）".to_string());
                 }
                 if has_errors {
                     output_lines.push(String::new());
                     output_lines.push("（部分路径无法访问，已跳过）".to_string());
                 }
-                let summary = format!("找到 {} 个匹配文件，共 {} 处匹配", counts.len(), total_match_count);
+                let summary =
+                    format!("找到 {} 个匹配文件，共 {} 处匹配", counts.len(), total_match_count);
                 (
                     output_lines.join("\n"),
                     json!({
@@ -456,7 +465,8 @@ impl GrepTool {
 
                 if truncated {
                     output_lines.push(String::new());
-                    output_lines.push("（结果已截断。请考虑使用更具体的 path 或 pattern。）".to_string());
+                    output_lines
+                        .push("（结果已截断。请考虑使用更具体的 path 或 pattern。）".to_string());
                 }
                 if has_errors {
                     output_lines.push(String::new());
@@ -555,7 +565,10 @@ impl Tool for GrepTool {
                         "truncated": exec.data.get("truncated").cloned().unwrap_or(Value::Bool(false)),
                     }),
                 }),
-                telemetry: Some(ToolCallTelemetry { success: true, ..ToolCallTelemetry::default() }),
+                telemetry: Some(ToolCallTelemetry {
+                    success: true,
+                    ..ToolCallTelemetry::default()
+                }),
                 ..ToolCallResult::default()
             }),
             Err(error) => Ok(ToolCallResult {
@@ -573,7 +586,10 @@ impl Tool for GrepTool {
                         "tool_id": "grep",
                     }),
                 }),
-                telemetry: Some(ToolCallTelemetry { success: false, ..ToolCallTelemetry::default() }),
+                telemetry: Some(ToolCallTelemetry {
+                    success: false,
+                    ..ToolCallTelemetry::default()
+                }),
                 ..ToolCallResult::default()
             }),
         }

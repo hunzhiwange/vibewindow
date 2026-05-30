@@ -112,8 +112,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let mut col = column![
         row![
-            container(settings_page_intro("定时任务配置", "配置 Cron 子系统的开关与历史保留策略。"))
-                .width(Length::Fill),
+            container(settings_page_intro(
+                "定时任务配置",
+                "配置 Cron 子系统的开关与历史保留策略。"
+            ))
+            .width(Length::Fill),
             help_btn
         ]
         .align_y(Alignment::Start),

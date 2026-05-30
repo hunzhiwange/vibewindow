@@ -71,8 +71,6 @@ pub(super) fn draw_eraser(frame: &mut Frame, cursor_pos: iced::Point, radius: f3
     frame.fill(&circle, Color::from_rgba8(17, 24, 39, 0.08));
     frame.stroke(
         &circle,
-        Stroke::default()
-            .with_color(Color::from_rgba8(17, 24, 39, 0.35))
-            .with_width(1.0),
+        Stroke::default().with_color(Color::from_rgba8(17, 24, 39, 0.35)).with_width(1.0),
     );
 }

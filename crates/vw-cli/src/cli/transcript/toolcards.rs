@@ -1,9 +1,9 @@
 //! 构建 CLI 转录中的工具卡片文本。
 //! 模块负责把结构化工具状态压缩成人类可扫描的终端摘要。
 
-use crate::app::agent::agent::loop_::cli::theme::{TEXT_MUTED, TEXT_SUBTLE};
 use super::todocards::tool_badge_cli;
 use super::truncate::truncate_chars_cli;
+use crate::app::agent::agent::loop_::cli::theme::{TEXT_MUTED, TEXT_SUBTLE};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 
@@ -24,10 +24,8 @@ pub(crate) fn render_tool_card(
 
     out.push(tool_header_line(name, badge_color, title, status.as_deref(), summary));
 
-    let detail_rows = rows
-        .iter()
-        .filter(|(label, _)| label != "概览" || summary.is_empty())
-        .collect::<Vec<_>>();
+    let detail_rows =
+        rows.iter().filter(|(label, _)| label != "概览" || summary.is_empty()).collect::<Vec<_>>();
 
     let primary_detail = primary_tool_detail(name, &detail_rows);
 
@@ -92,7 +90,8 @@ pub(crate) fn tool_summary_cli(tool_name: &str, input: &str) -> String {
             }
         }
         "lsp" | "codesearch" => {
-            let query = string_field(&v, &["query", "symbol", "information_request", "lineContent"]);
+            let query =
+                string_field(&v, &["query", "symbol", "information_request", "lineContent"]);
             let path = string_field(&v, &["filePath", "path", "includePattern"]);
             match (query.is_empty(), path.is_empty()) {
                 (true, true) => "workspace search".to_string(),

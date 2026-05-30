@@ -129,9 +129,7 @@ pub(crate) fn render_scrollbar(
         // min(inner_h) 确保滑块不会超过轨道高度
         let inner_h_u32 = u32_from_usize_saturating(inner_h);
         let total_lines_u32 = u32_from_usize_saturating(total_lines.max(1));
-        let thumb_h = ((inner_h_u32 * inner_h_u32) / total_lines_u32)
-            .max(1)
-            .min(inner_h_u32);
+        let thumb_h = ((inner_h_u32 * inner_h_u32) / total_lines_u32).max(1).min(inner_h_u32);
         let thumb_h = usize::try_from(thumb_h).unwrap_or(inner_h);
 
         // 计算滑块可移动的最大位置
@@ -154,10 +152,8 @@ pub(crate) fn render_scrollbar(
 
         // 将滑块范围内的轨道字符替换为青色 `█` 字符
         // saturating_add 和 min 确保不会越界
-        for line in bar
-            .iter_mut()
-            .take(thumb_top.saturating_add(thumb_h).min(inner_h))
-            .skip(thumb_top)
+        for line in
+            bar.iter_mut().take(thumb_top.saturating_add(thumb_h).min(inner_h)).skip(thumb_top)
         {
             *line =
                 Line::from(Span::styled("█", ratatui::style::Style::default().fg(SCROLLBAR_THUMB)));

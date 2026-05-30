@@ -26,12 +26,7 @@ impl StrokeSides {
     ///
     /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
     pub(super) fn uniform(v: f32) -> Self {
-        Self {
-            top: v,
-            right: v,
-            bottom: v,
-            left: v,
-        }
+        Self { top: v, right: v, bottom: v, left: v }
     }
 
     /// 模块内部可见的 any_positive 函数。
@@ -105,12 +100,7 @@ pub(super) fn parse_stroke_sides(
             let right = map.get("right").and_then(parse_one).unwrap_or(0.0);
             let bottom = map.get("bottom").and_then(parse_one).unwrap_or(0.0);
             let left = map.get("left").and_then(parse_one).unwrap_or(0.0);
-            StrokeSides {
-                top,
-                right,
-                bottom,
-                left,
-            }
+            StrokeSides { top, right, bottom, left }
         }
         _ => StrokeSides::uniform(1.0),
     }
@@ -200,25 +190,15 @@ pub(super) fn parse_stroke_paint(
                 .and_then(|v| v.as_f64())
                 .map(|v| v.clamp(0.0, 1.0) as f32)
                 .unwrap_or(1.0);
-            let color = Color {
-                a: color.a * opacity,
-                ..color
-            };
-            let dash_segments = map
-                .get("dashArray")
-                .and_then(|v| v.as_array())
-                .and_then(|arr| {
-                    let segments: Vec<f32> = arr
-                        .iter()
-                        .filter_map(|v| v.as_f64().map(|n| n as f32))
-                        .filter(|n| *n > 0.0)
-                        .collect();
-                    if segments.is_empty() {
-                        None
-                    } else {
-                        Some(segments)
-                    }
-                });
+            let color = Color { a: color.a * opacity, ..color };
+            let dash_segments = map.get("dashArray").and_then(|v| v.as_array()).and_then(|arr| {
+                let segments: Vec<f32> = arr
+                    .iter()
+                    .filter_map(|v| v.as_f64().map(|n| n as f32))
+                    .filter(|n| *n > 0.0)
+                    .collect();
+                if segments.is_empty() { None } else { Some(segments) }
+            });
             return (color, dash_segments);
         }
     }
@@ -231,34 +211,17 @@ pub(super) fn parse_stroke_paint(
 /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
 pub(super) fn draw_deferred_stroke(frame: &mut Frame, deferred: DeferredStroke) {
     match deferred {
-        DeferredStroke::Path {
-            path,
-            color,
-            width,
-            dash_segments,
-            round_cap,
-        } => {
+        DeferredStroke::Path { path, color, width, dash_segments, round_cap } => {
             let mut stroke = Stroke::default().with_color(color).with_width(width);
             if let Some(dash_segments) = dash_segments.as_ref() {
-                stroke.line_dash = LineDash {
-                    segments: dash_segments.as_slice(),
-                    offset: 0,
-                };
+                stroke.line_dash = LineDash { segments: dash_segments.as_slice(), offset: 0 };
             }
             if round_cap {
                 stroke.line_cap = LineCap::Round;
             }
             frame.stroke(&path, stroke);
         }
-        DeferredStroke::Sides {
-            x,
-            y,
-            w,
-            h,
-            sides_px,
-            align,
-            color,
-        } => {
+        DeferredStroke::Sides { x, y, w, h, sides_px, align, color } => {
             let top_w = sides_px.top.max(0.0);
             let right_w = sides_px.right.max(0.0);
             let bottom_w = sides_px.bottom.max(0.0);

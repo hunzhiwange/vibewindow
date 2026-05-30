@@ -7,8 +7,8 @@
 //! - 与 JSON 美化工具统一的卡片式布局和状态呈现
 
 use crate::app::components::system_settings_common::{
-    primary_action_btn_style, rounded_action_btn_style, settings_muted_text_style,
-    settings_panel, settings_panel_style,
+    primary_action_btn_style, rounded_action_btn_style, settings_muted_text_style, settings_panel,
+    settings_panel_style,
 };
 use crate::app::components::text_editor_context_menu::{
     TextEditorContextMenuMessages, TextEditorContextMenuState, wrap_with_context_menu,
@@ -105,13 +105,7 @@ fn build_controls_panel<'a>(app: &'a App) -> Element<'a, Message> {
         settings_panel(
             column![
                 row![
-                    build_action_button(
-                        app,
-                        "交换左右",
-                        JsonYamlToolMessage::Swap,
-                        false,
-                        true,
-                    ),
+                    build_action_button(app, "交换左右", JsonYamlToolMessage::Swap, false, true,),
                     build_action_button(
                         app,
                         "清空左侧",
@@ -195,10 +189,7 @@ fn build_editor_workspace<'a>(app: &'a App, size: Size) -> Element<'a, Message> 
         column![left, right].spacing(16).height(Length::Fill).into()
     };
 
-    column![build_section_title("编辑区"), panels]
-        .spacing(12)
-        .height(Length::Fill)
-        .into()
+    column![build_section_title("编辑区"), panels].spacing(12).height(Length::Fill).into()
 }
 
 #[derive(Clone, Copy)]

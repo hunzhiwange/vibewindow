@@ -20,4 +20,3 @@ fn serde_preserves_nested_identity_fields() {
     assert_eq!(identity.bio.as_deref(), Some("writes careful programs"));
     assert_eq!(parsed.capabilities.unwrap().tools.unwrap(), vec!["shell"]);
 }
-

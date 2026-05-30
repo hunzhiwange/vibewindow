@@ -129,11 +129,7 @@ pub(super) fn dir_for_node(layout_format: MindMapLayoutFormat, node_path: &[usiz
         MindMapLayoutFormat::RightAligned => 1.0,
         MindMapLayoutFormat::LeftAligned => -1.0,
         MindMapLayoutFormat::Bidirectional => {
-            if node_path.is_empty() || node_path[0].is_multiple_of(2) {
-                1.0
-            } else {
-                -1.0
-            }
+            if node_path.is_empty() || node_path[0].is_multiple_of(2) { 1.0 } else { -1.0 }
         }
     }
 }
@@ -188,10 +184,8 @@ pub(super) fn relayout_keep_root(tab: &mut MindMapTab) {
 
     tab.node_positions.clear();
     for node in auto_layout.nodes {
-        tab.node_positions.insert(
-            node.path,
-            Point::new(node.pos.x + delta.x, node.pos.y + delta.y),
-        );
+        tab.node_positions
+            .insert(node.path, Point::new(node.pos.x + delta.x, node.pos.y + delta.y));
     }
     tab.canvas_cache.clear();
 }

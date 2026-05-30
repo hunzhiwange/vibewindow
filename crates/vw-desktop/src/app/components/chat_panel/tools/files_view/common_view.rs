@@ -6,9 +6,9 @@ use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
 use crate::app::assets::Icon;
 use crate::app::components::chat_panel::utils::{
-    chat_context_menu, chat_context_target_key, chat_scroll_direction, chat_secondary_muted_text_color,
-    eye_icon_button_style, icon_svg, simplified_block_style, simplified_code_block_style,
-    truncate_chars, truncate_lines_middle,
+    chat_context_menu, chat_context_target_key, chat_scroll_direction,
+    chat_secondary_muted_text_color, eye_icon_button_style, icon_svg, simplified_block_style,
+    simplified_code_block_style, truncate_chars, truncate_lines_middle,
 };
 use crate::app::components::overlays::PointBelowOverlay;
 use crate::app::components::widgets::RightClickArea;
@@ -29,7 +29,8 @@ pub(crate) fn build_common_tool_view<'a>(
     let context_key = chat_context_target_key(view_ctx.msg_idx, Some(view_ctx.tool_idx));
     let context_menu_open = view_ctx.app.chat_context_menu_target == Some(context_key);
     let context_menu_anchor = view_ctx.app.chat_context_menu_pos.unwrap_or((12.0, 26.0));
-    let selected_context_text = super::super::selected_chat_text_for_target(view_ctx.app, context_key);
+    let selected_context_text =
+        super::super::selected_chat_text_for_target(view_ctx.app, context_key);
 
     let meta = if !render_state.filter_query.is_empty() {
         format!("{}/{} 项", render_state.display_count, render_state.total_items)
@@ -56,13 +57,10 @@ pub(crate) fn build_common_tool_view<'a>(
         .visible
         .split_once('\n')
         .and_then(|(_, rest)| serde_json::from_str::<serde_json::Value>(rest.trim()).ok());
-    let permission_state = tool_value
-        .as_ref()
-        .and_then(|value| tool_permission_state(&view_ctx.tool_name, value));
-    let mut summary = tool_value
-        .as_ref()
-        .and_then(|value| tool_summary_text(value))
-        .unwrap_or_default();
+    let permission_state =
+        tool_value.as_ref().and_then(|value| tool_permission_state(&view_ctx.tool_name, value));
+    let mut summary =
+        tool_value.as_ref().and_then(|value| tool_summary_text(value)).unwrap_or_default();
     if summary.is_empty() {
         summary = tool_inline_summary(&view_ctx.tool_name, &view_ctx.input).unwrap_or_default();
     }
@@ -76,8 +74,8 @@ pub(crate) fn build_common_tool_view<'a>(
         tool_header_label(&view_ctx.tool_name)
     };
 
-    let detail_btn = button(
-        icon_svg(Icon::Eye).width(Length::Fixed(10.0)).height(Length::Fixed(10.0)).style(
+    let detail_btn =
+        button(icon_svg(Icon::Eye).width(Length::Fixed(10.0)).height(Length::Fixed(10.0)).style(
             |theme: &Theme, _status| {
                 let is_dark = theme.palette().background.r
                     + theme.palette().background.g
@@ -91,36 +89,28 @@ pub(crate) fn build_common_tool_view<'a>(
                     }),
                 }
             },
-        ),
-    )
-    .padding([2, 4])
-    .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
-    .on_press(Message::Chat(message::ChatMessage::OpenToolDetail(
-        view_ctx.msg_idx,
-        view_ctx.tool_idx,
-        view_ctx.visible.to_string(),
-    )));
+        ))
+        .padding([2, 4])
+        .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
+        .on_press(Message::Chat(message::ChatMessage::OpenToolDetail(
+            view_ctx.msg_idx,
+            view_ctx.tool_idx,
+            view_ctx.visible.to_string(),
+        )));
 
     let mut title_row = row![tool_header_title(&view_ctx.tool_name, title, view_ctx.is_error)]
         .spacing(10)
         .align_y(Alignment::Center);
     if !summary.trim().is_empty() {
         title_row = title_row.push(text(summary).size(13).style(|theme: &Theme| {
-            iced::widget::text::Style {
-                color: Some(chat_secondary_muted_text_color(theme)),
-            }
+            iced::widget::text::Style { color: Some(chat_secondary_muted_text_color(theme)) }
         }));
     }
 
     let head: Element<'a, Message> = container(
-        row![
-            title_row,
-            container(Space::new()).width(Length::Fill),
-            meta_view,
-            detail_btn
-        ]
-        .spacing(10)
-        .align_y(Alignment::Center),
+        row![title_row, container(Space::new()).width(Length::Fill), meta_view, detail_btn]
+            .spacing(10)
+            .align_y(Alignment::Center),
     )
     .width(Length::Fill)
     .into();
@@ -140,11 +130,7 @@ pub(crate) fn build_common_tool_view<'a>(
                 };
                 iced::widget::text_input::Style {
                     background: Background::Color(background),
-                    border: Border {
-                        width: 0.0,
-                        color: Color::TRANSPARENT,
-                        radius: 10.0.into(),
-                    },
+                    border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 10.0.into() },
                     icon: Color::TRANSPARENT,
                     placeholder: ext.secondary.base.text.scale_alpha(0.7),
                     value: theme.palette().text,
@@ -169,9 +155,9 @@ pub(crate) fn build_common_tool_view<'a>(
         const GREP_LINE_HEIGHT: f32 = 32.0;
         const GREP_VERTICAL_PADDING: f32 = 16.0;
 
-        let estimated_height =
-            (render_state.display_count.min(render_state.max_items) as f32 * GREP_LINE_HEIGHT)
-                + GREP_VERTICAL_PADDING;
+        let estimated_height = (render_state.display_count.min(render_state.max_items) as f32
+            * GREP_LINE_HEIGHT)
+            + GREP_VERTICAL_PADDING;
         let scroll_height = if estimated_height >= MAX_GREP_HEIGHT {
             Length::Fixed(MAX_GREP_HEIGHT)
         } else {
@@ -237,11 +223,7 @@ pub(crate) fn build_common_tool_view<'a>(
             .filter(|text| !text.is_empty())
     } else if render_state.total_items == 0 {
         let trimmed = view_ctx.output.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed.to_string())
-        }
+        if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
     } else {
         None
     };
@@ -304,10 +286,7 @@ pub(crate) fn build_common_tool_view<'a>(
                         false,
                     )
                     .unwrap_or_else(|| {
-                        text(preview)
-                            .size(14)
-                            .font(iced::Font::with_name("JetBrains Mono"))
-                            .into()
+                        text(preview).size(14).font(iced::Font::with_name("JetBrains Mono")).into()
                     }),
                 )
                 .width(Length::Fill)
@@ -320,7 +299,8 @@ pub(crate) fn build_common_tool_view<'a>(
         }
     });
 
-    let show_list_view = view_ctx.is_running || render_state.total_items > 0 || fallback_body.is_none();
+    let show_list_view =
+        view_ctx.is_running || render_state.total_items > 0 || fallback_body.is_none();
 
     let list_view: Element<'a, Message> = if let Some(menu) = chat_context_menu(context_menu_open) {
         PointBelowOverlay::new(list_view, menu)
@@ -359,9 +339,5 @@ pub(crate) fn build_common_tool_view<'a>(
         content = content.push(list_view);
     }
 
-    container(content)
-        .padding([2, 6])
-        .width(Length::Fill)
-        .style(simplified_block_style)
-        .into()
+    container(content).padding([2, 6]).width(Length::Fill).style(simplified_block_style).into()
 }

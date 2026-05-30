@@ -1,9 +1,8 @@
 //! 处理系统设置页面中对应功能区的消息、校验和配置持久化。
 
 use crate::app::session_gateway::{
-    gateway_desktop_skill_create_async, gateway_desktop_skill_delete_async,
-    gateway_desktop_skill_detail_async, gateway_desktop_skill_install_builtin_async,
-    gateway_desktop_skill_set_enabled_async, gateway_desktop_skills_async,
+    gateway_skill_create_async, gateway_skill_delete_async, gateway_skill_detail_async,
+    gateway_skill_install_builtin_async, gateway_skill_set_enabled_async, gateway_skills_async,
 };
 use crate::app::state::{SkillsCatalogItem, SkillsCatalogKind, SkillsSelectedDetail};
 use crate::app::{App, Message};
@@ -40,16 +39,15 @@ fn clear_catalog_load_error(app: &mut App) {
 }
 
 fn refresh_task(project_path: Option<String>) -> Task<Message> {
-    Task::perform(
-        async move { gateway_desktop_skills_async(project_path.as_deref()).await },
-        |result| Message::Settings(SettingsMessage::SkillsLoaded(result)),
-    )
+    Task::perform(async move { gateway_skills_async(project_path.as_deref()).await }, |result| {
+        Message::Settings(SettingsMessage::SkillsLoaded(result))
+    })
 }
 
 fn detail_task(project_path: Option<String>, skill_id: String) -> Task<Message> {
     let response_skill_id = skill_id.clone();
     Task::perform(
-        async move { gateway_desktop_skill_detail_async(project_path.as_deref(), &skill_id).await },
+        async move { gateway_skill_detail_async(project_path.as_deref(), &skill_id).await },
         move |result| {
             Message::Settings(SettingsMessage::SkillsDetailLoaded {
                 skill_id: response_skill_id.clone(),
@@ -59,12 +57,15 @@ fn detail_task(project_path: Option<String>, skill_id: String) -> Task<Message> 
     )
 }
 
-fn set_enabled_task(project_path: Option<String>, skill_id: String, enabled: bool) -> Task<Message> {
+fn set_enabled_task(
+    project_path: Option<String>,
+    skill_id: String,
+    enabled: bool,
+) -> Task<Message> {
     let response_skill_id = skill_id.clone();
     Task::perform(
         async move {
-            gateway_desktop_skill_set_enabled_async(project_path.as_deref(), &skill_id, enabled)
-                .await
+            gateway_skill_set_enabled_async(project_path.as_deref(), &skill_id, enabled).await
         },
         move |result| {
             Message::Settings(SettingsMessage::SkillsSetEnabledCompleted {
@@ -79,7 +80,7 @@ fn set_enabled_task(project_path: Option<String>, skill_id: String, enabled: boo
 fn delete_task(project_path: Option<String>, skill_id: String) -> Task<Message> {
     let response_skill_id = skill_id.clone();
     Task::perform(
-        async move { gateway_desktop_skill_delete_async(project_path.as_deref(), &skill_id).await },
+        async move { gateway_skill_delete_async(project_path.as_deref(), &skill_id).await },
         move |result| {
             Message::Settings(SettingsMessage::SkillsDeleteCompleted {
                 skill_id: response_skill_id.clone(),
@@ -134,11 +135,13 @@ fn map_skill_detail(detail: DesktopSkillDetailDto) -> SkillsSelectedDetail {
 
 fn persist_skills_settings(app: &mut App) -> Task<Message> {
     let s = &app.skills_settings;
+    let directory_provider = s.directory_provider;
     let open_skills_enabled = s.open_skills_enabled;
     let prompt_injection_mode = s.prompt_injection_mode;
     let open_skills_dir = s.open_skills_dir_input.trim().to_string();
 
     crate::app::update_skills_config_async(move |skills| {
+        skills.directory_provider = directory_provider;
         skills.open_skills_enabled = open_skills_enabled;
         skills.open_skills_dir =
             if open_skills_dir.is_empty() { None } else { Some(open_skills_dir) };
@@ -177,14 +180,9 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             match result {
                 Ok(items) => {
                     app.skills_settings.catalog = map_catalog_items(items);
-                    if app
-                        .skills_settings
-                        .selected_skill_id
-                        .as_deref()
-                        .is_some_and(|selected| {
-                            !app.skills_settings.catalog.iter().any(|skill| skill.id == selected)
-                        })
-                    {
+                    if app.skills_settings.selected_skill_id.as_deref().is_some_and(|selected| {
+                        !app.skills_settings.catalog.iter().any(|skill| skill.id == selected)
+                    }) {
                         clear_selected_detail(app);
                     }
                     clear_catalog_load_error(app);
@@ -232,7 +230,7 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             app.skills_settings.loading = true;
 
             Task::perform(
-                async move { gateway_desktop_skill_create_async(&project_path).await },
+                async move { gateway_skill_create_async(&project_path).await },
                 |result| Message::Settings(SettingsMessage::SkillsCreateNewCompleted(result)),
             )
         }
@@ -261,9 +259,7 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
 
             app.skills_settings.loading = true;
             Task::perform(
-                async move {
-                    gateway_desktop_skill_install_builtin_async(&project_path, &skill_id).await
-                },
+                async move { gateway_skill_install_builtin_async(&project_path, &skill_id).await },
                 |result| Message::Settings(SettingsMessage::SkillsInstallBuiltInCompleted(result)),
             )
         }
@@ -297,11 +293,7 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             }
             set_enabled_task(app.project_path.clone(), skill_id, enabled)
         }
-        SettingsMessage::SkillsSetEnabledCompleted {
-            skill_id,
-            enabled,
-            result,
-        } => {
+        SettingsMessage::SkillsSetEnabledCompleted { skill_id, enabled, result } => {
             match result {
                 Ok(path) => {
                     let action = if enabled { "已启用技能" } else { "已禁用技能" };
@@ -344,6 +336,13 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
                 }
             }
             Task::none()
+        }
+        SettingsMessage::SkillsDirectoryProviderChanged(provider) => {
+            app.skills_settings.directory_provider = provider;
+            app.skills_settings.save_error = None;
+            app.skills_settings.loading = true;
+            clear_selected_detail(app);
+            Task::batch(vec![persist_skills_settings(app), refresh_task(app.project_path.clone())])
         }
         SettingsMessage::SkillsOpenEnabledToggled(v) => {
             app.skills_settings.open_skills_enabled = v;

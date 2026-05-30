@@ -214,10 +214,7 @@ impl ReadResponse {
                 summary: Some(self.summary),
                 metadata: self.metadata,
             }),
-            telemetry: Some(ToolCallTelemetry {
-                success: true,
-                ..ToolCallTelemetry::default()
-            }),
+            telemetry: Some(ToolCallTelemetry { success: true, ..ToolCallTelemetry::default() }),
             ..ToolCallResult::default()
         }
     }
@@ -278,8 +275,7 @@ impl FileReadTool {
         if Path::new(path).is_absolute() {
             PathBuf::from(path)
         } else {
-            self
-                .security
+            self.security
                 .workspace_dir
                 .canonicalize()
                 .unwrap_or_else(|_| self.security.workspace_dir.clone())
@@ -320,7 +316,8 @@ impl FileReadTool {
         let mut rendered = String::new();
         let mut used = 0usize;
         let mut truncated = false;
-        let lines: Vec<&str> = if text.is_empty() { Vec::new() } else { text.split('\n').collect() };
+        let lines: Vec<&str> =
+            if text.is_empty() { Vec::new() } else { text.split('\n').collect() };
 
         for raw_line in lines {
             let line = Self::truncate_line(raw_line);
@@ -363,10 +360,8 @@ impl FileReadTool {
     }
 
     fn is_duplicate_request(&self, resolved_path: &Path, args: &Args) -> bool {
-        current_read_state_for_path(resolved_path).is_some_and(|entry| {
-            entry.offset == args.offset
-                && entry.limit == args.limit
-        })
+        current_read_state_for_path(resolved_path)
+            .is_some_and(|entry| entry.offset == args.offset && entry.limit == args.limit)
     }
 
     fn missing_file_error(path: &Path) -> String {
@@ -467,10 +462,7 @@ impl FileReadTool {
 
             let (text, page_truncated) = Self::truncate_multiline_text(page, available);
             bytes += separator + header.len() + 1 + text.len();
-            rendered_pages.push(PdfPageSnippet {
-                page_number: index + 1,
-                text,
-            });
+            rendered_pages.push(PdfPageSnippet { page_number: index + 1, text });
             if page_truncated {
                 truncated_by_bytes = true;
                 break;
@@ -507,7 +499,11 @@ impl FileReadTool {
         }
     }
 
-    fn collect_notebook_slice(cells: &[NotebookCellRaw], offset: usize, limit: usize) -> NotebookSlice {
+    fn collect_notebook_slice(
+        cells: &[NotebookCellRaw],
+        offset: usize,
+        limit: usize,
+    ) -> NotebookSlice {
         let total_cells = cells.len();
         let start = if offset == 0 { 0 } else { offset.saturating_sub(1) }.min(total_cells);
         let mut rendered_cells = Vec::new();
@@ -624,7 +620,9 @@ impl FileReadTool {
     }
 
     fn is_notebook_path(path: &Path) -> bool {
-        path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("ipynb"))
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("ipynb"))
     }
 
     fn is_pdf_bytes(bytes: &[u8]) -> bool {
@@ -645,11 +643,7 @@ impl FileReadTool {
             pages.retain(|page| !page.trim().is_empty());
         }
 
-        if pages.is_empty() {
-            vec![text]
-        } else {
-            pages
-        }
+        if pages.is_empty() { vec![text] } else { pages }
     }
 
     fn image_format_from_path(path: &Path) -> Option<ImageFormat> {
@@ -693,7 +687,8 @@ impl FileReadTool {
     }
 
     fn inspect_image(bytes: &[u8], path: &Path) -> Option<ImageReadInfo> {
-        let format = image::guess_format(bytes).ok().or_else(|| Self::image_format_from_path(path))?;
+        let format =
+            image::guess_format(bytes).ok().or_else(|| Self::image_format_from_path(path))?;
         let (format_name, mime_type) = Self::image_format_label(format)?;
         let dimensions = image::load_from_memory_with_format(bytes, format)
             .ok()
@@ -856,11 +851,7 @@ impl FileReadTool {
         info: ImageReadInfo,
     ) -> ReadResponse {
         let inline_data_url = if bytes.len() <= MAX_INLINE_IMAGE_BYTES {
-            Some(format!(
-                "data:{};base64,{}",
-                info.mime_type,
-                BASE64_STANDARD.encode(bytes)
-            ))
+            Some(format!("data:{};base64,{}", info.mime_type, BASE64_STANDARD.encode(bytes)))
         } else {
             None
         };
@@ -946,11 +937,7 @@ impl FileReadTool {
                 if let Some(language) = cell.language.as_deref() {
                     label.push_str(&format!(" ({language})"));
                 }
-                if cell.source.is_empty() {
-                    label
-                } else {
-                    format!("{label}\n{}", cell.source)
-                }
+                if cell.source.is_empty() { label } else { format!("{label}\n{}", cell.source) }
             })
             .collect::<Vec<_>>()
             .join("\n\n");
@@ -1048,7 +1035,10 @@ impl FileReadTool {
         }
     }
 
-    async fn execute_internal(&self, args: Args) -> anyhow::Result<Result<ReadResponse, ToolResult>> {
+    async fn execute_internal(
+        &self,
+        args: Args,
+    ) -> anyhow::Result<Result<ReadResponse, ToolResult>> {
         let path = args.path.trim();
 
         if path.is_empty() {
@@ -1184,7 +1174,9 @@ impl FileReadTool {
             .map_err(|error| anyhow::anyhow!("Failed to read file: {error}"))?;
 
         let response = match Self::detect_read_kind(&resolved_path, &bytes) {
-            DetectedReadKind::Text => self.build_text_response(file, &args, Self::read_text_from_bytes(&bytes)),
+            DetectedReadKind::Text => {
+                self.build_text_response(file, &args, Self::read_text_from_bytes(&bytes))
+            }
             DetectedReadKind::Pdf => self.build_pdf_response(file, &args, &bytes),
             DetectedReadKind::Notebook => self.build_notebook_response(file, &args, &bytes)?,
             DetectedReadKind::Image(info) => self.build_image_response(file, &bytes, info),
@@ -1238,11 +1230,9 @@ impl Tool for FileReadTool {
         let args: Args = serde_json::from_value(args)
             .map_err(|e| anyhow::anyhow!("Missing or invalid parameters: {e}"))?;
         match self.execute_internal(args).await? {
-            Ok(response) => Ok(ToolResult {
-                success: true,
-                output: response.model_text,
-                error: None,
-            }),
+            Ok(response) => {
+                Ok(ToolResult { success: true, output: response.model_text, error: None })
+            }
             Err(result) => Ok(result),
         }
     }

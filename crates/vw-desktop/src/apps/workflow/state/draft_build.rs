@@ -18,10 +18,7 @@ pub(super) fn build_node_visual_draft(
             variables: mapping_value(data_map, "variables")
                 .and_then(Value::as_sequence)
                 .map(|variables: &Vec<Value>| {
-                    variables
-                        .iter()
-                        .map(build_start_variable_draft)
-                        .collect::<Vec<_>>()
+                    variables.iter().map(build_start_variable_draft).collect::<Vec<_>>()
                 })
                 .unwrap_or_default(),
         })),
@@ -32,7 +29,8 @@ pub(super) fn build_node_visual_draft(
                 .and_then(Value::as_mapping);
             let context_map = mapping_value(data_map, "context").and_then(Value::as_mapping);
             let vision_map = mapping_value(data_map, "vision").and_then(Value::as_mapping);
-            let prompt_template = mapping_value(data_map, "prompt_template").and_then(Value::as_sequence);
+            let prompt_template =
+                mapping_value(data_map, "prompt_template").and_then(Value::as_sequence);
 
             Ok(Some(WorkflowNodeVisualDraft::Llm {
                 provider: model_map
@@ -77,9 +75,7 @@ pub(super) fn build_node_visual_draft(
         }
         "answer" => Ok(Some(WorkflowNodeVisualDraft::Answer {
             answer_editor: text_editor::Content::with_text(
-                mapping_value(data_map, "answer")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default(),
+                mapping_value(data_map, "answer").and_then(Value::as_str).unwrap_or_default(),
             ),
         })),
         "if-else" => Ok(Some(WorkflowNodeVisualDraft::IfElse {
@@ -91,21 +87,26 @@ pub(super) fn build_node_visual_draft(
                 .unwrap_or_default(),
         })),
         "knowledge-retrieval" => {
-            let multiple_config = mapping_value(data_map, "multiple_retrieval_config")
-                .and_then(Value::as_mapping);
+            let multiple_config =
+                mapping_value(data_map, "multiple_retrieval_config").and_then(Value::as_mapping);
             let single_model = mapping_value(data_map, "single_retrieval_config")
                 .and_then(Value::as_mapping)
                 .and_then(|config| mapping_value(config, "model"))
                 .and_then(Value::as_mapping);
 
             Ok(Some(WorkflowNodeVisualDraft::KnowledgeRetrieval {
-                query_selector_input: selector_path_input_from_value(
-                    mapping_value(data_map, "query_variable_selector"),
-                ),
-                query_attachment_selector_input: selector_path_input_from_value(
-                    mapping_value(data_map, "query_attachment_selector"),
-                ),
-                dataset_ids_input: string_list_input_from_value(mapping_value(data_map, "dataset_ids")),
+                query_selector_input: selector_path_input_from_value(mapping_value(
+                    data_map,
+                    "query_variable_selector",
+                )),
+                query_attachment_selector_input: selector_path_input_from_value(mapping_value(
+                    data_map,
+                    "query_attachment_selector",
+                )),
+                dataset_ids_input: string_list_input_from_value(mapping_value(
+                    data_map,
+                    "dataset_ids",
+                )),
                 retrieval_mode: mapping_value(data_map, "retrieval_mode")
                     .and_then(Value::as_str)
                     .unwrap_or("multiple")
@@ -145,7 +146,8 @@ pub(super) fn build_node_visual_draft(
         }
         "tool" => {
             let parameters_yaml = value_yaml_for_editor(
-                mapping_value(data_map, "tool_parameters").unwrap_or(&Value::Mapping(Mapping::new())),
+                mapping_value(data_map, "tool_parameters")
+                    .unwrap_or(&Value::Mapping(Mapping::new())),
             );
             let configurations_yaml = value_yaml_for_editor(
                 mapping_value(data_map, "tool_configurations")
@@ -194,7 +196,8 @@ pub(super) fn build_node_visual_draft(
                 mapping_value(data_map, "output_schema").unwrap_or(&Value::Mapping(Mapping::new())),
             );
             let parameters_yaml = value_yaml_for_editor(
-                mapping_value(data_map, "agent_parameters").unwrap_or(&Value::Mapping(Mapping::new())),
+                mapping_value(data_map, "agent_parameters")
+                    .unwrap_or(&Value::Mapping(Mapping::new())),
             );
             let memory_map = mapping_value(data_map, "memory").and_then(Value::as_mapping);
             let memory_window = memory_map
@@ -238,7 +241,8 @@ pub(super) fn build_node_visual_draft(
         }
         "code" => {
             let outputs = build_code_output_drafts(mapping_value(data_map, "outputs"));
-            let error_strategy = build_code_error_strategy(mapping_value(data_map, "error_strategy"));
+            let error_strategy =
+                build_code_error_strategy(mapping_value(data_map, "error_strategy"));
             Ok(Some(WorkflowNodeVisualDraft::Code {
                 language: mapping_value(data_map, "code_language")
                     .and_then(Value::as_str)
@@ -246,9 +250,7 @@ pub(super) fn build_node_visual_draft(
                     .to_string(),
                 inputs: build_code_variable_drafts(mapping_value(data_map, "variables")),
                 code_editor: text_editor::Content::with_text(
-                    mapping_value(data_map, "code")
-                        .and_then(Value::as_str)
-                        .unwrap_or_default(),
+                    mapping_value(data_map, "code").and_then(Value::as_str).unwrap_or_default(),
                 ),
                 outputs: outputs.clone(),
                 retry_config: build_code_retry_draft(mapping_value(data_map, "retry_config")),
@@ -266,7 +268,9 @@ pub(super) fn build_node_visual_draft(
     }
 }
 
-pub(super) fn sync_node_editor_raw_from_visual(editor: &mut WorkflowNodeEditorDraft) -> Result<(), String> {
+pub(super) fn sync_node_editor_raw_from_visual(
+    editor: &mut WorkflowNodeEditorDraft,
+) -> Result<(), String> {
     let merged_yaml = apply_visual_draft_to_yaml(
         &editor.block_type,
         &editor.raw_data_editor.text(),

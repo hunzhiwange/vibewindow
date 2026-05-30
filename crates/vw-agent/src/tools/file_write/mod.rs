@@ -67,14 +67,9 @@ impl WriteResponse {
         ToolCallResult {
             data: serde_json::to_value(&self.payload).unwrap_or(Value::Null),
             model_result: Value::String(self.model_text),
-            content_blocks: vec![ToolResultContentDto::StructuredPatch {
-                hunks: self.patch_hunks,
-            }],
+            content_blocks: vec![ToolResultContentDto::StructuredPatch { hunks: self.patch_hunks }],
             render_hint: Some(self.render_hint),
-            telemetry: Some(ToolCallTelemetry {
-                success: true,
-                ..ToolCallTelemetry::default()
-            }),
+            telemetry: Some(ToolCallTelemetry { success: true, ..ToolCallTelemetry::default() }),
             ..ToolCallResult::default()
         }
     }
@@ -92,32 +87,22 @@ impl FileWriteTool {
 
     fn resolve_path(&self, path: &str) -> PathBuf {
         let candidate = PathBuf::from(path);
-        if candidate.is_absolute() {
-            candidate
-        } else {
-            self.security.workspace_dir.join(path)
-        }
+        if candidate.is_absolute() { candidate } else { self.security.workspace_dir.join(path) }
     }
 
     async fn ensure_existing_file_allowed(&self, path: &Path) -> anyhow::Result<PathBuf> {
-        let meta = tokio::fs::symlink_metadata(path)
-            .await
-            .map_err(|error| anyhow::anyhow!(
-                "Failed to read file metadata {}: {error}",
-                path.display()
-            ))?;
+        let meta = tokio::fs::symlink_metadata(path).await.map_err(|error| {
+            anyhow::anyhow!("Failed to read file metadata {}: {error}", path.display())
+        })?;
         if meta.file_type().is_symlink() {
             anyhow::bail!("Refusing to write through symlink: {}", path.display());
         }
         if !meta.is_file() {
             anyhow::bail!("Path is a directory, not a file: {}", path.display());
         }
-        let resolved = tokio::fs::canonicalize(path)
-            .await
-            .map_err(|error| anyhow::anyhow!(
-                "Failed to resolve file path {}: {error}",
-                path.display()
-            ))?;
+        let resolved = tokio::fs::canonicalize(path).await.map_err(|error| {
+            anyhow::anyhow!("Failed to resolve file path {}: {error}", path.display())
+        })?;
         if !self.security.is_resolved_path_allowed(&resolved) {
             anyhow::bail!(self.security.resolved_path_violation_message(&resolved));
         }
@@ -125,15 +110,11 @@ impl FileWriteTool {
     }
 
     async fn ensure_target_parent_allowed(&self, path: &Path) -> anyhow::Result<PathBuf> {
-        let parent = path
-            .parent()
-            .ok_or_else(|| anyhow::anyhow!("Invalid path: missing parent"))?;
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(|error| anyhow::anyhow!(
-                "Failed to create parent directory {}: {error}",
-                parent.display()
-            ))?;
+        let parent =
+            path.parent().ok_or_else(|| anyhow::anyhow!("Invalid path: missing parent"))?;
+        tokio::fs::create_dir_all(parent).await.map_err(|error| {
+            anyhow::anyhow!("Failed to create parent directory {}: {error}", parent.display())
+        })?;
         let resolved_parent = tokio::fs::canonicalize(parent)
             .await
             .map_err(|error| anyhow::anyhow!("Failed to resolve file path: {error}"))?;
@@ -172,7 +153,9 @@ impl FileWriteTool {
             .and_then(|ext| ext.to_str())
             .is_some_and(|ext| ext.eq_ignore_ascii_case("ipynb"))
         {
-            anyhow::bail!("Notebook files are not supported by file_write; use notebook_edit instead")
+            anyhow::bail!(
+                "Notebook files are not supported by file_write; use notebook_edit instead"
+            )
         }
         let requested_path_string = normalize_slashes(&requested_path);
         external_directory::assert_external_directory(
@@ -199,10 +182,19 @@ impl FileWriteTool {
             let display = display_path(&self.security.workspace_dir, &resolved);
             let read_state = require_read_state_for_existing_file(&resolved, &display, "write")?;
             ensure_read_state_is_fresh(&read_state, &old_content, &display, "write")?;
-            let metadata = read_state_metadata_for_path(&self.security.workspace_dir, &resolved, "write");
+            let metadata =
+                read_state_metadata_for_path(&self.security.workspace_dir, &resolved, "write");
             (old_content, Some(resolved), metadata)
         } else {
-            (String::new(), None, read_state_metadata_for_path(&self.security.workspace_dir, &requested_path, "write"))
+            (
+                String::new(),
+                None,
+                read_state_metadata_for_path(
+                    &self.security.workspace_dir,
+                    &requested_path,
+                    "write",
+                ),
+            )
         };
 
         let resolved_parent = self.ensure_target_parent_allowed(&requested_path).await?;
@@ -265,10 +257,7 @@ impl FileWriteTool {
             format!("Created {}", file.path)
         };
         let model_text = if existed {
-            format!(
-                "Overwrote {} after verifying the latest file_read snapshot.",
-                file.path
-            )
+            format!("Overwrote {} after verifying the latest file_read snapshot.", file.path)
         } else {
             format!("Created {}.", file.path)
         };
@@ -334,11 +323,9 @@ impl Tool for FileWriteTool {
             .map_err(|error| anyhow::anyhow!("Missing or invalid parameters: {error}"))?;
 
         match self.execute_internal(args).await {
-            Ok(response) => Ok(ToolResult {
-                success: true,
-                output: response.model_text,
-                error: None,
-            }),
+            Ok(response) => {
+                Ok(ToolResult { success: true, output: response.model_text, error: None })
+            }
             Err(error) => Ok(Self::failure(error.to_string())),
         }
     }

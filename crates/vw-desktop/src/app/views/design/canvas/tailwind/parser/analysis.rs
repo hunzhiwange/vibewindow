@@ -2,16 +2,13 @@
 //!
 //! 该模块负责把 Tailwind 风格类名转换为画布渲染可用的结构化样式，供布局、形状和文本渲染路径复用。
 
-use super::types::{
-    ParsedStyle, TailwindParseAnalysis, TailwindTokenIssue, TailwindTokenSupport,
-};
+use super::types::{ParsedStyle, TailwindParseAnalysis, TailwindTokenIssue, TailwindTokenSupport};
 use super::utilities::apply_supported_utility;
 
 fn is_flattenable_variant(prefix: &str) -> bool {
     matches!(
         prefix,
-        "sm"
-            | "md"
+        "sm" | "md"
             | "lg"
             | "xl"
             | "2xl"
@@ -95,10 +92,7 @@ fn classify_export_only_token(class_name: &str) -> Option<&'static str> {
         return Some("ring utilities are export-only on the static canvas");
     }
     if class_name.starts_with("shadow-")
-        && !matches!(
-            class_name,
-            "shadow-none" | "shadow-sm" | "shadow" | "shadow-md" | "shadow-lg"
-        )
+        && !matches!(class_name, "shadow-none" | "shadow-sm" | "shadow" | "shadow-md" | "shadow-lg")
     {
         return Some("complex shadow utilities are export-only on the static canvas");
     }
@@ -151,25 +145,13 @@ pub(super) fn analyze_class_token(
         if let Some((TailwindTokenSupport::FlattenedVariant, reason)) =
             classify_variant_chain(prefixes)
         {
-            push_issue(
-                issues,
-                class,
-                class_clean,
-                TailwindTokenSupport::FlattenedVariant,
-                reason,
-            );
+            push_issue(issues, class, class_clean, TailwindTokenSupport::FlattenedVariant, reason);
         }
         return;
     }
 
     if let Some(reason) = classify_export_only_token(class_clean) {
-        push_issue(
-            issues,
-            class,
-            class_clean,
-            TailwindTokenSupport::ExportOnly,
-            reason,
-        );
+        push_issue(issues, class, class_clean, TailwindTokenSupport::ExportOnly, reason);
         return;
     }
 
@@ -178,13 +160,7 @@ pub(super) fn analyze_class_token(
     } else {
         "unmatched tailwind token on the static canvas"
     };
-    push_issue(
-        issues,
-        class,
-        class_clean,
-        TailwindTokenSupport::Unsupported,
-        reason,
-    );
+    push_issue(issues, class, class_clean, TailwindTokenSupport::Unsupported, reason);
 }
 
 /// 模块内部可见的 analyze_classes 函数。

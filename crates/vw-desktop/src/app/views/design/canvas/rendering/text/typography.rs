@@ -22,8 +22,8 @@ use crate::app::views::design::{
 };
 
 use super::{
-    mesh::{draw_char_outline, extract_mesh_fill, measure_char_advance, sample_mesh_color},
     super::utils::{apply_text_transform, draw_tailwind_box, draw_text_decoration},
+    mesh::{draw_char_outline, extract_mesh_fill, measure_char_advance, sample_mesh_color},
 };
 
 /// 模块内部可见的 draw_typography_text 函数。
@@ -61,9 +61,10 @@ pub(super) fn draw_typography_text(
     let font_size = tailwind_style
         .font_size
         .unwrap_or_else(|| parse_font_size(&element.font_size, &doc.variables, theme_mode));
-    let line_height_val = tailwind_style.line_height.map(|lh| lh * font_size).unwrap_or_else(|| {
-        parse_line_height(&element.line_height, font_size, &doc.variables, theme_mode)
-    });
+    let line_height_val =
+        tailwind_style.line_height.map(|lh| lh * font_size).unwrap_or_else(|| {
+            parse_line_height(&element.line_height, font_size, &doc.variables, theme_mode)
+        });
     let scaled_font_size = font_size * zoom;
     let content_w = (resolved.width - (padding.left + padding.right)).max(0.0) * zoom;
     let content_h = (resolved.height - (padding.top + padding.bottom)).max(0.0) * zoom;
@@ -77,7 +78,8 @@ pub(super) fn draw_typography_text(
         .map(|s| apply_text_transform(s, tailwind_style.text_transform.as_deref()));
 
     if let Some(content) = effective_content.as_ref() {
-        let font_family_name = resolve_font_family(&element.font_family, &doc.variables, theme_mode);
+        let font_family_name =
+            resolve_font_family(&element.font_family, &doc.variables, theme_mode);
         let font_family_static = intern_font_family_name(&font_family_name);
         let (ascent_px, descent_px) =
             measure_font_vertical_metrics_with_font(&font_family_name, font_size)

@@ -4,8 +4,11 @@
 
 use anyhow::{Context, Result, bail};
 use std::env;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::{Path, PathBuf};
+#[cfg(not(target_arch = "wasm32"))]
 use std::process::Command;
 
 const DEFAULT_RELEASE_API: &str =
@@ -13,12 +16,14 @@ const DEFAULT_RELEASE_API: &str =
 const APP_UPDATE_API_ENV: &str = "VIBEWINDOW_APP_UPDATE_API";
 
 #[derive(Debug, Clone)]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 struct ReleaseManifest {
     version: String,
     assets: Vec<ReleaseAsset>,
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 struct ReleaseAsset {
     name: String,
     download_url: String,
@@ -72,7 +77,12 @@ pub async fn desktop_self_update() -> Result<String> {
         bail!("Windows 暂未支持应用内自更新，请下载新版本后手动覆盖安装。");
     }
 
-    #[cfg(not(windows))]
+    #[cfg(target_arch = "wasm32")]
+    {
+        bail!("WebAssembly 暂未支持应用内自更新。");
+    }
+
+    #[cfg(all(not(windows), not(target_arch = "wasm32")))]
     {
         let release = fetch_release_manifest().await?;
         if normalize_version(&release.version) == normalize_version(current_version()) {
@@ -98,6 +108,7 @@ fn current_release_api() -> String {
         .unwrap_or_else(|| DEFAULT_RELEASE_API.to_string())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn get_target_triple() -> Result<String> {
     let os = env::consts::OS;
     let arch = env::consts::ARCH;
@@ -113,10 +124,12 @@ fn get_target_triple() -> Result<String> {
     Ok(target.to_string())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn get_binary_name() -> String {
     if cfg!(windows) { "vibewindow.exe".to_string() } else { "vibewindow".to_string() }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn get_archive_name(target: &str) -> String {
     if target.contains("windows") {
         format!("vibewindow-{}.zip", target)
@@ -196,6 +209,7 @@ fn parse_release_manifest(payload: serde_json::Value) -> Result<ReleaseManifest>
     bail!("Unsupported update payload: expected `tag_name` or `version` field")
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn find_asset_for_platform(release: &ReleaseManifest) -> Result<&ReleaseAsset> {
     let target = get_target_triple()?;
     let archive_name = get_archive_name(&target);
@@ -216,6 +230,7 @@ fn find_asset_for_platform(release: &ReleaseManifest) -> Result<&ReleaseAsset> {
         })
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 async fn download_binary(
     asset: &ReleaseAsset,
     temp_dir: &Path,
@@ -264,6 +279,7 @@ async fn download_binary(
     Ok(binary_path)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn extract_tar_gz(archive_path: &Path, dest_dir: &Path) -> Result<()> {
     let output = Command::new("tar")
         .arg("-xzf")
@@ -280,6 +296,7 @@ fn extract_tar_gz(archive_path: &Path, dest_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn extract_zip(archive_path: &Path, dest_dir: &Path) -> Result<()> {
     let output = Command::new("unzip")
         .arg("-o")
@@ -296,6 +313,7 @@ fn extract_zip(archive_path: &Path, dest_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn find_extracted_binary(root: &Path, preferred_binary_names: &[String]) -> Result<PathBuf> {
     let mut stack = vec![root.to_path_buf()];
     let mut first_file = None;
@@ -327,6 +345,7 @@ fn find_extracted_binary(root: &Path, preferred_binary_names: &[String]) -> Resu
     first_file.context("Binary not found in downloaded archive")
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn ensure_executable(_path: &Path) -> Result<()> {
     #[cfg(unix)]
     {
@@ -339,11 +358,12 @@ fn ensure_executable(_path: &Path) -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn get_current_exe() -> Result<PathBuf> {
     env::current_exe().context("Failed to get current executable path")
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_arch = "wasm32")))]
 fn candidate_binary_names(current_exe: &Path, explicit_binary_name: Option<&str>) -> Vec<String> {
     let mut names = Vec::new();
     push_unique(
@@ -359,7 +379,7 @@ fn candidate_binary_names(current_exe: &Path, explicit_binary_name: Option<&str>
     names
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_arch = "wasm32")))]
 fn push_unique(values: &mut Vec<String>, value: Option<String>) {
     let Some(value) = value else {
         return;
@@ -441,51 +461,58 @@ pub async fn check_for_update() -> Result<Option<String>> {
 
 /// 为 CLI 场景执行检查或自更新流程。
 pub async fn self_update(force: bool, check_only: bool) -> Result<()> {
-    println!("🦀 VibeWindow Self-Update");
-    println!();
-
-    let current_exe = get_current_exe()?;
-    println!("Current binary: {}", current_exe.display());
-    println!("Current version: v{}", current_version());
-    println!();
-
-    let release = fetch_release_manifest().await?;
-    let latest_version = normalize_version(&release.version);
-
-    println!("Latest version:  {}", release.version);
-
-    if latest_version == normalize_version(current_version()) && !force {
-        println!();
-        println!("✅ Already up to date!");
-        return Ok(());
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = (force, check_only);
+        bail!("WebAssembly 暂未支持 CLI 自更新。");
     }
 
-    if check_only {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        println!("🦀 VibeWindow Self-Update");
         println!();
-        println!("Update available: {} -> {}", current_version(), latest_version);
-        println!("Run `vibewindow update` to install the update.");
-        return Ok(());
+
+        let current_exe = get_current_exe()?;
+        println!("Current binary: {}", current_exe.display());
+        println!("Current version: v{}", current_version());
+        println!();
+
+        let release = fetch_release_manifest().await?;
+        let latest_version = normalize_version(&release.version);
+
+        println!("Latest version:  {}", release.version);
+
+        println!();
+        if latest_version == normalize_version(current_version()) && !force {
+            println!("✅ Already up to date!");
+            return Ok(());
+        }
+
+        if check_only {
+            println!("Update available: {} -> {}", current_version(), latest_version);
+            println!("Run `vibewindow update` to install the update.");
+            return Ok(());
+        }
+
+        println!("Updating from v{} to {}...", current_version(), latest_version);
+
+        let asset = find_asset_for_platform(&release)?;
+        println!("Downloading: {}", asset.name);
+
+        let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
+        let preferred_binary_names = vec![get_binary_name()];
+        let new_binary = download_binary(asset, temp_dir.path(), &preferred_binary_names).await?;
+
+        println!("Installing update...");
+        replace_binary(&new_binary, &current_exe)?;
+
+        println!();
+        println!("✅ Successfully updated to {}!", release.version);
+        println!();
+        println!("Restart VibeWindow to use the new version.");
+
+        Ok(())
     }
-
-    println!();
-    println!("Updating from v{} to {}...", current_version(), latest_version);
-
-    let asset = find_asset_for_platform(&release)?;
-    println!("Downloading: {}", asset.name);
-
-    let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
-    let preferred_binary_names = vec![get_binary_name()];
-    let new_binary = download_binary(asset, temp_dir.path(), &preferred_binary_names).await?;
-
-    println!("Installing update...");
-    replace_binary(&new_binary, &current_exe)?;
-
-    println!();
-    println!("✅ Successfully updated to {}!", release.version);
-    println!();
-    println!("Restart VibeWindow to use the new version.");
-
-    Ok(())
 }
 
 #[cfg(test)]

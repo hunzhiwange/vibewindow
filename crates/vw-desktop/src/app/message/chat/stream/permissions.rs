@@ -100,7 +100,8 @@ pub(super) fn advance_permission_requests_after_reply(
     current_request_id: Option<&str>,
     requests: Vec<PendingPermissionRequestDto>,
 ) -> (Vec<PendingPermissionRequestDto>, Option<String>) {
-    let (mut requests, selected_request_id) = sync_permission_requests(current_request_id, requests);
+    let (mut requests, selected_request_id) =
+        sync_permission_requests(current_request_id, requests);
     let Some(selected_request_id) = selected_request_id else {
         return (requests, None);
     };
@@ -126,11 +127,8 @@ fn apply_current_permission_request(app: &mut App, request_id: Option<String>) {
         return;
     };
 
-    let Some(request) = app
-        .permission_modal_requests
-        .iter()
-        .find(|candidate| candidate.id == request_id)
-        .cloned()
+    let Some(request) =
+        app.permission_modal_requests.iter().find(|candidate| candidate.id == request_id).cloned()
     else {
         app.permission_modal_request_id = None;
         app.permission_modal_request = None;
@@ -194,10 +192,7 @@ pub(super) fn handle_permission_list_loaded(
 
 /// 模块内可见函数，执行 handle_permission_select_request 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
-pub(super) fn handle_permission_select_request(
-    app: &mut App,
-    request_id: String,
-) -> Task<Message> {
+pub(super) fn handle_permission_select_request(app: &mut App, request_id: String) -> Task<Message> {
     apply_current_permission_request(app, Some(request_id));
     Task::none()
 }

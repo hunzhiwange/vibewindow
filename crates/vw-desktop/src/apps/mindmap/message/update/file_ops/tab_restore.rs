@@ -1,13 +1,13 @@
-use crate::app::components::mind_map;
 use crate::app::App;
+use crate::app::components::mind_map;
 use crate::apps::mindmap::canvas::theme::default_custom_themes;
 use crate::apps::mindmap::model;
 use crate::apps::mindmap::state::{MindMapDoodleStroke, MindMapTab};
 use iced::{Point, Vector};
 use std::collections::HashSet;
 
-use super::super::persist::persist;
 use super::super::super::tabs::ensure_top_tab;
+use super::super::persist::persist;
 use super::json_format::{MINDMAP_JSON_FORMAT, MindMapJsonFile, MindMapJsonV1};
 
 fn next_tab_id(app: &App) -> String {
@@ -22,7 +22,11 @@ fn next_tab_id(app: &App) -> String {
     }
 }
 
-fn title_from_path_or_default(app: &App, file_path: Option<&str>, fallback: Option<String>) -> String {
+fn title_from_path_or_default(
+    app: &App,
+    file_path: Option<&str>,
+    fallback: Option<String>,
+) -> String {
     file_path
         .and_then(|path| std::path::Path::new(path).file_name().and_then(|name| name.to_str()))
         .map(str::to_string)
@@ -177,8 +181,11 @@ pub(super) fn new_tab_from_json(
     tab.doodles = doodles
         .into_iter()
         .filter_map(|stroke| {
-            let points =
-                stroke.points.into_iter().map(|point| Point::new(point.x, point.y)).collect::<Vec<_>>();
+            let points = stroke
+                .points
+                .into_iter()
+                .map(|point| Point::new(point.x, point.y))
+                .collect::<Vec<_>>();
             (points.len() >= 2).then_some(MindMapDoodleStroke {
                 points_world: points,
                 rgba: stroke.rgba,

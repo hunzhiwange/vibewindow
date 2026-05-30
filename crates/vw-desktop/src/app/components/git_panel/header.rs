@@ -17,12 +17,12 @@
 use iced::Element;
 use iced::alignment::Vertical;
 use iced::widget::{Space, button, container, row, text};
-use iced::{Background, Border, Length};
+use iced::{Border, Length};
 
 use crate::app::assets::Icon;
 use crate::app::{App, Message, message};
 
-use super::ui::square_icon_button_micro;
+use super::ui::small_plain_icon_button;
 
 /// 渲染 Git 面板的头部界面
 ///
@@ -64,28 +64,24 @@ pub fn view(app: &App, files_list: Vec<String>) -> Element<'_, Message> {
                 iced::widget::button::Status::Pressed => {
                     Some(palette.background.strong.color.into())
                 }
-                _ => Some(palette.background.base.color.into()),
+                _ => None,
             };
             iced::widget::button::Style {
                 background: bg,
-                border: Border {
-                    width: 1.0,
-                    color: palette.background.strong.color,
-                    radius: 8.0.into(),
-                },
+                border: Border { width: 0.0, color: iced::Color::TRANSPARENT, radius: 8.0.into() },
                 text_color: theme.palette().text,
                 ..Default::default()
             }
         });
 
-    let select_all_btn = square_icon_button_micro(
-        Icon::CheckSquare,
+    let select_all_btn = small_plain_icon_button(
+        Some(Icon::CheckSquare),
         "全选当前列表的变更行".to_string(),
         Message::Git(message::GitMessage::SelectAllVisibleFileLines(files_list.clone())),
     );
 
-    let invert_select_btn = square_icon_button_micro(
-        Icon::Square,
+    let invert_select_btn = small_plain_icon_button(
+        Some(Icon::Square),
         "反选当前列表的变更行".to_string(),
         Message::Git(message::GitMessage::InvertVisibleFileLines(files_list.clone())),
     );
@@ -99,8 +95,8 @@ pub fn view(app: &App, files_list: Vec<String>) -> Element<'_, Message> {
         } else {
             (Icon::Eye, "显示摘要输入框".to_string())
         };
-        square_icon_button_micro(
-            icon,
+        small_plain_icon_button(
+            Some(icon),
             tip,
             Message::View(message::ViewMessage::ToggleGitDiffSummary),
         )
@@ -108,16 +104,37 @@ pub fn view(app: &App, files_list: Vec<String>) -> Element<'_, Message> {
 
     // 构建过滤选项按钮
     // 用于打开或关闭 Git 文件过滤选项面板
-    let filter_btn = square_icon_button_micro(
-        Icon::Sliders,
+    let filter_btn = small_plain_icon_button(
+        Some(Icon::Sliders),
         "过滤选项".to_string(),
         Message::Git(message::GitMessage::ToggleFilterOptions(!app.show_git_filter_options)),
     );
 
+    let half_fullscreen_btn = small_plain_icon_button(
+        Some(Icon::LayoutTextWindow),
+        "半屏".to_string(),
+        Message::Git(message::GitMessage::ToggleHalfFullscreen),
+    );
+
+    let fullscreen_icon =
+        if app.git_diff_fullscreen { Icon::FullscreenExit } else { Icon::Fullscreen };
+    let fullscreen_btn = small_plain_icon_button(
+        Some(fullscreen_icon),
+        if app.git_diff_fullscreen { "退出全屏" } else { "全屏" }.to_string(),
+        Message::Git(message::GitMessage::ToggleFullscreen),
+    );
+
     let actions: Element<'_, Message> = row![
-        row![select_all_btn, invert_select_btn, summary_toggle, filter_btn]
-            .spacing(8)
-            .align_y(iced::Alignment::Center),
+        row![
+            select_all_btn,
+            invert_select_btn,
+            summary_toggle,
+            filter_btn,
+            half_fullscreen_btn,
+            fullscreen_btn
+        ]
+        .spacing(8)
+        .align_y(iced::Alignment::Center),
         Space::new().width(Length::Fixed(10.0))
     ]
     .align_y(iced::Alignment::Center)
@@ -129,12 +146,9 @@ pub fn view(app: &App, files_list: Vec<String>) -> Element<'_, Message> {
         .align_y(iced::Alignment::Center);
 
     // 为内容添加容器样式，设置背景色
-    let content = container(content).style(|theme: &iced::Theme| {
-        let palette = theme.extended_palette();
-        iced::widget::container::Style {
-            background: Some(Background::Color(palette.background.base.color)),
-            ..Default::default()
-        }
+    let content = container(content).style(|_theme: &iced::Theme| iced::widget::container::Style {
+        background: None,
+        ..Default::default()
     });
 
     // 用 MouseArea 包裹内容，实现悬停显示/隐藏操作按钮的交互

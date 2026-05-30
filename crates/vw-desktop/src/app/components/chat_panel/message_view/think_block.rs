@@ -7,13 +7,8 @@ use std::collections::HashSet;
 
 use crate::app::assets::Icon;
 use crate::app::models;
-use crate::app::{message, App, Message};
+use crate::app::{App, Message, message};
 
-use super::styles::{
-    neutral_card_surface, subtle_card_shadow, think_block_text_color, thinking_status_text,
-    THINK_META_TEXT_SIZE, THINK_STATUS_TEXT_SIZE,
-};
-use super::text::{should_segment_text_block, think_text_body};
 use super::super::tool_text_support::{
     chat_text_font, chat_text_line_height, is_safe_for_text_editor, read_only_text_style,
 };
@@ -21,6 +16,11 @@ use super::super::utils::{
     bold_font, chat_secondary_muted_text_color, chat_secondary_subtle_text_color, icon_svg,
     normalize_display_text,
 };
+use super::styles::{
+    THINK_META_TEXT_SIZE, THINK_STATUS_TEXT_SIZE, neutral_card_surface, subtle_card_shadow,
+    think_block_text_color, thinking_status_text,
+};
+use super::text::{should_segment_text_block, think_text_body};
 
 /// 渲染思考块视图
 ///
@@ -115,9 +115,10 @@ pub(super) fn think_block_view<'a>(
     head_row = head_row.push(status_text);
 
     if let Some(duration) = duration_label {
-        head_row = head_row.push(text(duration).size(THINK_META_TEXT_SIZE).style(|theme: &Theme| {
-            iced::widget::text::Style { color: Some(chat_secondary_subtle_text_color(theme)) }
-        }));
+        head_row =
+            head_row.push(text(duration).size(THINK_META_TEXT_SIZE).style(|theme: &Theme| {
+                iced::widget::text::Style { color: Some(chat_secondary_subtle_text_color(theme)) }
+            }));
     }
 
     head_row = head_row.push(container(toggle_icon).padding([2, 4]));
@@ -139,10 +140,8 @@ pub(super) fn think_block_view<'a>(
         if !text_content.is_empty() {
             let scroll_key = ((msg_idx as u64) << 32) | (think_idx as u64);
             let use_segmented_body = should_segment_text_block(&text_content);
-            let prefer_plain_text = super::text::should_prefer_plain_think_body(
-                is_streaming_msg,
-                is_thinking,
-            );
+            let prefer_plain_text =
+                super::text::should_prefer_plain_think_body(is_streaming_msg, is_thinking);
 
             if use_segmented_body || prefer_plain_text {
                 think_col = think_col.push(think_text_body(
@@ -156,9 +155,7 @@ pub(super) fn think_block_view<'a>(
                 if let Some(editor_content) = app.chat_think_editors.get(&scroll_key) {
                     let on_action = move |action| {
                         Message::Chat(message::ChatMessage::ThinkEditorAction(
-                            msg_idx,
-                            think_idx,
-                            action,
+                            msg_idx, think_idx, action,
                         ))
                     };
 

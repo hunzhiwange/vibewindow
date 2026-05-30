@@ -5,7 +5,9 @@ use std::path::PathBuf;
 
 use serde_json::json;
 use vw_gateway_client::GatewayChatUsage;
-use vw_shared::session::ui_types::{ChatMessage, ChatRole, ChatSession, ChatSessionStep, ThinkTiming, TokenUsage};
+use vw_shared::session::ui_types::{
+    ChatMessage, ChatRole, ChatSession, ChatSessionStep, ThinkTiming, TokenUsage,
+};
 
 use super::reducer::{
     TuiAction, TuiTerminalUpdate, TuiToolCallUpdate, TuiToolResultUpdate, reduce_tui_state,
@@ -13,15 +15,14 @@ use super::reducer::{
 use super::selectors::{
     TuiAssistantTurnEntry, TuiExploreToolKind, TuiTranscriptItem, select_grouped_transcript,
     select_search_matches, select_status_summary, select_transcript_message_anchors,
-    select_visible_grouped_transcript_window,
-    select_visible_message_window,
+    select_visible_grouped_transcript_window, select_visible_message_window,
 };
 use super::{TuiScrollState, TuiState, apply_runtime_event};
 use crate::cli::session::GitWorkspaceStatus;
 use crate::cli::tui_v2::model::{
-    PromptSubmission, UiMemoryEntry, UiMessage, UiMessageKind, UiQuestionOverlay,
-    UiQuestionPrompt, UiSearchOverlay, UiSystemMessageLevel, UiTodoItem, UiTodoOverlay,
-    UiTokenUsage, UiToolCallState, UiTurnTerminal,
+    PromptSubmission, UiMemoryEntry, UiMessage, UiMessageKind, UiQuestionOverlay, UiQuestionPrompt,
+    UiSearchOverlay, UiSystemMessageLevel, UiTodoItem, UiTodoOverlay, UiTokenUsage,
+    UiToolCallState, UiTurnTerminal,
 };
 use crate::cli::tui_v2::runtime::stream_adapter::{UiRuntimeEvent, UiRuntimeTerminalEvent};
 
@@ -180,9 +181,7 @@ fn reducer_tracks_submission_stream_and_terminal_lifecycle() {
     reduce_tui_state(
         &mut state,
         TuiAction::AssistantTerminalUpdated(TuiTerminalUpdate {
-            terminal: UiTurnTerminal::Done {
-                finish_reason: Some("stop".to_string()),
-            },
+            terminal: UiTurnTerminal::Done { finish_reason: Some("stop".to_string()) },
             usage: None,
             message_id: Some("assistant-1".to_string()),
             parent_message_id: Some("user-1".to_string()),
@@ -193,8 +192,16 @@ fn reducer_tracks_submission_stream_and_terminal_lifecycle() {
     assert_eq!(state.messages[0].kind(), UiMessageKind::User);
     assert_eq!(state.messages[1].kind(), UiMessageKind::Assistant);
     assert_eq!(state.messages[2].kind(), UiMessageKind::Step);
-    assert_eq!(state.status.turn_terminal, UiTurnTerminal::Done { finish_reason: Some("stop".to_string()) });
-    assert_eq!(state.prompt.last_submission.as_ref().map(|submission| &submission.status), Some(&crate::cli::tui_v2::model::PromptSubmissionStatus::Done { finish_reason: Some("stop".to_string()) }));
+    assert_eq!(
+        state.status.turn_terminal,
+        UiTurnTerminal::Done { finish_reason: Some("stop".to_string()) }
+    );
+    assert_eq!(
+        state.prompt.last_submission.as_ref().map(|submission| &submission.status),
+        Some(&crate::cli::tui_v2::model::PromptSubmissionStatus::Done {
+            finish_reason: Some("stop".to_string())
+        })
+    );
 
     let UiMessage::Assistant(assistant) = &state.messages[1] else {
         panic!("assistant message should exist");
@@ -266,10 +273,7 @@ fn replace_from_snapshot_clears_project_memory_evidence() {
     assert_eq!(state.session.session_id.as_deref(), Some("session_after_restore"));
     assert_eq!(state.session.title, "After Restore");
     assert_eq!(state.session.scope.as_deref(), Some("workspace"));
-    assert_eq!(
-        state.session.path,
-        Some(PathBuf::from("/tmp/sessions/session_after_restore.json"))
-    );
+    assert_eq!(state.session.path, Some(PathBuf::from("/tmp/sessions/session_after_restore.json")));
 }
 
 #[test]
@@ -316,9 +320,7 @@ fn to_chat_session_reindexes_steps_across_multiple_turns() {
     reduce_tui_state(
         &mut state,
         TuiAction::AssistantTerminalUpdated(TuiTerminalUpdate {
-            terminal: UiTurnTerminal::Done {
-                finish_reason: Some("stop".to_string()),
-            },
+            terminal: UiTurnTerminal::Done { finish_reason: Some("stop".to_string()) },
             usage: None,
             message_id: Some("assistant-first".to_string()),
             parent_message_id: Some("user-first".to_string()),
@@ -356,9 +358,7 @@ fn to_chat_session_reindexes_steps_across_multiple_turns() {
     reduce_tui_state(
         &mut state,
         TuiAction::AssistantTerminalUpdated(TuiTerminalUpdate {
-            terminal: UiTurnTerminal::Done {
-                finish_reason: Some("stop".to_string()),
-            },
+            terminal: UiTurnTerminal::Done { finish_reason: Some("stop".to_string()) },
             usage: None,
             message_id: Some("assistant-second".to_string()),
             parent_message_id: Some("user-second".to_string()),
@@ -504,19 +504,13 @@ fn searchable_text_cache_tracks_incremental_assistant_updates() {
                 .with_model("gpt-5.4"),
         ),
     );
-    reduce_tui_state(
-        &mut state,
-        TuiAction::AssistantDeltaReceived("search cache".to_string()),
-    );
+    reduce_tui_state(&mut state, TuiAction::AssistantDeltaReceived("search cache".to_string()));
     reduce_tui_state(&mut state, TuiAction::SearchQuerySet("cache".to_string()));
 
     let first_matches = select_search_matches(&state);
     assert_eq!(first_matches.len(), 2);
 
-    reduce_tui_state(
-        &mut state,
-        TuiAction::AssistantDeltaReceived(" tail".to_string()),
-    );
+    reduce_tui_state(&mut state, TuiAction::AssistantDeltaReceived(" tail".to_string()));
     reduce_tui_state(&mut state, TuiAction::SearchQuerySet("tail".to_string()));
 
     let second_matches = select_search_matches(&state);
@@ -616,10 +610,7 @@ fn runtime_pipeline_extracts_thinking_blocks_from_delta_stream() {
     );
     apply_runtime_event(&mut state, UiRuntimeEvent::Delta("<think>先读 controller".to_string()));
     apply_runtime_event(&mut state, UiRuntimeEvent::Delta("，再接 reducer".to_string()));
-    apply_runtime_event(
-        &mut state,
-        UiRuntimeEvent::Delta("</think>\n\n最终回答".to_string()),
-    );
+    apply_runtime_event(&mut state, UiRuntimeEvent::Delta("</think>\n\n最终回答".to_string()));
 
     assert!(!state.runtime.thinking_open);
     assert_eq!(state.messages.len(), 3);
@@ -639,10 +630,7 @@ fn runtime_pipeline_extracts_thinking_blocks_from_delta_stream() {
 
     let snapshot = state.to_chat_session();
     assert_eq!(snapshot.messages.len(), 2);
-    assert!(snapshot
-        .messages
-        .iter()
-        .all(|message| !message.content.contains("<think>")));
+    assert!(snapshot.messages.iter().all(|message| !message.content.contains("<think>")));
 }
 
 #[test]
@@ -747,9 +735,7 @@ fn runtime_pipeline_applies_terminal_usage_and_ignores_ui_warning_in_snapshot() 
     );
     apply_runtime_event(
         &mut state,
-        UiRuntimeEvent::Unknown {
-            event_type: Some("chat.tool_delta".to_string()),
-        },
+        UiRuntimeEvent::Unknown { event_type: Some("chat.tool_delta".to_string()) },
     );
 
     let UiMessage::Assistant(assistant) = &state.messages[1] else {
@@ -760,7 +746,8 @@ fn runtime_pipeline_applies_terminal_usage_and_ignores_ui_warning_in_snapshot() 
     assert_eq!(assistant.base.id.as_str(), "gateway:assistant-final");
     assert_eq!(assistant.base.parent_id.as_ref().map(|id| id.as_str()), Some("gateway:user-final"));
 
-    let UiMessage::System(warning) = state.messages.last().expect("warning message should exist") else {
+    let UiMessage::System(warning) = state.messages.last().expect("warning message should exist")
+    else {
         panic!("unknown runtime event should become a warning system message");
     };
     assert_eq!(warning.level, UiSystemMessageLevel::Warning);
@@ -769,10 +756,12 @@ fn runtime_pipeline_applies_terminal_usage_and_ignores_ui_warning_in_snapshot() 
 
     let snapshot = state.to_chat_session();
     assert_eq!(snapshot.messages.len(), 2);
-    assert!(snapshot
-        .messages
-        .iter()
-        .all(|message| !message.content.contains("Unsupported gateway event")));
+    assert!(
+        snapshot
+            .messages
+            .iter()
+            .all(|message| !message.content.contains("Unsupported gateway event"))
+    );
 }
 
 #[test]
@@ -831,18 +820,13 @@ fn grouped_transcript_associates_preface_and_child_messages_with_assistant_turn(
             summary: None,
             arguments: Some("selectors".to_string()),
             state: UiToolCallState::Complete,
-            result: Some(TuiToolResultUpdate {
-                content: "2 matches".to_string(),
-                is_error: false,
-            }),
+            result: Some(TuiToolResultUpdate { content: "2 matches".to_string(), is_error: false }),
         }),
     );
     reduce_tui_state(
         &mut state,
         TuiAction::AssistantTerminalUpdated(TuiTerminalUpdate {
-            terminal: UiTurnTerminal::Done {
-                finish_reason: Some("stop".to_string()),
-            },
+            terminal: UiTurnTerminal::Done { finish_reason: Some("stop".to_string()) },
             usage: None,
             message_id: Some("assistant-turn-1".to_string()),
             parent_message_id: Some("user-turn-1".to_string()),
@@ -852,10 +836,7 @@ fn grouped_transcript_associates_preface_and_child_messages_with_assistant_turn(
     let transcript = select_grouped_transcript(&state);
 
     assert_eq!(transcript.len(), 2);
-    assert!(matches!(
-        transcript.first(),
-        Some(TuiTranscriptItem::Standalone(UiMessage::User(_)))
-    ));
+    assert!(matches!(transcript.first(), Some(TuiTranscriptItem::Standalone(UiMessage::User(_)))));
 
     let Some(TuiTranscriptItem::AssistantTurn(turn)) = transcript.get(1) else {
         panic!("assistant turn should exist");
@@ -888,10 +869,7 @@ fn grouped_transcript_associates_preface_and_child_messages_with_assistant_turn(
     assert_eq!(snapshot.messages.len(), 3);
     assert_eq!(snapshot.message_ids[1].as_deref(), Some("assistant-turn-1"));
     assert_eq!(snapshot.messages[2].role, ChatRole::Tool);
-    assert!(snapshot
-        .messages
-        .iter()
-        .all(|message| !message.content.contains("先看 selectors")));
+    assert!(snapshot.messages.iter().all(|message| !message.content.contains("先看 selectors")));
     assert!(snapshot.messages[2].content.contains("\"output\":\"2 matches\""));
 }
 
@@ -917,10 +895,7 @@ fn grouped_transcript_collapses_only_contiguous_explore_tool_results() {
                 .with_model("gpt-5.4"),
         ),
     );
-    reduce_tui_state(
-        &mut state,
-        TuiAction::AssistantDeltaReceived("工具结果已收口".to_string()),
-    );
+    reduce_tui_state(&mut state, TuiAction::AssistantDeltaReceived("工具结果已收口".to_string()));
 
     for (tool_name, arguments, content) in [
         ("grep", "selectors", "2 matches"),
@@ -935,10 +910,7 @@ fn grouped_transcript_collapses_only_contiguous_explore_tool_results() {
                 summary: None,
                 arguments: Some(arguments.to_string()),
                 state: UiToolCallState::Complete,
-                result: Some(TuiToolResultUpdate {
-                    content: content.to_string(),
-                    is_error: false,
-                }),
+                result: Some(TuiToolResultUpdate { content: content.to_string(), is_error: false }),
             }),
         );
     }
@@ -1032,10 +1004,7 @@ fn visible_grouped_window_keeps_assistant_turn_intact_across_message_boundary() 
             summary: None,
             arguments: Some("window".to_string()),
             state: UiToolCallState::Complete,
-            result: Some(TuiToolResultUpdate {
-                content: "1 match".to_string(),
-                is_error: false,
-            }),
+            result: Some(TuiToolResultUpdate { content: "1 match".to_string(), is_error: false }),
         }),
     );
 
@@ -1074,15 +1043,13 @@ fn visible_grouped_window_keeps_assistant_turn_intact_across_message_boundary() 
         window_summary.sticky_notice().as_deref(),
         Some("message 2 is parked above the viewport host.")
     );
-    let sticky_prompt = visible
-        .sticky_prompt()
-        .expect("assistant turn should expose sticky prompt summary");
+    let sticky_prompt =
+        visible.sticky_prompt().expect("assistant turn should expose sticky prompt summary");
     assert_eq!(sticky_prompt.message_index, 0);
     assert_eq!(sticky_prompt.label(), "prompt m0");
     assert_eq!(sticky_prompt.preview, "继续做 grouped window");
-    let unseen_range = visible
-        .unseen_range()
-        .expect("off-tail new activity should expose unseen range");
+    let unseen_range =
+        visible.unseen_range().expect("off-tail new activity should expose unseen range");
     assert_eq!(unseen_range.first_unseen_message, 3);
     assert_eq!(unseen_range.first_unseen_item_index, 1);
     assert_eq!(unseen_range.unseen_message_count, 3);
@@ -1158,7 +1125,8 @@ fn visible_grouped_window_uses_height_cache_row_budget() {
     assert_eq!(visible.covered_message_start, 0);
     assert_eq!(visible.covered_message_end, 1);
     assert_eq!(visible.len(), 1);
-    let Some(TuiTranscriptItem::Standalone(UiMessage::User(message))) = visible.items.first() else {
+    let Some(TuiTranscriptItem::Standalone(UiMessage::User(message))) = visible.items.first()
+    else {
         panic!("row budget should keep only the first wrapped item visible");
     };
     assert_eq!(message.text, "abcdefghijklmno");

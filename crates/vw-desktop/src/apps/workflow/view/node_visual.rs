@@ -44,15 +44,11 @@ pub(super) fn build_node_visual_section<'a>(
                     ),
                     build_editor_field_validated(
                         "模型名称",
-                        workflow_text_input(
-                            "例如：qwen-turbo-2025-07-15",
-                            model_name,
-                            |value| {
-                                Message::WorkflowTool(
-                                    WorkflowMessage::NodeEditorLlmModelNameChanged(value),
-                                )
-                            }
-                        ),
+                        workflow_text_input("例如：qwen-turbo-2025-07-15", model_name, |value| {
+                            Message::WorkflowTool(WorkflowMessage::NodeEditorLlmModelNameChanged(
+                                value,
+                            ))
+                        }),
                         validation.first_error_for("llm.model_name"),
                     ),
                 ]
@@ -61,7 +57,9 @@ pub(super) fn build_node_visual_section<'a>(
                     build_editor_field_validated(
                         "模型模式",
                         workflow_text_input("例如：chat", model_mode, |value| {
-                            Message::WorkflowTool(WorkflowMessage::NodeEditorLlmModelModeChanged(value))
+                            Message::WorkflowTool(WorkflowMessage::NodeEditorLlmModelModeChanged(
+                                value,
+                            ))
                         }),
                         validation.first_error_for("llm.model_mode"),
                     ),
@@ -140,18 +138,16 @@ pub(super) fn build_node_visual_section<'a>(
             .spacing(12)
             .into(),
         ),
-        WorkflowNodeVisualDraft::Answer { answer_editor } => Some(
-            build_editor_field_validated(
-                "回复内容",
-                build_embedded_text_editor(
-                    answer_editor,
-                    "输入回复文本或模版内容",
-                    WorkflowMessage::NodeEditorAnswerAction,
-                    220.0,
-                ),
-                validation.first_error_for("answer.text"),
+        WorkflowNodeVisualDraft::Answer { answer_editor } => Some(build_editor_field_validated(
+            "回复内容",
+            build_embedded_text_editor(
+                answer_editor,
+                "输入回复文本或模版内容",
+                WorkflowMessage::NodeEditorAnswerAction,
+                220.0,
             ),
-        ),
+            validation.first_error_for("answer.text"),
+        )),
         WorkflowNodeVisualDraft::IfElse { cases } => {
             Some(build_if_else_visual_section(cases, validation))
         }

@@ -33,11 +33,7 @@ mod helpers_tests;
 /// 返回 `None` 表示输入为空或当前状态不需要生成后续值。
 pub(super) fn trim_to_option(value: &str) -> Option<String> {
     let trimmed = value.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
+    if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
 }
 
 /// 处理 `parse_receive_mode` 对应的用户输入、异步结果或状态转换。

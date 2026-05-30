@@ -12,7 +12,7 @@ use iced::alignment::{Horizontal, Vertical};
 use iced::widget::image::{Handle as ImageHandle, Image};
 use iced::widget::scrollable::{Direction, Scrollbar};
 use iced::widget::tooltip::Position;
-use iced::widget::{button, container, row, scrollable, text, tooltip, Space};
+use iced::widget::{Space, button, container, row, scrollable, text, tooltip};
 use iced::{Color, ContentFit, Element, Length, Theme};
 
 use crate::app::assets::Icon;
@@ -83,7 +83,9 @@ fn chip_style(theme: &Theme) -> iced::widget::container::Style {
 fn chip_thumb_style(theme: &Theme) -> iced::widget::container::Style {
     let palette = theme.extended_palette();
     iced::widget::container::Style {
-        background: Some(iced::Background::Color(palette.background.strong.color.scale_alpha(0.72))),
+        background: Some(iced::Background::Color(
+            palette.background.strong.color.scale_alpha(0.72),
+        )),
         border: iced::Border {
             radius: 8.0.into(),
             width: 1.0,
@@ -93,21 +95,20 @@ fn chip_thumb_style(theme: &Theme) -> iced::widget::container::Style {
     }
 }
 
-fn chip_close_style(theme: &Theme, status: iced::widget::button::Status) -> iced::widget::button::Style {
+fn chip_close_style(
+    theme: &Theme,
+    status: iced::widget::button::Status,
+) -> iced::widget::button::Style {
     let background = match status {
-        iced::widget::button::Status::Hovered => {
-            Some(iced::Background::Color(theme.extended_palette().background.strong.color.scale_alpha(0.42)))
-        }
+        iced::widget::button::Status::Hovered => Some(iced::Background::Color(
+            theme.extended_palette().background.strong.color.scale_alpha(0.42),
+        )),
         _ => None,
     };
 
     iced::widget::button::Style {
         background,
-        border: iced::Border {
-            radius: 999.0.into(),
-            width: 0.0,
-            color: Color::TRANSPARENT,
-        },
+        border: iced::Border { radius: 999.0.into(), width: 0.0, color: Color::TRANSPARENT },
         text_color: theme.palette().text.scale_alpha(0.78),
         ..Default::default()
     }
@@ -151,9 +152,9 @@ pub fn attachment_button(app: &App) -> Element<'_, Message> {
 
     let attach_tip = container(
         iced::widget::column![
-            text("附件").size(12).style(|_theme: &Theme| iced::widget::text::Style {
-                color: Some(Color::WHITE),
-            }),
+            text("附件")
+                .size(12)
+                .style(|_theme: &Theme| iced::widget::text::Style { color: Some(Color::WHITE) }),
             text(format!(
                 "本地文件或截图粘贴，已选 {} 个，图片 {}/{}，单张最多 {} MB",
                 app.files.len(),
@@ -174,10 +175,7 @@ pub fn attachment_button(app: &App) -> Element<'_, Message> {
     tooltip(attach_btn, attach_tip, Position::Top).into()
 }
 
-fn attachment_thumbnail(
-    path: String,
-    kind: AttachmentDisplayKind,
-) -> Element<'static, Message> {
+fn attachment_thumbnail(path: String, kind: AttachmentDisplayKind) -> Element<'static, Message> {
     match kind {
         AttachmentDisplayKind::Image if Path::new(&path).exists() => container(
             Image::new(ImageHandle::from_path(path))
@@ -238,22 +236,22 @@ fn truncate_attachment_name_middle(name: &str, max_chars: usize) -> String {
     let head_chars = available_chars.saturating_sub(tail_chars);
 
     let head = name.chars().take(head_chars).collect::<String>();
-    let tail = name
-        .chars()
-        .skip(total_chars.saturating_sub(tail_chars))
-        .collect::<String>();
+    let tail = name.chars().skip(total_chars.saturating_sub(tail_chars)).collect::<String>();
 
     format!("{head}{ATTACHMENT_NAME_ELLIPSIS}{tail}")
 }
 
-fn attachment_chip(item: AttachmentDisplayItem, remove_message: Option<Message>) -> Element<'static, Message> {
+fn attachment_chip(
+    item: AttachmentDisplayItem,
+    remove_message: Option<Message>,
+) -> Element<'static, Message> {
     let AttachmentDisplayItem { path, display_name, kind } = item;
     let name = display_name.unwrap_or_else(|| {
         Path::new(&path)
-        .file_name()
-        .and_then(|file| file.to_str())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| path.clone())
+            .file_name()
+            .and_then(|file| file.to_str())
+            .map(ToOwned::to_owned)
+            .unwrap_or_else(|| path.clone())
     });
     let truncated_name = truncate_attachment_name_middle(&name, ATTACHMENT_NAME_MAX_CHARS);
     let label = match kind {
@@ -262,14 +260,14 @@ fn attachment_chip(item: AttachmentDisplayItem, remove_message: Option<Message>)
     };
 
     let mut chip_row = row![
-            attachment_thumbnail(path.clone(), kind.clone()),
-            text(label).size(11).style(|theme: &Theme| iced::widget::text::Style {
-                color: Some(theme.palette().primary.scale_alpha(0.92)),
-            }),
-            text(truncated_name).size(12),
-        ]
-        .spacing(8)
-        .align_y(iced::Alignment::Center);
+        attachment_thumbnail(path.clone(), kind.clone()),
+        text(label).size(11).style(|theme: &Theme| iced::widget::text::Style {
+            color: Some(theme.palette().primary.scale_alpha(0.92)),
+        }),
+        text(truncated_name).size(12),
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
 
     if let Some(remove_message) = remove_message {
         let remove = button(
@@ -285,9 +283,7 @@ fn attachment_chip(item: AttachmentDisplayItem, remove_message: Option<Message>)
         chip_row = chip_row.push(remove);
     }
 
-    let content = container(chip_row)
-    .padding([6, 10])
-    .style(chip_style);
+    let content = container(chip_row).padding([6, 10]).style(chip_style);
 
     let tip = container(
         text(path)
@@ -300,7 +296,9 @@ fn attachment_chip(item: AttachmentDisplayItem, remove_message: Option<Message>)
     tooltip(content, tip, Position::Top).into()
 }
 
-pub(crate) fn attachment_preview_strip(items: Vec<AttachmentDisplayItem>) -> Element<'static, Message> {
+pub(crate) fn attachment_preview_strip(
+    items: Vec<AttachmentDisplayItem>,
+) -> Element<'static, Message> {
     if items.is_empty() {
         return Space::new().height(Length::Fixed(0.0)).into();
     }
@@ -403,13 +401,8 @@ pub(crate) fn parse_attachment_markers(content: &str) -> (String, Vec<Attachment
         cursor = marker_end + 1;
     }
 
-    let cleaned = cleaned
-        .lines()
-        .map(str::trim_end)
-        .collect::<Vec<_>>()
-        .join("\n")
-        .trim()
-        .to_string();
+    let cleaned =
+        cleaned.lines().map(str::trim_end).collect::<Vec<_>>().join("\n").trim().to_string();
 
     (cleaned, attachments)
 }
@@ -424,9 +417,7 @@ pub fn attachment_strip(app: &App) -> Element<'_, Message> {
         let item = AttachmentDisplayItem::from_local_path(path.clone());
         chips = chips.push(attachment_chip(
             item,
-            Some(Message::Project(message::ProjectMessage::RemoveAttachedFile(
-                path.to_string(),
-            ))),
+            Some(Message::Project(message::ProjectMessage::RemoveAttachedFile(path.to_string()))),
         ));
     }
 

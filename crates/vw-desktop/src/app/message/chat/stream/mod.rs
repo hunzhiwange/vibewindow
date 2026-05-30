@@ -25,9 +25,7 @@ pub(super) fn save_session_task(
     directory: Option<String>,
 ) -> Task<Message> {
     Task::perform(
-        async move {
-            session_gateway::gateway_save_session_async(&session, directory.as_deref()).await
-        },
+        async move { session_gateway::gateway_save_session_async(&session, directory.as_deref()).await },
         |result| {
             if let Err(error) = result {
                 tracing::warn!(target: "vw_desktop", error = %error, "failed to save session");
@@ -181,9 +179,7 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         ChatMessage::QuestionReplySubmitted(res) => questions::handle_question_reply_submitted(res),
         ChatMessage::QuestionRejected(res) => questions::handle_question_rejected(res),
         ChatMessage::PermissionApproveOnce => permissions::handle_permission_approve_once(app),
-        ChatMessage::PermissionApproveAlways => {
-            permissions::handle_permission_approve_always(app)
-        }
+        ChatMessage::PermissionApproveAlways => permissions::handle_permission_approve_always(app),
         ChatMessage::PermissionReject => permissions::handle_permission_reject(app),
         ChatMessage::PermissionSelectRequest(request_id) => {
             permissions::handle_permission_select_request(app, request_id)
@@ -206,6 +202,7 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
                     s.title = new_title.clone();
                 }
             }
+            app.refresh_task_pet_session_title(&session_id, &new_title);
             let session_id_clone = session_id.clone();
             Task::perform(
                 async move {

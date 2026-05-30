@@ -1,5 +1,5 @@
-use super::ui::cursor_in_blocked_ui;
 use super::DragMode;
+use super::ui::cursor_in_blocked_ui;
 use crate::apps::mindmap::state::MindMapCanvasTool;
 use iced::{Point, Rectangle, Size};
 
@@ -7,13 +7,7 @@ use iced::{Point, Rectangle, Size};
 fn cursor_in_blocked_ui_ignores_missing_cursor_and_active_drag() {
     let bounds = Rectangle::new(Point::ORIGIN, Size::new(800.0, 600.0));
 
-    assert!(!cursor_in_blocked_ui(
-        bounds,
-        None,
-        &DragMode::None,
-        MindMapCanvasTool::Select,
-        &[],
-    ));
+    assert!(!cursor_in_blocked_ui(bounds, None, &DragMode::None, MindMapCanvasTool::Select, &[],));
     assert!(!cursor_in_blocked_ui(
         bounds,
         Some(Point::new(400.0, 20.0)),

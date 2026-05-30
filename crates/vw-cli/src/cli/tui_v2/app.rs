@@ -10,9 +10,10 @@
 //! - 先接真实 gateway submit 流，不继续扩张 message row/virtual list
 //! - grouped/collapsed 仍留给后续 slice；search/task overlay 已接入当前宿主
 
+use std::collections::hash_map::DefaultHasher;
+#[cfg(unix)]
 use std::fs::OpenOptions;
 use std::future::Future;
-use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -32,24 +33,25 @@ use crossterm::terminal::{
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use serde_json::json;
+use vw_agent::provider::provider;
 use vw_gateway_client::GatewayChatStreamRequest;
 use vw_gateway_client::vw_api_types::id::SessionId;
-use vw_agent::provider::provider;
-use vw_shared::session::ui_types::{ChatMessage, ChatRole, ChatSession, ChatSessionMeta, TokenUsage};
+use vw_shared::session::ui_types::{
+    ChatMessage, ChatRole, ChatSession, ChatSessionMeta, TokenUsage,
+};
 use vw_shared::todo::Todo;
 
 use super::controller::{
     TuiController, TuiControllerCommand, TuiOverlayCommand, build_prompt_submission,
 };
 use super::input::{
-    TuiSlashCommandInvocation, TuiSlashCommandOutcome, execute_slash_command,
-    parse_slash_command,
+    TuiSlashCommandInvocation, TuiSlashCommandOutcome, execute_slash_command, parse_slash_command,
 };
 use super::model::{
-    McpServerTransport, PromptSubmission, QueuedPromptCommand, QueuedPromptCommandKind, UiMessage,
-    UiConfirmOverlay, UiErrorOverlay, UiMcpOverlay, UiMcpServerInfo, UiMemoryEntry, UiMemoryOverlay,
-    UiMessageBase, UiMessageId, UiOverlay, UiQuestionOverlay, UiSystemMessage,
-    UiSystemMessageLevel, UiTaskOverlay, UiTaskStepItem, UiTodoOverlay,
+    McpServerTransport, PromptSubmission, QueuedPromptCommand, QueuedPromptCommandKind,
+    UiConfirmOverlay, UiErrorOverlay, UiMcpOverlay, UiMcpServerInfo, UiMemoryEntry,
+    UiMemoryOverlay, UiMessage, UiMessageBase, UiMessageId, UiOverlay, UiQuestionOverlay,
+    UiSystemMessage, UiSystemMessageLevel, UiTaskOverlay, UiTaskStepItem, UiTodoOverlay,
 };
 use super::render::{TuiRenderFeedback, TuiRenderer};
 use super::runtime::gateway::GatewayUiRuntime;
@@ -60,8 +62,8 @@ use super::state::{
     TuiVisibleTranscriptWindow, TuiWindowSummary, apply_runtime_event, reduce_tui_state,
     select_visible_grouped_transcript_window,
 };
-use crate::app::agent::session::processor as legacy_processor;
 use crate::app::agent::config::Config;
+use crate::app::agent::session::processor as legacy_processor;
 use crate::cli::processor::{
     SessionProcessorComparableResult, SessionProcessorComparableTerminal,
     run_session_processor_comparable_for_cli,
@@ -83,8 +85,7 @@ type CliBackendWriter = std::io::Stdout;
 type TuiTerminal = Terminal<CrosstermBackend<CliBackendWriter>>;
 
 const BUSY_HOST_POLL_RATE: Duration = Duration::from_millis(60);
-const CANCEL_REQUESTED_STATUS: &str =
-    "已请求取消；当前输出会在收到下一次运行时事件后停止。";
+const CANCEL_REQUESTED_STATUS: &str = "已请求取消；当前输出会在收到下一次运行时事件后停止。";
 const QUESTION_CUSTOM_ANSWER_PREFIX: &str = "__custom__:";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -131,9 +132,7 @@ impl TodoSessionAccessAction {
     }
 }
 
-pub(crate) fn todo_session_unavailable_overlay(
-    action: TodoSessionAccessAction,
-) -> UiErrorOverlay {
+pub(crate) fn todo_session_unavailable_overlay(action: TodoSessionAccessAction) -> UiErrorOverlay {
     UiErrorOverlay {
         title: action.overlay_title().to_string(),
         message: format!(
@@ -175,10 +174,7 @@ fn build_mcp_overlay(workspace_root: Option<&std::path::Path>) -> UiMcpOverlay {
             v.push((root.join(".vwacprc.json"), "project"));
         }
         if let Some(home) = dirs_home() {
-            v.push((
-                home.join(".vibewindow").join("acp").join("config.json"),
-                "global",
-            ));
+            v.push((home.join(".vibewindow").join("acp").join("config.json"), "global"));
         }
         v
     };
@@ -222,11 +218,8 @@ fn parse_mcp_servers_json(value: &serde_json::Value) -> Vec<UiMcpServerInfo> {
         serde_json::Value::Array(arr) => arr
             .iter()
             .map(|server| {
-                let name = server
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-                    .to_string();
+                let name =
+                    server.get("name").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
                 mcp_server_entry_to_info(name, server)
             })
             .collect(),
@@ -235,43 +228,24 @@ fn parse_mcp_servers_json(value: &serde_json::Value) -> Vec<UiMcpServerInfo> {
 }
 
 fn mcp_server_entry_to_info(name: String, server: &serde_json::Value) -> UiMcpServerInfo {
-    let transport_type = server
-        .get("type")
-        .and_then(|v| v.as_str())
-        .unwrap_or("stdio");
+    let transport_type = server.get("type").and_then(|v| v.as_str()).unwrap_or("stdio");
 
     let (transport, address) = match transport_type {
         "http" => {
-            let url = server
-                .get("url")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
+            let url = server.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
             (McpServerTransport::Http, url)
         }
         "sse" => {
-            let url = server
-                .get("url")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
+            let url = server.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
             (McpServerTransport::Sse, url)
         }
         _ => {
-            let command = server
-                .get("command")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
+            let command = server.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string();
             (McpServerTransport::Stdio, command)
         }
     };
 
-    UiMcpServerInfo {
-        name,
-        transport,
-        address,
-    }
+    UiMcpServerInfo { name, transport, address }
 }
 
 /// 内存预览最大行数。
@@ -306,10 +280,7 @@ fn build_memory_overlay(workspace_root: Option<&std::path::Path>) -> UiMemoryOve
         collect_memory_dir_entries(&global_memory_dir, "global", &mut entries);
     }
 
-    UiMemoryOverlay {
-        entries,
-        selected_index: 0,
-    }
+    UiMemoryOverlay { entries, selected_index: 0 }
 }
 
 /// 读取一个 memory 文件，返回 UiMemoryEntry（前 MEMORY_PREVIEW_MAX_LINES 行）。
@@ -317,16 +288,9 @@ fn read_memory_file(path: &std::path::Path, scope: &str) -> Option<UiMemoryEntry
     let content = std::fs::read_to_string(path).ok()?;
     let all_lines: Vec<&str> = content.lines().collect();
     let total_lines = all_lines.len();
-    let preview_lines: Vec<String> = all_lines
-        .iter()
-        .take(MEMORY_PREVIEW_MAX_LINES)
-        .map(|l| l.to_string())
-        .collect();
-    let filename = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("unknown")
-        .to_string();
+    let preview_lines: Vec<String> =
+        all_lines.iter().take(MEMORY_PREVIEW_MAX_LINES).map(|l| l.to_string()).collect();
+    let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("unknown").to_string();
     Some(UiMemoryEntry {
         scope: scope.to_string(),
         filename,
@@ -433,10 +397,7 @@ pub(crate) fn runtime_event_fallback_overlay(event: &UiRuntimeEvent) -> Option<U
         UiRuntimeEvent::Terminal(UiRuntimeTerminalEvent::TimedOut { message, .. }) => {
             Some(UiErrorOverlay {
                 title: "输出超时".to_string(),
-                message: format!(
-                    "当前轮次在 gateway 返回稳定终态前已超时。\n{}",
-                    message.trim()
-                ),
+                message: format!("当前轮次在 gateway 返回稳定终态前已超时。\n{}", message.trim()),
                 recoverable: true,
             })
         }
@@ -459,10 +420,8 @@ pub(crate) fn runtime_event_fallback_overlay(event: &UiRuntimeEvent) -> Option<U
 }
 
 fn runtime_unknown_event_overlay(event_type: Option<&str>) -> UiErrorOverlay {
-    let event_type = event_type
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or("unknown");
+    let event_type =
+        event_type.map(str::trim).filter(|value| !value.is_empty()).unwrap_or("unknown");
 
     if is_permission_event_type(Some(event_type)) {
         return UiErrorOverlay {
@@ -521,11 +480,7 @@ fn runtime_terminal_error_overlay(message: &str) -> UiErrorOverlay {
         title: "输出失败".to_string(),
         message: format!(
             "当前轮次因运行时或网络错误而结束。\n{}",
-            if normalized.is_empty() {
-                "gateway 输出失败"
-            } else {
-                normalized
-            }
+            if normalized.is_empty() { "gateway 输出失败" } else { normalized }
         ),
         recoverable: true,
     }
@@ -645,9 +600,7 @@ fn hash_visible_window_messages(
     visible_window.covered_message_end.hash(&mut hasher);
 
     for message in state.messages.iter().skip(visible_window.covered_message_start).take(
-        visible_window
-            .covered_message_end
-            .saturating_sub(visible_window.covered_message_start),
+        visible_window.covered_message_end.saturating_sub(visible_window.covered_message_start),
     ) {
         format!("{message:?}").hash(&mut hasher);
     }
@@ -731,10 +684,7 @@ pub(crate) fn restore_deferred_prompt_draft(
     }
 }
 
-fn capture_deferred_prompt_draft(
-    state: &mut TuiState,
-    deferred_prompt_draft: &mut Option<String>,
-) {
+fn capture_deferred_prompt_draft(state: &mut TuiState, deferred_prompt_draft: &mut Option<String>) {
     if state.prompt.value.is_empty() {
         return;
     }
@@ -804,9 +754,8 @@ impl TuiApp {
         run_mode: TuiRunMode,
     ) -> Result<Self> {
         let runtime = GatewayUiRuntime::for_workspace(config).map_err(|err| anyhow!(err))?;
-        let preflight = runtime
-            .ensure_local_gateway_ready_blocking()
-            .map_err(|err| anyhow!(err))?;
+        let preflight =
+            runtime.ensure_local_gateway_ready_blocking().map_err(|err| anyhow!(err))?;
         let mut app = Self {
             run_mode,
             runtime,
@@ -848,10 +797,9 @@ impl TuiApp {
         self.controller.sync_layout(&mut self.state, &feedback);
 
         loop {
-            if let Some(command) = dequeue_queued_prompt_command(
-                &mut self.state,
-                &mut self.deferred_prompt_draft,
-            ) {
+            if let Some(command) =
+                dequeue_queued_prompt_command(&mut self.state, &mut self.deferred_prompt_draft)
+            {
                 if matches!(
                     self.handle_command(terminal.terminal_mut(), command)?,
                     TuiAppCommandOutcome::Quit
@@ -891,18 +839,19 @@ impl TuiApp {
             }
             TuiControllerCommand::Quit => Ok(TuiAppCommandOutcome::Quit),
             TuiControllerCommand::Overlay(command) => self.handle_overlay_command(command),
-            TuiControllerCommand::ExecuteSlashCommand(invocation) => Ok(match execute_slash_command(
-                &mut self.state,
-                &invocation,
-            ) {
-                TuiSlashCommandOutcome::Quit => TuiAppCommandOutcome::Quit,
-                TuiSlashCommandOutcome::Continue => TuiAppCommandOutcome::Continue,
-                TuiSlashCommandOutcome::Resume { session_id } => {
-                    self.restore_session_from_command(session_id.as_deref());
-                    TuiAppCommandOutcome::Continue
-                }
-            }),
-            TuiControllerCommand::SubmitPrompt(submission) => self.submit_prompt(terminal, submission),
+            TuiControllerCommand::ExecuteSlashCommand(invocation) => {
+                Ok(match execute_slash_command(&mut self.state, &invocation) {
+                    TuiSlashCommandOutcome::Quit => TuiAppCommandOutcome::Quit,
+                    TuiSlashCommandOutcome::Continue => TuiAppCommandOutcome::Continue,
+                    TuiSlashCommandOutcome::Resume { session_id } => {
+                        self.restore_session_from_command(session_id.as_deref());
+                        TuiAppCommandOutcome::Continue
+                    }
+                })
+            }
+            TuiControllerCommand::SubmitPrompt(submission) => {
+                self.submit_prompt(terminal, submission)
+            }
         }
     }
 
@@ -958,7 +907,10 @@ impl TuiApp {
                     self.state.clear_messages();
                     self.sync_session_metadata_blocking();
                     self.persist_session_snapshot_blocking();
-                    self.push_app_system_message("当前会话内容已清空", UiSystemMessageLevel::Success);
+                    self.push_app_system_message(
+                        "当前会话内容已清空",
+                        UiSystemMessageLevel::Success,
+                    );
                     self.refresh_task_state_blocking();
                     return Ok(TuiAppCommandOutcome::Continue);
                 }
@@ -976,15 +928,16 @@ impl TuiApp {
                     return Ok(TuiAppCommandOutcome::Continue);
                 }
 
-                match self
-                    .runtime
-                    .question_reply_blocking(overlay.request_id.as_str(), answers)
-                {
+                match self.runtime.question_reply_blocking(overlay.request_id.as_str(), answers) {
                     Ok(()) => {
                         reduce_tui_state(&mut self.state, TuiAction::OverlayPopped);
                         self.refresh_task_state_blocking();
                         self.push_app_system_message(
-                            format!("{} {} 已提交回答", overlay.request_label(), overlay.request_id),
+                            format!(
+                                "{} {} 已提交回答",
+                                overlay.request_label(),
+                                overlay.request_id
+                            ),
                             UiSystemMessageLevel::Success,
                         );
                     }
@@ -1054,10 +1007,7 @@ impl TuiApp {
                         );
                     }
                     Err(err) => {
-                        self.push_overlay_error(
-                            "待办保存失败",
-                            format!("待办更新失败: {err}"),
-                        );
+                        self.push_overlay_error("待办保存失败", format!("待办更新失败: {err}"));
                     }
                 }
 
@@ -1084,10 +1034,8 @@ impl TuiApp {
         if let Some(session_id) = question_session_id.as_deref() {
             match self.runtime.question_list_for_session_blocking(Some(session_id)) {
                 Ok(requests) => {
-                    let overlays = requests
-                        .iter()
-                        .map(UiQuestionOverlay::from_request)
-                        .collect::<Vec<_>>();
+                    let overlays =
+                        requests.iter().map(UiQuestionOverlay::from_request).collect::<Vec<_>>();
                     reduce_tui_state(&mut self.state, TuiAction::QuestionsReplaced(overlays));
                 }
                 Err(err) => {
@@ -1130,15 +1078,9 @@ impl TuiApp {
         let project_info = build_project_info(&workspace_root);
         let git_status = collect_git_workspace_status(&workspace_root);
 
-        reduce_tui_state(
-            &mut self.state,
-            TuiAction::ProjectWorkspaceRootSet(Some(workspace_root)),
-        );
+        reduce_tui_state(&mut self.state, TuiAction::ProjectWorkspaceRootSet(Some(workspace_root)));
         reduce_tui_state(&mut self.state, TuiAction::ProjectInfoSet(project_info));
-        reduce_tui_state(
-            &mut self.state,
-            TuiAction::ProjectGitStatusSet(git_status),
-        );
+        reduce_tui_state(&mut self.state, TuiAction::ProjectGitStatusSet(git_status));
     }
 
     fn open_search_overlay(&mut self) {
@@ -1149,25 +1091,17 @@ impl TuiApp {
         if let Some(error) = self.state.tasks.sync_error.clone() {
             self.push_overlay_error(
                 "问题面板不可用",
-                format!(
-                    "由于任务同步失败，当前无法读取待处理问题列表。\n{error}"
-                ),
+                format!("由于任务同步失败，当前无法读取待处理问题列表。\n{error}"),
             );
             return;
         }
 
         let Some(question) = self.state.tasks.pending_questions.first().cloned() else {
-            self.push_overlay_error(
-                "问题面板",
-                "当前会话没有待处理问题。",
-            );
+            self.push_overlay_error("问题面板", "当前会话没有待处理问题。");
             return;
         };
 
-        reduce_tui_state(
-            &mut self.state,
-            TuiAction::OverlayPushed(UiOverlay::Question(question)),
-        );
+        reduce_tui_state(&mut self.state, TuiAction::OverlayPushed(UiOverlay::Question(question)));
     }
 
     fn open_todo_overlay(&mut self) {
@@ -1184,9 +1118,7 @@ impl TuiApp {
             } else {
                 UiErrorOverlay {
                     title: "待办面板不可用".to_string(),
-                    message: format!(
-                        "由于任务同步失败，当前无法打开待办面板。\n{error}"
-                    ),
+                    message: format!("由于任务同步失败，当前无法打开待办面板。\n{error}"),
                     recoverable: true,
                 }
             };
@@ -1195,41 +1127,26 @@ impl TuiApp {
         }
 
         let Some(todo_overlay) = self.state.tasks.todo_overlay.clone() else {
-            self.push_overlay_error(
-                "待办面板",
-                "当前会话没有可用的待办列表。",
-            );
+            self.push_overlay_error("待办面板", "当前会话没有可用的待办列表。");
             return;
         };
 
-        reduce_tui_state(
-            &mut self.state,
-            TuiAction::OverlayPushed(UiOverlay::Todo(todo_overlay)),
-        );
+        reduce_tui_state(&mut self.state, TuiAction::OverlayPushed(UiOverlay::Todo(todo_overlay)));
     }
 
     fn open_task_overlay(&mut self) {
         let task_overlay = self.build_task_overlay();
-        reduce_tui_state(
-            &mut self.state,
-            TuiAction::OverlayPushed(UiOverlay::Task(task_overlay)),
-        );
+        reduce_tui_state(&mut self.state, TuiAction::OverlayPushed(UiOverlay::Task(task_overlay)));
     }
 
     fn open_mcp_overlay(&mut self) {
         let overlay = build_mcp_overlay(self.state.project.workspace_root.as_deref());
-        reduce_tui_state(
-            &mut self.state,
-            TuiAction::OverlayPushed(UiOverlay::Mcp(overlay)),
-        );
+        reduce_tui_state(&mut self.state, TuiAction::OverlayPushed(UiOverlay::Mcp(overlay)));
     }
 
     fn open_memory_overlay(&mut self) {
         let overlay = build_memory_overlay(self.state.project.workspace_root.as_deref());
-        reduce_tui_state(
-            &mut self.state,
-            TuiAction::OverlayPushed(UiOverlay::Memory(overlay)),
-        );
+        reduce_tui_state(&mut self.state, TuiAction::OverlayPushed(UiOverlay::Memory(overlay)));
     }
 
     fn open_exit_confirm_overlay(&mut self) {
@@ -1306,9 +1223,7 @@ impl TuiApp {
             } else {
                 UiErrorOverlay {
                     title: "待办面板不可用".to_string(),
-                    message: format!(
-                        "由于任务同步失败，当前无法打开待办面板。\n{error}"
-                    ),
+                    message: format!("由于任务同步失败，当前无法打开待办面板。\n{error}"),
                     recoverable: true,
                 }
             };
@@ -1345,20 +1260,15 @@ impl TuiApp {
         let next_overlay = self.build_task_overlay();
 
         if let Some(UiOverlay::Task(active_overlay)) = self.state.overlays.stack.last_mut() {
-            let selected_index = active_overlay
-                .selected_index
-                .min(next_overlay.steps.len().saturating_sub(1));
+            let selected_index =
+                active_overlay.selected_index.min(next_overlay.steps.len().saturating_sub(1));
             *active_overlay = next_overlay;
             active_overlay.selected_index = selected_index;
         }
     }
 
     fn current_session_id(&self) -> Option<&str> {
-        self.state
-            .session
-            .session_id
-            .as_deref()
-            .or_else(|| self.runtime.session_id())
+        self.state.session.session_id.as_deref().or_else(|| self.runtime.session_id())
     }
 
     fn push_error_overlay(&mut self, overlay: UiErrorOverlay) {
@@ -1367,10 +1277,7 @@ impl TuiApp {
             return;
         }
 
-        reduce_tui_state(
-            &mut self.state,
-            TuiAction::OverlayPushed(UiOverlay::Error(overlay)),
-        );
+        reduce_tui_state(&mut self.state, TuiAction::OverlayPushed(UiOverlay::Error(overlay)));
     }
 
     fn push_overlay_error(&mut self, title: impl Into<String>, message: impl Into<String>) {
@@ -1381,11 +1288,7 @@ impl TuiApp {
         });
     }
 
-    fn push_app_system_message(
-        &mut self,
-        text: impl Into<String>,
-        level: UiSystemMessageLevel,
-    ) {
+    fn push_app_system_message(&mut self, text: impl Into<String>, level: UiSystemMessageLevel) {
         let message_index = self.state.messages.len();
         reduce_tui_state(
             &mut self.state,
@@ -1411,10 +1314,7 @@ impl TuiApp {
             .then(|| legacy_shadow_request_from_state(&self.state, &submission))
             .flatten();
 
-        reduce_tui_state(
-            &mut self.state,
-            TuiAction::PromptSubmissionStarted(submission.clone()),
-        );
+        reduce_tui_state(&mut self.state, TuiAction::PromptSubmissionStarted(submission.clone()));
 
         let feedback = self.draw(terminal)?;
         self.controller.sync_layout(&mut self.state, &feedback);
@@ -1503,10 +1403,7 @@ impl TuiApp {
                     self.request_submission_cancel(cancel_requested.as_ref());
                 }
                 TuiControllerCommand::Overlay(command) => {
-                    if matches!(
-                        self.handle_overlay_command(command)?,
-                        TuiAppCommandOutcome::Quit
-                    ) {
+                    if matches!(self.handle_overlay_command(command)?, TuiAppCommandOutcome::Quit) {
                         quit_after_submission = true;
                         self.request_submission_cancel(cancel_requested.as_ref());
                     }
@@ -1517,24 +1414,20 @@ impl TuiApp {
             self.controller.sync_layout(&mut self.state, &feedback);
         }
 
-        worker
-            .join()
-            .map_err(|_| anyhow!("tui_v2 stream worker panicked"))?;
+        worker.join().map_err(|_| anyhow!("tui_v2 stream worker panicked"))?;
 
         if worker_disconnected && !saw_terminal {
-            return Err(anyhow!(
-                "tui_v2 stream worker exited before sending a terminal event"
-            ));
+            return Err(anyhow!("tui_v2 stream worker exited before sending a terminal event"));
         }
 
-        let gateway_shadow_result = gateway_shadow_terminal
-            .as_ref()
-            .map(|terminal_event| SessionProcessorComparableResult {
+        let gateway_shadow_result = gateway_shadow_terminal.as_ref().map(|terminal_event| {
+            SessionProcessorComparableResult {
                 output: gateway_shadow_output,
                 usage: comparable_usage_from_runtime_terminal(terminal_event),
                 step_finishes: gateway_shadow_step_finishes,
                 terminal: comparable_terminal_from_runtime_terminal(terminal_event),
-            });
+            }
+        });
 
         self.refresh_task_state_blocking();
         self.refresh_project_context_blocking();
@@ -1615,15 +1508,13 @@ impl TuiApp {
         let spinner_frame = self.controller.spinner_frame();
 
         terminal.draw(|frame| {
-            feedback = self
-                .renderer
-                .render_frame(
-                    frame,
-                    &self.state,
-                    self.run_mode.badge_label(),
-                    endpoint_label.as_str(),
-                    spinner_frame,
-                );
+            feedback = self.renderer.render_frame(
+                frame,
+                &self.state,
+                self.run_mode.badge_label(),
+                endpoint_label.as_str(),
+                spinner_frame,
+            );
         })?;
 
         Ok(feedback)
@@ -1652,21 +1543,22 @@ impl TuiApp {
 
         if self.state.session.scope.is_none() {
             let scope = self.resolve_session_scope_blocking();
-            reduce_tui_state(
-                &mut self.state,
-                TuiAction::SessionScopeSet(scope),
-            );
+            reduce_tui_state(&mut self.state, TuiAction::SessionScopeSet(scope));
         }
 
         let active_model = normalize_optional_str_ref(self.state.status.model_name.as_deref())
             .map(ToOwned::to_owned)
-            .or_else(|| normalize_optional_str_ref(Some(setup.model_name.as_str())).map(ToOwned::to_owned));
-        let active_provider = normalize_optional_str_ref(self.state.status.provider_name.as_deref())
-            .map(ToOwned::to_owned)
-            .or_else(|| active_model.as_deref().and_then(provider_name_from_model))
             .or_else(|| {
-                normalize_optional_str_ref(Some(setup.provider_name.as_str())).map(ToOwned::to_owned)
+                normalize_optional_str_ref(Some(setup.model_name.as_str())).map(ToOwned::to_owned)
             });
+        let active_provider =
+            normalize_optional_str_ref(self.state.status.provider_name.as_deref())
+                .map(ToOwned::to_owned)
+                .or_else(|| active_model.as_deref().and_then(provider_name_from_model))
+                .or_else(|| {
+                    normalize_optional_str_ref(Some(setup.provider_name.as_str()))
+                        .map(ToOwned::to_owned)
+                });
 
         reduce_tui_state(&mut self.state, TuiAction::StatusProviderSet(active_provider));
         reduce_tui_state(&mut self.state, TuiAction::StatusModelSet(active_model));
@@ -1748,7 +1640,8 @@ impl TuiApp {
             }
         };
 
-        let Some(session_id) = select_restore_session_id(self.runtime.session_id(), &previews) else {
+        let Some(session_id) = select_restore_session_id(self.runtime.session_id(), &previews)
+        else {
             return false;
         };
 
@@ -1765,11 +1658,7 @@ impl TuiApp {
         allow_empty_binding: bool,
     ) -> SessionRestoreOutcome {
         let scope = self.resolve_session_scope_blocking();
-        let path = self
-            .runtime
-            .session_path_blocking(Some(session_id))
-            .ok()
-            .flatten();
+        let path = self.runtime.session_path_blocking(Some(session_id)).ok().flatten();
 
         let snapshot = match self.runtime.session_ui_load_any_blocking(Some(session_id)) {
             Ok(snapshot) => snapshot,
@@ -1793,23 +1682,12 @@ impl TuiApp {
 
             reduce_tui_state(
                 &mut self.state,
-                TuiAction::ReplaceFromSnapshot {
-                    snapshot,
-                    scope,
-                    path,
-                },
+                TuiAction::ReplaceFromSnapshot { snapshot, scope, path },
             );
             return SessionRestoreOutcome::MetadataOnly;
         };
 
-        reduce_tui_state(
-            &mut self.state,
-            TuiAction::ReplaceFromSnapshot {
-                snapshot,
-                scope,
-                path,
-            },
-        );
+        reduce_tui_state(&mut self.state, TuiAction::ReplaceFromSnapshot { snapshot, scope, path });
         SessionRestoreOutcome::Snapshot
     }
 
@@ -1821,19 +1699,13 @@ impl TuiApp {
         let previews = match self.runtime.session_ui_previews_blocking() {
             Ok(previews) => previews,
             Err(err) => {
-                self.push_overlay_error(
-                    "恢复失败",
-                    format!("会话预览同步失败: {err}"),
-                );
+                self.push_overlay_error("恢复失败", format!("会话预览同步失败: {err}"));
                 return;
             }
         };
 
         let Some(target_session_id) = select_restore_session_id(session_id, &previews) else {
-            self.push_overlay_error(
-                "恢复失败",
-                "当前没有可供 tui_v2 恢复的会话快照。",
-            );
+            self.push_overlay_error("恢复失败", "当前没有可供 tui_v2 恢复的会话快照。");
             return;
         };
 
@@ -1852,10 +1724,7 @@ impl TuiApp {
             SessionRestoreOutcome::MetadataOnly => {
                 self.finish_session_restore();
                 self.push_app_system_message(
-                    format!(
-                        "会话 {} 还没有持久化快照；本次仅恢复了会话绑定。",
-                        target_session_id
-                    ),
+                    format!("会话 {} 还没有持久化快照；本次仅恢复了会话绑定。", target_session_id),
                     UiSystemMessageLevel::Warning,
                 );
             }
@@ -1871,30 +1740,20 @@ impl TuiApp {
     fn finish_session_restore(&mut self) {
         self.sync_session_metadata_blocking();
         if normalize_optional_str_ref(self.state.status.provider_name.as_deref()).is_none()
-            && let Some(provider_name) = self
-                .state
-                .status
-                .model_name
-                .as_deref()
-                .and_then(provider_name_from_model)
+            && let Some(provider_name) =
+                self.state.status.model_name.as_deref().and_then(provider_name_from_model)
         {
-            reduce_tui_state(
-                &mut self.state,
-                TuiAction::StatusProviderSet(Some(provider_name)),
-            );
+            reduce_tui_state(&mut self.state, TuiAction::StatusProviderSet(Some(provider_name)));
         }
         self.refresh_task_state_blocking();
         self.refresh_project_context_blocking();
-        reduce_tui_state(
-            &mut self.state,
-            TuiAction::StatusErrorSet(None),
-        );
+        reduce_tui_state(&mut self.state, TuiAction::StatusErrorSet(None));
         self.state.refresh_session_preview();
     }
 
     fn sync_runtime_session_seed_from_state(&mut self) {
-        let title = (!self.state.session.title.trim().is_empty())
-            .then(|| self.state.session.title.clone());
+        let title =
+            (!self.state.session.title.trim().is_empty()).then(|| self.state.session.title.clone());
         self.runtime.bind_session_seed(
             self.state.session.session_id.clone(),
             self.state.session.scope.clone(),
@@ -1961,7 +1820,9 @@ impl TuiApp {
             return;
         };
 
-        if let Ok(Some(meta)) = self.runtime.session_preview_meta_blocking(Some(session_id.as_str())) {
+        if let Ok(Some(meta)) =
+            self.runtime.session_preview_meta_blocking(Some(session_id.as_str()))
+        {
             if !meta.title.trim().is_empty() {
                 reduce_tui_state(&mut self.state, TuiAction::SessionTitleSet(meta.title.clone()));
             }
@@ -2025,7 +1886,7 @@ fn default_session_title(directory: &Path) -> String {
         .filter(|name| !name.trim().is_empty())
         .map(|name| format!("TUI v2 {}", name.trim()))
         .unwrap_or_else(|| "TUI v2 会话".to_string())
-    }
+}
 
 fn bootstrap_message_base() -> UiMessageBase {
     UiMessageBase::new(UiMessageId::local("ui-bootstrap-system"))
@@ -2049,12 +1910,11 @@ fn load_model_catalog_blocking() -> Vec<TuiModelCatalogEntry> {
         .into_values()
         .flat_map(|provider_info| {
             let provider_id = provider_info.id;
-            let provider_name = normalize_catalog_text(provider_info.name.as_str(), provider_id.as_str());
+            let provider_name =
+                normalize_catalog_text(provider_info.name.as_str(), provider_id.as_str());
             let mut models = provider_info.models.into_values().collect::<Vec<_>>();
             models.sort_by(|left, right| {
-                left.name
-                    .cmp(&right.name)
-                    .then_with(|| left.id.cmp(&right.id))
+                left.name.cmp(&right.name).then_with(|| left.id.cmp(&right.id))
             });
 
             models.into_iter().map(move |model| TuiModelCatalogEntry {
@@ -2081,11 +1941,7 @@ fn load_model_catalog_blocking() -> Vec<TuiModelCatalogEntry> {
 
 fn normalize_catalog_text(value: &str, fallback: &str) -> String {
     let value = value.trim();
-    if value.is_empty() {
-        fallback.to_string()
-    } else {
-        value.to_string()
-    }
+    if value.is_empty() { fallback.to_string() } else { value.to_string() }
 }
 
 fn block_on_sync<F, T>(future: F) -> T
@@ -2110,12 +1966,9 @@ fn gateway_stream_request_from_state(
 ) -> GatewayChatStreamRequest {
     let snapshot = state.to_chat_session();
     GatewayChatStreamRequest {
-        session_id: normalize_optional_str_ref(submission.session_id.as_deref()).map(SessionId::from),
-        messages: snapshot
-            .messages
-            .iter()
-            .map(gateway_message_from_chat_message)
-            .collect(),
+        session_id: normalize_optional_str_ref(submission.session_id.as_deref())
+            .map(SessionId::from),
+        messages: snapshot.messages.iter().map(gateway_message_from_chat_message).collect(),
         system: None,
         model: submission.model.clone(),
         agent: None,
@@ -2140,13 +1993,7 @@ fn legacy_shadow_request_from_state(
     let session_id = normalize_optional_str_ref(submission.session_id.as_deref())?.to_string();
     let root = normalize_optional_str_ref(submission.root.as_deref())
         .map(ToOwned::to_owned)
-        .or_else(|| {
-            state
-                .project
-                .workspace_root
-                .as_ref()
-                .map(|path| path.display().to_string())
-        });
+        .or_else(|| state.project.workspace_root.as_ref().map(|path| path.display().to_string()));
     let snapshot = state.to_chat_session();
 
     Some(legacy_processor::Request {
@@ -2186,36 +2033,27 @@ fn comparable_terminal_from_runtime_terminal(
     terminal: &UiRuntimeTerminalEvent,
 ) -> SessionProcessorComparableTerminal {
     match terminal {
-        UiRuntimeTerminalEvent::Done {
-            finish_reason,
-            message_id,
-            parent_message_id,
-            ..
-        } => SessionProcessorComparableTerminal::Done {
-            finish_reason: finish_reason.clone(),
-            message_id: message_id.clone(),
-            parent_message_id: parent_message_id.clone(),
-        },
-        UiRuntimeTerminalEvent::Cancelled {
-            reason,
-            message_id,
-            parent_message_id,
-            ..
-        } => SessionProcessorComparableTerminal::Cancelled {
-            reason: reason.clone(),
-            message_id: message_id.clone(),
-            parent_message_id: parent_message_id.clone(),
-        },
-        UiRuntimeTerminalEvent::TimedOut {
-            message,
-            message_id,
-            parent_message_id,
-            ..
-        } => SessionProcessorComparableTerminal::TimedOut {
-            message: message.clone(),
-            message_id: message_id.clone(),
-            parent_message_id: parent_message_id.clone(),
-        },
+        UiRuntimeTerminalEvent::Done { finish_reason, message_id, parent_message_id, .. } => {
+            SessionProcessorComparableTerminal::Done {
+                finish_reason: finish_reason.clone(),
+                message_id: message_id.clone(),
+                parent_message_id: parent_message_id.clone(),
+            }
+        }
+        UiRuntimeTerminalEvent::Cancelled { reason, message_id, parent_message_id, .. } => {
+            SessionProcessorComparableTerminal::Cancelled {
+                reason: reason.clone(),
+                message_id: message_id.clone(),
+                parent_message_id: parent_message_id.clone(),
+            }
+        }
+        UiRuntimeTerminalEvent::TimedOut { message, message_id, parent_message_id, .. } => {
+            SessionProcessorComparableTerminal::TimedOut {
+                message: message.clone(),
+                message_id: message_id.clone(),
+                parent_message_id: parent_message_id.clone(),
+            }
+        }
         UiRuntimeTerminalEvent::Error(message) => {
             SessionProcessorComparableTerminal::Error(message.clone())
         }
@@ -2269,17 +2107,10 @@ pub(crate) fn compare_shadow_results(
     }
 
     if gateway.step_finishes != legacy.step_finishes {
-        diffs.push(format!(
-            "steps {} != {}",
-            gateway.step_finishes, legacy.step_finishes
-        ));
+        diffs.push(format!("steps {} != {}", gateway.step_finishes, legacy.step_finishes));
     }
 
-    if diffs.is_empty() {
-        Ok(())
-    } else {
-        Err(diffs.join("; "))
-    }
+    if diffs.is_empty() { Ok(()) } else { Err(diffs.join("; ")) }
 }
 
 fn comparable_terminal_kind(terminal: &SessionProcessorComparableTerminal) -> &'static str {
@@ -2310,10 +2141,7 @@ fn compare_output_summary(output: &str) -> String {
 fn usage_summary(usage: &TokenUsage) -> String {
     format!(
         "in={} out={} cached={} reasoning={}",
-        usage.input_tokens,
-        usage.output_tokens,
-        usage.cached_tokens,
-        usage.reasoning_tokens
+        usage.input_tokens, usage.output_tokens, usage.cached_tokens, usage.reasoning_tokens
     )
 }
 

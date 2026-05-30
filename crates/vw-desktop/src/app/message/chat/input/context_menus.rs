@@ -1,10 +1,10 @@
 //! 处理聊天输入区的局部消息。
 //! 本模块将编辑器操作、文件检索和工具细节限制在输入面板边界内。
 
-use super::{ChatMessage, ClipboardPastePayload};
 use super::shared::{
     close_input_context_menu, focus_input_editor, sync_global_input_editor_if_needed,
 };
+use super::{ChatMessage, ClipboardPastePayload};
 use crate::app::components::chat_panel::tool_text_support::selected_chat_text_for_target;
 use crate::app::message::chat::input::clipboard::read_clipboard_for_input;
 use crate::app::message::project::helpers::append_local_attachments;
@@ -67,11 +67,11 @@ pub(super) fn handle_clipboard_paste_resolved(
     payload: ClipboardPastePayload,
 ) -> Task<Message> {
     match payload {
-        ClipboardPastePayload::Text(content) => Task::done(Message::Chat(
-            ChatMessage::InputEditorAction(text_editor::Action::Edit(text_editor::Edit::Paste(
-                std::sync::Arc::new(content),
-            ))),
-        )),
+        ClipboardPastePayload::Text(content) => {
+            Task::done(Message::Chat(ChatMessage::InputEditorAction(text_editor::Action::Edit(
+                text_editor::Edit::Paste(std::sync::Arc::new(content)),
+            ))))
+        }
         ClipboardPastePayload::AttachmentPath(path) => {
             append_local_attachments(app, vec![path]);
             focus_input_editor(app)

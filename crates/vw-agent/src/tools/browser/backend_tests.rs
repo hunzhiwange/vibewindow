@@ -2,7 +2,10 @@ use super::*;
 
 #[test]
 fn parse_accepts_stable_aliases() {
-    assert_eq!(BrowserBackendKind::parse("agent-browser").unwrap(), BrowserBackendKind::AgentBrowser);
+    assert_eq!(
+        BrowserBackendKind::parse("agent-browser").unwrap(),
+        BrowserBackendKind::AgentBrowser
+    );
     assert_eq!(BrowserBackendKind::parse("native").unwrap(), BrowserBackendKind::RustNative);
     assert_eq!(BrowserBackendKind::parse("computer_use").unwrap(), BrowserBackendKind::ComputerUse);
     assert_eq!(BrowserBackendKind::parse(" AUTO ").unwrap(), BrowserBackendKind::Auto);

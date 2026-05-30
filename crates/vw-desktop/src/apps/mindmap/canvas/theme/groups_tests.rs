@@ -1,5 +1,5 @@
-use super::groups::{CUSTOM_THEME_GROUP_ID, get_theme, resolve_theme, theme_group_variant_count};
 use super::custom::MindMapCustomTheme;
+use super::groups::{CUSTOM_THEME_GROUP_ID, get_theme, resolve_theme, theme_group_variant_count};
 
 fn custom_theme() -> MindMapCustomTheme {
     MindMapCustomTheme {

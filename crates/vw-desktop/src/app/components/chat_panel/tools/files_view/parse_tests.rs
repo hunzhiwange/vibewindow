@@ -1,4 +1,7 @@
-use super::parse::{build_file_list_state, is_edit_like_tool, is_git_diff_tool, is_search_tool, parse_read_range, should_skip_files_view};
+use super::parse::{
+    build_file_list_state, is_edit_like_tool, is_git_diff_tool, is_search_tool, parse_read_range,
+    should_skip_files_view,
+};
 
 #[test]
 fn tool_classification_is_explicit() {

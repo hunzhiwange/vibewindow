@@ -8,10 +8,8 @@ fn directory_size_path_returns_zero_for_missing_path() {
 #[test]
 #[cfg(not(target_arch = "wasm32"))]
 fn matching_file_size_path_filters_extensions_case_insensitively() {
-    let root = std::env::temp_dir().join(format!(
-        "vibe-window-cleaner-fs-test-{}",
-        std::process::id()
-    ));
+    let root =
+        std::env::temp_dir().join(format!("vibe-window-cleaner-fs-test-{}", std::process::id()));
     let nested = root.join("nested");
     std::fs::create_dir_all(&nested).unwrap();
     std::fs::write(root.join("keep.LOG"), b"1234").unwrap();

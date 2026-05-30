@@ -47,9 +47,8 @@ pub(crate) fn read_markdown_skill_metadata(path: &Path) -> Result<MarkdownSkillM
 
 pub(crate) fn parse_markdown_skill_metadata(content: &str) -> MarkdownSkillMetadata {
     let frontmatter = parse_markdown_skill_frontmatter(content);
-    let display_name = frontmatter
-        .as_ref()
-        .and_then(|meta| sanitize_frontmatter_value(meta.name.as_deref()));
+    let display_name =
+        frontmatter.as_ref().and_then(|meta| sanitize_frontmatter_value(meta.name.as_deref()));
     let description = frontmatter
         .as_ref()
         .and_then(|meta| sanitize_frontmatter_value(meta.description.as_deref()))
@@ -392,11 +391,9 @@ fn extract_description(content: &str) -> String {
 ///
 /// 找到第一个有效描述行后立即返回，不会读取文件的剩余部分。
 fn extract_description_from_markdown(path: &Path) -> Result<String> {
-    Ok(
-        read_markdown_skill_metadata(path)?
-            .description
-            .unwrap_or_else(|| "No description".to_string()),
-    )
+    Ok(read_markdown_skill_metadata(path)?
+        .description
+        .unwrap_or_else(|| "No description".to_string()))
 }
 #[cfg(test)]
 #[path = "loader_tests.rs"]

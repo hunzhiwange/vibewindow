@@ -3,8 +3,8 @@
 //! 该模块集中计算应用数据、配置、状态、日志、二进制和缓存目录。非 wasm 目标
 //! 使用系统目录约定并支持测试覆盖 home 目录；wasm 目标使用固定虚拟路径。
 
-use std::sync::LazyLock;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 /// 应用目录名。
 pub const APP: &str = "vibewindow";

@@ -1,5 +1,5 @@
-use super::*;
 use super::validation;
+use super::*;
 use crate::tools::shell::ast::parse_command;
 
 #[test]

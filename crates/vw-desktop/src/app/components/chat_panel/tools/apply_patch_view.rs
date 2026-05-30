@@ -28,9 +28,8 @@ use super::tool_parse::{
     tool_input, tool_output_path, tool_output_text, tool_status, tool_structured_diff_text,
 };
 use super::{
-    ToolTextTarget, canonical_tool_name, selected_chat_text_for_target,
-    tool_permission_error_text, tool_permission_state, tool_permission_target_summary,
-    tool_permission_title, tool_text_editor,
+    ToolTextTarget, canonical_tool_name, selected_chat_text_for_target, tool_permission_error_text,
+    tool_permission_state, tool_permission_target_summary, tool_permission_title, tool_text_editor,
 };
 use crate::app::components::chat_panel::utils::{
     bold_font, change_pills, chat_context_menu, chat_context_target_key, chat_scroll_direction,
@@ -163,9 +162,7 @@ pub fn tool_apply_patch_view<'a>(
         }));
     } else if let Some(permission_target) = permission_target {
         head_row = head_row.push(text(permission_target).size(13).style(|theme: &Theme| {
-            iced::widget::text::Style {
-                color: Some(apply_patch_secondary_text(theme, 0.68, 0.74)),
-            }
+            iced::widget::text::Style { color: Some(apply_patch_secondary_text(theme, 0.68, 0.74)) }
         }));
     }
     if !primary_dir.is_empty() {
@@ -562,7 +559,9 @@ fn view_changes_pill<'a>() -> Element<'a, Message> {
     .into()
 }
 
-pub(super) fn apply_patch_header_summary(files: &[(char, String)]) -> (String, String, Option<String>) {
+pub(super) fn apply_patch_header_summary(
+    files: &[(char, String)],
+) -> (String, String, Option<String>) {
     let Some((_, first_path)) = files.first() else {
         return (String::new(), String::new(), None);
     };

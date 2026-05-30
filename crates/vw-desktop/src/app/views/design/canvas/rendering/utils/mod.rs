@@ -10,6 +10,4 @@ mod text;
 pub use image::draw_image_from_cache;
 pub use path::{element_path, element_path_radius};
 pub use tailwind::{draw_tailwind_box, draw_tailwind_outline};
-pub use text::{
-    apply_text_transform, compute_line_width, draw_text_decoration, wrap_text_words,
-};
+pub use text::{apply_text_transform, compute_line_width, draw_text_decoration, wrap_text_words};

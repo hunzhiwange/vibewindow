@@ -6,10 +6,10 @@ use iced::widget::{button, column, container, text};
 /// 重新导出 use iced::{Background, Border, Color, Element, Length, Theme}，让上层模块通过稳定路径访问。
 use iced::{Background, Border, Color, Element, Length, Theme};
 
-/// 重新导出 use crate::app::message::ChatMessage，让上层模块通过稳定路径访问。
-use crate::app::message::ChatMessage;
 /// 重新导出 use crate::app::Message，让上层模块通过稳定路径访问。
 use crate::app::Message;
+/// 重新导出 use crate::app::message::ChatMessage，让上层模块通过稳定路径访问。
+use crate::app::message::ChatMessage;
 
 /// 重新导出 use super::theme::is_dark_theme，让上层模块通过稳定路径访问。
 use super::theme::is_dark_theme;

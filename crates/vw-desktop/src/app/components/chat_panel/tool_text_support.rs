@@ -326,9 +326,7 @@ where
                 .size(size)
                 .font(font)
                 .wrapping(Wrapping::None)
-                .style(move |theme| iced::widget::text::Style {
-                    color: Some(color_fn(theme)),
-                });
+                .style(move |theme| iced::widget::text::Style { color: Some(color_fn(theme)) });
 
             Some(container(inline_text).width(Length::Shrink).into())
         }
@@ -347,9 +345,7 @@ where
                 .size(size)
                 .font(font)
                 .wrapping(Wrapping::None)
-                .style(move |theme| iced::widget::text::Style {
-                    color: Some(color_fn(theme)),
-                });
+                .style(move |theme| iced::widget::text::Style { color: Some(color_fn(theme)) });
 
             Some(container(inline_text).width(Length::Shrink).into())
         }

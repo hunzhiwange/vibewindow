@@ -1,4 +1,6 @@
-use super::styles::{is_dark_theme, message_body_text_color, message_meta_text_color, neutral_card_surface};
+use super::styles::{
+    is_dark_theme, message_body_text_color, message_meta_text_color, neutral_card_surface,
+};
 use iced::Theme;
 
 #[test]

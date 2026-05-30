@@ -4,9 +4,9 @@
 //! 注释聚焦调用边界、返回值和错误传播方式，便于后续维护设置页与工具栏行为时快速定位职责。
 
 use crate::app::components::system_settings_common::{
-    SETTINGS_LABEL_WIDTH, rounded_action_btn_style, settings_checkbox_style,
-    settings_error_banner, settings_muted_text_style, settings_page_intro, settings_panel,
-    settings_section_card, settings_text_input_style, settings_value_badge,
+    SETTINGS_LABEL_WIDTH, rounded_action_btn_style, settings_checkbox_style, settings_error_banner,
+    settings_muted_text_style, settings_page_intro, settings_panel, settings_section_card,
+    settings_text_input_style, settings_value_badge,
 };
 use crate::app::message::settings::{HttpRequestMessage, SettingsMessage};
 use crate::app::views::design::properties::NumberInput;
@@ -66,10 +66,7 @@ fn bool_row<'a>(
     field_row(
         label,
         description,
-        checkbox(checked)
-            .label(checkbox_label)
-            .on_toggle(on_toggle)
-            .style(settings_checkbox_style),
+        checkbox(checked).label(checkbox_label).on_toggle(on_toggle).style(settings_checkbox_style),
     )
 }
 
@@ -125,26 +122,57 @@ fn number_row<'a>(
 pub fn view(app: &App) -> Element<'_, Message> {
     let s = &app.http_request_settings;
 
-    let enabled_row = bool_row("启用", "控制是否启用网络请求工具。", s.enabled, "启用网络请求工具", |value| {
-        Message::Settings(SettingsMessage::HttpRequest(HttpRequestMessage::EnabledToggled(value)))
-    });
+    let enabled_row = bool_row(
+        "启用",
+        "控制是否启用网络请求工具。",
+        s.enabled,
+        "启用网络请求工具",
+        |value| {
+            Message::Settings(SettingsMessage::HttpRequest(HttpRequestMessage::EnabledToggled(
+                value,
+            )))
+        },
+    );
 
-    let max_response_size_row =
-        number_row("响应大小上限", "限制单次请求可读取的最大响应体大小。", s.max_response_size, 0, u32::MAX, "字节", |value| {
+    let max_response_size_row = number_row(
+        "响应大小上限",
+        "限制单次请求可读取的最大响应体大小。",
+        s.max_response_size,
+        0,
+        u32::MAX,
+        "字节",
+        |value| {
             Message::Settings(SettingsMessage::HttpRequest(
                 HttpRequestMessage::MaxResponseSizeChanged(value),
             ))
-        });
+        },
+    );
 
-    let timeout_secs_row = number_row("超时时间", "单次请求的超时时间。", s.timeout_secs, 0, 86_400, "秒", |value| {
-        Message::Settings(SettingsMessage::HttpRequest(HttpRequestMessage::TimeoutSecsChanged(
-            value,
-        )))
-    });
+    let timeout_secs_row = number_row(
+        "超时时间",
+        "单次请求的超时时间。",
+        s.timeout_secs,
+        0,
+        86_400,
+        "秒",
+        |value| {
+            Message::Settings(SettingsMessage::HttpRequest(HttpRequestMessage::TimeoutSecsChanged(
+                value,
+            )))
+        },
+    );
 
-    let user_agent_row = text_row("User-Agent", "请求默认携带的 User-Agent。", "VibeWindow/1.0", &s.user_agent, |value| {
-        Message::Settings(SettingsMessage::HttpRequest(HttpRequestMessage::UserAgentChanged(value)))
-    });
+    let user_agent_row = text_row(
+        "User-Agent",
+        "请求默认携带的 User-Agent。",
+        "VibeWindow/1.0",
+        &s.user_agent,
+        |value| {
+            Message::Settings(SettingsMessage::HttpRequest(HttpRequestMessage::UserAgentChanged(
+                value,
+            )))
+        },
+    );
 
     let allowed_domains_section = settings_panel(
         column![field_row(
@@ -174,17 +202,18 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let allowed_domains_list: Element<'_, Message> = if s.allowed_domains.is_empty() {
         settings_panel(
-            column![text("当前未配置允许域名；启用工具后仍会因为白名单为空而拒绝所有请求。")
-                .size(12)
-                .style(settings_muted_text_style)]
+            column![
+                text("当前未配置允许域名；启用工具后仍会因为白名单为空而拒绝所有请求。")
+                    .size(12)
+                    .style(settings_muted_text_style)
+            ]
             .spacing(0),
         )
         .into()
     } else {
-        let list = s.allowed_domains
-            .iter()
-            .enumerate()
-            .fold(column![].spacing(10), |column, (index, domain)| {
+        let list = s.allowed_domains.iter().enumerate().fold(
+            column![].spacing(10),
+            |column, (index, domain)| {
                 column.push(
                     row![
                         text(format!("域名 {}", index + 1))
@@ -200,18 +229,25 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     .spacing(20)
                     .align_y(Alignment::Center),
                 )
-            });
+            },
+        );
 
         settings_panel(list).into()
     };
 
     let mut content = column![
-        settings_page_intro("网络请求配置", "配置网络请求工具的开关、超时、响应大小限制和域名白名单。"),
+        settings_page_intro(
+            "网络请求配置",
+            "配置网络请求工具的开关、超时、响应大小限制和域名白名单。"
+        ),
         settings_section_card(
             "基础行为",
             "控制 http_request 工具的启用状态、超时、最大响应体大小和默认 User-Agent。",
         ),
-        settings_panel(column![enabled_row, max_response_size_row, timeout_secs_row, user_agent_row].spacing(0)),
+        settings_panel(
+            column![enabled_row, max_response_size_row, timeout_secs_row, user_agent_row]
+                .spacing(0)
+        ),
         hint_row("`0` 表示不限制响应体大小；较大的响应会增加内存占用与模型上下文成本。"),
         hint_row("`0` 会在运行时回退到安全默认值 30 秒。"),
         settings_section_card(

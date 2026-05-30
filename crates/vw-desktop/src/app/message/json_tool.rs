@@ -520,19 +520,20 @@ pub fn update(app: &mut App, message: JsonToolMessage) -> Task<Message> {
                 async move {
                     crate::app::message::spawn_blocking_opt(move || {
                         if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text)
-                            && let Some(obj) = value.as_object() {
-                                let params: Vec<String> = obj
-                                    .iter()
-                                    .map(|(k, v)| {
-                                        let v_str = match v {
-                                            serde_json::Value::String(s) => s.clone(),
-                                            _ => v.to_string(),
-                                        };
-                                        format!("{}={}", url_encode(k), url_encode(&v_str))
-                                    })
-                                    .collect();
-                                return Some(params.join("&"));
-                            }
+                            && let Some(obj) = value.as_object()
+                        {
+                            let params: Vec<String> = obj
+                                .iter()
+                                .map(|(k, v)| {
+                                    let v_str = match v {
+                                        serde_json::Value::String(s) => s.clone(),
+                                        _ => v.to_string(),
+                                    };
+                                    format!("{}={}", url_encode(k), url_encode(&v_str))
+                                })
+                                .collect();
+                            return Some(params.join("&"));
+                        }
                         None
                     })
                     .await
@@ -609,4 +610,3 @@ fn apply_scroll_lines(app: &mut App, delta_lines: i32) {
     app.json_tool_scroll_top_line =
         (app.json_tool_scroll_top_line + delta_lines as f32).clamp(0.0, max_scroll);
 }
-

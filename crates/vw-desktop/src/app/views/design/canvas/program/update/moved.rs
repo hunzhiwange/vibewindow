@@ -222,12 +222,8 @@ impl<'a> DesignCanvas<'a> {
             let dx = (cursor_pos.x - start.x) / self.zoom;
             let dy = (cursor_pos.y - start.y) / self.zoom;
 
-            let (ix, iy, iw, ih) = (
-                initial_bounds.x,
-                initial_bounds.y,
-                initial_bounds.width,
-                initial_bounds.height,
-            );
+            let (ix, iy, iw, ih) =
+                (initial_bounds.x, initial_bounds.y, initial_bounds.width, initial_bounds.height);
 
             let (nx, ny, nw, nh) = match handle {
                 Handle::Right => (ix, iy, iw + dx, ih),
@@ -298,11 +294,7 @@ impl<'a> DesignCanvas<'a> {
         let raw_hit = hit_test(&self.doc.children, self.doc.as_ref(), world_x, world_y);
 
         let (hovered_id, hovered_tailwind_selection) = if let Some(hit_id) = raw_hit {
-            let base = if let Some(real) = hit_id.strip_suffix(":fit") {
-                real
-            } else {
-                &hit_id
-            };
+            let base = if let Some(real) = hit_id.strip_suffix(":fit") { real } else { &hit_id };
 
             let hovered_tailwind_selection = if let Some(el) =
                 find_element_by_id(&self.doc.children, base)
@@ -314,12 +306,7 @@ impl<'a> DesignCanvas<'a> {
                 let nodes = crate::app::views::design::canvas::tailwind::parse_html(content);
                 crate::app::views::design::canvas::tailwind::renderer::hit_test_path(
                     &nodes,
-                    Rectangle {
-                        x: rect.x,
-                        y: rect.y,
-                        width: rect.width,
-                        height: rect.height,
-                    },
+                    Rectangle { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
                     self.zoom,
                     cursor_pos,
                 )
@@ -328,7 +315,8 @@ impl<'a> DesignCanvas<'a> {
                 None
             };
 
-            let is_reusable = self.doc.find_element(base).is_some_and(|el| el.reusable == Some(true));
+            let is_reusable =
+                self.doc.find_element(base).is_some_and(|el| el.reusable == Some(true));
             if is_reusable {
                 (Some(base.to_string()), hovered_tailwind_selection)
             } else if let Some(path) = self.doc.find_path_to_element(base) {

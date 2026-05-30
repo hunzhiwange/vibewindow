@@ -7,9 +7,7 @@ use serde_yaml::Value;
 use crate::apps::workflow::model::{
     WorkflowDocument, WorkflowHandle, WorkflowHandleKind, WorkflowHandleSide,
 };
-use crate::apps::workflow::state::{
-    WorkflowNodeEditorDraft, WorkflowNodeEditorValidation,
-};
+use crate::apps::workflow::state::{WorkflowNodeEditorDraft, WorkflowNodeEditorValidation};
 
 fn workflow_node(id: &str, block_type: &str, source_handles: Vec<WorkflowHandle>) -> WorkflowNode {
     WorkflowNode {

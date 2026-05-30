@@ -50,9 +50,7 @@ async fn team_send_routes_messages_to_all_members() {
     assert!(created.success);
     let created_json: Value =
         serde_json::from_str(&created.output).expect("team create output should be json");
-    let members = created_json["members"]
-        .as_array()
-        .expect("members should be returned as array");
+    let members = created_json["members"].as_array().expect("members should be returned as array");
     assert_eq!(members.len(), 2);
     assert!(members.iter().any(|member| member == db_b.agent_id()));
     assert!(members.iter().any(|member| member == db_c.agent_id()));
@@ -65,8 +63,7 @@ async fn team_send_routes_messages_to_all_members() {
         .await
         .expect("team send should return result");
     assert!(sent.success);
-    let sent_json: Value =
-        serde_json::from_str(&sent.output).expect("send output should be json");
+    let sent_json: Value = serde_json::from_str(&sent.output).expect("send output should be json");
     assert_eq!(sent_json["count"], 2);
 
     let inbox_b = AgentsInboxTool::new(db_b);

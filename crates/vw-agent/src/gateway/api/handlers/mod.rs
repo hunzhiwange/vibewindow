@@ -49,8 +49,8 @@ pub mod auth;
 /// Desktop 本地状态网关化处理器模块
 pub mod desktop;
 
-/// Desktop skills 目录处理器模块
-mod desktop_skills;
+/// Gateway skills 目录处理器模块
+pub(crate) mod desktop_skills;
 
 /// 定时任务（Cron）管理处理器模块
 ///
@@ -110,6 +110,9 @@ pub mod session;
 ///
 /// 提供系统健康检查和运行状态查询处理器。
 pub mod status;
+
+/// 任务池调度路由处理器模块
+pub mod task_pool;
 
 /// 工具管理处理器模块
 ///

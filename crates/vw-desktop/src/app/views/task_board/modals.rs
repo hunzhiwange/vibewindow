@@ -333,14 +333,14 @@ pub fn build_task_settings_modal(app: &App) -> Element<'_, Message> {
         settings_text_input_style(theme, status)
     }
 
-    fn field_row<'a>(label: &'static str, control: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
+    fn field_row<'a>(
+        label: &'static str,
+        control: impl Into<Element<'a, Message>>,
+    ) -> Element<'a, Message> {
         row![
-            column![
-                text(label).size(13),
-                input_label("数值会立即作用于当前项目任务看板。"),
-            ]
-            .spacing(4)
-            .width(Length::Fixed(168.0)),
+            column![text(label).size(13), input_label("数值会立即作用于当前项目任务看板。"),]
+                .spacing(4)
+                .width(Length::Fixed(168.0)),
             container(control.into()).width(Length::Fill),
         ]
         .spacing(20)
@@ -348,9 +348,7 @@ pub fn build_task_settings_modal(app: &App) -> Element<'_, Message> {
         .into()
     }
 
-    let tab_button = |label: &'static str,
-                      tab: TaskBoardSettingsModalTab,
-                      selected: bool| {
+    let tab_button = |label: &'static str, tab: TaskBoardSettingsModalTab, selected: bool| {
         button(text(label).size(12))
             .on_press(Message::TaskBoard(TaskBoardMessage::SelectSettingsModalTab(tab)))
             .padding([6, 12])
@@ -398,7 +396,11 @@ pub fn build_task_settings_modal(app: &App) -> Element<'_, Message> {
                     },
                     shadow: if selected {
                         iced::Shadow {
-                            color: theme.palette().primary.scale_alpha(if is_dark { 0.18 } else { 0.08 }),
+                            color: theme.palette().primary.scale_alpha(if is_dark {
+                                0.18
+                            } else {
+                                0.08
+                            }),
                             offset: iced::Vector::new(0.0, 8.0),
                             blur_radius: 18.0,
                         }
@@ -749,10 +751,7 @@ pub fn build_task_settings_modal(app: &App) -> Element<'_, Message> {
     .align_y(Alignment::Center);
 
     let refresh_tab = column![
-        settings_section_card(
-            "刷新与自动化",
-            "统一管理自动刷新、任务池调度与自动回推节奏。",
-        ),
+        settings_section_card("刷新与自动化", "统一管理自动刷新、任务池调度与自动回推节奏。",),
         settings_panel(
             column![
                 field_row("自动刷新", auto_refresh_toggle_row),
@@ -767,10 +766,7 @@ pub fn build_task_settings_modal(app: &App) -> Element<'_, Message> {
     .spacing(12);
 
     let scheduling_tab = column![
-        settings_section_card(
-            "并发与保护",
-            "控制任务吞吐、失败重试、超时与 worktree 回收策略。",
-        ),
+        settings_section_card("并发与保护", "控制任务吞吐、失败重试、超时与 worktree 回收策略。",),
         settings_panel(
             column![
                 field_row("并发数", max_concurrent_row),
@@ -823,9 +819,7 @@ pub fn build_task_settings_modal(app: &App) -> Element<'_, Message> {
     .width(Length::Fixed(520.0));
 
     // 返回带有容器样式和阴影效果的完整设置模态窗口
-    settings_modal_card(settings_content)
-        .width(Length::Fixed(580.0))
-        .into()
+    settings_modal_card(settings_content).width(Length::Fixed(580.0)).into()
 }
 
 /// 构建任务上下文菜单

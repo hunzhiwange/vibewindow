@@ -3,7 +3,9 @@
 //! 在执行过程中向用户提问以收集偏好、澄清模糊指令或获取决策。
 //! 支持预设选项列表、多选和自定义输入。
 
-use super::traits::{Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec};
+use super::traits::{
+    Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec,
+};
 use crate::app::agent::question;
 use anyhow::bail;
 use async_trait::async_trait;
@@ -267,10 +269,16 @@ impl QuestionTool {
             let header = normalize_header(question.header.as_deref(), &question_text);
             let multi_select = question.multi_select.unwrap_or(false);
             let custom = question.custom.unwrap_or(true);
-            let options = normalize_options(&question_text, question.options.unwrap_or_default(), multi_select)?;
+            let options = normalize_options(
+                &question_text,
+                question.options.unwrap_or_default(),
+                multi_select,
+            )?;
 
             if options.is_empty() && !custom {
-                bail!("Question \"{question_text}\" must allow custom input when no options are provided");
+                bail!(
+                    "Question \"{question_text}\" must allow custom input when no options are provided"
+                );
             }
             if multi_select && options.is_empty() {
                 bail!("Question \"{question_text}\" cannot enable multiSelect without options");
@@ -288,7 +296,8 @@ impl QuestionTool {
         let answers = normalize_answer_map(args.answers, &questions)?;
         let annotations = normalize_annotations(args.annotations, &questions)?;
         let metadata = args.metadata.and_then(|metadata| {
-            normalize_optional_text(metadata.source).map(|source| MetadataInput { source: Some(source) })
+            normalize_optional_text(metadata.source)
+                .map(|source| MetadataInput { source: Some(source) })
         });
 
         Ok(NormalizedArgs { questions, answers, annotations, metadata })
@@ -327,7 +336,10 @@ impl QuestionTool {
             .collect()
     }
 
-    async fn collect_answers(&self, args: &NormalizedArgs) -> Result<CollectedAnswers, question::Error> {
+    async fn collect_answers(
+        &self,
+        args: &NormalizedArgs,
+    ) -> Result<CollectedAnswers, question::Error> {
         if let Some(answers) = args.answers.clone() {
             return Ok(CollectedAnswers {
                 answers,
@@ -491,7 +503,8 @@ fn normalize_annotations(
         return Ok(None);
     };
 
-    let valid_questions = questions.iter().map(|question| question.question.as_str()).collect::<HashSet<_>>();
+    let valid_questions =
+        questions.iter().map(|question| question.question.as_str()).collect::<HashSet<_>>();
     let mut normalized = BTreeMap::new();
     for (question, annotation) in annotations {
         if !valid_questions.contains(question.as_str()) {
@@ -562,10 +575,8 @@ fn inferred_annotations(
             continue;
         }
 
-        let selected = answers
-            .get(index)
-            .map(|answer| normalize_selected_answers(answer))
-            .unwrap_or_default();
+        let selected =
+            answers.get(index).map(|answer| normalize_selected_answers(answer)).unwrap_or_default();
         if selected.len() != 1 {
             continue;
         }
@@ -599,7 +610,9 @@ fn model_result_text(
     let mut parts = Vec::new();
     for (question, answer) in answers {
         let mut entry = vec![format!("\"{question}\"=\"{}\"", answer.as_str().unwrap_or_default())];
-        if let Some(annotation) = annotations.and_then(|annotations| annotations.get(question)).and_then(Value::as_object) {
+        if let Some(annotation) =
+            annotations.and_then(|annotations| annotations.get(question)).and_then(Value::as_object)
+        {
             if let Some(preview) = annotation.get("preview").and_then(Value::as_str) {
                 entry.push(format!("selected preview:\n{preview}"));
             }

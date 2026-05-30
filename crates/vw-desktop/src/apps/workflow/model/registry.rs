@@ -45,66 +45,28 @@ pub fn supported_node_types() -> &'static [WorkflowNodeTypeDescriptor] {
 pub fn workflow_node_icon(kind: &str) -> WorkflowNodeIconDescriptor {
     match kind.trim() {
         "start" => WorkflowNodeIconDescriptor { family: "lucide", name: "play" },
-        "end" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "circle-check",
-        },
-        "answer" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "message-square-text",
-        },
+        "end" => WorkflowNodeIconDescriptor { family: "lucide", name: "circle-check" },
+        "answer" => WorkflowNodeIconDescriptor { family: "lucide", name: "message-square-text" },
         "llm" => WorkflowNodeIconDescriptor { family: "lucide", name: "bot" },
-        "if-else" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "git-branch",
-        },
+        "if-else" => WorkflowNodeIconDescriptor { family: "lucide", name: "git-branch" },
         "code" => WorkflowNodeIconDescriptor { family: "lucide", name: "braces" },
         "tool" => WorkflowNodeIconDescriptor { family: "lucide", name: "wrench" },
-        "knowledge-retrieval" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "database",
-        },
-        "question-classifier" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "circle-question-mark",
-        },
+        "knowledge-retrieval" => WorkflowNodeIconDescriptor { family: "lucide", name: "database" },
+        "question-classifier" => {
+            WorkflowNodeIconDescriptor { family: "lucide", name: "circle-question-mark" }
+        }
         "http-request" => WorkflowNodeIconDescriptor { family: "lucide", name: "globe" },
-        "template-transform" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "replace-all",
-        },
-        "parameter-extractor" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "scan-text",
-        },
-        "document-extractor" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "file-text",
-        },
-        "iteration" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "iteration-cw",
-        },
-        "loop" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "refresh-cw",
-        },
-        "variable-assigner" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "variable",
-        },
-        "variable-aggregator" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "combine",
-        },
-        "agent" => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "bot-message-square",
-        },
-        _ => WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "workflow",
-        },
+        "template-transform" => {
+            WorkflowNodeIconDescriptor { family: "lucide", name: "replace-all" }
+        }
+        "parameter-extractor" => WorkflowNodeIconDescriptor { family: "lucide", name: "scan-text" },
+        "document-extractor" => WorkflowNodeIconDescriptor { family: "lucide", name: "file-text" },
+        "iteration" => WorkflowNodeIconDescriptor { family: "lucide", name: "iteration-cw" },
+        "loop" => WorkflowNodeIconDescriptor { family: "lucide", name: "refresh-cw" },
+        "variable-assigner" => WorkflowNodeIconDescriptor { family: "lucide", name: "variable" },
+        "variable-aggregator" => WorkflowNodeIconDescriptor { family: "lucide", name: "combine" },
+        "agent" => WorkflowNodeIconDescriptor { family: "lucide", name: "bot-message-square" },
+        _ => WorkflowNodeIconDescriptor { family: "lucide", name: "workflow" },
     }
 }
 
@@ -131,4 +93,3 @@ pub fn workflow_node_accent_color(kind: &str) -> Color {
         _ => Color::from_rgb8(0x64, 0x74, 0x8B),
     }
 }
-

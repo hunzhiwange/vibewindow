@@ -79,11 +79,9 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
 
                 Task::none()
             }
-            DesignMessage::CreateElement {
-                element,
-                parent_id,
-                start_editing,
-            } => handlers::handle_create_element(state, element, parent_id, start_editing),
+            DesignMessage::CreateElement { element, parent_id, start_editing } => {
+                handlers::handle_create_element(state, element, parent_id, start_editing)
+            }
             DesignMessage::ZoomIn => {
                 state.zoom = (state.zoom * 1.2).clamp(0.1, 10.0);
                 state.show_zoom_menu = false;
@@ -113,14 +111,18 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
                 "200%" => update(app, DesignMessage::ZoomSet(2.0)),
                 "300%" => update(app, DesignMessage::ZoomSet(3.0)),
                 _ => {
-                    if let Some(number) = label.strip_suffix('%').and_then(|raw| raw.parse::<f32>().ok()) {
+                    if let Some(number) =
+                        label.strip_suffix('%').and_then(|raw| raw.parse::<f32>().ok())
+                    {
                         update(app, DesignMessage::ZoomSet(number / 100.0))
                     } else {
                         Task::none()
                     }
                 }
             },
-            DesignMessage::FitToElement(id) => handlers::handle_fit_to_element(state, &id, window_size),
+            DesignMessage::FitToElement(id) => {
+                handlers::handle_fit_to_element(state, &id, window_size)
+            }
             DesignMessage::ToggleZoomMenu => {
                 state.show_zoom_menu = !state.show_zoom_menu;
                 Task::none()
@@ -128,7 +130,9 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
             DesignMessage::CanvasContextMenuOpen(anchor, hit_id) => {
                 handlers::handle_canvas_context_menu_open(state, anchor, hit_id)
             }
-            DesignMessage::CanvasContextMenuClose => handlers::handle_canvas_context_menu_close(state),
+            DesignMessage::CanvasContextMenuClose => {
+                handlers::handle_canvas_context_menu_close(state)
+            }
             DesignMessage::CanvasContextMenuAction(action) => {
                 handlers::handle_canvas_context_menu_action(state, action)
             }
@@ -156,7 +160,9 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
             DesignMessage::SelectToolbarIcon { family, name } => {
                 handlers::handle_select_toolbar_icon(state, family, name)
             }
-            DesignMessage::UpdateContextShape(kind) => handlers::handle_update_context_shape(state, kind),
+            DesignMessage::UpdateContextShape(kind) => {
+                handlers::handle_update_context_shape(state, kind)
+            }
             DesignMessage::UpdateContextFill(fill_type) => {
                 handlers::handle_update_context_fill(state, fill_type)
             }

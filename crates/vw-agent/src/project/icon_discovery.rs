@@ -4,7 +4,7 @@
 //! data URL 写回项目元数据。用户手动设置过图标或外部 URL 时会直接跳过，避免
 //! 自动发现覆盖显式选择。
 
-use super::{update, Error, IconUpdate, Info, UpdateInput, Vcs};
+use super::{Error, IconUpdate, Info, UpdateInput, Vcs, update};
 use base64::Engine;
 use std::path::PathBuf;
 

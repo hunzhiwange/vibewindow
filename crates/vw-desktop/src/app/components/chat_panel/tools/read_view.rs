@@ -20,6 +20,7 @@ use std::path::Path;
 use crate::app::components::widgets::RightClickArea;
 use crate::app::{App, Message, message};
 
+use super::{ToolTextTarget, canonical_tool_name, tool_inline_text_editor};
 use crate::app::assets::Icon;
 use crate::app::components::chat_panel::utils::{
     bold_font, chat_context_target_key, chat_secondary_muted_text_color,
@@ -27,7 +28,6 @@ use crate::app::components::chat_panel::utils::{
     eye_icon_svg_style, icon_svg, normalize_file_reference_to_path, resolve_path,
     weak_file_button_style,
 };
-use super::{ToolTextTarget, canonical_tool_name, tool_inline_text_editor};
 
 pub(super) fn parse_read_input(input: &str) -> Option<(String, usize, usize)> {
     if input.trim_start().starts_with('{') {

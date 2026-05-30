@@ -2,6 +2,7 @@
 //!
 //! 注释聚焦模块职责、消息边界和失败处理方式，帮助维护者在不改变逻辑的前提下理解代码。
 
+use super::GitMessage;
 use super::shared::{
     build_selected_commit_request, execute_selected_commit_via_gateway, git_context_path_for_app,
     refresh_git_panel_data_task, reset_commit_form_state, schedule_commit_button_animation_tick,
@@ -11,7 +12,6 @@ use super::shared::{
     changed_diff_line_sets, invert_stage_selection_for_file_lines, normalize_stage_line_selections,
     replace_stage_selection_for_file_lines,
 };
-use super::GitMessage;
 use crate::app::{App, Message};
 use iced::Task;
 
@@ -41,6 +41,22 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
         GitMessage::CommitDescriptionEditorAction(action) => {
             app.git_commit_description_editor.perform(action);
             app.git_commit_description = app.git_commit_description_editor.text().to_string();
+            Task::none()
+        }
+        GitMessage::CommitHelpOpen => {
+            app.show_git_commit_help_modal = true;
+            Task::none()
+        }
+        GitMessage::CommitHelpClose => {
+            app.show_git_commit_help_modal = false;
+            Task::none()
+        }
+        GitMessage::FilterHelpOpen => {
+            app.show_git_filter_help_modal = true;
+            Task::none()
+        }
+        GitMessage::FilterHelpClose => {
+            app.show_git_filter_help_modal = false;
             Task::none()
         }
         GitMessage::ToggleFilterOptions(enabled) => {
@@ -85,7 +101,9 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
                 if !app.staged_files_selected.contains(&file) {
                     app.staged_files_selected.push(file);
                 }
-            } else if let Some(pos) = app.staged_files_selected.iter().position(|selected| selected == &file) {
+            } else if let Some(pos) =
+                app.staged_files_selected.iter().position(|selected| selected == &file)
+            {
                 app.staged_files_selected.remove(pos);
             }
             Task::none()
@@ -97,10 +115,10 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
                 }) {
                     app.staged_hunks_selected.push((file, idx));
                 }
-            } else if let Some(pos) = app
-                .staged_hunks_selected
-                .iter()
-                .position(|(selected_file, selected_idx)| selected_file == &file && *selected_idx == idx)
+            } else if let Some(pos) =
+                app.staged_hunks_selected.iter().position(|(selected_file, selected_idx)| {
+                    selected_file == &file && *selected_idx == idx
+                })
             {
                 app.staged_hunks_selected.remove(pos);
             }
@@ -113,10 +131,10 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
                 }) {
                     app.staged_lines_selected.push((file, new_idx));
                 }
-            } else if let Some(pos) = app
-                .staged_lines_selected
-                .iter()
-                .position(|(selected_file, selected_idx)| selected_file == &file && *selected_idx == new_idx)
+            } else if let Some(pos) =
+                app.staged_lines_selected.iter().position(|(selected_file, selected_idx)| {
+                    selected_file == &file && *selected_idx == new_idx
+                })
             {
                 app.staged_lines_selected.remove(pos);
             }
@@ -129,10 +147,10 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
                 }) {
                     app.staged_old_lines_selected.push((file, old_idx));
                 }
-            } else if let Some(pos) = app
-                .staged_old_lines_selected
-                .iter()
-                .position(|(selected_file, selected_idx)| selected_file == &file && *selected_idx == old_idx)
+            } else if let Some(pos) =
+                app.staged_old_lines_selected.iter().position(|(selected_file, selected_idx)| {
+                    selected_file == &file && *selected_idx == old_idx
+                })
             {
                 app.staged_old_lines_selected.remove(pos);
             }
@@ -153,7 +171,8 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
             #[cfg(not(target_arch = "wasm32"))]
             {
                 for file in _files {
-                    let Some((old_changed, new_changed)) = changed_diff_line_sets(app, &file) else {
+                    let Some((old_changed, new_changed)) = changed_diff_line_sets(app, &file)
+                    else {
                         continue;
                     };
                     replace_stage_selection_for_file_lines(app, &file, &old_changed, &new_changed);
@@ -166,7 +185,8 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
             #[cfg(not(target_arch = "wasm32"))]
             {
                 for file in _files {
-                    let Some((old_changed, new_changed)) = changed_diff_line_sets(app, &file) else {
+                    let Some((old_changed, new_changed)) = changed_diff_line_sets(app, &file)
+                    else {
                         continue;
                     };
                     invert_stage_selection_for_file_lines(app, &file, &old_changed, &new_changed);
@@ -240,7 +260,10 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
                     reset_commit_form_state(app);
                     app.refresh_branches();
                     app.push_notification("提交完成".to_string());
-                    Task::batch(vec![refresh_git_panel_data_task(), app.show_success_toast("提交成功")])
+                    Task::batch(vec![
+                        refresh_git_panel_data_task(),
+                        app.show_success_toast("提交成功"),
+                    ])
                 }
                 Err(error) => {
                     app.error_message = Some(error.clone());
@@ -252,4 +275,3 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
         _ => unreachable!("unexpected stage/commit git message"),
     }
 }
-

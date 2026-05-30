@@ -124,7 +124,9 @@ pub(super) fn start_variable_type_options() -> Vec<StartVariableTypeOption> {
 /// 提供 selected start variable type option 功能。
 ///
 /// 参数和返回值遵循调用方所在模块的工作流约定，错误会显式向上传递或由 UI 状态承载。
-pub(super) fn selected_start_variable_type_option(input_type: &str) -> Option<StartVariableTypeOption> {
+pub(super) fn selected_start_variable_type_option(
+    input_type: &str,
+) -> Option<StartVariableTypeOption> {
     start_variable_type_options().into_iter().find(|option| option.input_type == input_type)
 }
 
@@ -152,7 +154,8 @@ pub(super) fn build_start_variable_type_selector(input_type: &str) -> Element<'s
 ///
 /// 参数和返回值遵循调用方所在模块的工作流约定，错误会显式向上传递或由 UI 状态承载。
 #[allow(dead_code)]
-pub(super) fn start_variable_file_type_options() -> [(&'static str, &'static str, &'static str); 5] {
+pub(super) fn start_variable_file_type_options() -> [(&'static str, &'static str, &'static str); 5]
+{
     [
         ("document", "文档", "PDF, DOCX"),
         ("image", "图片", "PNG, JPG"),

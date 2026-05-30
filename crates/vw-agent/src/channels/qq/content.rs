@@ -36,11 +36,8 @@ fn extract_image_marker_from_attachment(attachment: &Value) -> Option<String> {
         return None;
     }
 
-    let content_type = attachment
-        .get("content_type")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_ascii_lowercase();
+    let content_type =
+        attachment.get("content_type").and_then(Value::as_str).unwrap_or("").to_ascii_lowercase();
     let filename = attachment.get("filename").and_then(Value::as_str).unwrap_or("");
     let is_image = content_type.starts_with("image/") || is_image_filename(filename);
 
@@ -159,7 +156,11 @@ pub(super) fn build_text_message_body(
 }
 
 /// 构建媒体消息体。
-pub(super) fn build_media_message_body(file_info: &str, msg_id: Option<&str>, msg_seq: u64) -> Value {
+pub(super) fn build_media_message_body(
+    file_info: &str,
+    msg_id: Option<&str>,
+    msg_seq: u64,
+) -> Value {
     let mut body = Map::new();
     body.insert("content".to_string(), Value::String(" ".to_string()));
     body.insert("msg_type".to_string(), Value::from(7));

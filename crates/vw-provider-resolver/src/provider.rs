@@ -14,6 +14,7 @@ use crate::models;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::UNIX_EPOCH;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -45,8 +46,7 @@ struct ConfigFingerprint {
     len: u64,
 }
 
-static CONFIG_FINGERPRINT: Lazy<Mutex<Option<ConfigFingerprint>>> =
-    Lazy::new(|| Mutex::new(None));
+static CONFIG_FINGERPRINT: Lazy<Mutex<Option<ConfigFingerprint>>> = Lazy::new(|| Mutex::new(None));
 
 #[cfg(not(target_arch = "wasm32"))]
 /// 抓取当前环境变量快照，供 provider 能力判断使用。
@@ -436,17 +436,18 @@ async fn load_state_impl(apply_enabled_filter: bool) -> State {
                         .or_else(|| base.as_ref().and_then(|m| m.limit.input));
 
                     if (limit_context == 0 || limit_output == 0)
-                        && let Some((ctx, out, inp)) = builtin_model_limit(provider_id, model_id) {
-                            if limit_context == 0 {
-                                limit_context = ctx;
-                            }
-                            if limit_output == 0 {
-                                limit_output = out;
-                            }
-                            if limit_input.is_none() {
-                                limit_input = inp;
-                            }
+                        && let Some((ctx, out, inp)) = builtin_model_limit(provider_id, model_id)
+                    {
+                        if limit_context == 0 {
+                            limit_context = ctx;
                         }
+                        if limit_output == 0 {
+                            limit_output = out;
+                        }
+                        if limit_input.is_none() {
+                            limit_input = inp;
+                        }
+                    }
 
                     let cap = base.as_ref().map(|m| m.capabilities.clone()).unwrap_or_else(|| {
                         Capabilities {
@@ -482,11 +483,7 @@ async fn load_state_impl(apply_enabled_filter: bool) -> State {
                     let model = Model {
                         id: model_id.to_string(),
                         provider_id: provider_id.to_string(),
-                        api: ApiInfo {
-                            id: api_id,
-                            url: api_url,
-                            adapter: api_adapter,
-                        },
+                        api: ApiInfo { id: api_id, url: api_url, adapter: api_adapter },
                         name,
                         family,
                         capabilities: cap,

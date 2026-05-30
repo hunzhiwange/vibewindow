@@ -1,6 +1,6 @@
 use super::attachments::{
-    format_attachment_content, is_http_url, is_image_extension, sanitize_attachment_filename,
-    sanitize_generated_extension, IncomingAttachmentKind, TelegramAttachmentKind,
+    IncomingAttachmentKind, TelegramAttachmentKind, format_attachment_content, is_http_url,
+    is_image_extension, sanitize_attachment_filename, sanitize_generated_extension,
 };
 use std::path::Path;
 

@@ -520,9 +520,10 @@ pub(crate) fn available_system_fonts() -> Vec<String> {
         dirs.push("/System/Library/Fonts");
         dirs.push("/Library/Fonts");
         if let Some(home) = std::env::var_os("HOME")
-            && let Some(h) = home.to_str() {
-                dirs.push(Box::leak(format!("{}/Library/Fonts", h).into_boxed_str()));
-            }
+            && let Some(h) = home.to_str()
+        {
+            dirs.push(Box::leak(format!("{}/Library/Fonts", h).into_boxed_str()));
+        }
     }
     #[cfg(target_os = "linux")]
     {
@@ -569,9 +570,10 @@ fn collect_font_names(dir: &Path, out: &mut Vec<String>, depth: usize) {
             } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                 let ext = ext.to_ascii_lowercase();
                 if ["ttf", "otf", "ttc", "otc", "woff", "woff2"].contains(&ext.as_str())
-                    && let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                        out.push(stem.to_string());
-                    }
+                    && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+                {
+                    out.push(stem.to_string());
+                }
             }
         }
     }

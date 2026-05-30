@@ -150,7 +150,8 @@ where
         _layout: Layout<'_>,
         _cursor: mouse::Cursor,
         _viewport: &Rectangle,
-    ) {}
+    ) {
+    }
 
     /// 处理鼠标交互
     ///
@@ -287,7 +288,8 @@ where
         _layout: Layout<'_>,
         _cursor: mouse::Cursor,
         _viewport: &Rectangle,
-    ) {}
+    ) {
+    }
 
     /// 处理鼠标交互
     ///

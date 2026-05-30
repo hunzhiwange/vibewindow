@@ -25,8 +25,8 @@
 //! assert_eq!(prefix_tokens, vec!["ls"]);
 //! ```
 
-use std::sync::LazyLock;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 /// 命令元数静态映射表
 ///

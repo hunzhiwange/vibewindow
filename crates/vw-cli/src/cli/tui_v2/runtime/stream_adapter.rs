@@ -51,12 +51,9 @@ impl UiRuntimeTerminalEvent {
                 message_id: None,
                 parent_message_id: None,
             },
-            TerminalMarker::TimedOut => Self::TimedOut {
-                message,
-                usage: None,
-                message_id: None,
-                parent_message_id: None,
-            },
+            TerminalMarker::TimedOut => {
+                Self::TimedOut { message, usage: None, message_id: None, parent_message_id: None }
+            }
         }
     }
 }
@@ -67,11 +64,7 @@ pub(crate) enum UiRuntimeEvent {
     /// 助手文本增量。
     Delta(String),
     /// 一个新的推理步骤开始执行。
-    StepStart {
-        step_index: u32,
-        created_ms: u64,
-        model: Option<String>,
-    },
+    StepStart { step_index: u32, created_ms: u64, model: Option<String> },
     /// 一个推理步骤执行完成。
     StepFinish {
         step_index: u32,
@@ -83,23 +76,13 @@ pub(crate) enum UiRuntimeEvent {
     /// 当前 chat stream 的终态控制事件。
     Terminal(UiRuntimeTerminalEvent),
     /// 会话任务侧数据已变化，需从 runtime 重新同步 question/todo 状态。
-    TaskStateChanged {
-        session_id: Option<String>,
-    },
+    TaskStateChanged { session_id: Option<String> },
     /// 会话元数据已变化，需刷新标题、scope、path 或 preview。
-    SessionMetadataChanged {
-        session_id: Option<String>,
-        title: Option<String>,
-    },
+    SessionMetadataChanged { session_id: Option<String>, title: Option<String> },
     /// 用量快照已变化；当前先显式识别，避免误记为 unknown warning。
-    UsageUpdated {
-        session_id: Option<String>,
-        usage: GatewayChatUsage,
-    },
+    UsageUpdated { session_id: Option<String>, usage: GatewayChatUsage },
     /// 当前 runtime 尚未识别的事件类型。
-    Unknown {
-        event_type: Option<String>,
-    },
+    Unknown { event_type: Option<String> },
 }
 
 /// 将 gateway 原始流事件规整为 CLI 内部事件。
@@ -118,9 +101,9 @@ pub(crate) fn adapt_gateway_stream_event(event: GatewayChatStreamEvent) -> UiRun
             finish_reason: event.finish_reason,
             model: event.model,
         },
-        GatewayTypedChatStreamEvent::PostToolRound(_) => UiRuntimeEvent::Unknown {
-            event_type: Some("chat.post_tool_round".to_string()),
-        },
+        GatewayTypedChatStreamEvent::PostToolRound(_) => {
+            UiRuntimeEvent::Unknown { event_type: Some("chat.post_tool_round".to_string()) }
+        }
         GatewayTypedChatStreamEvent::Done {
             finish_reason,
             usage,
@@ -170,12 +153,9 @@ fn terminal_from_done(
 ) -> UiRuntimeTerminalEvent {
     let finish_reason = normalize_optional_string(finish_reason);
     match classify_terminal_marker(finish_reason.as_deref()) {
-        TerminalMarker::Done => UiRuntimeTerminalEvent::Done {
-            finish_reason,
-            usage,
-            message_id,
-            parent_message_id,
-        },
+        TerminalMarker::Done => {
+            UiRuntimeTerminalEvent::Done { finish_reason, usage, message_id, parent_message_id }
+        }
         TerminalMarker::Cancelled => UiRuntimeTerminalEvent::Cancelled {
             reason: finish_reason,
             usage,
@@ -223,9 +203,7 @@ fn classify_terminal_marker(value: Option<&str>) -> TerminalMarker {
 
 /// 将外部传入的字符串归一化为“空白即无值”。
 fn normalize_optional_string(value: Option<String>) -> Option<String> {
-    value
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
+    value.map(|value| value.trim().to_string()).filter(|value| !value.is_empty())
 }
 
 /// 将可选字符串引用归一化为“空白即无值”。

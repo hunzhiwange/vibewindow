@@ -91,9 +91,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let enabled_row = field_row(
         "启用",
         "控制是否启用语音/音频转录。",
-        checkbox(s.enabled).label("启用语音转录（支持语音/音频消息的频道）").on_toggle(|v| {
-            Message::Settings(message::SettingsMessage::TranscriptionEnabledToggled(v))
-        }).style(settings_checkbox_style),
+        checkbox(s.enabled)
+            .label("启用语音转录（支持语音/音频消息的频道）")
+            .on_toggle(|v| {
+                Message::Settings(message::SettingsMessage::TranscriptionEnabledToggled(v))
+            })
+            .style(settings_checkbox_style),
     );
 
     let api_url_row = text_row(
@@ -104,22 +107,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
         |v| Message::Settings(message::SettingsMessage::TranscriptionApiUrlChanged(v)),
     );
 
-    let model_row = text_row(
-        "模型",
-        "转录模型名称。",
-        "whisper-large-v3-turbo",
-        &s.model,
-        |v| Message::Settings(message::SettingsMessage::TranscriptionModelChanged(v)),
-    );
+    let model_row =
+        text_row("模型", "转录模型名称。", "whisper-large-v3-turbo", &s.model, |v| {
+            Message::Settings(message::SettingsMessage::TranscriptionModelChanged(v))
+        });
 
     let language_row = text_row(
         "语言",
         "可选语言代码，留空时自动检测。",
         "可选，例如 en / zh（留空为自动）",
         &s.language,
-        |v| {
-                Message::Settings(message::SettingsMessage::TranscriptionLanguageChanged(v))
-            },
+        |v| Message::Settings(message::SettingsMessage::TranscriptionLanguageChanged(v)),
     );
 
     let max_duration_slider = slider(1.0..=3600.0, s.max_duration_secs as f32, |v: f32| {
@@ -132,18 +130,18 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let max_duration_row = field_row(
         "最长音频",
         "可转录音频的最大时长。",
-        row![
-        max_duration_slider,
-        settings_value_badge(format!("{} s", s.max_duration_secs)),
-        ]
-        .spacing(16)
-        .align_y(Alignment::Center),
+        row![max_duration_slider, settings_value_badge(format!("{} s", s.max_duration_secs)),]
+            .spacing(16)
+            .align_y(Alignment::Center),
     );
 
     let mut col = column![
         row![
-            container(settings_page_intro("转录配置", "配置语音/音频转录功能的开关、接口和模型参数。"))
-                .width(Length::Fill),
+            container(settings_page_intro(
+                "转录配置",
+                "配置语音/音频转录功能的开关、接口和模型参数。"
+            ))
+            .width(Length::Fill),
             help_btn
         ]
         .align_y(Alignment::Start),

@@ -44,9 +44,9 @@
 //! - [`ExploreItem`]: 表示探索项的结构体
 //! - [`EXPLORE_GROUP_TOOL_IDX`]: 探索组工具的索引常量
 
+mod advanced_view;
 mod apply_patch_preview;
 mod apply_patch_view;
-mod advanced_view;
 mod bash_view;
 mod brief_view;
 mod changes;
@@ -59,13 +59,14 @@ mod lsp_view;
 mod plan_mode_view;
 mod question_view;
 mod read_view;
+mod skill_view;
 mod text_view;
 mod todo_views;
 mod tool_detail_dialog;
 mod tool_meta;
+mod tool_parse;
 mod tool_permission;
 mod tool_renderer;
-mod tool_parse;
 mod types;
 mod web_view;
 
@@ -112,25 +113,26 @@ pub use crate::app::components::chat_panel::tool_text_support::{
     tool_inline_text_editor, tool_text_editor, tool_text_key, tool_text_style,
     tool_text_style_with_danger,
 };
-pub use apply_patch_view::tool_apply_patch_view;
 pub use advanced_view::tool_advanced_view;
+pub use apply_patch_view::tool_apply_patch_view;
 pub use bash_view::tool_bash_view;
 pub use brief_view::tool_brief_view;
 pub use config_view::tool_config_view;
 pub(crate) use diff_utils::{extract_diff_block, file_preview};
+#[cfg(test)]
+pub(crate) use explore_summary_view::explore_summary_expanded;
+#[cfg(test)]
+pub(crate) use explore_summary_view::explore_summary_is_running;
 pub use explore_summary_view::tool_explore_summary_view;
 pub use files_view::tool_files_view;
 pub use git_diff_view::tool_git_diff_view;
 pub use lsp_view::tool_lsp_view;
 pub use plan_mode_view::tool_plan_mode_view;
 #[cfg(test)]
-pub(crate) use explore_summary_view::explore_summary_expanded;
-#[cfg(test)]
-pub(crate) use explore_summary_view::explore_summary_is_running;
-#[cfg(test)]
 pub(crate) use question_view::question_request_targets_message;
 pub use question_view::tool_question_view;
 pub use read_view::{tool_read_compact_view, tool_read_view};
+pub use skill_view::tool_skill_view;
 pub use text_view::tool_text_view;
 pub use todo_views::{tool_todos_view, tool_todowrite_compact_view};
 pub use tool_detail_dialog::tool_detail_dialog_view;
@@ -138,29 +140,27 @@ pub use tool_meta::tool_header_label;
 pub(crate) use tool_meta::tool_header_title;
 pub(crate) use tool_renderer::render_shared_tool_view;
 #[cfg(test)]
-pub(crate) use tool_renderer::{shared_tool_render_kind, SharedToolRenderKind};
+pub(crate) use tool_renderer::{SharedToolRenderKind, shared_tool_render_kind};
 pub use web_view::tool_web_view;
 
 // 工具解析功能重导出
 pub use super::tool_names::canonical_tool_name;
+pub(crate) use tool_meta::tool_inline_summary;
+pub(crate) use tool_meta::tool_verb;
 pub use tool_parse::{
     ExploreToolKind, explore_tool_kind, is_explore_tool, should_hide_tool_block,
-    tool_call_id_from_raw,
-    tool_identity_from_raw, tool_name_from_raw,
+    tool_call_id_from_raw, tool_identity_from_raw, tool_name_from_raw,
 };
 pub(crate) use tool_parse::{
     explore_item_dedupe_key, tool_error_text, tool_input, tool_output_text, tool_status,
     tool_status_from_raw, tool_structured_diff_text, tool_summary_text,
 };
-pub(crate) use tool_meta::tool_inline_summary;
-pub(crate) use tool_meta::tool_verb;
 pub(crate) use tool_permission::{
     ToolPermissionState, pending_permission_badge_label, pending_permission_request_badge_label,
     pending_permission_request_for_message, pending_permission_request_for_tool_call,
-    pending_permission_targets_message,
-    pending_permission_targets_tool_call, tool_permission_error_text,
-    tool_permission_state, tool_permission_summary, tool_permission_target_summary,
-    tool_permission_title,
+    pending_permission_targets_message, pending_permission_targets_tool_call,
+    tool_permission_error_text, tool_permission_state, tool_permission_summary,
+    tool_permission_target_summary, tool_permission_title,
 };
 
 // 类型定义重导出

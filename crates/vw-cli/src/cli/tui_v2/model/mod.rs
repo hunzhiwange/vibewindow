@@ -22,26 +22,24 @@ pub(crate) mod ui_message;
 mod ui_message_tests;
 
 pub(crate) use overlay::{
-    McpServerTransport, OverlayFocus, OverlayState, UiConfirmOverlay, UiErrorOverlay,
-    UiMcpOverlay, UiMcpServerInfo, UiMemoryEntry, UiMemoryOverlay, UiOverlay, UiOverlayKind,
-    UiQuestionOverlay, UiQuestionSurfaceKind, UiSearchMatch, UiSearchOverlay, UiTaskOverlay,
-    UiTaskStepItem, UiTodoOverlay,
+    McpServerTransport, OverlayFocus, OverlayState, UiConfirmOverlay, UiErrorOverlay, UiMcpOverlay,
+    UiMcpServerInfo, UiMemoryEntry, UiMemoryOverlay, UiOverlay, UiOverlayKind, UiQuestionOverlay,
+    UiQuestionSurfaceKind, UiSearchMatch, UiSearchOverlay, UiTaskOverlay, UiTaskStepItem,
+    UiTodoOverlay,
 };
 #[cfg(test)]
-pub(crate) use overlay::{
-    UiQuestionOption, UiQuestionPrompt, UiQuestionToolContext, UiTodoItem,
-};
+pub(crate) use overlay::{UiQuestionOption, UiQuestionPrompt, UiQuestionToolContext, UiTodoItem};
 pub(crate) use prompt::{
-    PromptMode, PromptMotion, PromptState, PromptSubmission,
-    PromptSubmissionStatus, QueuedPromptCommand, QueuedPromptCommandKind,
-};
-pub(crate) use ui_message::{
-    UiAssistantMessage, UiErrorMessage, UiMessage, UiMessageBase, UiMessageId, UiStep,
-    UiStepState, UiSystemMessage, UiSystemMessageLevel, UiThinkingBlock, UiThinkingTiming,
-    UiTokenUsage, UiToolCall, UiToolCallState, UiToolResult, UiTurnTerminal, UiUserMessage,
+    PromptMode, PromptMotion, PromptState, PromptSubmission, PromptSubmissionStatus,
+    QueuedPromptCommand, QueuedPromptCommandKind,
 };
 #[cfg(test)]
 pub(crate) use ui_message::UiMessageKind;
+pub(crate) use ui_message::{
+    UiAssistantMessage, UiErrorMessage, UiMessage, UiMessageBase, UiMessageId, UiStep, UiStepState,
+    UiSystemMessage, UiSystemMessageLevel, UiThinkingBlock, UiThinkingTiming, UiTokenUsage,
+    UiToolCall, UiToolCallState, UiToolResult, UiTurnTerminal, UiUserMessage,
+};
 
 #[cfg(test)]
 mod tests;

@@ -10,9 +10,10 @@ pub(super) fn resolve_variable_value(def: &VariableDef, mode: Option<&str>) -> O
     if let Some(m) = mode {
         for v in &def.value {
             if let Some(t) = &v.theme
-                && t.mode == m {
-                    return Some(v.value.clone());
-                }
+                && t.mode == m
+            {
+                return Some(v.value.clone());
+            }
         }
     }
 
@@ -49,9 +50,10 @@ pub(super) fn parse_size_val_opt(val: &Option<serde_json::Value>) -> f32 {
             return n as f32;
         }
         if let Some(s) = v.as_str()
-            && let Ok(n) = s.replace("px", "").parse::<f32>() {
-                return n;
-            }
+            && let Ok(n) = s.replace("px", "").parse::<f32>()
+        {
+            return n;
+        }
     }
     0.0
 }
@@ -61,9 +63,10 @@ pub(super) fn parse_size_val_opt(val: &Option<serde_json::Value>) -> f32 {
 /// 不支持或格式不完整的输入通过 `Option`/`Result` 显式表达。
 pub(super) fn parse_fills_to_css(val: &Option<serde_json::Value>) -> String {
     if let Some(v) = val
-        && let Some(s) = v.as_str() {
-            return process_color_value(s);
-        }
+        && let Some(s) = v.as_str()
+    {
+        return process_color_value(s);
+    }
     "".to_string()
 }
 

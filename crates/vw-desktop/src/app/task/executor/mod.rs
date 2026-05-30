@@ -20,7 +20,7 @@ use super::store;
 use vw_shared::session::session_utils::is_default_title;
 #[cfg(not(target_arch = "wasm32"))]
 use vw_shared::session::ui_types::ChatRole;
-use vw_shared::shell::{git_std_command, resolve_executable, shell_profile_env_var, std_command};
+use vw_shared::shell::{resolve_executable, shell_profile_env_var, std_command};
 
 mod backend_output;
 mod command_exec;
@@ -44,8 +44,9 @@ pub use git::build_review_diff_context;
 pub use programs::{ExecutorCommand, build_executor_command};
 /// 对外暴露当前模块需要复用的能力。
 pub use runner::{
-    execute_gateway_prompt_with_streaming, execute_task_async, execute_task_merge_async,
-    execute_task_review_async,
+    TaskPlanGenerationOutcome, TaskPlanSubTask, execute_gateway_prompt_with_streaming,
+    execute_task_async, execute_task_merge_async, execute_task_plan_async,
+    execute_task_review_async, write_task_plan_files,
 };
 /// 对外暴露当前模块需要复用的能力。
 pub use scheduling::{
@@ -141,6 +142,14 @@ where
             rt.block_on(fut)
         }
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn block_on_gateway<F, T>(_fut: F) -> Result<T, String>
+where
+    F: std::future::Future<Output = Result<T, String>>,
+{
+    Err("WebAssembly 平台暂不支持同步网关调用".to_string())
 }
 
 #[cfg(not(target_arch = "wasm32"))]

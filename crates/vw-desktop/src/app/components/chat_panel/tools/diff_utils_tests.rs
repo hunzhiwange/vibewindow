@@ -1,4 +1,8 @@
-use super::diff_utils::{count_apply_patch_format_changes, count_unified_diff_changes, extract_diff_block, is_likely_file_path, looks_like_unified_diff, parse_apply_patch_line_changes, parse_apply_patch_summary, string_or_string_array};
+use super::diff_utils::{
+    count_apply_patch_format_changes, count_unified_diff_changes, extract_diff_block,
+    is_likely_file_path, looks_like_unified_diff, parse_apply_patch_line_changes,
+    parse_apply_patch_summary, string_or_string_array,
+};
 use serde_json::json;
 
 #[test]
@@ -16,7 +20,10 @@ fn apply_patch_summary_and_counts_parse_file_lines() {
 
     assert_eq!(parse_apply_patch_summary(summary_output), vec![('M', "src/lib.rs".to_string())]);
     assert_eq!(parse_apply_patch_line_changes(count_output), (1, 1));
-    assert_eq!(count_apply_patch_format_changes("*** Update File: src/lib.rs\n+new\n-old\n"), (1, 1));
+    assert_eq!(
+        count_apply_patch_format_changes("*** Update File: src/lib.rs\n+new\n-old\n"),
+        (1, 1)
+    );
 }
 
 #[test]

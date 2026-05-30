@@ -4,15 +4,9 @@
 //! 不改变任何运行时行为。
 
 use super::{
-    AdvancedToolSurfaceState,
-    SessionToolBucket,
-    SessionToolGroup,
-    SessionToolSelectorState,
-    SessionToolSelectorTab,
-    explicit_advanced_tool_surface_spec,
-    tool_display_name,
-    tool_bucket,
-    tool_group,
+    AdvancedToolSurfaceState, SessionToolBucket, SessionToolGroup, SessionToolSelectorState,
+    SessionToolSelectorTab, SkillsDirectoryScope, explicit_advanced_tool_surface_spec, tool_bucket,
+    tool_display_name, tool_group,
 };
 
 #[test]
@@ -63,16 +57,56 @@ fn tool_selector_tracks_tab_and_group_collapse_state() {
 
     assert_eq!(selector.active_tab(), SessionToolSelectorTab::Tools);
     assert!(selector.is_group_collapsed(SessionToolGroup::Execute));
+    assert_eq!(SessionToolSelectorTab::Skills.label(), "技能");
+}
+
+#[test]
+fn tool_selector_tracks_search_and_skill_directory_scope() {
+    let mut selector = SessionToolSelectorState::default();
+
+    assert_eq!(selector.query(), "");
+    assert_eq!(selector.skill_directory_scope(), SkillsDirectoryScope::Project);
+
+    selector.set_query("web".to_string());
+    selector.select_skill_directory_scope(SkillsDirectoryScope::Global);
+
+    assert_eq!(selector.query(), "web");
+    assert_eq!(selector.skill_directory_scope(), SkillsDirectoryScope::Global);
+
+    selector.reset();
+
+    assert_eq!(selector.query(), "");
+    assert_eq!(selector.skill_directory_scope(), SkillsDirectoryScope::Global);
+}
+
+#[test]
+fn tool_selector_tracks_manual_context_selections() {
+    let mut selector = SessionToolSelectorState::default();
+
+    selector.toggle_manual_tool("web_search");
+    selector.toggle_manual_tool("read");
+    selector.toggle_manual_skill("writing-plans");
+
+    assert!(selector.has_manual_context_selection());
+    assert!(selector.is_manual_tool_selected("read"));
+    assert!(selector.is_manual_skill_selected("writing-plans"));
+    assert_eq!(
+        selector.selected_manual_tools(),
+        vec!["read".to_string(), "web_search".to_string()]
+    );
+    assert_eq!(selector.selected_manual_skills(), vec!["writing-plans".to_string()]);
+
+    selector.toggle_manual_tool("read");
+    assert!(!selector.is_manual_tool_selected("read"));
+
+    selector.reset();
+    assert!(!selector.has_manual_context_selection());
 }
 
 #[test]
 fn tool_selector_filters_tools_by_explicit_selection() {
     let mut selector = SessionToolSelectorState::default();
-    let tools = vec![
-        "read".to_string(),
-        "apply_patch".to_string(),
-        "bash".to_string(),
-    ];
+    let tools = vec!["read".to_string(), "apply_patch".to_string(), "bash".to_string()];
 
     assert!(selector.toggle_tool(&tools, "bash"));
 
@@ -104,11 +138,7 @@ fn tool_selector_group_toggle_respects_last_enabled_tool() {
 #[test]
 fn tool_selector_select_all_clears_explicit_selection() {
     let mut selector = SessionToolSelectorState::default();
-    let tools = vec![
-        "read".to_string(),
-        "apply_patch".to_string(),
-        "bash".to_string(),
-    ];
+    let tools = vec!["read".to_string(), "apply_patch".to_string(), "bash".to_string()];
 
     assert!(selector.toggle_tool(&tools, "bash"));
     assert!(selector.has_custom_tool_selection());
@@ -122,11 +152,7 @@ fn tool_selector_select_all_clears_explicit_selection() {
 #[test]
 fn tool_selector_invert_uses_current_enabled_complement() {
     let mut selector = SessionToolSelectorState::default();
-    let tools = vec![
-        "read".to_string(),
-        "apply_patch".to_string(),
-        "bash".to_string(),
-    ];
+    let tools = vec!["read".to_string(), "apply_patch".to_string(), "bash".to_string()];
 
     assert!(selector.toggle_tool(&tools, "bash"));
     assert!(selector.invert_tools(&tools));

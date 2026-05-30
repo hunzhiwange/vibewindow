@@ -66,13 +66,19 @@ fn seek_sequence(
         return exact;
     }
 
-    let rstrip =
-        try_match(lines, pattern, start_index, |left, right| left.trim_end() == right.trim_end(), eof);
+    let rstrip = try_match(
+        lines,
+        pattern,
+        start_index,
+        |left, right| left.trim_end() == right.trim_end(),
+        eof,
+    );
     if rstrip.is_some() {
         return rstrip;
     }
 
-    let trim = try_match(lines, pattern, start_index, |left, right| left.trim() == right.trim(), eof);
+    let trim =
+        try_match(lines, pattern, start_index, |left, right| left.trim() == right.trim(), eof);
     if trim.is_some() {
         return trim;
     }
@@ -97,7 +103,8 @@ fn compute_replacements(
     for chunk in chunks {
         if let Some(context) = &chunk.change_context {
             let context_pattern = vec![context.to_string()];
-            if let Some(index) = seek_sequence(original_lines, &context_pattern, line_index, false) {
+            if let Some(index) = seek_sequence(original_lines, &context_pattern, line_index, false)
+            {
                 line_index = index + 1;
             }
         }
@@ -142,7 +149,10 @@ fn compute_replacements(
     Ok(replacements)
 }
 
-fn apply_replacements(lines: &[String], replacements: &[(usize, usize, Vec<String>)]) -> Vec<String> {
+fn apply_replacements(
+    lines: &[String],
+    replacements: &[(usize, usize, Vec<String>)],
+) -> Vec<String> {
     let mut result = lines.to_vec();
 
     for (start_idx, old_len, new_segment) in replacements.iter().rev() {

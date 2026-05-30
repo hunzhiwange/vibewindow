@@ -41,9 +41,7 @@ pub(crate) struct QueryEngineUsage {
 
 impl QueryEngineUsage {
     pub(crate) fn total_tokens(&self) -> i64 {
-        self.input_tokens
-            .saturating_add(self.output_tokens)
-            .saturating_add(self.cached_tokens)
+        self.input_tokens.saturating_add(self.output_tokens).saturating_add(self.cached_tokens)
     }
 
     pub(crate) fn as_ui_token_usage(&self) -> ui_models::TokenUsage {
@@ -133,14 +131,22 @@ impl Observer for RecordingObserver {
         {
             let mut state = self.state.lock().expect("recording observer state poisoned");
             state.usage.llm_calls = state.usage.llm_calls.saturating_add(1);
-            state.usage.input_tokens =
-                state.usage.input_tokens.saturating_add(i64::try_from(input_tokens.unwrap_or(0)).unwrap_or(i64::MAX));
-            state.usage.output_tokens =
-                state.usage.output_tokens.saturating_add(i64::try_from(output_tokens.unwrap_or(0)).unwrap_or(i64::MAX));
-            state.usage.cached_tokens =
-                state.usage.cached_tokens.saturating_add(i64::try_from(cached_tokens.unwrap_or(0)).unwrap_or(i64::MAX));
-            state.usage.reasoning_tokens =
-                state.usage.reasoning_tokens.saturating_add(i64::try_from(reasoning_tokens.unwrap_or(0)).unwrap_or(i64::MAX));
+            state.usage.input_tokens = state
+                .usage
+                .input_tokens
+                .saturating_add(i64::try_from(input_tokens.unwrap_or(0)).unwrap_or(i64::MAX));
+            state.usage.output_tokens = state
+                .usage
+                .output_tokens
+                .saturating_add(i64::try_from(output_tokens.unwrap_or(0)).unwrap_or(i64::MAX));
+            state.usage.cached_tokens = state
+                .usage
+                .cached_tokens
+                .saturating_add(i64::try_from(cached_tokens.unwrap_or(0)).unwrap_or(i64::MAX));
+            state.usage.reasoning_tokens = state
+                .usage
+                .reasoning_tokens
+                .saturating_add(i64::try_from(reasoning_tokens.unwrap_or(0)).unwrap_or(i64::MAX));
         }
 
         self.inner.record_event(event);
@@ -173,7 +179,8 @@ impl QueryEngine {
         let runtime: Arc<dyn runtime::RuntimeAdapter> =
             Arc::from(runtime::create_runtime(&config.runtime)?);
 
-        let security = Arc::new(SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir));
+        let security =
+            Arc::new(SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir));
 
         let memory: Arc<dyn Memory> = Arc::from(memory::create_memory_with_storage(
             &config.memory,
@@ -234,7 +241,8 @@ impl QueryEngine {
                 &provider_runtime_options,
             )?;
 
-        let skills = crate::app::agent::skills::load_skills_with_config(&config.workspace_dir, &config);
+        let skills =
+            crate::app::agent::skills::load_skills_with_config(&config.workspace_dir, &config);
         let tool_descs = build_tool_descriptions(&config);
         let bootstrap_max_chars = if config.agent.compact_context { Some(6000) } else { None };
         let native_tools = provider.supports_native_tools();
@@ -393,19 +401,13 @@ fn build_tool_descriptions(config: &Config) -> Vec<(&'static str, &'static str)>
     let mut tool_descs = vec![
         ("bash", "Execute terminal commands."),
         ("file_read", "Read file contents."),
-        (
-            "notebook_edit",
-            "Edit existing notebook cells by structured notebook operations.",
-        ),
+        ("notebook_edit", "Edit existing notebook cells by structured notebook operations."),
         ("file_edit", "Edit existing file contents by targeted replacement."),
         ("file_write", "Create files or fully overwrite files."),
         ("memory_store", "Save to memory."),
         ("memory_recall", "Search memory."),
         ("memory_forget", "Delete a memory entry."),
-        (
-            "model_routing_config",
-            "Configure default model, scenario routing, and delegate agents.",
-        ),
+        ("model_routing_config", "Configure default model, scenario routing, and delegate agents."),
         ("screenshot", "Capture a screenshot."),
         ("image_info", "Read image metadata."),
     ];
@@ -418,11 +420,13 @@ fn build_tool_descriptions(config: &Config) -> Vec<(&'static str, &'static str)>
     }
 
     if config.web_fetch.enabled {
-        tool_descs.push(("WebFetch", "Fetch and convert approved web pages for model consumption."));
+        tool_descs
+            .push(("WebFetch", "Fetch and convert approved web pages for model consumption."));
     }
 
     if config.web_search.enabled {
-        tool_descs.push(("WebSearch", "Search the web for current information and relevant sources."));
+        tool_descs
+            .push(("WebSearch", "Search the web for current information and relevant sources."));
     }
 
     if config.composio.enabled {

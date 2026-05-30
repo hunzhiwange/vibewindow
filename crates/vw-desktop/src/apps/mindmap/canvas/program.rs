@@ -65,7 +65,6 @@ enum HoverButtonKind {
     AddSibling,
 }
 
-
 /// MindMapCanvas 数据结构，承载当前模块对外传递的显式状态。
 pub struct MindMapCanvas<'a> {
     /// doc 字段，保存渲染或状态更新所需的输入数据。

@@ -6,8 +6,10 @@
 
 use super::super::*;
 use super::helpers::{EnvVarGuard, open_skills_env_lock};
+use crate::app::agent::config::Config;
 use std::fs;
 use std::path::PathBuf;
+use vw_config_types::skills::SkillsDirectoryProvider;
 
 fn load_workspace_only(workspace_dir: &std::path::Path) -> Vec<Skill> {
     let _lock = open_skills_env_lock().lock().unwrap();
@@ -206,10 +208,8 @@ description = "Bare minimum"
     .unwrap();
 
     let skills = load_workspace_only(dir.path());
-    let skill = skills
-        .iter()
-        .find(|skill| skill.name == "minimal")
-        .expect("minimal skill should load");
+    let skill =
+        skills.iter().find(|skill| skill.name == "minimal").expect("minimal skill should load");
     assert_eq!(skill.version, "0.1.0");
     assert!(skill.author.is_none());
     assert!(skill.tags.is_empty());
@@ -289,6 +289,10 @@ fn load_skills_discovers_workspace_ancestor_and_global_sources() {
     fs::create_dir_all(&global_skill).unwrap();
     fs::write(global_skill.join("SKILL.md"), "# Global\nGlobal skill\n").unwrap();
 
+    let plain_global_skill = home.path().join(".skills").join("plain-global-skill");
+    fs::create_dir_all(&plain_global_skill).unwrap();
+    fs::write(plain_global_skill.join("SKILL.md"), "# Plain Global\nPlain global skill\n").unwrap();
+
     let parent_skill = repo_root.join(".vibewindow").join("skills").join("parent-skill");
     fs::create_dir_all(&parent_skill).unwrap();
     fs::write(parent_skill.join("SKILL.md"), "# Parent\nParent skill\n").unwrap();
@@ -317,9 +321,46 @@ fn load_skills_discovers_workspace_ancestor_and_global_sources() {
     let names = skills.iter().map(|skill| skill.name.as_str()).collect::<Vec<_>>();
     assert_eq!(
         names,
-        vec!["global-skill", "hidden-skill", "legacy-skill", "parent-skill", "shared-skill"]
+        vec![
+            "global-skill",
+            "hidden-skill",
+            "legacy-skill",
+            "parent-skill",
+            "plain-global-skill",
+            "shared-skill",
+        ]
     );
 
     let shared = skills.iter().find(|skill| skill.name == "shared-skill").unwrap();
     assert_eq!(shared.description, "Workspace wins");
+}
+
+#[test]
+fn load_skills_uses_configured_directory_provider() {
+    let _lock = open_skills_env_lock().lock().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let _guard = EnvVarGuard::set("HOME", home.path().to_str().unwrap());
+    let _enabled = EnvVarGuard::unset("VIBEWINDOW_OPEN_SKILLS_ENABLED");
+    let _dir = EnvVarGuard::unset("VIBEWINDOW_OPEN_SKILLS_DIR");
+
+    let project_dir = home.path().join("project");
+    fs::create_dir_all(&project_dir).unwrap();
+
+    let vibewindow_skill = project_dir.join(".vibewindow").join("skills").join("vw-skill");
+    fs::create_dir_all(&vibewindow_skill).unwrap();
+    fs::write(vibewindow_skill.join("SKILL.md"), "# VibeWindow\nVibeWindow skill\n").unwrap();
+
+    let codex_skill = project_dir.join(".codex").join("skills").join("codex-skill");
+    fs::create_dir_all(&codex_skill).unwrap();
+    fs::write(codex_skill.join("SKILL.md"), "# Codex\nCodex skill\n").unwrap();
+
+    let mut config = Config::default();
+    config.skills.directory_provider = SkillsDirectoryProvider::Codex;
+    config.skills.open_skills_enabled = false;
+
+    let names = load_skills_with_config(&project_dir, &config)
+        .iter()
+        .map(|skill| skill.name.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(names, vec!["codex-skill"]);
 }

@@ -87,10 +87,7 @@ fn bool_row<'a>(
     field_row(
         label,
         description,
-        checkbox(checked)
-            .label(checkbox_label)
-            .on_toggle(on_toggle)
-            .style(settings_checkbox_style),
+        checkbox(checked).label(checkbox_label).on_toggle(on_toggle).style(settings_checkbox_style),
     )
 }
 
@@ -149,12 +146,24 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let help_btn =
         settings_help_button(Message::Settings(SettingsMessage::Gateway(GatewayMessage::HelpOpen)));
 
-    let port_row = number_row("端口", "控制服务端 Gateway 的监听端口。", s.port as u32, 1, u16::MAX as u32, "", |value| {
-        Message::Settings(SettingsMessage::Gateway(GatewayMessage::PortChanged(value as u16)))
-    });
-    let host_row = text_row("主机地址", "控制服务端 Gateway 的监听地址。", "127.0.0.1", &s.host_input, |value| {
-        Message::Settings(SettingsMessage::Gateway(GatewayMessage::HostChanged(value)))
-    });
+    let port_row = number_row(
+        "端口",
+        "控制服务端 Gateway 的监听端口。",
+        s.port as u32,
+        1,
+        u16::MAX as u32,
+        "",
+        |value| {
+            Message::Settings(SettingsMessage::Gateway(GatewayMessage::PortChanged(value as u16)))
+        },
+    );
+    let host_row = text_row(
+        "主机地址",
+        "控制服务端 Gateway 的监听地址。",
+        "127.0.0.1",
+        &s.host_input,
+        |value| Message::Settings(SettingsMessage::Gateway(GatewayMessage::HostChanged(value))),
+    );
 
     let require_pairing_row = bool_row(
         "需要配对",
@@ -219,37 +228,42 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let paired_tokens_list: Element<'_, Message> = if s.paired_tokens.is_empty() {
         settings_panel(
-            column![text(
-                "当前没有已保存的配对令牌。开启 require_pairing 后，未配对客户端将被拒绝。",
-            )
-            .size(12)
-            .style(settings_muted_text_style)]
+            column![
+                text("当前没有已保存的配对令牌。开启 require_pairing 后，未配对客户端将被拒绝。",)
+                    .size(12)
+                    .style(settings_muted_text_style)
+            ]
             .spacing(0),
         )
         .into()
     } else {
-        let list = s.paired_tokens.iter().enumerate().fold(column![].spacing(10), |column, (index, token)| {
-            let masked = if token.len() <= 8 {
-                "*".repeat(token.len().max(1))
-            } else {
-                format!("{}***{}", &token[..4], &token[token.len() - 4..])
-            };
+        let list = s.paired_tokens.iter().enumerate().fold(
+            column![].spacing(10),
+            |column, (index, token)| {
+                let masked = if token.len() <= 8 {
+                    "*".repeat(token.len().max(1))
+                } else {
+                    format!("{}***{}", &token[..4], &token[token.len() - 4..])
+                };
 
-            column.push(
-                row![
-                    text(format!("令牌 #{}", index + 1)).size(13).width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
-                    text(masked).width(Length::Fill),
-                    button(text("删除"))
-                        .padding([6, 12])
-                        .on_press(Message::Settings(SettingsMessage::Gateway(
-                            GatewayMessage::RemovePairedToken(index),
-                        )))
-                        .style(rounded_action_btn_style),
-                ]
-                .spacing(20)
-                .align_y(Alignment::Center),
-            )
-        });
+                column.push(
+                    row![
+                        text(format!("令牌 #{}", index + 1))
+                            .size(13)
+                            .width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
+                        text(masked).width(Length::Fill),
+                        button(text("删除"))
+                            .padding([6, 12])
+                            .on_press(Message::Settings(SettingsMessage::Gateway(
+                                GatewayMessage::RemovePairedToken(index),
+                            )))
+                            .style(rounded_action_btn_style),
+                    ]
+                    .spacing(20)
+                    .align_y(Alignment::Center),
+                )
+            },
+        );
 
         settings_panel(list).into()
     };
@@ -294,18 +308,32 @@ pub fn view(app: &App) -> Element<'_, Message> {
         },
     );
 
-    let idempotency_ttl_row =
-        number_row("幂等性TTL(秒)", "控制 webhook 幂等 key 的存活时间。", s.idempotency_ttl_secs, 1, 86_400, "秒", |value| {
+    let idempotency_ttl_row = number_row(
+        "幂等性TTL(秒)",
+        "控制 webhook 幂等 key 的存活时间。",
+        s.idempotency_ttl_secs,
+        1,
+        86_400,
+        "秒",
+        |value| {
             Message::Settings(SettingsMessage::Gateway(GatewayMessage::IdempotencyTtlSecsChanged(
                 value,
             )))
-        });
-    let idempotency_max_keys_row =
-        number_row("幂等性最大键数", "控制幂等缓存允许保留的 key 数量。", s.idempotency_max_keys, 1, 100_000, "个键", |value| {
+        },
+    );
+    let idempotency_max_keys_row = number_row(
+        "幂等性最大键数",
+        "控制幂等缓存允许保留的 key 数量。",
+        s.idempotency_max_keys,
+        1,
+        100_000,
+        "个键",
+        |value| {
             Message::Settings(SettingsMessage::Gateway(GatewayMessage::IdempotencyMaxKeysChanged(
                 value,
             )))
-        });
+        },
+    );
 
     let node_control_enabled_row = bool_row(
         "节点控制.已启用",
@@ -375,13 +403,24 @@ pub fn view(app: &App) -> Element<'_, Message> {
         ),
         paired_tokens_section,
         paired_tokens_list,
-        settings_section_card("速率限制", "限制 /pair 和 /webhook 请求频率，并约束网关内部 key map 规模。"),
+        settings_section_card(
+            "速率限制",
+            "限制 /pair 和 /webhook 请求频率，并约束网关内部 key map 规模。"
+        ),
         settings_panel(
-            column![pair_rate_row, settings_divider(), webhook_rate_row, settings_divider(), rate_limit_max_keys_row]
-                .spacing(0),
+            column![
+                pair_rate_row,
+                settings_divider(),
+                webhook_rate_row,
+                settings_divider(),
+                rate_limit_max_keys_row
+            ]
+            .spacing(0),
         ),
         settings_section_card("幂等性", "控制 webhook 幂等 key 的存活时间与内存上限。"),
-        settings_panel(column![idempotency_ttl_row, settings_divider(), idempotency_max_keys_row].spacing(0)),
+        settings_panel(
+            column![idempotency_ttl_row, settings_divider(), idempotency_max_keys_row].spacing(0)
+        ),
         settings_section_card(
             "Node Control",
             "配置实验性的 node-control 协议，包括额外鉴权和允许的远端节点 ID。"

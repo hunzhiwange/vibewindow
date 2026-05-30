@@ -1,5 +1,5 @@
-use super::response::ComputerUseResponse;
 use super::ComputerUseClient;
+use super::response::ComputerUseResponse;
 use anyhow::Context;
 use serde_json::{Value, json};
 use std::time::Duration;

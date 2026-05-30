@@ -4,15 +4,14 @@
 //! 工具能力通过 allowlist 过滤，且显式排除再次调用 `delegate`，避免子 agent 递归
 //! 委派导致不可控的执行树。
 
-use super::super::traits::{Tool, ToolResult};
-use super::support::{NoopObserver, ToolArcRef};
+use super::super::traits::ToolResult;
+use super::support::NoopObserver;
 use super::{DELEGATE_AGENTIC_TIMEOUT_SECS, DelegateTool};
 use crate::app::agent::agent::loop_::run_tool_call_loop;
 use crate::app::agent::approval::ApprovalManager;
 use crate::app::agent::config::DelegateAgentConfig;
 use crate::app::agent::hooks::HookRunner;
 use crate::app::agent::providers::{ChatMessage, Provider};
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -56,24 +55,11 @@ pub(super) async fn execute_agentic(
         });
     }
 
-    let allowed: HashSet<_> = agent_config
-        .allowed_tools
-        .iter()
-        .map(|name| name.trim())
-        .filter(|name| !name.is_empty())
-        .collect();
-
-    let sub_tools: Vec<Box<dyn Tool>> = tool
-        .parent_tools
-        .iter()
-        .filter(|parent_tool| {
-            let tool_id = parent_tool.spec().id;
-            // 子 agent 只能看到显式允许的工具，并禁止再次委派，避免权限和执行
-            // 深度在嵌套调用中被静默扩大。
-            allowed.contains(tool_id.as_str()) && tool_id != "delegate"
-        })
-        .map(|parent_tool| Box::new(ToolArcRef::new(parent_tool.clone())) as Box<dyn Tool>)
-        .collect();
+    let sub_tools = crate::app::agent::tools::delegated_tools::build_agentic_tools(
+        &tool.parent_tools,
+        &agent_config.allowed_tools,
+        &agent_config.allowed_skills,
+    );
 
     if sub_tools.is_empty() {
         return Ok(ToolResult {

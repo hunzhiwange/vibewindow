@@ -12,9 +12,7 @@
 //! - 记录 token 使用情况
 
 use super::types::StreamEvent;
-use crate::app::agent::tools::{
-    TODO_WRITE_TOOL_ALIAS, TODO_WRITE_TOOL_ID, is_todo_write_tool_id,
-};
+use crate::app::agent::tools::{TODO_WRITE_TOOL_ALIAS, TODO_WRITE_TOOL_ID, is_todo_write_tool_id};
 use crate::session::ui_types as models;
 use std::collections::HashSet;
 

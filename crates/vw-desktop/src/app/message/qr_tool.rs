@@ -79,14 +79,8 @@ impl std::fmt::Display for QrIconMode {
 /// 变体与界面事件或后台任务结果保持对应，便于在消息分发时显式匹配。
 pub enum QrToolMessage {
     EditorAction(text_editor::Action),
-    EditorWheelScrolled {
-        delta: mouse::ScrollDelta,
-        viewport_height: f32,
-    },
-    ScrollbarChanged {
-        top_line: f32,
-        viewport_height: f32,
-    },
+    EditorWheelScrolled { delta: mouse::ScrollDelta, viewport_height: f32 },
+    ScrollbarChanged { top_line: f32, viewport_height: f32 },
     SizeChanged(String),
     ColorChanged(String),
     ColorFormatChanged(crate::app::views::design::models::ColorFormat),
@@ -365,11 +359,9 @@ fn build_render_request(app: &mut App) -> Result<QrRenderRequest, String> {
     let icon_bytes = match app.qr_icon_mode {
         QrIconMode::None => None,
         QrIconMode::Default => Some(include_bytes!("../../../../../assets/logo.png").to_vec()),
-        QrIconMode::Upload => Some(
-            app.qr_icon_bytes
-                .clone()
-                .ok_or_else(|| "请先选择上传图标".to_string())?,
-        ),
+        QrIconMode::Upload => {
+            Some(app.qr_icon_bytes.clone().ok_or_else(|| "请先选择上传图标".to_string())?)
+        }
     };
 
     Ok(QrRenderRequest {
@@ -414,11 +406,8 @@ fn render_qr_png(request: &QrRenderRequest) -> Result<Vec<u8>, String> {
     let side = (module_count as u32 + margin * 2) * scale;
     let mut rgba = vec![255u8; (side * side * 4) as usize];
     let fg = parse_color(&request.color_hex).unwrap_or(Color::from_rgb8(0, 0, 0));
-    let fg_rgb = (
-        (fg.r * 255.0).round() as u8,
-        (fg.g * 255.0).round() as u8,
-        (fg.b * 255.0).round() as u8,
-    );
+    let fg_rgb =
+        ((fg.r * 255.0).round() as u8, (fg.g * 255.0).round() as u8, (fg.b * 255.0).round() as u8);
 
     for y in 0..module_count {
         for x in 0..module_count {
@@ -461,24 +450,14 @@ fn render_qr_png(request: &QrRenderRequest) -> Result<Vec<u8>, String> {
     Ok(png)
 }
 
-fn overlay_icon(
-    rgba: &mut [u8],
-    side: u32,
-    scale: u32,
-    icon_bytes: &[u8],
-) -> Result<(), String> {
-    let icon = image::load_from_memory(icon_bytes)
-        .map_err(|_| "无法读取图标图片".to_string())?
-        .to_rgba8();
+fn overlay_icon(rgba: &mut [u8], side: u32, scale: u32, icon_bytes: &[u8]) -> Result<(), String> {
+    let icon =
+        image::load_from_memory(icon_bytes).map_err(|_| "无法读取图标图片".to_string())?.to_rgba8();
     let target_w = ((side as f32 * 0.25).round() as u32).max(1);
     let scale_icon = (target_w as f32 / icon.width() as f32).max(0.01);
     let target_h = ((icon.height() as f32 * scale_icon).round() as u32).max(1);
-    let icon_resized = image::imageops::resize(
-        &icon,
-        target_w,
-        target_h,
-        image::imageops::FilterType::Lanczos3,
-    );
+    let icon_resized =
+        image::imageops::resize(&icon, target_w, target_h, image::imageops::FilterType::Lanczos3);
     let icon_w = icon_resized.width();
     let icon_h = icon_resized.height();
     let left = side / 2 - icon_w / 2;
@@ -514,10 +493,8 @@ fn overlay_icon(
             let db = rgba[dst_idx + 2] as f32;
 
             rgba[dst_idx] = (sr as f32 * sa + dr * (1.0 - sa)).round().clamp(0.0, 255.0) as u8;
-            rgba[dst_idx + 1] =
-                (sg as f32 * sa + dg * (1.0 - sa)).round().clamp(0.0, 255.0) as u8;
-            rgba[dst_idx + 2] =
-                (sb as f32 * sa + db * (1.0 - sa)).round().clamp(0.0, 255.0) as u8;
+            rgba[dst_idx + 1] = (sg as f32 * sa + dg * (1.0 - sa)).round().clamp(0.0, 255.0) as u8;
+            rgba[dst_idx + 2] = (sb as f32 * sa + db * (1.0 - sa)).round().clamp(0.0, 255.0) as u8;
             rgba[dst_idx + 3] = 255;
         }
     }

@@ -13,7 +13,10 @@ use crate::app::task::Task;
 use crate::app::{App, Message};
 
 use super::super::common::{button_style_danger, button_style_primary, button_style_secondary};
-use super::styles::panel_container_style;
+use super::styles::{
+    panel_container_style, subtask_status_badge_style, subtask_status_icon, subtask_status_label,
+    subtask_status_pill_style, subtask_status_text_style,
+};
 
 /// 构建对应界面片段。
 ///
@@ -78,7 +81,9 @@ fn build_subtasks_section<'a>(
     main_col = main_col.push(subtasks_title).push(Space::new().height(8.0));
 
     let mut subtasks_col = column![].spacing(4);
+    let now_ms = crate::app::time::now_ms();
     for (idx, subtask) in task.subtasks.iter().enumerate() {
+        let status = subtask.status;
         let created_secs = subtask.created_at_ms / 1000;
         let created_date = format!(
             "{}-{} {}:{}",
@@ -88,19 +93,35 @@ fn build_subtasks_section<'a>(
             (created_secs % 3600) / 60
         );
 
-        let checkbox_text = if subtask.completed {
-            format!("✓ {}", subtask.content)
-        } else {
-            format!("○ {}", subtask.content)
-        };
-
-        let toggle_btn = button(text(checkbox_text).size(11))
-            .on_press(Message::TaskBoard(TaskBoardMessage::ToggleSubTaskCompleted {
-                task_id: task.id.clone(),
-                subtask_id: subtask.id.clone(),
-            }))
-            .padding([4, 8])
-            .style(button_style_secondary);
+        let status_icon = container(
+            text(subtask_status_icon(status, now_ms))
+                .size(10)
+                .style(move |theme: &Theme| subtask_status_text_style(theme, status)),
+        )
+        .width(Length::Fixed(18.0))
+        .height(Length::Fixed(18.0))
+        .center_x(Length::Fill)
+        .center_y(Length::Fill);
+        let status_label = container(
+            text(subtask_status_label(status))
+                .size(10)
+                .style(move |theme: &Theme| subtask_status_text_style(theme, status)),
+        )
+        .padding([2, 6])
+        .style(move |theme: &Theme| subtask_status_pill_style(theme, status));
+        let toggle_btn = button(
+            row![status_icon, text(&subtask.content).size(11), status_label]
+                .spacing(6)
+                .align_y(Alignment::Center),
+        )
+        .on_press(Message::TaskBoard(TaskBoardMessage::ToggleSubTaskCompleted {
+            task_id: task.id.clone(),
+            subtask_id: subtask.id.clone(),
+        }))
+        .padding([4, 8])
+        .style(move |theme, button_status| {
+            subtask_status_badge_style(theme, button_status, status)
+        });
 
         let mut subtask_row =
             row![toggle_btn, Space::new().width(4.0)].spacing(4).align_y(Alignment::Center);

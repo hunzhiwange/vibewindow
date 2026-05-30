@@ -294,11 +294,7 @@ fn settings_text_input_style(theme: &Theme, status: text_input::Status) -> text_
         border: Border { width: 1.0, color: border_color, radius: 14.0.into() },
         icon: palette.text.scale_alpha(0.65),
         placeholder: palette.text.scale_alpha(0.50),
-        value: if is_disabled {
-            palette.text.scale_alpha(0.55)
-        } else {
-            palette.text
-        },
+        value: if is_disabled { palette.text.scale_alpha(0.55) } else { palette.text },
         selection: palette.primary.scale_alpha(0.20),
     }
 }
@@ -433,10 +429,11 @@ where
                         state.is_dragging = false;
                         // 如果有未提交的编辑内容，解析并提交
                         if let Some(buffer) = state.edit_buffer.take()
-                            && let Ok(v) = buffer.parse::<f32>() {
-                                let nv = clamp(v, self.min, self.max);
-                                shell.publish((self.on_change)(nv));
-                            }
+                            && let Ok(v) = buffer.parse::<f32>()
+                        {
+                            let nv = clamp(v, self.min, self.max);
+                            shell.publish((self.on_change)(nv));
+                        }
                     }
                 } else {
                     // 无法获取鼠标位置，清除焦点和编辑状态
@@ -488,10 +485,11 @@ where
                         // Enter 键：确认编辑并提交值
                         iced::keyboard::Key::Named(iced::keyboard::key::Named::Enter) => {
                             if let Some(buffer) = state.edit_buffer.take()
-                                && let Ok(v) = buffer.parse::<f32>() {
-                                    let nv = clamp(v, self.min, self.max);
-                                    shell.publish((self.on_change)(nv));
-                                }
+                                && let Ok(v) = buffer.parse::<f32>()
+                            {
+                                let nv = clamp(v, self.min, self.max);
+                                shell.publish((self.on_change)(nv));
+                            }
                             state.is_focused = false;
                         }
 
@@ -685,12 +683,9 @@ impl<'a> From<NumberInput<'a>> for Element<'a, Message> {
         // 创建文本输入框
         let input_padding = match style_variant {
             NumberInputStyleVariant::PropertyPanel => iced::Padding::from(0),
-            NumberInputStyleVariant::Settings => iced::Padding {
-                top: 12.0,
-                right: 14.0,
-                bottom: 12.0,
-                left: 14.0,
-            },
+            NumberInputStyleVariant::Settings => {
+                iced::Padding { top: 12.0, right: 14.0, bottom: 12.0, left: 14.0 }
+            }
         };
 
         let input = text_input("", &display)
@@ -722,9 +717,8 @@ impl<'a> From<NumberInput<'a>> for Element<'a, Message> {
         .on_press(Message::None)
         .on_release(Message::None);
 
-        let wrapper = container(overlay)
-            .width(Length::Fill)
-            .height(Length::Fixed(style_variant.height()));
+        let wrapper =
+            container(overlay).width(Length::Fill).height(Length::Fixed(style_variant.height()));
 
         match style_variant {
             NumberInputStyleVariant::PropertyPanel => wrapper

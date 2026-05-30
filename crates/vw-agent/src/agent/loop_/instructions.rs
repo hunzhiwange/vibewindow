@@ -103,7 +103,8 @@ pub(crate) fn build_tool_instructions_from_specs(
     instructions.push_str(
         "After tool execution, the runtime appends tool result messages to the conversation history. ",
     );
-    instructions.push_str("Continue reasoning with those results until you can give a final answer.\n\n");
+    instructions
+        .push_str("Continue reasoning with those results until you can give a final answer.\n\n");
 
     // 添加可用工具列表的标题
     instructions.push_str("### Available Tools\n\n");

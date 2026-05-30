@@ -1,4 +1,4 @@
-use super::command::{parse_runtime_command, ChannelRuntimeCommand};
+use super::command::{ChannelRuntimeCommand, parse_runtime_command};
 
 #[test]
 fn runtime_command_parser_keeps_model_switch_payload() {

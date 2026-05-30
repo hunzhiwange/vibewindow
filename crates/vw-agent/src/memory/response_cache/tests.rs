@@ -51,6 +51,17 @@ fn temp_cache(ttl_minutes: u32) -> (TempDir, ResponseCache) {
     (tmp, cache)
 }
 
+#[test]
+fn response_cache_uses_user_scoped_data_dir() {
+    let workspace = TempDir::new().unwrap();
+    let storage = paths::workspace_data_dir(workspace.path()).unwrap();
+
+    let _cache = ResponseCache::new(workspace.path(), 60, 1000).unwrap();
+
+    assert!(!workspace.path().join("memory").join("response_cache.db").exists());
+    assert!(storage.join("memory").join("response_cache.db").exists());
+}
+
 /// 测试缓存键的确定性生成
 ///
 /// 验证相同的输入参数总是生成相同的缓存键。

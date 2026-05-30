@@ -11,20 +11,14 @@ fn assistant_info(id: &str) -> agent_message::Info {
     agent_message::Info::Assistant(Box::new(agent_message::AssistantInfo {
         id: id.to_string(),
         session_id: "session-1".to_string(),
-        time: agent_message::AssistantTime {
-            created: 10,
-            completed: Some(20),
-        },
+        time: agent_message::AssistantTime { created: 10, completed: Some(20) },
         error: None,
         parent_id: "user-1".to_string(),
         model_id: "model-a".to_string(),
         provider_id: "provider-a".to_string(),
         mode: "chat".to_string(),
         agent: "default".to_string(),
-        path: agent_message::PathInfo {
-            cwd: "/tmp".to_string(),
-            root: "/tmp".to_string(),
-        },
+        path: agent_message::PathInfo { cwd: "/tmp".to_string(), root: "/tmp".to_string() },
         summary: None,
         cost: 0.0,
         tokens: agent_message::TokenInfo {
@@ -64,10 +58,7 @@ fn loaded_chat_from_gateway_messages_splits_tool_parts_into_tool_rows() {
                 base: part_base("part-r1", "assistant-1"),
                 text: "先缩小范围".to_string(),
                 metadata: None,
-                time: agent_message::PartTime {
-                    start: 100,
-                    end: Some(140),
-                },
+                time: agent_message::PartTime { start: 100, end: Some(140) },
             }),
             agent_message::Part::Text(agent_message::TextPart {
                 base: part_base("part-t1", "assistant-1"),
@@ -127,11 +118,14 @@ fn loaded_chat_from_gateway_messages_splits_tool_parts_into_tool_rows() {
 
     assert_eq!(chat[2].role, ChatRole::Assistant);
     assert_eq!(chat[2].content, "最终答案。");
-    assert_eq!(message_ids, vec![
-        Some("assistant-1".to_string()),
-        Some("assistant-1".to_string()),
-        Some("assistant-1".to_string()),
-    ]);
+    assert_eq!(
+        message_ids,
+        vec![
+            Some("assistant-1".to_string()),
+            Some("assistant-1".to_string()),
+            Some("assistant-1".to_string()),
+        ]
+    );
 }
 
 #[test]
@@ -149,10 +143,7 @@ fn loaded_chat_from_gateway_messages_skips_empty_assistant_shell_for_tool_only_m
                 )]),
                 title: Some("等待确认".to_string()),
                 metadata: None,
-                time: agent_message::PartTime {
-                    start: 200,
-                    end: None,
-                },
+                time: agent_message::PartTime { start: 200, end: None },
             }),
             metadata: None,
         })],

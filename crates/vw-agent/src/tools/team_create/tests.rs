@@ -1,6 +1,6 @@
 use super::*;
-use crate::app::agent::tools::traits::Tool;
 use crate::app::agent::config::AgentsIpcConfig;
+use crate::app::agent::tools::traits::Tool;
 
 fn test_ipc_db() -> Arc<super::super::agents_ipc::IpcDb> {
     let root = tempfile::tempdir().expect("temp dir");
@@ -16,8 +16,8 @@ fn test_ipc_db() -> Arc<super::super::agents_ipc::IpcDb> {
 
 #[test]
 fn args_deserializes_required_fields() {
-    let args: Args = serde_json::from_value(json!({"id": "team-a", "members": ["a", "b"]}))
-        .expect("valid args");
+    let args: Args =
+        serde_json::from_value(json!({"id": "team-a", "members": ["a", "b"]})).expect("valid args");
 
     assert_eq!(args.id, "team-a");
     assert_eq!(args.members, vec!["a", "b"]);
@@ -25,10 +25,7 @@ fn args_deserializes_required_fields() {
 
 #[test]
 fn schema_requires_id_and_members() {
-    let tool = TeamCreateTool::new(
-        test_ipc_db(),
-        Arc::new(SecurityPolicy::default()),
-    );
+    let tool = TeamCreateTool::new(test_ipc_db(), Arc::new(SecurityPolicy::default()));
 
     let schema = tool.parameters_schema();
     assert_eq!(schema["required"], json!(["id", "members"]));

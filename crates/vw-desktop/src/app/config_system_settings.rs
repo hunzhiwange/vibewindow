@@ -5,14 +5,14 @@ use crate::app::Message;
 use iced::Task;
 use vw_config_types::ui::{AppSystemSettingsConfig, GatewayClientSystemSettingsConfig};
 
-use super::gateway::{gateway_client, load_config_value_at_path, run_gateway_call, spawn_gateway_task};
+use super::gateway::{
+    gateway_client, load_config_value_at_path, run_gateway_call, spawn_gateway_task,
+};
 
 async fn fetch_desktop_system_settings_via_gateway()
 -> Result<Option<AppSystemSettingsConfig>, String> {
     let client = gateway_client()?;
-    client
-        .desktop_system_settings_get::<AppSystemSettingsConfig>()
-        .await
+    client.desktop_system_settings_get::<AppSystemSettingsConfig>().await
 }
 
 async fn patch_desktop_system_settings_via_gateway(
@@ -78,7 +78,9 @@ pub fn load_gateway_client_config() -> GatewayClientSystemSettingsConfig {
 
 /// 公开函数，执行 update_gateway_client_config 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
-pub fn update_gateway_client_config(update: impl FnOnce(&mut GatewayClientSystemSettingsConfig) + Send) {
+pub fn update_gateway_client_config(
+    update: impl FnOnce(&mut GatewayClientSystemSettingsConfig) + Send,
+) {
     update_system_settings_config(|system| {
         update(&mut system.gateway_client);
     });
@@ -142,7 +144,7 @@ pub fn update_system_settings_config_async(
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
 #[cfg(target_arch = "wasm32")]
 pub fn update_system_settings_config_async(
-    update: impl FnOnce(&mut AppSystemSettingsConfig) + 'static,
+    update: impl FnOnce(&mut AppSystemSettingsConfig) + Send + 'static,
 ) -> Task<Message> {
     spawn_gateway_task("system_settings", async move {
         update_system_settings_config_result_async(update).await

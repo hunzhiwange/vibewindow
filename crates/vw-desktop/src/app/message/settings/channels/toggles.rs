@@ -198,9 +198,7 @@ pub(super) fn toggle_enabled(app: &mut App, channel: &str, enabled: bool) {
     }
 
     if enabled {
-        app.channels_settings
-            .expanded_panels
-            .insert(channel.to_string());
+        app.channels_settings.expanded_panels.insert(channel.to_string());
     }
 }
 

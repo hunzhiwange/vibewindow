@@ -25,17 +25,7 @@ pub(crate) fn tool_fingerprint(name: &str, input_sanitized: &str, session_messag
 
 /// 执行 is_streaming_tool 操作，并返回调用方需要的结果。
 pub(crate) fn is_streaming_tool(name: &str) -> bool {
-    matches!(
-        name,
-        "bash"
-            | "shell"
-            | "grep"
-            | "read"
-            | "file_read"
-            | "pdf_read"
-            | "glob"
-            | "ls"
-    )
+    matches!(name, "bash" | "shell" | "grep" | "read" | "file_read" | "pdf_read" | "glob" | "ls")
 }
 
 /// 执行 sanitize_tool_input 操作，并返回调用方需要的结果。
@@ -48,11 +38,7 @@ pub(crate) fn sanitize_tool_input_for_ui(name: &str, input: &str) -> String {
     sanitize_tool_input_with_mode(name, input, ToolInputSanitizeMode::Ui)
 }
 
-fn sanitize_tool_input_with_mode(
-    name: &str,
-    input: &str,
-    mode: ToolInputSanitizeMode,
-) -> String {
+fn sanitize_tool_input_with_mode(name: &str, input: &str, mode: ToolInputSanitizeMode) -> String {
     const MAX_INPUT_BYTES: usize = 2 * 1024;
     const MAX_STRING_BYTES: usize = 400;
 
@@ -72,11 +58,7 @@ fn sanitize_tool_input_with_mode(
     };
     let v = sanitize_json_value(name, None, &v, MAX_STRING_BYTES, mode);
     let s = serde_json::to_string(&v).unwrap_or_else(|_| raw.to_string());
-    if mode == ToolInputSanitizeMode::Ui {
-        s
-    } else {
-        truncate_string(&s, MAX_INPUT_BYTES)
-    }
+    if mode == ToolInputSanitizeMode::Ui { s } else { truncate_string(&s, MAX_INPUT_BYTES) }
 }
 
 fn preserves_full_ui_input(tool: &str, key: Option<&str>) -> bool {
@@ -130,13 +112,19 @@ fn sanitize_json_value(
     if (is_todo_write_tool_id(tool) || is_todo_read_tool_id(tool)) && key == "content" {
         omit_keys = false;
     }
-    let omit_by_tool = matches!(
-        tool,
-        "write" | "file_write" | "file_edit" | "notebook_edit" | "apply_patch"
-    ) && matches!(
-        key,
-        "content" | "patch" | "oldString" | "newString" | "old_string" | "new_string" | "cell" | "source"
-    );
+    let omit_by_tool =
+        matches!(tool, "write" | "file_write" | "file_edit" | "notebook_edit" | "apply_patch")
+            && matches!(
+                key,
+                "content"
+                    | "patch"
+                    | "oldString"
+                    | "newString"
+                    | "old_string"
+                    | "new_string"
+                    | "cell"
+                    | "source"
+            );
 
     match v {
         Value::String(s) => {

@@ -10,9 +10,7 @@ use time::OffsetDateTime;
 use crate::app::task::models::{Task, TaskStatus};
 
 use super::paths::{ensure_task_dir, with_index_lock};
-use super::persistence::{
-    load_all_tasks, load_index, load_task, max_sequence_for_date, save_task,
-};
+use super::persistence::{load_all_tasks, load_index, load_task, max_sequence_for_date, save_task};
 #[cfg(not(target_arch = "wasm32"))]
 use super::persistence::{
     load_index_from_sqlite, load_index_unlocked, load_task_from_sqlite, open_index_connection,
@@ -35,9 +33,10 @@ pub fn load_tasks_by_status(project_path: &str) -> HashMap<TaskStatus, Vec<Task>
     for task_id in index.tasks.keys() {
         if let Some(task) = load_task(project_path, task_id)
             && !task.deleted
-                && let Some(list) = result.get_mut(&task.status) {
-                    list.push(task);
-                }
+            && let Some(list) = result.get_mut(&task.status)
+        {
+            list.push(task);
+        }
     }
 
     for list in result.values_mut() {

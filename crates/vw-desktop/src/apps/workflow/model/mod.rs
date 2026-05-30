@@ -44,20 +44,18 @@ pub use creation::{
     load_document_from_path, load_document_from_text, node_data_yaml, rebuild_node_from_parts,
 };
 pub use loader::{load_document_from_value, serialize_workflow_yaml, suggested_workflow_file_name};
-pub(crate) use save::yaml_map;
 pub use registry::{
     pretty_block_type, supported_node_types, workflow_node_accent_color, workflow_node_icon,
     workflow_system_variables,
 };
+pub(crate) use save::yaml_map;
 
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
 
-const BUILTIN_SAMPLE: &str = include_str!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/src/app/dify-workflow.yml"
-));
+const BUILTIN_SAMPLE: &str =
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/app/dify-workflow.yml"));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorkflowHandleSide {
@@ -239,19 +237,13 @@ const WORKFLOW_NODE_TYPES: [WorkflowNodeTypeDescriptor; 14] = [
         block_type: "answer",
         label: "回复",
         summary: "直接输出文本或模板结果。",
-        icon: WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "message-square-text",
-        },
+        icon: WorkflowNodeIconDescriptor { family: "lucide", name: "message-square-text" },
     },
     WorkflowNodeTypeDescriptor {
         block_type: "if-else",
         label: "条件分支",
         summary: "通过 cases 定义多个条件分支。",
-        icon: WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "git-branch",
-        },
+        icon: WorkflowNodeIconDescriptor { family: "lucide", name: "git-branch" },
     },
     WorkflowNodeTypeDescriptor {
         block_type: "code",
@@ -275,10 +267,7 @@ const WORKFLOW_NODE_TYPES: [WorkflowNodeTypeDescriptor; 14] = [
         block_type: "question-classifier",
         label: "问题分类",
         summary: "基于问题内容进行分类路由。",
-        icon: WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "circle-question-mark",
-        },
+        icon: WorkflowNodeIconDescriptor { family: "lucide", name: "circle-question-mark" },
     },
     WorkflowNodeTypeDescriptor {
         block_type: "http-request",
@@ -314,10 +303,7 @@ const WORKFLOW_NODE_TYPES: [WorkflowNodeTypeDescriptor; 14] = [
         block_type: "agent",
         label: "Agent",
         summary: "Agent 策略与工具编排节点。",
-        icon: WorkflowNodeIconDescriptor {
-            family: "lucide",
-            name: "bot-message-square",
-        },
+        icon: WorkflowNodeIconDescriptor { family: "lucide", name: "bot-message-square" },
     },
 ];
 
@@ -501,10 +487,7 @@ impl WorkflowDocument {
     }
 
     pub fn group_child_count(&self, parent_id: &str) -> usize {
-        self.nodes
-            .iter()
-            .filter(|node| node.parent_id.as_deref() == Some(parent_id))
-            .count()
+        self.nodes.iter().filter(|node| node.parent_id.as_deref() == Some(parent_id)).count()
     }
 
     pub fn ancestor_ids(&self, node_id: &str) -> Vec<String> {

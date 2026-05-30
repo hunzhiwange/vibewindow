@@ -454,4 +454,3 @@ pub(super) fn build_page_generation_prompt(
         page.objective
     )
 }
-

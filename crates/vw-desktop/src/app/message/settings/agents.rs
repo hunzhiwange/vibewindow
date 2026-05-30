@@ -125,14 +125,7 @@ fn tool_in_preset(tool_id: &str, preset_key: &str) -> bool {
             tool_in_preset(tool_id, "minimal")
                 || tool_matches_any(
                     tool_id,
-                    &[
-                        "write",
-                        "file_write",
-                        "apply_patch",
-                        "bash",
-                        "shell",
-                        "git_operations",
-                    ],
+                    &["write", "file_write", "apply_patch", "bash", "shell", "git_operations"],
                 )
         }
         "research" => {
@@ -263,10 +256,7 @@ fn resolve_workspace_identity_root(agent_key: &str) -> Option<PathBuf> {
         .map(|home| home.join(".vibewindow").join(format!("workspace{suffix}")))
 }
 
-fn load_workspace_identity_file_task(
-    agent_key: String,
-    file_name: String,
-) -> Task<Message> {
+fn load_workspace_identity_file_task(agent_key: String, file_name: String) -> Task<Message> {
     #[cfg(not(target_arch = "wasm32"))]
     let response_workspace_root_path =
         resolve_workspace_identity_root(&agent_key).map(|path| path.to_string_lossy().into_owned());
@@ -289,12 +279,7 @@ fn load_workspace_identity_file_task(
 
             let (size_bytes, modified_at_ms) =
                 workspace_identity_file_metadata(&response.root_directory, &file_name);
-            Ok((
-                response.root_directory,
-                response.content,
-                size_bytes,
-                modified_at_ms,
-            ))
+            Ok((response.root_directory, response.content, size_bytes, modified_at_ms))
         },
         move |result| {
             let (workspace_root_path, result) = match result {
@@ -313,10 +298,7 @@ fn load_workspace_identity_file_task(
     )
 }
 
-fn restore_workspace_identity_default_task(
-    agent_key: String,
-    file_name: String,
-) -> Task<Message> {
+fn restore_workspace_identity_default_task(agent_key: String, file_name: String) -> Task<Message> {
     #[cfg(not(target_arch = "wasm32"))]
     let response_workspace_root_path =
         resolve_workspace_identity_root(&agent_key).map(|path| path.to_string_lossy().into_owned());
@@ -352,12 +334,14 @@ fn restore_workspace_identity_default_task(
             Ok((bundled_content, size_bytes, modified_at_ms))
         },
         move |result| {
-            Message::Settings(SettingsMessage::Agents(AgentsMessage::WorkspaceIdentityDefaultRestored {
-                agent_key: response_agent_key.clone(),
-                file_name: response_file_name.clone(),
-                workspace_root_path: response_workspace_root_path.clone(),
-                result,
-            }))
+            Message::Settings(SettingsMessage::Agents(
+                AgentsMessage::WorkspaceIdentityDefaultRestored {
+                    agent_key: response_agent_key.clone(),
+                    file_name: response_file_name.clone(),
+                    workspace_root_path: response_workspace_root_path.clone(),
+                    result,
+                },
+            ))
         },
     )
 }
@@ -392,24 +376,22 @@ fn save_workspace_identity_file_task(
                     (size_bytes, modified_at_ms)
                 })
         },
-        move |result| {
-            match result {
-                Ok((size_bytes, modified_at_ms)) => {
-                    Message::Settings(SettingsMessage::Agents(AgentsMessage::WorkspaceIdentitySaved {
-                        file_name: response_file_name.clone(),
-                        size_bytes,
-                        modified_at_ms,
-                        result: Ok(()),
-                    }))
-                }
-                Err(error) => {
-                    Message::Settings(SettingsMessage::Agents(AgentsMessage::WorkspaceIdentitySaved {
-                        file_name: response_file_name.clone(),
-                        size_bytes: None,
-                        modified_at_ms: None,
-                        result: Err(error),
-                    }))
-                }
+        move |result| match result {
+            Ok((size_bytes, modified_at_ms)) => {
+                Message::Settings(SettingsMessage::Agents(AgentsMessage::WorkspaceIdentitySaved {
+                    file_name: response_file_name.clone(),
+                    size_bytes,
+                    modified_at_ms,
+                    result: Ok(()),
+                }))
+            }
+            Err(error) => {
+                Message::Settings(SettingsMessage::Agents(AgentsMessage::WorkspaceIdentitySaved {
+                    file_name: response_file_name.clone(),
+                    size_bytes: None,
+                    modified_at_ms: None,
+                    result: Err(error),
+                }))
             }
         },
     )
@@ -431,6 +413,12 @@ fn persist_agents_settings(app: &mut App) -> Task<Message> {
                 .iter()
                 .map(|tool| tool.trim().to_string())
                 .filter(|tool| !tool.is_empty())
+                .collect::<Vec<_>>();
+            let allowed_skills = entry
+                .allowed_skills
+                .iter()
+                .map(|skill| skill.trim().to_string())
+                .filter(|skill| !skill.is_empty())
                 .collect::<Vec<_>>();
             agents.insert(
                 entry.key.clone(),
@@ -456,6 +444,7 @@ fn persist_agents_settings(app: &mut App) -> Task<Message> {
                     max_depth: entry.max_depth.clamp(1, 32),
                     agentic: entry.agentic,
                     allowed_tools,
+                    allowed_skills,
                     options: std::collections::HashMap::new(),
                     permission: serde_json::Value::Null,
                     max_iterations: entry.max_iterations.clamp(1, 100) as usize,
@@ -553,9 +542,7 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
                 return Task::none();
             }
 
-            app.agents_settings
-                .entries
-                .push(DelegateAgentSettingsEntry::from_config(&key, None));
+            app.agents_settings.entries.push(DelegateAgentSettingsEntry::from_config(&key, None));
             app.agents_settings.new_agent_key_input.clear();
             app.agents_settings.selected_agent = key;
             app.agents_settings.save_error = None;
@@ -564,10 +551,7 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
 
             let mut tasks = vec![persist_agents_settings(app)];
             if active_prompt_tab != AGENT_PROMPT_SYSTEM_TAB {
-                tasks.push(load_workspace_identity_file_task(
-                    selected_agent,
-                    active_prompt_tab,
-                ));
+                tasks.push(load_workspace_identity_file_task(selected_agent, active_prompt_tab));
             }
             Task::batch(tasks)
         }
@@ -679,10 +663,11 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         }
         AgentsMessage::ProviderChanged(agent_key, provider) => {
             if let Some(entry) = find_entry_mut(app, &agent_key)
-                && entry.provider != provider {
-                    entry.provider = provider;
-                    entry.model.clear();
-                }
+                && entry.provider != provider
+            {
+                entry.provider = provider;
+                entry.model.clear();
+            }
             app.agents_settings.save_error = None;
             persist_agents_settings(app)
         }
@@ -743,7 +728,6 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         }
         AgentsMessage::MaxHistoryMessagesChanged(agent_key, value) => {
             if let Some(entry) = find_entry_mut(app, &agent_key) {
-
                 entry.max_history_messages = value.clamp(1, 1000);
             }
             app.agents_settings.save_error = None;
@@ -814,6 +798,76 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             let available_tools = app.agents_settings.available_tools.clone();
             if let Some(entry) = find_entry_mut(app, &agent_key) {
                 entry.allowed_tools = tools_for_preset(&available_tools, &preset_key);
+            }
+            app.agents_settings.save_error = None;
+            persist_agents_settings(app)
+        }
+        AgentsMessage::AllowedSkillToggled(agent_key, skill_id, enabled) => {
+            if let Some(entry) = find_entry_mut(app, &agent_key) {
+                if enabled {
+                    if !entry.allowed_skills.iter().any(|skill| skill == &skill_id) {
+                        entry.allowed_skills.push(skill_id);
+                        entry.allowed_skills.sort();
+                    }
+                } else {
+                    entry.allowed_skills.retain(|skill| skill != &skill_id);
+                }
+            }
+            app.agents_settings.save_error = None;
+            persist_agents_settings(app)
+        }
+        AgentsMessage::AllowedSkillsSelectAll(agent_key, scope) => {
+            let available_skills = app
+                .skills_settings
+                .catalog
+                .iter()
+                .filter(|skill| match scope {
+                    crate::app::state::SkillsDirectoryScope::Project => skill.source == "workspace",
+                    crate::app::state::SkillsDirectoryScope::Ancestor => skill.source == "ancestor",
+                    crate::app::state::SkillsDirectoryScope::Global => skill.source == "global",
+                    crate::app::state::SkillsDirectoryScope::Bundled => skill.source == "bundled",
+                    crate::app::state::SkillsDirectoryScope::All => true,
+                })
+                .filter(|skill| skill.enabled)
+                .map(|skill| skill.id.clone())
+                .collect::<Vec<_>>();
+            if let Some(entry) = find_entry_mut(app, &agent_key) {
+                for skill in available_skills {
+                    if !entry.allowed_skills.iter().any(|selected| selected == &skill) {
+                        entry.allowed_skills.push(skill);
+                    }
+                }
+                entry.allowed_skills.sort();
+                entry.allowed_skills.dedup();
+            }
+            app.agents_settings.save_error = None;
+            persist_agents_settings(app)
+        }
+        AgentsMessage::AllowedSkillsInvertSelection(agent_key, scope) => {
+            let available_skills = app
+                .skills_settings
+                .catalog
+                .iter()
+                .filter(|skill| match scope {
+                    crate::app::state::SkillsDirectoryScope::Project => skill.source == "workspace",
+                    crate::app::state::SkillsDirectoryScope::Ancestor => skill.source == "ancestor",
+                    crate::app::state::SkillsDirectoryScope::Global => skill.source == "global",
+                    crate::app::state::SkillsDirectoryScope::Bundled => skill.source == "bundled",
+                    crate::app::state::SkillsDirectoryScope::All => true,
+                })
+                .filter(|skill| skill.enabled)
+                .map(|skill| skill.id.clone())
+                .collect::<Vec<_>>();
+            if let Some(entry) = find_entry_mut(app, &agent_key) {
+                for skill in available_skills {
+                    if entry.allowed_skills.iter().any(|selected| selected == &skill) {
+                        entry.allowed_skills.retain(|selected| selected != &skill);
+                    } else {
+                        entry.allowed_skills.push(skill);
+                    }
+                }
+                entry.allowed_skills.sort();
+                entry.allowed_skills.dedup();
             }
             app.agents_settings.save_error = None;
             persist_agents_settings(app)

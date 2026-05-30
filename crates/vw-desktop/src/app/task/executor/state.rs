@@ -11,6 +11,9 @@ use super::*;
 pub enum TaskLogStream {
     Stdout(String),
     Stderr(String),
+    SubTaskStarted { subtask_id: String, content: String },
+    SubTaskCompleted { subtask_id: String },
+    SubTaskFailed { subtask_id: String, error: String },
     ExitStatus { success: bool, code: Option<i32>, signal: Option<i32> },
 }
 
@@ -126,10 +129,6 @@ impl Drop for WorktreeClaimGuard {
 static CLAIMED_WORKTREES: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 static WORKTREE_POOLS: OnceLock<Mutex<HashMap<String, RepoWorktreePool>>> = OnceLock::new();
 
-/// 模块内部可见的 GIT_MERGE_COMMAND_TIMEOUT_SECS 常量，集中保存该模块复用的稳定取值。
-pub(super) const GIT_MERGE_COMMAND_TIMEOUT_SECS: u64 = 120;
-/// 模块内部可见的 GIT_MERGE_RETRY_DELAY_SECS 常量，集中保存该模块复用的稳定取值。
-pub(super) const GIT_MERGE_RETRY_DELAY_SECS: u64 = 1;
 /// 模块内部可见的 GIT_MAINTENANCE_COMMAND_TIMEOUT_SECS 常量，集中保存该模块复用的稳定取值。
 pub(super) const GIT_MAINTENANCE_COMMAND_TIMEOUT_SECS: u64 = 30;
 /// 模块内部可见的 GIT_SUMMARY_TAG 常量，集中保存该模块复用的稳定取值。
@@ -142,15 +141,6 @@ pub(super) const GIT_TARGET_BRANCH_TAG: &str = "__VW_GIT_TARGET_BRANCH__";
 pub(super) const GIT_WORKTREE_PATH_TAG: &str = "__VW_GIT_WORKTREE_PATH__";
 /// 模块内部可见的 WORKTREE_POOL_REFRESH_INTERVAL_MS 常量，集中保存该模块复用的稳定取值。
 pub(super) const WORKTREE_POOL_REFRESH_INTERVAL_MS: u64 = 3_000;
-
-/// 模块内部可见的 verbose_merge_logging 函数。
-///
-/// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
-pub(super) fn verbose_merge_logging() -> bool {
-    std::env::var("VW_VERBOSE_MERGE_LOG")
-        .map(|value| matches!(value.as_str(), "1" | "true"))
-        .unwrap_or(false)
-}
 
 /// 模块内部可见的 claimed_worktrees 函数。
 ///

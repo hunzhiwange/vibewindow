@@ -64,11 +64,7 @@ fn queue_item_style(theme: &Theme, is_next: bool) -> iced::widget::container::St
 
     iced::widget::container::Style {
         background: Some(Background::Color(background)),
-        border: Border {
-            width: 1.0,
-            color: border_color,
-            radius: 12.0.into(),
-        },
+        border: Border { width: 1.0, color: border_color, radius: 12.0.into() },
         shadow: iced::Shadow {
             color: Color::BLACK.scale_alpha(if is_dark { 0.18 } else { 0.04 }),
             offset: iced::Vector::new(0.0, 4.0),
@@ -222,10 +218,11 @@ pub fn queue_panel(
         } else {
             time_label
         };
-        let time_text = text(meta_label).size(11).style(|theme: &Theme| iced::widget::text::Style {
-            // 使用次要颜色的 75% 透明度，使时间文本不那么突出
-            color: Some(theme.extended_palette().secondary.base.text.scale_alpha(0.75)),
-        });
+        let time_text =
+            text(meta_label).size(11).style(|theme: &Theme| iced::widget::text::Style {
+                // 使用次要颜色的 75% 透明度，使时间文本不那么突出
+                color: Some(theme.extended_palette().secondary.base.text.scale_alpha(0.75)),
+            });
 
         // 队列不包含当前执行中的请求，仅高亮队首项表示“下一条”
         let status_icon = if is_next { Icon::ChevronUp } else { Icon::Circle };

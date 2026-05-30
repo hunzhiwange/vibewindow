@@ -8,27 +8,25 @@ pub(crate) const AGENT_PROMPT_SYSTEM_TAB: &str = "system_prompt";
 pub(crate) const AGENT_DETAIL_BASIC_TAB: &str = "basic";
 pub(crate) const AGENT_DETAIL_IDENTITY_TAB: &str = "identity";
 pub(crate) const AGENT_DETAIL_TOOLS_TAB: &str = "tools";
+pub(crate) const AGENT_DETAIL_SKILLS_TAB: &str = "skills";
 static GUIDE_HANDOFF_REQUEST_IDS: Lazy<Mutex<HashSet<u64>>> =
     Lazy::new(|| Mutex::new(HashSet::new()));
 
 pub(crate) fn mark_pending_guide_handoff(request_id: u64) {
-    let mut pending = GUIDE_HANDOFF_REQUEST_IDS
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut pending =
+        GUIDE_HANDOFF_REQUEST_IDS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     pending.insert(request_id);
 }
 
 pub(crate) fn take_pending_guide_handoff(request_id: u64) -> bool {
-    let mut pending = GUIDE_HANDOFF_REQUEST_IDS
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut pending =
+        GUIDE_HANDOFF_REQUEST_IDS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     pending.remove(&request_id)
 }
 
 pub(crate) fn clear_pending_guide_handoff(request_id: u64) {
-    let mut pending = GUIDE_HANDOFF_REQUEST_IDS
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut pending =
+        GUIDE_HANDOFF_REQUEST_IDS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     pending.remove(&request_id);
 }
 

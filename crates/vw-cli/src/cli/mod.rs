@@ -76,11 +76,11 @@ pub(crate) mod theme;
 mod theme_tests;
 pub(crate) mod transcript;
 pub(crate) mod tui;
-pub(crate) mod tui_v2;
 pub(crate) mod tui_utils;
 #[cfg(test)]
 #[path = "tui_utils_tests.rs"]
 mod tui_utils_tests;
+pub(crate) mod tui_v2;
 
 /// 导出 Logo 文本行生成函数
 ///

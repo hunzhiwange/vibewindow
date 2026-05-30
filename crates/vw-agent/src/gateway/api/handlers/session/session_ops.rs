@@ -22,13 +22,36 @@ use super::shared::{
 };
 use crate::app::agent::gateway::ApiError;
 use crate::app::agent::gateway::AppState;
-use crate::app::agent::gateway::chat::{fork_session_query_engine, invalidate_session_query_engine};
+use crate::app::agent::gateway::chat::{
+    fork_session_query_engine, invalidate_session_query_engine,
+};
 use crate::app::agent::gateway::instance::InstanceQuery;
 use crate::app::agent::gateway::instance::resolve_directory;
 use crate::app::agent::gateway::instance::with_instance;
 use crate::app::agent::project::instance;
 use crate::app::agent::session as agent_session;
 use crate::app::agent::snapshot;
+
+fn task_session_summary_needs_refresh(session: &agent_session::session::Info) -> bool {
+    if !session.id.starts_with("task-board-") {
+        return false;
+    }
+
+    session.summary.as_ref().is_none_or(|summary| {
+        summary.files == 0 && summary.additions == 0 && summary.deletions == 0
+    })
+}
+
+async fn refresh_task_session_summaries(sessions: &mut [agent_session::session::Info]) {
+    for session in sessions.iter_mut().filter(|session| task_session_summary_needs_refresh(session))
+    {
+        if let Ok(summary) = agent_session::summary::refresh_session_diff_summary(&session.id).await
+            && (summary.files > 0 || session.summary.is_none())
+        {
+            session.summary = Some(summary);
+        }
+    }
+}
 
 /// 列出 UI 会话。
 ///
@@ -69,6 +92,7 @@ pub(super) async fn ui_session_list(
     }
 
     sessions.truncate(limit);
+    refresh_task_session_summaries(&mut sessions).await;
     Ok(Json(sessions))
 }
 
@@ -155,10 +179,8 @@ pub(super) async fn ui_session_create(
     Json(body): Json<Option<UiSessionCreateBody>>,
 ) -> Result<Json<agent_session::session::Info>, ApiError> {
     let dir = resolve_directory(&query, &headers);
-    let body = body.unwrap_or(UiSessionCreateBody {
-        session: Default::default(),
-        permission: None,
-    });
+    let body =
+        body.unwrap_or(UiSessionCreateBody { session: Default::default(), permission: None });
     let UiSessionCreateBody { session, permission } = body;
     let vw_api_types::session::GatewaySessionCreateBody { parent_id, title } = session;
 
@@ -426,8 +448,8 @@ pub(super) async fn session_reset(
                     &session_id_for_reset,
                     &body.message_id,
                 )
-                    .await
-                    .map_err(|e| ApiError::bad_request(e.to_string()))?;
+                .await
+                .map_err(|e| ApiError::bad_request(e.to_string()))?;
                 agent_session::session::get(&session_id_for_reset)
                     .await
                     .map_err(|e| ApiError::bad_request(e.to_string()))?

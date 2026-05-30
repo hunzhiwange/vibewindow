@@ -332,12 +332,16 @@ fn load_agent_configs(cfg: &Value) -> HashMap<String, DelegateAgentConfig> {
     let configured = cfg
         .get("agents")
         .cloned()
-        .and_then(|value| serde_json::from_value::<HashMap<String, DelegateAgentConfig>>(value).ok())
+        .and_then(|value| {
+            serde_json::from_value::<HashMap<String, DelegateAgentConfig>>(value).ok()
+        })
         .unwrap_or_default();
     merged_agent_configs(&configured)
 }
 
-pub fn resolve_model_ref(config: &DelegateAgentConfig) -> Option<vw_shared::message::types::ModelRef> {
+pub fn resolve_model_ref(
+    config: &DelegateAgentConfig,
+) -> Option<vw_shared::message::types::ModelRef> {
     let provider_id = config.provider.trim();
     let model_id = config.model.trim();
     if !provider_id.is_empty() && !model_id.is_empty() {

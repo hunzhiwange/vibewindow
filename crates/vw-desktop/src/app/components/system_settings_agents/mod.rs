@@ -6,6 +6,7 @@
 mod basic;
 mod identity;
 mod shared;
+mod skills;
 mod tools;
 
 #[cfg(test)]
@@ -17,6 +18,9 @@ mod identity_tests;
 #[cfg(test)]
 #[path = "shared_tests.rs"]
 mod shared_tests;
+#[cfg(test)]
+#[path = "skills_tests.rs"]
+mod skills_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
@@ -32,7 +36,8 @@ use crate::app::components::system_settings_common::{
 };
 use crate::app::message::settings::{AgentsMessage, SettingsMessage};
 use crate::app::state::{
-    AGENT_DETAIL_BASIC_TAB, AGENT_DETAIL_IDENTITY_TAB, AGENT_DETAIL_TOOLS_TAB,
+    AGENT_DETAIL_BASIC_TAB, AGENT_DETAIL_IDENTITY_TAB, AGENT_DETAIL_SKILLS_TAB,
+    AGENT_DETAIL_TOOLS_TAB,
 };
 use crate::app::{App, Message};
 use iced::widget::{
@@ -150,6 +155,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             detail_tab_button("基础", AGENT_DETAIL_BASIC_TAB, &settings.active_detail_tab),
             detail_tab_button("身份", AGENT_DETAIL_IDENTITY_TAB, &settings.active_detail_tab),
             detail_tab_button("工具", AGENT_DETAIL_TOOLS_TAB, &settings.active_detail_tab),
+            detail_tab_button("技能", AGENT_DETAIL_SKILLS_TAB, &settings.active_detail_tab),
         ]
         .spacing(10)
         .wrap();
@@ -157,6 +163,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         let detail_content: Element<'_, Message> = match settings.active_detail_tab.as_str() {
             AGENT_DETAIL_IDENTITY_TAB => identity::view(app, entry),
             AGENT_DETAIL_TOOLS_TAB => tools::view(app, entry),
+            AGENT_DETAIL_SKILLS_TAB => skills::view(app, entry),
             _ => basic::view(app, entry, provider_options.clone()),
         };
 
@@ -167,7 +174,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let mut content = column![
         title,
-        section_card("Agent 工作台", "左侧选择 Agent，右侧集中编辑基础参数、身份文件与工具能力。",),
+        section_card(
+            "Agent 工作台",
+            "左侧选择 Agent，右侧集中编辑基础参数、身份文件、工具与技能能力。",
+        ),
         row![
             container(
                 column![

@@ -17,5 +17,8 @@ fn session_create_defaults_and_gateway_renames_are_stable() {
         serde_json::to_value(gateway).expect("serialize"),
         json!({ "parentID": "parent-1", "title": "Title" })
     );
-    assert_eq!(serde_json::to_value(SessionStatus::Archived).expect("serialize"), json!("archived"));
+    assert_eq!(
+        serde_json::to_value(SessionStatus::Archived).expect("serialize"),
+        json!("archived")
+    );
 }

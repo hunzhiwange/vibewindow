@@ -7,12 +7,12 @@ use iced::{Alignment, Element, Length, Theme};
 use serde_json::{Map, Value};
 use std::path::Path;
 
+use crate::app::assets::Icon;
 use crate::app::components::chat_panel::utils::{
     chat_secondary_muted_text_color, chat_secondary_subtle_text_color, chat_secondary_text_color,
     eye_icon_button_style, eye_icon_svg_style, icon_svg, truncate_chars,
 };
 use crate::app::{App, Message, message};
-use crate::app::{assets::Icon};
 
 use super::tool_parse::{tool_result_data, tool_status};
 use super::{ToolTextTarget, canonical_tool_name, tool_text_editor};
@@ -108,27 +108,16 @@ pub fn tool_brief_view<'a>(
     }
 
     let data = brief_data(&value)?;
-    let message = data
-        .get("message")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .unwrap_or("")
-        .to_string();
+    let message =
+        data.get("message").and_then(Value::as_str).map(str::trim).unwrap_or("").to_string();
     let attachments = parse_attachments(data);
     if message.is_empty() && attachments.is_empty() {
         return None;
     }
 
-    let intent = data
-        .get("status")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .unwrap_or("normal")
-        .to_string();
-    let sent_at = data
-        .get("sentAt")
-        .and_then(Value::as_str)
-        .and_then(format_sent_at);
+    let intent =
+        data.get("status").and_then(Value::as_str).map(str::trim).unwrap_or("normal").to_string();
+    let sent_at = data.get("sentAt").and_then(Value::as_str).and_then(format_sent_at);
 
     let key = ((msg_idx as u64) << 32) | (tool_idx as u64);
     let is_hovered = app.chat_tool_hovered_idx == Some(key);
@@ -216,8 +205,8 @@ pub fn tool_brief_view<'a>(
     }
 
     let card = mouse_area(container(column![head_row, body].spacing(4)).width(Length::Fill))
-    .on_enter(Message::Chat(message::ChatMessage::ToolHover(msg_idx, tool_idx)))
-    .on_exit(Message::Chat(message::ChatMessage::ToolHoverLeave));
+        .on_enter(Message::Chat(message::ChatMessage::ToolHover(msg_idx, tool_idx)))
+        .on_exit(Message::Chat(message::ChatMessage::ToolHoverLeave));
 
     Some(card.into())
 }

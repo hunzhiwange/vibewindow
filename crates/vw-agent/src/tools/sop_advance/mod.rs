@@ -149,7 +149,9 @@ impl Tool for SopAdvanceTool {
         }
 
         // Metrics collector (independent of audit)
-        if let Some(ref collector) = self.collector && let Some(ref run) = finished_run {
+        if let Some(ref collector) = self.collector
+            && let Some(ref run) = finished_run
+        {
             collector.record_run_complete(run);
         }
 

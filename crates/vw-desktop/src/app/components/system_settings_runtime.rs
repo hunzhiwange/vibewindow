@@ -104,11 +104,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .menu_style(settings_pick_list_menu_style)
     .width(Length::Fixed(280.0));
 
-    let kind_row = field_row(
-        "运行时类型",
-        "选择 native、docker 或 wasm 执行环境。",
-        kind_pick,
-    );
+    let kind_row = field_row("运行时类型", "选择 native、docker 或 wasm 执行环境。", kind_pick);
 
     let reasoning_enabled_options = [
         LabeledOption { value: "auto", label: "自动" },
@@ -120,20 +116,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .find(|opt| opt.value == s.reasoning_enabled_input)
         .cloned()
         .or_else(|| reasoning_enabled_options.first().cloned());
-    let reasoning_enabled_pick = pick_list(
-        reasoning_enabled_options,
-        reasoning_enabled_selected,
-        |value| {
+    let reasoning_enabled_pick =
+        pick_list(reasoning_enabled_options, reasoning_enabled_selected, |value| {
             Message::Settings(SettingsMessage::Runtime(RuntimeMessage::ReasoningEnabledChanged(
                 value.value.to_string(),
             )))
-        },
-    )
-    .padding([10, 14])
-    .text_size(13)
-    .style(settings_pick_list_style)
-    .menu_style(settings_pick_list_menu_style)
-    .width(Length::Fixed(280.0));
+        })
+        .padding([10, 14])
+        .text_size(13)
+        .style(settings_pick_list_style)
+        .menu_style(settings_pick_list_menu_style)
+        .width(Length::Fixed(280.0));
 
     let reasoning_enabled_row = field_row(
         "启用推理",
@@ -154,104 +147,119 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .find(|opt| opt.value == s.reasoning_level_input)
         .cloned()
         .or_else(|| reasoning_level_options.first().cloned());
-    let reasoning_level_pick = pick_list(
-        reasoning_level_options,
-        reasoning_level_selected,
-        |value| {
+    let reasoning_level_pick =
+        pick_list(reasoning_level_options, reasoning_level_selected, |value| {
             Message::Settings(SettingsMessage::Runtime(RuntimeMessage::ReasoningLevelChanged(
                 value.value.to_string(),
             )))
-        },
-    )
-    .padding([10, 14])
-    .text_size(13)
-    .style(settings_pick_list_style)
-    .menu_style(settings_pick_list_menu_style)
-    .width(Length::Fixed(280.0));
+        })
+        .padding([10, 14])
+        .text_size(13)
+        .style(settings_pick_list_style)
+        .menu_style(settings_pick_list_menu_style)
+        .width(Length::Fixed(280.0));
 
-    let reasoning_level_row = field_row(
-        "推理级别",
-        "兼容别名 runtime.reasoning_level。",
-        reasoning_level_pick,
-    );
+    let reasoning_level_row =
+        field_row("推理级别", "兼容别名 runtime.reasoning_level。", reasoning_level_pick);
 
     let docker_section = column![
-            settings_section_card(
-                "Docker 配置",
-                "当 kind=docker 时生效，用于控制镜像、资源限制和工作区挂载。",
-            ),
-            settings_panel(column![
-            text_row("镜像 (image)", "默认执行镜像。", "alpine:3.20", &s.docker_image, |value| {
-                Message::Settings(SettingsMessage::Runtime(RuntimeMessage::DockerImageChanged(
-                    value,
-                )))
-            }),
-            settings_divider(),
-            text_row("网络模式 (network)", "控制容器的网络模式。", "none / bridge / host", &s.docker_network, |value| {
-                Message::Settings(SettingsMessage::Runtime(RuntimeMessage::DockerNetworkChanged(
-                    value,
-                )))
-            }),
-            settings_divider(),
-            text_row(
-                "内存限制 MB (memory_limit_mb)",
-                "留空表示不限制。",
-                "留空表示不限制",
-                &s.docker_memory_limit_mb_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::DockerMemoryLimitMbChanged(value),
-                    ))
-                },
-            ),
-            settings_divider(),
-            text_row(
-                "CPU 限制 (cpu_limit)",
-                "例如 1 / 1.5 / 2。",
-                "例如 1 / 1.5 / 2",
-                &s.docker_cpu_limit_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::DockerCpuLimitChanged(value),
-                    ))
-                }
-            ),
-            settings_divider(),
-            field_row(
-                "只读根文件系统 (read_only_rootfs)",
-                "限制容器根文件系统为只读。",
-                checkbox(s.docker_read_only_rootfs).label("启用").on_toggle(|value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::DockerReadOnlyRootfsToggled(value),
-                    ))
-                }).style(settings_checkbox_style),
-            ),
-            settings_divider(),
-            field_row(
-                "挂载工作区 (mount_workspace)",
-                "决定是否把工作区挂载进容器。",
-                checkbox(s.docker_mount_workspace).label("启用").on_toggle(|value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::DockerMountWorkspaceToggled(value),
-                    ))
-                }).style(settings_checkbox_style),
-            ),
-            settings_divider(),
-            text_row(
-                "允许的工作区根目录 (allowed_workspace_roots)",
-                "仅放行明确需要挂载的根目录。",
-                "逗号或换行分隔路径",
-                &s.docker_allowed_workspace_roots_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::DockerAllowedWorkspaceRootsChanged(value),
-                    ))
-                },
-            ),
-            ].spacing(0)),
-            hint_row("建议仅放行明确需要挂载的根目录。"),
-        ]
-        .spacing(16);
+        settings_section_card(
+            "Docker 配置",
+            "当 kind=docker 时生效，用于控制镜像、资源限制和工作区挂载。",
+        ),
+        settings_panel(
+            column![
+                text_row(
+                    "镜像 (image)",
+                    "默认执行镜像。",
+                    "alpine:3.20",
+                    &s.docker_image,
+                    |value| {
+                        Message::Settings(SettingsMessage::Runtime(
+                            RuntimeMessage::DockerImageChanged(value),
+                        ))
+                    }
+                ),
+                settings_divider(),
+                text_row(
+                    "网络模式 (network)",
+                    "控制容器的网络模式。",
+                    "none / bridge / host",
+                    &s.docker_network,
+                    |value| {
+                        Message::Settings(SettingsMessage::Runtime(
+                            RuntimeMessage::DockerNetworkChanged(value),
+                        ))
+                    }
+                ),
+                settings_divider(),
+                text_row(
+                    "内存限制 MB (memory_limit_mb)",
+                    "留空表示不限制。",
+                    "留空表示不限制",
+                    &s.docker_memory_limit_mb_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Runtime(
+                            RuntimeMessage::DockerMemoryLimitMbChanged(value),
+                        ))
+                    },
+                ),
+                settings_divider(),
+                text_row(
+                    "CPU 限制 (cpu_limit)",
+                    "例如 1 / 1.5 / 2。",
+                    "例如 1 / 1.5 / 2",
+                    &s.docker_cpu_limit_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Runtime(
+                            RuntimeMessage::DockerCpuLimitChanged(value),
+                        ))
+                    }
+                ),
+                settings_divider(),
+                field_row(
+                    "只读根文件系统 (read_only_rootfs)",
+                    "限制容器根文件系统为只读。",
+                    checkbox(s.docker_read_only_rootfs)
+                        .label("启用")
+                        .on_toggle(|value| {
+                            Message::Settings(SettingsMessage::Runtime(
+                                RuntimeMessage::DockerReadOnlyRootfsToggled(value),
+                            ))
+                        })
+                        .style(settings_checkbox_style),
+                ),
+                settings_divider(),
+                field_row(
+                    "挂载工作区 (mount_workspace)",
+                    "决定是否把工作区挂载进容器。",
+                    checkbox(s.docker_mount_workspace)
+                        .label("启用")
+                        .on_toggle(|value| {
+                            Message::Settings(SettingsMessage::Runtime(
+                                RuntimeMessage::DockerMountWorkspaceToggled(value),
+                            ))
+                        })
+                        .style(settings_checkbox_style),
+                ),
+                settings_divider(),
+                text_row(
+                    "允许的工作区根目录 (allowed_workspace_roots)",
+                    "仅放行明确需要挂载的根目录。",
+                    "逗号或换行分隔路径",
+                    &s.docker_allowed_workspace_roots_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Runtime(
+                            RuntimeMessage::DockerAllowedWorkspaceRootsChanged(value),
+                        ))
+                    },
+                ),
+            ]
+            .spacing(0)
+        ),
+        hint_row("建议仅放行明确需要挂载的根目录。"),
+    ]
+    .spacing(16);
 
     let capability_pick = pick_list(
         ["deny".to_string(), "clamp".to_string()],
@@ -274,173 +282,201 @@ pub fn view(app: &App) -> Element<'_, Message> {
     );
 
     let wasm_section = column![
-            settings_section_card(
-                "WASM 配置",
-                "当 kind=wasm 时生效，用于控制工具目录、资源上限与宿主安全策略。",
-            ),
-            settings_panel(column![
-            text_row("工具目录 (tools_dir)", "WASM 工具目录。", "tools/wasm", &s.wasm_tools_dir, |value| {
-                Message::Settings(SettingsMessage::Runtime(RuntimeMessage::WasmToolsDirChanged(
-                    value,
-                )))
-            }),
-            settings_divider(),
-            text_row("燃料限制 (fuel_limit)", "限制模块执行燃料。", "1000000", &s.wasm_fuel_limit_input, |value| {
-                Message::Settings(SettingsMessage::Runtime(RuntimeMessage::WasmFuelLimitChanged(
-                    value,
-                )))
-            }),
-            settings_divider(),
-            text_row(
-                "内存限制 MB (memory_limit_mb)",
-                "限制模块最大可用内存。",
-                "64",
-                &s.wasm_memory_limit_mb_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::WasmMemoryLimitMbChanged(value),
-                    ))
-                },
-            ),
-            settings_divider(),
-            text_row(
-                "最大模块大小 MB (max_module_size_mb)",
-                "限制可加载模块大小。",
-                "50",
-                &s.wasm_max_module_size_mb_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::WasmMaxModuleSizeMbChanged(value),
-                    ))
-                },
-            ),
-            settings_divider(),
-            field_row(
-                "允许读取工作区 (allow_workspace_read)",
-                "允许模块读取工作区内容。",
-                checkbox(s.wasm_allow_workspace_read).label("启用").on_toggle(|value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::WasmAllowWorkspaceReadToggled(value),
-                    ))
-                }).style(settings_checkbox_style),
-            ),
-            settings_divider(),
-            field_row(
-                "允许写入工作区 (allow_workspace_write)",
-                "允许模块写入工作区内容。",
-                checkbox(s.wasm_allow_workspace_write).label("启用").on_toggle(|value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::WasmAllowWorkspaceWriteToggled(value),
-                    ))
-                }).style(settings_checkbox_style),
-            ),
-            settings_divider(),
-            text_row(
-                "允许的主机 (allowed_hosts)",
-                "允许访问的 host[:port] 白名单。",
-                "逗号或换行分隔 host[:port]",
-                &s.wasm_allowed_hosts_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::WasmAllowedHostsChanged(value),
-                    ))
-                },
-            ),
-            settings_divider(),
-            field_row(
-                "要求工具目录在工作区内",
-                "要求 tools_dir 是工作区内的相对路径。",
-                checkbox(s.wasm_require_workspace_relative_tools_dir).label("启用").on_toggle(
+        settings_section_card(
+            "WASM 配置",
+            "当 kind=wasm 时生效，用于控制工具目录、资源上限与宿主安全策略。",
+        ),
+        settings_panel(
+            column![
+                text_row(
+                    "工具目录 (tools_dir)",
+                    "WASM 工具目录。",
+                    "tools/wasm",
+                    &s.wasm_tools_dir,
                     |value| {
                         Message::Settings(SettingsMessage::Runtime(
-                            RuntimeMessage::WasmRequireWorkspaceRelativeToolsDirToggled(value),
+                            RuntimeMessage::WasmToolsDirChanged(value),
                         ))
                     }
-                ).style(settings_checkbox_style),
-            ),
-            settings_divider(),
-            field_row(
-                "拒绝符号链接模块",
-                "阻止通过符号链接加载模块。",
-                checkbox(s.wasm_reject_symlink_modules).label("启用").on_toggle(|value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::WasmRejectSymlinkModulesToggled(value),
-                    ))
-                }).style(settings_checkbox_style),
-            ),
-            settings_divider(),
-            field_row(
-                "拒绝符号链接工具目录",
-                "阻止 tools_dir 指向符号链接目录。",
-                checkbox(s.wasm_reject_symlink_tools_dir).label("启用").on_toggle(|value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::WasmRejectSymlinkToolsDirToggled(value),
-                    ))
-                }).style(settings_checkbox_style),
-            ),
-            settings_divider(),
-            field_row(
-                "严格主机校验",
-                "对主机白名单执行更严格校验。",
-                checkbox(s.wasm_strict_host_validation).label("启用").on_toggle(|value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::WasmStrictHostValidationToggled(value),
-                    ))
-                }).style(settings_checkbox_style),
-            ),
-            settings_divider(),
-            field_row(
-                "能力升级模式",
-                "控制能力升级时是拒绝还是收紧。",
-                capability_pick
-                    .padding([10, 14])
-                    .text_size(13)
-                    .style(settings_pick_list_style)
-                    .menu_style(settings_pick_list_menu_style)
-                    .width(Length::Fixed(280.0)),
-            ),
-            settings_divider(),
-            field_row(
-                "模块哈希策略",
-                "控制模块哈希校验策略。",
-                module_hash_pick
-                    .padding([10, 14])
-                    .text_size(13)
-                    .style(settings_pick_list_style)
-                    .menu_style(settings_pick_list_menu_style)
-                    .width(Length::Fixed(280.0)),
-            ),
-            settings_divider(),
-            text_row(
-                "模块 SHA256 (security.module_sha256)",
-                "每行一条 module:sha256 记录。",
-                "每行 module:sha256",
-                &s.wasm_module_sha256_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Runtime(
-                        RuntimeMessage::WasmModuleSha256Changed(value),
-                    ))
-                },
-            ),
-            ].spacing(0)),
-            hint_row("`enforce` 模式下建议至少配置一条模块哈希。"),
-        ]
-        .spacing(16);
+                ),
+                settings_divider(),
+                text_row(
+                    "燃料限制 (fuel_limit)",
+                    "限制模块执行燃料。",
+                    "1000000",
+                    &s.wasm_fuel_limit_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Runtime(
+                            RuntimeMessage::WasmFuelLimitChanged(value),
+                        ))
+                    }
+                ),
+                settings_divider(),
+                text_row(
+                    "内存限制 MB (memory_limit_mb)",
+                    "限制模块最大可用内存。",
+                    "64",
+                    &s.wasm_memory_limit_mb_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Runtime(
+                            RuntimeMessage::WasmMemoryLimitMbChanged(value),
+                        ))
+                    },
+                ),
+                settings_divider(),
+                text_row(
+                    "最大模块大小 MB (max_module_size_mb)",
+                    "限制可加载模块大小。",
+                    "50",
+                    &s.wasm_max_module_size_mb_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Runtime(
+                            RuntimeMessage::WasmMaxModuleSizeMbChanged(value),
+                        ))
+                    },
+                ),
+                settings_divider(),
+                field_row(
+                    "允许读取工作区 (allow_workspace_read)",
+                    "允许模块读取工作区内容。",
+                    checkbox(s.wasm_allow_workspace_read)
+                        .label("启用")
+                        .on_toggle(|value| {
+                            Message::Settings(SettingsMessage::Runtime(
+                                RuntimeMessage::WasmAllowWorkspaceReadToggled(value),
+                            ))
+                        })
+                        .style(settings_checkbox_style),
+                ),
+                settings_divider(),
+                field_row(
+                    "允许写入工作区 (allow_workspace_write)",
+                    "允许模块写入工作区内容。",
+                    checkbox(s.wasm_allow_workspace_write)
+                        .label("启用")
+                        .on_toggle(|value| {
+                            Message::Settings(SettingsMessage::Runtime(
+                                RuntimeMessage::WasmAllowWorkspaceWriteToggled(value),
+                            ))
+                        })
+                        .style(settings_checkbox_style),
+                ),
+                settings_divider(),
+                text_row(
+                    "允许的主机 (allowed_hosts)",
+                    "允许访问的 host[:port] 白名单。",
+                    "逗号或换行分隔 host[:port]",
+                    &s.wasm_allowed_hosts_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Runtime(
+                            RuntimeMessage::WasmAllowedHostsChanged(value),
+                        ))
+                    },
+                ),
+                settings_divider(),
+                field_row(
+                    "要求工具目录在工作区内",
+                    "要求 tools_dir 是工作区内的相对路径。",
+                    checkbox(s.wasm_require_workspace_relative_tools_dir)
+                        .label("启用")
+                        .on_toggle(|value| {
+                            Message::Settings(SettingsMessage::Runtime(
+                                RuntimeMessage::WasmRequireWorkspaceRelativeToolsDirToggled(value),
+                            ))
+                        })
+                        .style(settings_checkbox_style),
+                ),
+                settings_divider(),
+                field_row(
+                    "拒绝符号链接模块",
+                    "阻止通过符号链接加载模块。",
+                    checkbox(s.wasm_reject_symlink_modules)
+                        .label("启用")
+                        .on_toggle(|value| {
+                            Message::Settings(SettingsMessage::Runtime(
+                                RuntimeMessage::WasmRejectSymlinkModulesToggled(value),
+                            ))
+                        })
+                        .style(settings_checkbox_style),
+                ),
+                settings_divider(),
+                field_row(
+                    "拒绝符号链接工具目录",
+                    "阻止 tools_dir 指向符号链接目录。",
+                    checkbox(s.wasm_reject_symlink_tools_dir)
+                        .label("启用")
+                        .on_toggle(|value| {
+                            Message::Settings(SettingsMessage::Runtime(
+                                RuntimeMessage::WasmRejectSymlinkToolsDirToggled(value),
+                            ))
+                        })
+                        .style(settings_checkbox_style),
+                ),
+                settings_divider(),
+                field_row(
+                    "严格主机校验",
+                    "对主机白名单执行更严格校验。",
+                    checkbox(s.wasm_strict_host_validation)
+                        .label("启用")
+                        .on_toggle(|value| {
+                            Message::Settings(SettingsMessage::Runtime(
+                                RuntimeMessage::WasmStrictHostValidationToggled(value),
+                            ))
+                        })
+                        .style(settings_checkbox_style),
+                ),
+                settings_divider(),
+                field_row(
+                    "能力升级模式",
+                    "控制能力升级时是拒绝还是收紧。",
+                    capability_pick
+                        .padding([10, 14])
+                        .text_size(13)
+                        .style(settings_pick_list_style)
+                        .menu_style(settings_pick_list_menu_style)
+                        .width(Length::Fixed(280.0)),
+                ),
+                settings_divider(),
+                field_row(
+                    "模块哈希策略",
+                    "控制模块哈希校验策略。",
+                    module_hash_pick
+                        .padding([10, 14])
+                        .text_size(13)
+                        .style(settings_pick_list_style)
+                        .menu_style(settings_pick_list_menu_style)
+                        .width(Length::Fixed(280.0)),
+                ),
+                settings_divider(),
+                text_row(
+                    "模块 SHA256 (security.module_sha256)",
+                    "每行一条 module:sha256 记录。",
+                    "每行 module:sha256",
+                    &s.wasm_module_sha256_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Runtime(
+                            RuntimeMessage::WasmModuleSha256Changed(value),
+                        ))
+                    },
+                ),
+            ]
+            .spacing(0)
+        ),
+        hint_row("`enforce` 模式下建议至少配置一条模块哈希。"),
+    ]
+    .spacing(16);
 
     let mut content = column![
         settings_page_intro("运行时配置", "配置 native、docker、wasm 执行环境及推理覆盖项。"),
-        settings_section_card(
-            "基础行为",
-            "运行时类型与推理兼容项。",
-        ),
-        settings_panel(column![kind_row, settings_divider(),
+        settings_section_card("基础行为", "运行时类型。"),
+        settings_panel(column![kind_row].spacing(0)),
         settings_section_card(
             "推理覆盖",
             "该区域用于配置 runtime.reasoning_enabled 与兼容别名 runtime.reasoning_level。",
         ),
-        reasoning_enabled_row,
-        settings_divider(),
-        reasoning_level_row].spacing(0)),
+        settings_panel(
+            column![reasoning_enabled_row, settings_divider(), reasoning_level_row].spacing(0),
+        ),
     ]
     .spacing(16)
     .width(Length::Fill);

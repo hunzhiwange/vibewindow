@@ -1,6 +1,6 @@
 use super::lazy::Lazy;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[test]
 fn get_caches_until_reset() {

@@ -6,6 +6,40 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// 技能目录提供方。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SkillsDirectoryProvider {
+    /// 使用 VibeWindow 原生技能目录。
+    #[default]
+    Vibewindow,
+    /// 使用 Codex/Codex 风格技能目录。
+    Codex,
+    /// 使用 Claude Code 技能目录。
+    Claude,
+    /// 使用 Cursor 技能目录。
+    Cursor,
+}
+
+impl SkillsDirectoryProvider {
+    pub const ALL: [Self; 4] = [Self::Vibewindow, Self::Codex, Self::Claude, Self::Cursor];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Vibewindow => "VibeWindow",
+            Self::Codex => "Codex",
+            Self::Claude => "Claude",
+            Self::Cursor => "Cursor",
+        }
+    }
+}
+
+impl std::fmt::Display for SkillsDirectoryProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
+    }
+}
+
 /// 技能提示注入模式。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "snake_case")]
@@ -26,11 +60,26 @@ pub fn parse_skills_prompt_injection_mode(raw: &str) -> Option<SkillsPromptInjec
     }
 }
 
+/// 解析技能目录提供方字符串。
+pub fn parse_skills_directory_provider(raw: &str) -> Option<SkillsDirectoryProvider> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "vibewindow" | "vibe_window" | "vibe-window" => Some(SkillsDirectoryProvider::Vibewindow),
+        "codex" => Some(SkillsDirectoryProvider::Codex),
+        "claude" | "claude_code" | "claude-code" => Some(SkillsDirectoryProvider::Claude),
+        "cursor" => Some(SkillsDirectoryProvider::Cursor),
+        _ => None,
+    }
+}
+
 /// 技能系统配置。
 ///
 /// 用于控制开放技能目录是否启用，以及提示注入使用紧凑模式还是完整模式。
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 pub struct SkillsConfig {
+    /// 技能目录提供方，缺省使用 VibeWindow 原生目录。
+    #[serde(default)]
+    pub directory_provider: SkillsDirectoryProvider,
+
     /// 是否启用开放技能目录。
     #[serde(default)]
     pub open_skills_enabled: bool,

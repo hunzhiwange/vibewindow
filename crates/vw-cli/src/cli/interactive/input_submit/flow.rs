@@ -481,12 +481,10 @@ pub(crate) async fn handle_submit_result(
         think_timing: Vec::new(),
     });
     stats.assistant_messages += 1;
-    stats.input_tokens = stats
-        .input_tokens
-        .saturating_add(response.usage.input_tokens.max(0).cast_unsigned());
-    stats.output_tokens = stats
-        .output_tokens
-        .saturating_add(response.usage.output_tokens.max(0).cast_unsigned());
+    stats.input_tokens =
+        stats.input_tokens.saturating_add(response.usage.input_tokens.max(0).cast_unsigned());
+    stats.output_tokens =
+        stats.output_tokens.saturating_add(response.usage.output_tokens.max(0).cast_unsigned());
     *modified_files = collect_modified_files(&config.workspace_dir);
     *scroll_back = 0;
     stats.tool_events = stats.tool_events.saturating_add(response.step_finishes);

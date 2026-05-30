@@ -58,10 +58,8 @@ pub(super) fn check_cli_tools(items: &mut Vec<DiagItem>) {
             .as_deref()
             .map(|version| truncate_for_display(version, COMMAND_VERSION_PREVIEW_CHARS))
             .unwrap_or_else(|| "unknown version".to_string());
-        items.push(DiagItem::ok(
-            cat,
-            format!("{} ({}) — {}", cli.name, cli.category, version_info),
-        ));
+        items
+            .push(DiagItem::ok(cat, format!("{} ({}) — {}", cli.name, cli.category, version_info)));
     }
 
     items.push(DiagItem::ok(cat, format!("{} CLI tools discovered", discovered.len())));
@@ -97,10 +95,7 @@ pub(super) fn check_command_available(
             items.push(DiagItem::ok(category, format!("{command}: {display}")));
         }
         Ok(_) => {
-            items.push(DiagItem::warn(
-                category,
-                format!("{command} found but returned non-zero"),
-            ));
+            items.push(DiagItem::warn(category, format!("{command} found but returned non-zero")));
         }
         Err(_) => {
             items.push(DiagItem::warn(category, format!("{command} not found in PATH")));

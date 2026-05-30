@@ -20,13 +20,13 @@ mod tailwind;
 mod types;
 pub mod variables;
 
+use images::{load_image_tasks_from_document, load_image_tasks_from_fill_value};
 pub use types::{
     CanvasContextMenuAction, DesignMessage, ImageImportPayload, LayerAction, PageAction,
     VariableKindPreset,
 };
 #[cfg(test)]
 use variables::{clear_all_variable_popovers, clear_variable_popovers};
-use images::{load_image_tasks_from_document, load_image_tasks_from_fill_value};
 
 /// update 处理当前模块对应的消息或状态转换。
 ///
@@ -84,18 +84,24 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
         | DesignMessage::ChooseImageImportFile
         | DesignMessage::ImageImportFilePicked(_)
         | DesignMessage::SubmitImageImport
-        | DesignMessage::ImageImportResolved(_) => images::update(app, message).unwrap_or_else(Task::none),
+        | DesignMessage::ImageImportResolved(_) => {
+            images::update(app, message).unwrap_or_else(Task::none)
+        }
         DesignMessage::ConvertHtmlToLayers(_)
         | DesignMessage::UpdateTailwindNodeClass(_, _, _)
         | DesignMessage::TailwindNodeClassCommit(_, _)
         | DesignMessage::TailwindNodeTextCommit(_, _)
         | DesignMessage::UpdateTailwindNodeText(_, _, _)
         | DesignMessage::UpdateTailwindHtml(_, _)
-        | DesignMessage::DeleteTailwindNode(_, _) => tailwind::update(app, message).unwrap_or_else(Task::none),
+        | DesignMessage::DeleteTailwindNode(_, _) => {
+            tailwind::update(app, message).unwrap_or_else(Task::none)
+        }
         DesignMessage::ToolSelected(DesignTool::ImportFigma)
         | DesignMessage::FigmaImportFilePicked(_)
         | DesignMessage::FigmaProgressTick
-        | DesignMessage::FigmaFileImported(_) => figma::update(app, message).unwrap_or_else(Task::none),
+        | DesignMessage::FigmaFileImported(_) => {
+            figma::update(app, message).unwrap_or_else(Task::none)
+        }
         DesignMessage::DesignGenerationPromptAction(_)
         | DesignMessage::DesignGenerationLogEditorAction(_)
         | DesignMessage::DesignGenerationCopyChatMessage(_)

@@ -157,7 +157,8 @@ fn normalize_linguistics_section(section: Option<&Value>) -> Option<LinguisticsS
     let forbidden_words = non_empty_list_at(section, &["forbidden_words"])
         .or_else(|| non_empty_list_at(section, &["idiolect", "forbidden_words"]));
 
-    if style.is_none() && formality.is_none() && catchphrases.is_none() && forbidden_words.is_none() {
+    if style.is_none() && formality.is_none() && catchphrases.is_none() && forbidden_words.is_none()
+    {
         return None;
     }
 
@@ -174,7 +175,8 @@ fn normalize_motivations_section(section: Option<&Value>) -> Option<MotivationsS
         .or_else(|| non_empty_list_at(section, &["goals", "long_term"]));
     let fears = value_at_path(section, &["fears"]).and_then(|fears| {
         let values = if fears.is_object() {
-            let mut combined = non_empty_list_at(section, &["fears", "rational"]).unwrap_or_default();
+            let mut combined =
+                non_empty_list_at(section, &["fears", "rational"]).unwrap_or_default();
             if let Some(mut irrational) = non_empty_list_at(section, &["fears", "irrational"]) {
                 combined.append(&mut irrational);
             }
@@ -214,27 +216,30 @@ fn normalize_capabilities_section(section: Option<&Value>) -> Option<Capabilitie
 fn normalize_physicality_section(section: Option<&Value>) -> Option<PhysicalitySection> {
     let section = section?;
 
-    let appearance = value_at_path(section, &["appearance"]).and_then(value_to_text).or_else(|| {
-        let mut descriptors = Vec::new();
+    let appearance =
+        value_at_path(section, &["appearance"]).and_then(value_to_text).or_else(|| {
+            let mut descriptors = Vec::new();
 
-        if let Some(face_shape) = value_at_path(section, &["face", "shape"]).and_then(scalar_to_string) {
-            descriptors.push(format!("脸型: {face_shape}"));
-        }
+            if let Some(face_shape) =
+                value_at_path(section, &["face", "shape"]).and_then(scalar_to_string)
+            {
+                descriptors.push(format!("脸型: {face_shape}"));
+            }
 
-        if let Some(build_description) =
-            value_at_path(section, &["body", "build_description"]).and_then(scalar_to_string)
-        {
-            descriptors.push(format!("体型: {build_description}"));
-        }
+            if let Some(build_description) =
+                value_at_path(section, &["body", "build_description"]).and_then(scalar_to_string)
+            {
+                descriptors.push(format!("体型: {build_description}"));
+            }
 
-        if let Some(aesthetic) =
-            value_at_path(section, &["style", "aesthetic_archetype"]).and_then(scalar_to_string)
-        {
-            descriptors.push(format!("审美: {aesthetic}"));
-        }
+            if let Some(aesthetic) =
+                value_at_path(section, &["style", "aesthetic_archetype"]).and_then(scalar_to_string)
+            {
+                descriptors.push(format!("审美: {aesthetic}"));
+            }
 
-        if descriptors.is_empty() { None } else { Some(descriptors.join("; ")) }
-    });
+            if descriptors.is_empty() { None } else { Some(descriptors.join("; ")) }
+        });
 
     let avatar_description = value_at_path(section, &["avatar_description"])
         .and_then(value_to_text)

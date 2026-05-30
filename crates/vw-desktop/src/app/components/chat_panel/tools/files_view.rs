@@ -36,9 +36,9 @@ use iced::Element;
 
 use crate::app::{App, Message};
 
+use super::canonical_tool_name;
 use super::tool_meta::tool_verb;
 use super::tool_parse::{tool_error_text, tool_input, tool_output_text, tool_status};
-use super::canonical_tool_name;
 
 struct FilesViewContext<'a> {
     app: &'a App,
@@ -146,7 +146,8 @@ pub fn tool_files_view<'a>(
         read_range: parse::parse_read_range(tool_name, input),
     };
 
-    let list_column = list_ui::build_file_list_column(app, &render_state, &view_ctx, &changes_by_path);
+    let list_column =
+        list_ui::build_file_list_column(app, &render_state, &view_ctx, &changes_by_path);
 
     if matches!(tool_name, "write" | "file_write" | "file_edit" | "notebook_edit") {
         return Some(write_view::build_write_tool_view(&view_ctx, &render_state, list_column));

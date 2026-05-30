@@ -1,5 +1,5 @@
-use super::attachments::IncomingAttachmentKind;
 use super::TelegramChannel;
+use super::attachments::IncomingAttachmentKind;
 
 #[test]
 fn parse_attachment_metadata_selects_largest_photo_variant() {

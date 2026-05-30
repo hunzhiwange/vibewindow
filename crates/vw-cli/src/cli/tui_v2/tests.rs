@@ -7,22 +7,20 @@ use crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEvent, KeyModifiers}
 use ratatui::layout::Rect;
 
 use super::app::{
-    TodoSessionAccessAction, TuiDeltaRedrawSnapshot, dequeue_queued_prompt_command,
-    compare_shadow_results,
-    question_overlay_submission_answers, todo_overlay_items_as_shared_todos,
-    runtime_event_fallback_overlay, select_restore_session_id,
-    should_redraw_after_runtime_delta,
-    todo_session_unavailable_overlay,
+    TodoSessionAccessAction, TuiDeltaRedrawSnapshot, compare_shadow_results,
+    dequeue_queued_prompt_command, question_overlay_submission_answers,
+    runtime_event_fallback_overlay, select_restore_session_id, should_redraw_after_runtime_delta,
+    todo_overlay_items_as_shared_todos, todo_session_unavailable_overlay,
 };
-use super::input::TuiSlashCommandKind;
 use super::controller::{
     TuiController, TuiControllerCommand, TuiControllerEvent, TuiOverlayCommand,
 };
-use super::render::{
-    build_modal_host, build_modified_files_host, build_project_context_host,
-    build_prompt_host, build_status_footer, build_status_header,
-};
+use super::input::TuiSlashCommandKind;
 use super::render::layout::compute_fullscreen_layout;
+use super::render::{
+    build_modal_host, build_modified_files_host, build_project_context_host, build_prompt_host,
+    build_status_footer, build_status_header,
+};
 use super::runtime::stream_adapter::{UiRuntimeEvent, UiRuntimeTerminalEvent};
 use super::state::{
     TuiAction, TuiScrollState, TuiState, reduce_tui_state, select_status_summary,
@@ -69,11 +67,7 @@ fn seeded_transcript_state(session_id: &str) -> TuiState {
     })
 }
 
-fn configure_scrolled_viewport(
-    state: &mut TuiState,
-    top_message: usize,
-    viewport_messages: usize,
-) {
+fn configure_scrolled_viewport(state: &mut TuiState, top_message: usize, viewport_messages: usize) {
     state.scroll.top_message = top_message;
     state.scroll.viewport_messages = viewport_messages;
     state.scroll.viewport_height = u16::try_from(viewport_messages).unwrap_or(u16::MAX);
@@ -115,14 +109,16 @@ fn fullscreen_layout_slots_stay_inside_standard_and_narrow_areas() {
         assert!(slots.header.y >= area.y);
         assert!(slots.scrollable.y >= slots.header.y.saturating_add(slots.header.height));
         assert!(slots.bottom.y >= slots.scrollable.y.saturating_add(slots.scrollable.height));
-        assert!(slots.bottom.y.saturating_add(slots.bottom.height) <= area.y.saturating_add(area.height));
+        assert!(
+            slots.bottom.y.saturating_add(slots.bottom.height)
+                <= area.y.saturating_add(area.height)
+        );
 
         if area.height <= 24 {
             assert!(slots.bottom_float.is_none());
         } else {
-            let bottom_float = slots
-                .bottom_float
-                .expect("roomy layout should keep the floating status footer");
+            let bottom_float =
+                slots.bottom_float.expect("roomy layout should keep the floating status footer");
             assert!(bottom_float.y >= slots.scrollable.y.saturating_add(slots.scrollable.height));
             assert!(bottom_float.y.saturating_add(bottom_float.height) <= slots.bottom.y);
         }
@@ -134,12 +130,10 @@ fn fullscreen_layout_slots_stay_inside_standard_and_narrow_areas() {
         assert!(modal.y >= area.y);
 
         if area.width >= 88 {
-            let project_context = slots
-                .project_context
-                .expect("wide layout should expose a project context sidebar");
-            let modified_files = slots
-                .modified_files
-                .expect("wide layout should expose a modified files sidebar");
+            let project_context =
+                slots.project_context.expect("wide layout should expose a project context sidebar");
+            let modified_files =
+                slots.modified_files.expect("wide layout should expose a modified files sidebar");
             assert!(project_context.width > 0);
             assert!(modified_files.width > 0);
             assert!(project_context.x >= slots.scrollable.x.saturating_add(slots.scrollable.width));
@@ -160,9 +154,8 @@ fn fullscreen_layout_prefers_taller_prompt_host_on_compact_terminals() {
     assert_eq!(compact.scrollable.height, 14);
 
     let roomy = compute_fullscreen_layout(Rect::new(0, 0, 80, 40), true, false, 0);
-    let bottom_float = roomy
-        .bottom_float
-        .expect("roomy layout should keep the floating status footer");
+    let bottom_float =
+        roomy.bottom_float.expect("roomy layout should keep the floating status footer");
     assert_eq!(roomy.header.height, 3);
     assert_eq!(roomy.bottom.height, 7);
     assert_eq!(bottom_float.height, 3);
@@ -191,10 +184,7 @@ fn controller_returns_submit_command_for_entered_prompt() {
     let mut controller = TuiController::default();
     let mut state = TuiState::default();
     let layout = compute_fullscreen_layout(Rect::new(0, 0, 80, 24), true, false, 0);
-    let feedback = super::render::TuiRenderFeedback {
-        layout,
-        cursor: None,
-    };
+    let feedback = super::render::TuiRenderFeedback { layout, cursor: None };
 
     controller.sync_layout(&mut state, &feedback);
     reduce_tui_state(&mut state, TuiAction::StatusModelSet(Some("gpt-test".to_string())));
@@ -333,10 +323,7 @@ fn controller_up_down_switches_visible_model_suggestion_and_enter_accepts_select
     let mut state = TuiState::default();
     seed_model_catalog(
         &mut state,
-        &[
-            ("openai", "OpenAI", "gpt-4.1", "GPT-4.1"),
-            ("openai", "OpenAI", "gpt-5.4", "GPT-5.4"),
-        ],
+        &[("openai", "OpenAI", "gpt-4.1", "GPT-4.1"), ("openai", "OpenAI", "gpt-5.4", "GPT-5.4")],
     );
     reduce_tui_state(&mut state, TuiAction::PromptValueSet("/model gpt".to_string()));
 
@@ -428,9 +415,7 @@ fn controller_busy_enter_queues_submit_and_clears_prompt() {
     reduce_tui_state(
         &mut state,
         TuiAction::PromptSubmissionStarted(
-            super::model::PromptSubmission::new("当前流")
-                .with_stream_id(90)
-                .with_model("gpt-5.4"),
+            super::model::PromptSubmission::new("当前流").with_stream_id(90).with_model("gpt-5.4"),
         ),
     );
     reduce_tui_state(&mut state, TuiAction::PromptValueSet("下一个问题".to_string()));
@@ -447,10 +432,7 @@ fn controller_busy_enter_queues_submit_and_clears_prompt() {
     assert_eq!(state.prompt.value, "");
     assert_eq!(state.prompt.queued_commands.len(), 1);
     assert_eq!(state.prompt.queued_commands[0].raw, "下一个问题");
-    assert_eq!(
-        state.prompt.queued_commands[0].kind,
-        super::model::QueuedPromptCommandKind::Submit
-    );
+    assert_eq!(state.prompt.queued_commands[0].kind, super::model::QueuedPromptCommandKind::Submit);
 }
 
 #[test]
@@ -461,15 +443,10 @@ fn controller_busy_enter_queues_slash_command() {
     reduce_tui_state(
         &mut state,
         TuiAction::PromptSubmissionStarted(
-            super::model::PromptSubmission::new("当前流")
-                .with_stream_id(91)
-                .with_model("gpt-5.4"),
+            super::model::PromptSubmission::new("当前流").with_stream_id(91).with_model("gpt-5.4"),
         ),
     );
-    reduce_tui_state(
-        &mut state,
-        TuiAction::PromptValueSet("/model gpt-5.5".to_string()),
-    );
+    reduce_tui_state(&mut state, TuiAction::PromptValueSet("/model gpt-5.5".to_string()));
 
     let command = controller.handle_event(
         &mut state,
@@ -496,9 +473,7 @@ fn controller_busy_escape_clears_draft_then_requests_cancel() {
     reduce_tui_state(
         &mut state,
         TuiAction::PromptSubmissionStarted(
-            super::model::PromptSubmission::new("当前流")
-                .with_stream_id(92)
-                .with_model("gpt-5.4"),
+            super::model::PromptSubmission::new("当前流").with_stream_id(92).with_model("gpt-5.4"),
         ),
     );
     reduce_tui_state(&mut state, TuiAction::PromptValueSet("草稿".to_string()));
@@ -534,10 +509,7 @@ fn queued_command_replay_restores_deferred_draft_after_queue_drains() {
         kind: super::model::QueuedPromptCommandKind::Submit,
         enqueued_ms: Some(100),
     });
-    reduce_tui_state(
-        &mut state,
-        TuiAction::PromptValueSet("draft kept locally".to_string()),
-    );
+    reduce_tui_state(&mut state, TuiAction::PromptValueSet("draft kept locally".to_string()));
 
     let command = dequeue_queued_prompt_command(&mut state, &mut deferred_prompt_draft)
         .expect("queued submit should replay");
@@ -547,10 +519,7 @@ fn queued_command_replay_restores_deferred_draft_after_queue_drains() {
     };
     assert_eq!(submission.text, "queued follow-up");
     assert_eq!(state.prompt.value, "");
-    assert_eq!(
-        deferred_prompt_draft.as_deref(),
-        Some("draft kept locally")
-    );
+    assert_eq!(deferred_prompt_draft.as_deref(), Some("draft kept locally"));
 
     assert!(dequeue_queued_prompt_command(&mut state, &mut deferred_prompt_draft).is_none());
     assert_eq!(state.prompt.value, "draft kept locally");
@@ -584,13 +553,11 @@ fn overlay_layer_blocks_prompt_key_bleed() {
     reduce_tui_state(&mut state, TuiAction::PromptValueSet("draft".to_string()));
     reduce_tui_state(
         &mut state,
-        TuiAction::OverlayPushed(super::model::UiOverlay::Error(
-            super::model::UiErrorOverlay {
-                title: "overlay".to_string(),
-                message: "active".to_string(),
-                recoverable: true,
-            },
-        )),
+        TuiAction::OverlayPushed(super::model::UiOverlay::Error(super::model::UiErrorOverlay {
+            title: "overlay".to_string(),
+            message: "active".to_string(),
+            recoverable: true,
+        })),
     );
 
     let command = controller.handle_event(
@@ -629,10 +596,7 @@ fn controller_f2_and_f3_open_task_overlays() {
             KeyModifiers::NONE,
         ))),
     );
-    assert_eq!(
-        todo_command,
-        TuiControllerCommand::Overlay(TuiOverlayCommand::OpenTodoPanel)
-    );
+    assert_eq!(todo_command, TuiControllerCommand::Overlay(TuiOverlayCommand::OpenTodoPanel));
 
     let task_command = controller.handle_event(
         &mut state,
@@ -641,10 +605,7 @@ fn controller_f2_and_f3_open_task_overlays() {
             KeyModifiers::NONE,
         ))),
     );
-    assert_eq!(
-        task_command,
-        TuiControllerCommand::Overlay(TuiOverlayCommand::OpenTaskPanel)
-    );
+    assert_eq!(task_command, TuiControllerCommand::Overlay(TuiOverlayCommand::OpenTaskPanel));
 }
 
 #[test]
@@ -660,10 +621,7 @@ fn controller_ctrl_f_opens_search_overlay() {
         ))),
     );
 
-    assert_eq!(
-        command,
-        TuiControllerCommand::Overlay(TuiOverlayCommand::OpenSearchOverlay)
-    );
+    assert_eq!(command, TuiControllerCommand::Overlay(TuiOverlayCommand::OpenSearchOverlay));
 }
 
 #[test]
@@ -839,7 +797,8 @@ fn controller_question_overlay_collects_answers_and_submits() {
         ))),
     );
 
-    let TuiControllerCommand::Overlay(TuiOverlayCommand::QuestionSubmitted(overlay)) = command else {
+    let TuiControllerCommand::Overlay(TuiOverlayCommand::QuestionSubmitted(overlay)) = command
+    else {
         panic!("question overlay should submit through overlay command");
     };
     assert_eq!(
@@ -875,7 +834,8 @@ fn controller_question_overlay_ctrl_r_requests_reject() {
         ))),
     );
 
-    let TuiControllerCommand::Overlay(TuiOverlayCommand::QuestionRejected(overlay)) = command else {
+    let TuiControllerCommand::Overlay(TuiOverlayCommand::QuestionRejected(overlay)) = command
+    else {
         panic!("ctrl+r should reject the active question overlay");
     };
     assert_eq!(overlay.request_id, "question_2");
@@ -908,18 +868,9 @@ fn modal_host_renders_tool_question_fallback_lines() {
 
     let modal = build_modal_host(&state).expect("tool question modal should exist");
     assert_eq!(modal.title, "权限请求");
-    assert!(modal
-        .body_lines
-        .iter()
-        .any(|line| line.contains("等待你的授权")));
-    assert!(modal
-        .body_lines
-        .iter()
-        .any(|line| line.contains("工具调用: call-tool-1")));
-    assert!(modal
-        .body_lines
-        .iter()
-        .any(|line| line.contains("来源消息: msg-tool-1")));
+    assert!(modal.body_lines.iter().any(|line| line.contains("等待你的授权")));
+    assert!(modal.body_lines.iter().any(|line| line.contains("工具调用: call-tool-1")));
+    assert!(modal.body_lines.iter().any(|line| line.contains("来源消息: msg-tool-1")));
 }
 
 #[test]
@@ -988,24 +939,15 @@ fn controller_sync_layout_records_viewport_height_and_sticky_anchor() {
     state.scroll.follow_tail = false;
 
     let layout = compute_fullscreen_layout(Rect::new(0, 0, 80, 24), true, false, 0);
-    let feedback = super::render::TuiRenderFeedback {
-        layout,
-        cursor: None,
-    };
+    let feedback = super::render::TuiRenderFeedback { layout, cursor: None };
     controller.sync_layout(&mut state, &feedback);
 
-    assert_eq!(
-        state.scroll.viewport_height,
-        feedback.layout.scrollable.height.saturating_sub(2)
-    );
+    assert_eq!(state.scroll.viewport_height, feedback.layout.scrollable.height.saturating_sub(2));
     assert_eq!(
         state.scroll.viewport_messages,
         feedback.layout.scrollable.height.saturating_sub(2) as usize
     );
-    assert_eq!(
-        state.scroll.viewport_width,
-        feedback.layout.scrollable.width.saturating_sub(2)
-    );
+    assert_eq!(state.scroll.viewport_width, feedback.layout.scrollable.width.saturating_sub(2));
     assert_eq!(state.scroll.sticky_message, Some(1));
 }
 
@@ -1034,10 +976,7 @@ fn select_restore_session_id_prefers_explicit_binding_then_latest_preview() {
         select_restore_session_id(Some("session_explicit"), &previews),
         Some("session_explicit".to_string())
     );
-    assert_eq!(
-        select_restore_session_id(None, &previews),
-        Some("session_new".to_string())
-    );
+    assert_eq!(select_restore_session_id(None, &previews), Some("session_new".to_string()));
     assert_eq!(select_restore_session_id(None, &[]), None);
 }
 
@@ -1060,22 +999,13 @@ fn renderer_primitives_expose_status_prompt_and_modal_hosts() {
         ])),
     );
     reduce_tui_state(&mut state, TuiAction::SessionTitleSet("S3-2 Host".to_string()));
-    reduce_tui_state(
-        &mut state,
-        TuiAction::SessionScopeSet(Some("workspace".to_string())),
-    );
+    reduce_tui_state(&mut state, TuiAction::SessionScopeSet(Some("workspace".to_string())));
     reduce_tui_state(
         &mut state,
         TuiAction::SessionPathSet(Some(PathBuf::from("/tmp/tui-v2-host"))),
     );
-    reduce_tui_state(
-        &mut state,
-        TuiAction::StatusProviderSet(Some("openai".to_string())),
-    );
-    reduce_tui_state(
-        &mut state,
-        TuiAction::StatusModelSet(Some("gpt-5.4".to_string())),
-    );
+    reduce_tui_state(&mut state, TuiAction::StatusProviderSet(Some("openai".to_string())));
+    reduce_tui_state(&mut state, TuiAction::StatusModelSet(Some("gpt-5.4".to_string())));
 
     state.scroll = TuiScrollState {
         top_message: 2,
@@ -1097,22 +1027,18 @@ fn renderer_primitives_expose_status_prompt_and_modal_hosts() {
         kind: super::model::QueuedPromptCommandKind::Submit,
         enqueued_ms: Some(2),
     });
-    state.overlays.push(super::model::UiOverlay::Confirm(
-        super::model::UiConfirmOverlay {
-            title: "Confirm Send".to_string(),
-            body: "queued commands are parked".to_string(),
-            confirm_label: "Send".to_string(),
-            cancel_label: "Cancel".to_string(),
-            destructive: false,
-        },
-    ));
-    state.overlays.push(super::model::UiOverlay::Error(
-        super::model::UiErrorOverlay {
-            title: "Recoverable Error".to_string(),
-            message: "modal stack wired".to_string(),
-            recoverable: true,
-        },
-    ));
+    state.overlays.push(super::model::UiOverlay::Confirm(super::model::UiConfirmOverlay {
+        title: "Confirm Send".to_string(),
+        body: "queued commands are parked".to_string(),
+        confirm_label: "Send".to_string(),
+        cancel_label: "Cancel".to_string(),
+        destructive: false,
+    }));
+    state.overlays.push(super::model::UiOverlay::Error(super::model::UiErrorOverlay {
+        title: "Recoverable Error".to_string(),
+        message: "modal stack wired".to_string(),
+        recoverable: true,
+    }));
 
     let status = select_status_summary(&state);
     let header = build_status_header(&state, &status, "TUI v2", "local endpoint", 1);
@@ -1129,54 +1055,34 @@ fn renderer_primitives_expose_status_prompt_and_modal_hosts() {
     assert_eq!(header.scope, "workspace");
     assert_eq!(header.cwd, "/tmp/tui-v2-worktree");
     assert!(footer.pills.iter().any(|pill| pill.label == "停在 m1"));
-    assert!(footer
-        .pills
-        .iter()
-        .any(|pill| pill.label.starts_with("视口 ")));
+    assert!(footer.pills.iter().any(|pill| pill.label.starts_with("视口 ")));
     assert!(footer.pills.iter().any(|pill| pill.label == "令牌 0/0"));
     assert!(footer.pills.iter().any(|pill| pill.label == "步骤 0"));
-    assert!(footer
-        .detail
-        .as_deref()
-        .is_some_and(|detail| detail.contains("消息=0") && detail.contains("窗口=-")));
-    assert!(prompt
-        .queued_commands
-        .iter()
-        .any(|pill| pill.label.contains("/status")));
-    assert!(prompt
-        .footer_pills
-        .iter()
-        .any(|pill| pill.label.contains("模型 gpt-5.4")));
-    assert!(prompt
-        .helper_text
-        .contains("Enter 发送"));
+    assert!(
+        footer
+            .detail
+            .as_deref()
+            .is_some_and(|detail| detail.contains("消息=0") && detail.contains("窗口=-"))
+    );
+    assert!(prompt.queued_commands.iter().any(|pill| pill.label.contains("/status")));
+    assert!(prompt.footer_pills.iter().any(|pill| pill.label.contains("模型 gpt-5.4")));
+    assert!(prompt.helper_text.contains("Enter 发送"));
     assert_eq!(prompt.path_label, "/tmp/tui-v2-worktree");
-    assert!(project_context
-        .pills
-        .iter()
-        .any(|pill| pill.label == "git 脏区 2"));
-    assert!(project_context
-        .body_lines
-        .iter()
-        .any(|line| line.contains("项目: ~/src/tui-v2-worktree:main")));
-    assert!(project_context
-        .body_lines
-        .iter()
-        .any(|line| line.contains("会话文件: /tmp/tui-v2-host")));
-    assert!(modified_files
-        .pills
-        .iter()
-        .any(|pill| pill.label == "数量 2"));
-    assert!(modified_files
-        .body_lines
-        .iter()
-        .any(|line| line == "• Cargo.toml"));
+    assert!(project_context.pills.iter().any(|pill| pill.label == "git 脏区 2"));
+    assert!(
+        project_context
+            .body_lines
+            .iter()
+            .any(|line| line.contains("项目: ~/src/tui-v2-worktree:main"))
+    );
+    assert!(
+        project_context.body_lines.iter().any(|line| line.contains("会话文件: /tmp/tui-v2-host"))
+    );
+    assert!(modified_files.pills.iter().any(|pill| pill.label == "数量 2"));
+    assert!(modified_files.body_lines.iter().any(|line| line == "• Cargo.toml"));
     assert_eq!(modal.title, "Recoverable Error");
     assert!(modal.chips.iter().any(|pill| pill.label == "层级 2"));
-    assert!(modal
-        .chips
-        .iter()
-        .any(|pill| pill.label.contains("确认 > 错误")));
+    assert!(modal.chips.iter().any(|pill| pill.label.contains("确认 > 错误")));
 }
 
 #[test]
@@ -1192,8 +1098,9 @@ fn prompt_submission_uses_workspace_root_not_session_file_path() {
     );
     reduce_tui_state(&mut state, TuiAction::PromptValueSet("hello root".to_string()));
 
-    let submission = super::controller::build_prompt_submission(&state, state.prompt.value.as_str())
-        .expect("prompt submission should be built from workspace context");
+    let submission =
+        super::controller::build_prompt_submission(&state, state.prompt.value.as_str())
+            .expect("prompt submission should be built from workspace context");
 
     assert_eq!(submission.root.as_deref(), Some("/tmp/worktree-root"));
 }
@@ -1248,7 +1155,12 @@ fn modal_host_renders_search_and_task_overlay_body_lines() {
     assert!(task_modal.body_lines.iter().any(|line| line.contains("步骤 7")));
     assert!(task_modal.body_lines.iter().any(|line| line.contains("当前步骤: 7")));
     assert!(task_modal.body_lines.iter().any(|line| line.contains("结束=进行中")));
-    assert!(task_modal.body_lines.iter().any(|line| line.contains("令牌: 输入=12 输出=34 缓存=5 推理=8")));
+    assert!(
+        task_modal
+            .body_lines
+            .iter()
+            .any(|line| line.contains("令牌: 输入=12 输出=34 缓存=5 推理=8"))
+    );
 }
 
 #[test]
@@ -1296,14 +1208,8 @@ fn modal_host_renders_runtime_fallback_overlay_body_lines() {
 
     let modal = build_modal_host(&state).expect("runtime fallback modal should exist");
     assert_eq!(modal.title, "运行时事件回退");
-    assert!(modal
-        .body_lines
-        .iter()
-        .any(|line| line.contains("不支持或无法解码的运行时事件")));
-    assert!(modal
-        .body_lines
-        .iter()
-        .any(|line| line.contains("事件类型: chat.other")));
+    assert!(modal.body_lines.iter().any(|line| line.contains("不支持或无法解码的运行时事件")));
+    assert!(modal.body_lines.iter().any(|line| line.contains("事件类型: chat.other")));
 }
 
 #[test]
@@ -1327,15 +1233,15 @@ fn runtime_event_fallback_overlay_classifies_terminal_failures() {
     assert_eq!(timeout_overlay.title, "输出超时");
     assert!(timeout_overlay.message.contains("deadline exceeded"));
 
-    assert!(runtime_event_fallback_overlay(&UiRuntimeEvent::Terminal(
-        UiRuntimeTerminalEvent::Done {
+    assert!(
+        runtime_event_fallback_overlay(&UiRuntimeEvent::Terminal(UiRuntimeTerminalEvent::Done {
             finish_reason: Some("stop".to_string()),
             usage: None,
             message_id: None,
             parent_message_id: None,
-        },
-    ))
-    .is_none());
+        },))
+        .is_none()
+    );
 }
 
 #[test]
@@ -1345,14 +1251,13 @@ fn runtime_event_fallback_overlay_classifies_permission_failures() {
     })
     .expect("permission runtime event should surface a dedicated fallback overlay");
     assert_eq!(permission_event.title, "权限事件回退");
-    assert!(permission_event
-        .message
-        .contains("请按 F2 打开待处理请求"));
+    assert!(permission_event.message.contains("请按 F2 打开待处理请求"));
 
-    let permission_error = runtime_event_fallback_overlay(&UiRuntimeEvent::Terminal(
-        UiRuntimeTerminalEvent::Error("tool execution requires approval from supervisor".to_string()),
-    ))
-    .expect("permission terminal error should surface an approval fallback overlay");
+    let permission_error =
+        runtime_event_fallback_overlay(&UiRuntimeEvent::Terminal(UiRuntimeTerminalEvent::Error(
+            "tool execution requires approval from supervisor".to_string(),
+        )))
+        .expect("permission terminal error should surface an approval fallback overlay");
     assert_eq!(permission_error.title, "权限请求失败");
     assert!(permission_error.message.contains("请按 F2 打开待处理请求"));
 }
@@ -1361,9 +1266,7 @@ fn runtime_event_fallback_overlay_classifies_permission_failures() {
 fn todo_session_unavailable_overlay_points_to_recovery() {
     let overlay = todo_session_unavailable_overlay(TodoSessionAccessAction::Save);
     assert_eq!(overlay.title, "待办保存失败");
-    assert!(overlay
-        .message
-        .contains("当前 TUI 宿主还没有绑定活动会话"));
+    assert!(overlay.message.contains("当前 TUI 宿主还没有绑定活动会话"));
     assert!(overlay.message.contains("请先新建或恢复一个会话"));
 }
 
@@ -1403,23 +1306,19 @@ fn status_footer_surfaces_new_message_pill_from_unseen_range() {
         visible_window.sticky_prompt().map(|prompt| prompt.label()),
         Some("prompt m0".to_string())
     );
-    assert!(footer
-        .pills
-        .iter()
-        .any(|pill| pill.label == "1 条新消息"));
+    assert!(footer.pills.iter().any(|pill| pill.label == "1 条新消息"));
 }
 
 #[test]
 fn status_footer_surfaces_token_and_step_pills() {
     let mut state = TuiState::default();
-    reduce_tui_state(
-        &mut state,
-        TuiAction::SessionScopeSet(Some("workspace".to_string())),
-    );
+    reduce_tui_state(&mut state, TuiAction::SessionScopeSet(Some("workspace".to_string())));
     reduce_tui_state(
         &mut state,
         TuiAction::MessagePushed(super::model::UiMessage::Step(super::model::UiStep {
-            base: super::model::UiMessageBase::new(super::model::UiMessageId::local("step-footer-1")),
+            base: super::model::UiMessageBase::new(super::model::UiMessageId::local(
+                "step-footer-1",
+            )),
             step_index: 3,
             started_ms: 10,
             finished_ms: Some(18),
@@ -1502,19 +1401,19 @@ fn shadow_compare_ignores_trailing_newlines_but_catches_behavior_drift() {
     assert!(diff.contains("steps"));
 }
 
-    #[test]
-    fn prompt_host_surfaces_slash_suggestions() {
-        let mut state = TuiState::default();
-        reduce_tui_state(&mut state, TuiAction::StatusModelSet(Some("gpt-5.4".to_string())));
-        reduce_tui_state(&mut state, TuiAction::PromptValueSet("/mo".to_string()));
+#[test]
+fn prompt_host_surfaces_slash_suggestions() {
+    let mut state = TuiState::default();
+    reduce_tui_state(&mut state, TuiAction::StatusModelSet(Some("gpt-5.4".to_string())));
+    reduce_tui_state(&mut state, TuiAction::PromptValueSet("/mo".to_string()));
 
-        let prompt = build_prompt_host(&state);
+    let prompt = build_prompt_host(&state);
 
-        assert!(prompt.suggestions.iter().any(|pill| pill.label == "/model"));
-        assert_eq!(prompt.suggestion_rows.len(), 1);
-        assert!(prompt.suggestion_rows[0].selected);
-        assert!(prompt.helper_text.contains("Up/Down 切换"));
-    }
+    assert!(prompt.suggestions.iter().any(|pill| pill.label == "/model"));
+    assert_eq!(prompt.suggestion_rows.len(), 1);
+    assert!(prompt.suggestion_rows[0].selected);
+    assert!(prompt.helper_text.contains("Up/Down 切换"));
+}
 
 #[test]
 fn prompt_host_keeps_suggestion_host_when_slash_query_has_no_match() {
@@ -1525,10 +1424,9 @@ fn prompt_host_keeps_suggestion_host_when_slash_query_has_no_match() {
     let prompt = build_prompt_host(&state);
 
     assert!(prompt.suggestions.is_empty());
-    assert!(prompt
-        .suggestion_detail
-        .as_deref()
-        .is_some_and(|detail| detail.contains("未找到匹配命令")));
+    assert!(
+        prompt.suggestion_detail.as_deref().is_some_and(|detail| detail.contains("未找到匹配命令"))
+    );
 }
 
 #[test]
@@ -1545,16 +1443,10 @@ fn offscreen_runtime_delta_skips_redraw_when_tail_stays_outside_viewport() {
                 .with_model("gpt-5.4"),
         ),
     );
-    reduce_tui_state(
-        &mut state,
-        TuiAction::AssistantDeltaReceived("first delta".to_string()),
-    );
+    reduce_tui_state(&mut state, TuiAction::AssistantDeltaReceived("first delta".to_string()));
 
     let before = TuiDeltaRedrawSnapshot::capture(&state);
-    reduce_tui_state(
-        &mut state,
-        TuiAction::AssistantDeltaReceived(" second delta".to_string()),
-    );
+    reduce_tui_state(&mut state, TuiAction::AssistantDeltaReceived(" second delta".to_string()));
 
     assert!(!should_redraw_after_runtime_delta(&before, &state));
 }
@@ -1575,10 +1467,7 @@ fn first_offscreen_runtime_delta_still_requires_redraw_for_new_unseen_message() 
     );
 
     let before = TuiDeltaRedrawSnapshot::capture(&state);
-    reduce_tui_state(
-        &mut state,
-        TuiAction::AssistantDeltaReceived("first delta".to_string()),
-    );
+    reduce_tui_state(&mut state, TuiAction::AssistantDeltaReceived("first delta".to_string()));
 
     assert!(should_redraw_after_runtime_delta(&before, &state));
 }
@@ -1597,17 +1486,11 @@ fn visible_tail_runtime_delta_keeps_redraw_enabled() {
                 .with_model("gpt-5.4"),
         ),
     );
-    reduce_tui_state(
-        &mut state,
-        TuiAction::AssistantDeltaReceived("first delta".to_string()),
-    );
+    reduce_tui_state(&mut state, TuiAction::AssistantDeltaReceived("first delta".to_string()));
     configure_scrolled_viewport(&mut state, 3, 4);
 
     let before = TuiDeltaRedrawSnapshot::capture(&state);
-    reduce_tui_state(
-        &mut state,
-        TuiAction::AssistantDeltaReceived(" second delta".to_string()),
-    );
+    reduce_tui_state(&mut state, TuiAction::AssistantDeltaReceived(" second delta".to_string()));
 
     assert!(should_redraw_after_runtime_delta(&before, &state));
 }
@@ -1626,10 +1509,7 @@ fn controller_scrolls_between_grouped_transcript_anchors() {
                 .with_model("gpt-5.4"),
         ),
     );
-    reduce_tui_state(
-        &mut state,
-        TuiAction::AssistantDeltaReceived("assistant body".to_string()),
-    );
+    reduce_tui_state(&mut state, TuiAction::AssistantDeltaReceived("assistant body".to_string()));
     reduce_tui_state(
         &mut state,
         TuiAction::StepStarted {
@@ -1655,13 +1535,11 @@ fn controller_scrolls_between_grouped_transcript_anchors() {
     );
     reduce_tui_state(
         &mut state,
-        TuiAction::MessagePushed(super::model::UiMessage::System(
-            super::model::UiSystemMessage {
-                base: super::model::UiMessageBase::new(super::model::UiMessageId::local("sys-after")),
-                text: "after".to_string(),
-                level: super::model::UiSystemMessageLevel::Info,
-            },
-        )),
+        TuiAction::MessagePushed(super::model::UiMessage::System(super::model::UiSystemMessage {
+            base: super::model::UiMessageBase::new(super::model::UiMessageId::local("sys-after")),
+            text: "after".to_string(),
+            level: super::model::UiSystemMessageLevel::Info,
+        })),
     );
 
     let anchors = select_transcript_message_anchors(&state);

@@ -13,12 +13,12 @@
 //! - **取消支持**: 支持通过取消令牌中断正在执行的工具
 //! - **观测性集成**: 记录工具调用的开始、完成和耗时等事件
 
-use super::{ToolLoopCancelled, scrub_credentials};
 use super::parsing::ParsedToolCall;
+use super::{ToolLoopCancelled, scrub_credentials};
 use crate::app::agent::observability::{Observer, ObserverEvent};
 use crate::app::agent::tools::{
-    self, PendingToolCall, ScheduledToolBatch, Tool, ToolCallResult, ToolCallTelemetry,
-    ToolResult, ToolUseContext,
+    self, PendingToolCall, ScheduledToolBatch, Tool, ToolCallResult, ToolCallTelemetry, ToolResult,
+    ToolUseContext,
 };
 use anyhow::Result;
 use serde_json::{Value, json};
@@ -112,10 +112,8 @@ async fn execute_one_tool(
                 });
             }
 
-            let reason = executed
-                .result
-                .error_text()
-                .unwrap_or_else(|| executed.result.model_text());
+            let reason =
+                executed.result.error_text().unwrap_or_else(|| executed.result.model_text());
             let scrubbed_reason = scrub_credentials(&reason);
             let result_dto = tool_result_dto_from_call_result(
                 &executed.tool_name,
@@ -196,11 +194,8 @@ fn legacy_result_dto(
     permission_request: Option<PermissionRequestDto>,
     duration: Duration,
 ) -> ToolResultDto {
-    let mut result = ToolCallResult::from_legacy_result(ToolResult {
-        success,
-        output: String::new(),
-        error,
-    });
+    let mut result =
+        ToolCallResult::from_legacy_result(ToolResult { success, output: String::new(), error });
     result.permission_request = permission_request;
     tool_result_dto_from_call_result(tool_name, tool_call_id, &result, duration)
 }
@@ -292,7 +287,15 @@ pub(crate) async fn execute_tools_parallel(
     // 为每个工具调用创建异步任务
     let futures: Vec<_> = tool_calls
         .iter()
-        .map(|call| execute_one_tool(call, tools_registry, observer, tool_use_context.clone(), cancellation_token))
+        .map(|call| {
+            execute_one_tool(
+                call,
+                tools_registry,
+                observer,
+                tool_use_context.clone(),
+                cancellation_token,
+            )
+        })
         .collect();
 
     // 并行执行所有任务并收集结果

@@ -2,7 +2,9 @@
 //!
 //! 通用网络搜索工具，支持 DuckDuckGo、Brave、Serper、Firecrawl、Tavily 等多种提供方。
 
-use super::traits::{Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec};
+use super::traits::{
+    Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec,
+};
 use crate::app::agent::security::SecurityPolicy;
 use async_trait::async_trait;
 use regex::Regex;
@@ -223,11 +225,8 @@ impl WebSearchTool {
                 if let Some(existing) = current.take() {
                     results.push(existing);
                 }
-                current = Some(SearchResultItem {
-                    title: title.to_string(),
-                    url: None,
-                    snippet: None,
-                });
+                current =
+                    Some(SearchResultItem { title: title.to_string(), url: None, snippet: None });
                 continue;
             }
 
@@ -870,15 +869,9 @@ impl Tool for WebSearchTool {
     async fn call(&self, input: Value) -> anyhow::Result<ToolCallResult> {
         let legacy = self.execute(input.clone()).await?;
         let args = serde_json::from_value::<Args>(input).ok();
-        let query = args
-            .as_ref()
-            .map(|args| args.query.trim().to_string())
-            .unwrap_or_default();
+        let query = args.as_ref().map(|args| args.query.trim().to_string()).unwrap_or_default();
         let requested_num = args.as_ref().and_then(|args| args.num).unwrap_or(self.max_results);
-        let requested_lr = args
-            .as_ref()
-            .and_then(|args| args.lr.clone())
-            .unwrap_or_default();
+        let requested_lr = args.as_ref().and_then(|args| args.lr.clone()).unwrap_or_default();
 
         if !legacy.success {
             let mut result = ToolCallResult::from_legacy_result(legacy);
@@ -930,25 +923,24 @@ impl Tool for WebSearchTool {
             render_hint: Some(ToolRenderHint {
                 title: Some(crate::app::agent::tools::WEB_SEARCH_TOOL_ID.to_string()),
                 kind: Some("web_search".to_string()),
-                summary: Some(if let Some(count) = data
-                    .get("results")
-                    .and_then(Value::as_array)
-                    .map(Vec::len)
-                {
-                    if count == 0 {
-                        if query.is_empty() {
-                            "No search results".to_string()
+                summary: Some(
+                    if let Some(count) = data.get("results").and_then(Value::as_array).map(Vec::len)
+                    {
+                        if count == 0 {
+                            if query.is_empty() {
+                                "No search results".to_string()
+                            } else {
+                                format!("No results for {query}")
+                            }
+                        } else if query.is_empty() {
+                            format!("Found {count} results")
                         } else {
-                            format!("No results for {query}")
+                            format!("Found {count} results for {query}")
                         }
-                    } else if query.is_empty() {
-                        format!("Found {count} results")
                     } else {
-                        format!("Found {count} results for {query}")
-                    }
-                } else {
-                    "Web search completed".to_string()
-                }),
+                        "Web search completed".to_string()
+                    },
+                ),
                 metadata: json!({
                     "provider": provider,
                     "requested_num": requested_num,

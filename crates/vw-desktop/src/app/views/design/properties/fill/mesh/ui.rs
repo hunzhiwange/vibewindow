@@ -86,9 +86,7 @@ pub fn render(
             .on_press(on_press)
     };
 
-    let align_is_x = if mirror_x && !mirror_y {
-        true
-    } else { !(mirror_y && !mirror_x) };
+    let align_is_x = if mirror_x && !mirror_y { true } else { !(mirror_y && !mirror_x) };
 
     let mirroring_controls = prop_section(
         "对齐",

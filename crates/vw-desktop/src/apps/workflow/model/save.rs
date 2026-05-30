@@ -6,13 +6,16 @@ use super::*;
 
 pub(super) fn blank_workflow_root(app_meta: &WorkflowAppMeta) -> Value {
     let start_node = yaml_map(vec![
-        ("data", yaml_map(vec![
-            ("desc", Value::String(String::new())),
-            ("selected", Value::Bool(false)),
-            ("title", Value::String("开始".to_string())),
-            ("type", Value::String("start".to_string())),
-            ("variables", Value::Sequence(Vec::new())),
-        ])),
+        (
+            "data",
+            yaml_map(vec![
+                ("desc", Value::String(String::new())),
+                ("selected", Value::Bool(false)),
+                ("title", Value::String("开始".to_string())),
+                ("type", Value::String("start".to_string())),
+                ("variables", Value::Sequence(Vec::new())),
+            ]),
+        ),
         ("height", yaml_value(120.0_f64)),
         ("id", Value::String("start-node".to_string())),
         ("position", point_value(-180.0, 120.0)),
@@ -25,14 +28,17 @@ pub(super) fn blank_workflow_root(app_meta: &WorkflowAppMeta) -> Value {
     ]);
 
     let answer_node = yaml_map(vec![
-        ("data", yaml_map(vec![
-            ("answer", Value::String("你好，这是一份新的 Dify 工作流。".to_string())),
-            ("desc", Value::String("".to_string())),
-            ("selected", Value::Bool(false)),
-            ("title", Value::String("回复".to_string())),
-            ("type", Value::String("answer".to_string())),
-            ("variables", Value::Sequence(Vec::new())),
-        ])),
+        (
+            "data",
+            yaml_map(vec![
+                ("answer", Value::String("你好，这是一份新的 Dify 工作流。".to_string())),
+                ("desc", Value::String("".to_string())),
+                ("selected", Value::Bool(false)),
+                ("title", Value::String("回复".to_string())),
+                ("type", Value::String("answer".to_string())),
+                ("variables", Value::Sequence(Vec::new())),
+            ]),
+        ),
         ("height", yaml_value(116.0_f64)),
         ("id", Value::String("answer-node".to_string())),
         ("position", point_value(140.0, 120.0)),
@@ -45,15 +51,15 @@ pub(super) fn blank_workflow_root(app_meta: &WorkflowAppMeta) -> Value {
     ]);
 
     let edge = yaml_map(vec![
-        ("data", yaml_map(vec![
-            ("isInLoop", Value::Bool(false)),
-            ("sourceType", Value::String("start".to_string())),
-            ("targetType", Value::String("answer".to_string())),
-        ])),
         (
-            "id",
-            Value::String("start-node-source-answer-node-target".to_string()),
+            "data",
+            yaml_map(vec![
+                ("isInLoop", Value::Bool(false)),
+                ("sourceType", Value::String("start".to_string())),
+                ("targetType", Value::String("answer".to_string())),
+            ]),
         ),
+        ("id", Value::String("start-node-source-answer-node-target".to_string())),
         ("selected", Value::Bool(false)),
         ("source", Value::String("start-node".to_string())),
         ("sourceHandle", Value::String("source".to_string())),
@@ -72,14 +78,8 @@ pub(super) fn blank_workflow_root(app_meta: &WorkflowAppMeta) -> Value {
                 ("icon_background", Value::String(app_meta.icon_background.clone())),
                 ("mode", Value::String(app_meta.mode.clone())),
                 ("name", Value::String(app_meta.name.clone())),
-                (
-                    "use_icon_as_answer_icon",
-                    Value::Bool(app_meta.use_icon_as_answer_icon),
-                ),
-                (
-                    "max_active_requests",
-                    yaml_value(app_meta.max_active_requests as u64),
-                ),
+                ("use_icon_as_answer_icon", Value::Bool(app_meta.use_icon_as_answer_icon)),
+                ("max_active_requests", yaml_value(app_meta.max_active_requests as u64)),
             ]),
         ),
         ("dependencies", Value::Sequence(Vec::new())),
@@ -113,22 +113,15 @@ pub(super) fn patch_root_for_save(
     viewport: WorkflowViewport,
 ) -> Result<Value, String> {
     let mut root = ensure_root_mapping(raw_root.clone());
-    let root_map = root
-        .as_mapping_mut()
-        .ok_or_else(|| "工作流根节点必须是一个对象".to_string())?;
+    let root_map = root.as_mapping_mut().ok_or_else(|| "工作流根节点必须是一个对象".to_string())?;
 
-    let app_value = root_map
-        .entry(Value::String("app".to_string()))
-        .or_insert_with(|| yaml_map(vec![]));
+    let app_value =
+        root_map.entry(Value::String("app".to_string())).or_insert_with(|| yaml_map(vec![]));
     let app_map = ensure_value_mapping(app_value);
     set_mapping_value(app_map, "name", Value::String(app_meta.name.clone()));
     set_mapping_value(app_map, "description", Value::String(app_meta.description.clone()));
     set_mapping_value(app_map, "icon", Value::String(app_meta.icon.clone()));
-    set_mapping_value(
-        app_map,
-        "icon_background",
-        Value::String(app_meta.icon_background.clone()),
-    );
+    set_mapping_value(app_map, "icon_background", Value::String(app_meta.icon_background.clone()));
     set_mapping_value(app_map, "mode", Value::String(app_meta.mode.clone()));
     set_mapping_value(
         app_map,
@@ -141,13 +134,11 @@ pub(super) fn patch_root_for_save(
         yaml_value(app_meta.max_active_requests as u64),
     );
 
-    let workflow_value = root_map
-        .entry(Value::String("workflow".to_string()))
-        .or_insert_with(|| yaml_map(vec![]));
+    let workflow_value =
+        root_map.entry(Value::String("workflow".to_string())).or_insert_with(|| yaml_map(vec![]));
     let workflow_map = ensure_value_mapping(workflow_value);
-    let graph_value = workflow_map
-        .entry(Value::String("graph".to_string()))
-        .or_insert_with(|| yaml_map(vec![]));
+    let graph_value =
+        workflow_map.entry(Value::String("graph".to_string())).or_insert_with(|| yaml_map(vec![]));
     let graph_map = ensure_value_mapping(graph_value);
     set_mapping_value(
         graph_map,
@@ -164,20 +155,14 @@ pub(super) fn patch_root_for_save(
         workflow_map,
         "environment_variables",
         Value::Sequence(
-            environment_variables
-                .iter()
-                .map(saved_environment_variable_value)
-                .collect(),
+            environment_variables.iter().map(saved_environment_variable_value).collect(),
         ),
     );
     set_mapping_value(
         workflow_map,
         "conversation_variables",
         Value::Sequence(
-            conversation_variables
-                .iter()
-                .map(saved_conversation_variable_value)
-                .collect(),
+            conversation_variables.iter().map(saved_conversation_variable_value).collect(),
         ),
     );
     root_map.remove(&key_value("graph"));
@@ -191,11 +176,7 @@ pub(super) fn saved_node_value(node: &WorkflowNode) -> Value {
 
     set_mapping_value(raw_map, "id", Value::String(node.id.clone()));
     set_mapping_value(raw_map, "position", point_value(node.position.x, node.position.y));
-    set_mapping_value(
-        raw_map,
-        "positionAbsolute",
-        point_value(node.position.x, node.position.y),
-    );
+    set_mapping_value(raw_map, "positionAbsolute", point_value(node.position.x, node.position.y));
     set_mapping_value(raw_map, "width", yaml_value(node.size.width as f64));
     set_mapping_value(raw_map, "height", yaml_value(node.size.height as f64));
     set_optional_string(raw_map, "parentId", node.parent_id.as_deref());
@@ -212,9 +193,8 @@ pub(super) fn saved_node_value(node: &WorkflowNode) -> Value {
     );
     set_mapping_value(raw_map, "zIndex", yaml_value(node.z_index as f64));
 
-    let data_value = raw_map
-        .entry(Value::String("data".to_string()))
-        .or_insert_with(|| yaml_map(vec![]));
+    let data_value =
+        raw_map.entry(Value::String("data".to_string())).or_insert_with(|| yaml_map(vec![]));
     let data_map = ensure_value_mapping(data_value);
     set_mapping_value(data_map, "title", Value::String(node.title.clone()));
     set_mapping_value(data_map, "desc", Value::String(node.description.clone()));
@@ -239,9 +219,8 @@ pub(super) fn saved_edge_value(edge: &WorkflowEdge) -> Value {
         set_mapping_value(raw_map, "type", Value::String("custom".to_string()));
     }
 
-    let data_value = raw_map
-        .entry(Value::String("data".to_string()))
-        .or_insert_with(|| yaml_map(vec![]));
+    let data_value =
+        raw_map.entry(Value::String("data".to_string())).or_insert_with(|| yaml_map(vec![]));
     let data_map = ensure_value_mapping(data_value);
     set_mapping_value(data_map, "sourceType", Value::String(edge.source_type.clone()));
     set_mapping_value(data_map, "targetType", Value::String(edge.target_type.clone()));
@@ -257,11 +236,7 @@ pub(super) fn saved_environment_variable_value(variable: &WorkflowEnvironmentVar
     set_mapping_value(raw_map, "name", Value::String(variable.name.clone()));
     set_mapping_value(raw_map, "value_type", Value::String(variable.value_type.clone()));
     set_mapping_value(raw_map, "value", variable.value.clone());
-    set_mapping_value(
-        raw_map,
-        "description",
-        Value::String(variable.description.clone()),
-    );
+    set_mapping_value(raw_map, "description", Value::String(variable.description.clone()));
 
     raw
 }
@@ -274,11 +249,7 @@ pub(super) fn saved_conversation_variable_value(variable: &WorkflowConversationV
     set_mapping_value(raw_map, "name", Value::String(variable.name.clone()));
     set_mapping_value(raw_map, "value_type", Value::String(variable.value_type.clone()));
     set_mapping_value(raw_map, "value", variable.value.clone());
-    set_mapping_value(
-        raw_map,
-        "description",
-        Value::String(variable.description.clone()),
-    );
+    set_mapping_value(raw_map, "description", Value::String(variable.description.clone()));
 
     raw
 }
@@ -294,14 +265,12 @@ pub(super) fn raw_graph_value(root: &Value) -> Option<&Mapping> {
 }
 
 pub(super) fn raw_workflow_value(root: &Value) -> Option<&Mapping> {
-    root.as_mapping()?
-        .get(&key_value("workflow"))
-        .and_then(Value::as_mapping)
+    root.as_mapping()?.get(&key_value("workflow")).and_then(Value::as_mapping)
 }
 
 pub(super) fn yaml_string_for_editor(value: &Value) -> Result<String, String> {
-    let yaml = serde_yaml::to_string(value)
-        .map_err(|error| format!("生成 YAML 文本失败: {error}"))?;
+    let yaml =
+        serde_yaml::to_string(value).map_err(|error| format!("生成 YAML 文本失败: {error}"))?;
     Ok(yaml.strip_prefix("---\n").unwrap_or(&yaml).to_string())
 }
 

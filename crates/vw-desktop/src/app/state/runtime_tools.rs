@@ -3,6 +3,7 @@
 //! 注释说明当前文件的职责边界，帮助调用方理解数据流与错误传播，
 //! 不改变任何运行时行为。
 
+use super::SkillsDirectoryScope;
 use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -18,14 +19,8 @@ pub enum SessionToolBucket {
 
 impl SessionToolBucket {
     /// ALL 使用的固定配置值。
-    pub(crate) const ALL: [Self; 6] = [
-        Self::ReadOnly,
-        Self::Edit,
-        Self::Execution,
-        Self::Browser,
-        Self::Agent,
-        Self::Other,
-    ];
+    pub(crate) const ALL: [Self; 6] =
+        [Self::ReadOnly, Self::Edit, Self::Execution, Self::Browser, Self::Agent, Self::Other];
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -94,6 +89,7 @@ impl SessionToolGroup {
 pub enum SessionToolSelectorTab {
     Agent,
     Tools,
+    Skills,
 }
 
 impl SessionToolSelectorTab {
@@ -105,6 +101,7 @@ impl SessionToolSelectorTab {
         match self {
             Self::Agent => "代理",
             Self::Tools => "工具",
+            Self::Skills => "技能",
         }
     }
 }
@@ -139,33 +136,22 @@ pub(crate) struct AdvancedToolSurfaceSpec {
 
 const ADVANCED_TOOL_SURFACES: [AdvancedToolSurfaceSpec; 7] = [
     AdvancedToolSurfaceSpec {
-        label: "进入规划模式",
-        state: AdvancedToolSurfaceState::Available,
+        label: "进入规划模式", state: AdvancedToolSurfaceState::Available
     },
     AdvancedToolSurfaceSpec {
-        label: "退出规划模式",
-        state: AdvancedToolSurfaceState::Available,
+        label: "退出规划模式", state: AdvancedToolSurfaceState::Available
     },
     AdvancedToolSurfaceSpec {
-        label: "校验计划执行",
-        state: AdvancedToolSurfaceState::Available,
+        label: "校验计划执行", state: AdvancedToolSurfaceState::Available
     },
     AdvancedToolSurfaceSpec {
-        label: "进入 worktree",
-        state: AdvancedToolSurfaceState::Available,
+        label: "进入 worktree", state: AdvancedToolSurfaceState::Available
     },
     AdvancedToolSurfaceSpec {
-        label: "退出 worktree",
-        state: AdvancedToolSurfaceState::Available,
+        label: "退出 worktree", state: AdvancedToolSurfaceState::Available
     },
-    AdvancedToolSurfaceSpec {
-        label: "mcp_* 集成",
-        state: AdvancedToolSurfaceState::Planned,
-    },
-    AdvancedToolSurfaceSpec {
-        label: "tool_search",
-        state: AdvancedToolSurfaceState::Available,
-    },
+    AdvancedToolSurfaceSpec { label: "mcp_* 集成", state: AdvancedToolSurfaceState::Planned },
+    AdvancedToolSurfaceSpec { label: "tool_search", state: AdvancedToolSurfaceState::Available },
 ];
 
 /// 执行 explicit_advanced_tool_surface_spec 对应的领域操作。
@@ -192,8 +178,12 @@ pub(crate) fn explicit_advanced_tool_surface_spec(
 pub(crate) struct SessionToolSelectorState {
     enabled_buckets: BTreeSet<SessionToolBucket>,
     explicit_allowed_tools: Option<BTreeSet<String>>,
+    manual_tools: BTreeSet<String>,
+    manual_skills: BTreeSet<String>,
     collapsed_groups: BTreeSet<SessionToolGroup>,
     active_tab: SessionToolSelectorTab,
+    query: String,
+    skill_directory_scope: SkillsDirectoryScope,
 }
 
 impl Default for SessionToolSelectorState {
@@ -201,8 +191,12 @@ impl Default for SessionToolSelectorState {
         Self {
             enabled_buckets: SessionToolBucket::ALL.into_iter().collect(),
             explicit_allowed_tools: None,
+            manual_tools: BTreeSet::new(),
+            manual_skills: BTreeSet::new(),
             collapsed_groups: BTreeSet::new(),
             active_tab: SessionToolSelectorTab::Agent,
+            query: String::new(),
+            skill_directory_scope: SkillsDirectoryScope::Project,
         }
     }
 }
@@ -224,21 +218,44 @@ impl SessionToolSelectorState {
         self.active_tab = tab;
     }
 
+    /// 执行 query 对应的领域操作。
+    ///
+    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    pub(crate) fn query(&self) -> &str {
+        &self.query
+    }
+
+    /// 执行 set_query 对应的领域操作。
+    ///
+    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    pub(crate) fn set_query(&mut self, query: String) {
+        self.query = query;
+    }
+
+    /// 执行 skill_directory_scope 对应的领域操作。
+    ///
+    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    pub(crate) fn skill_directory_scope(&self) -> SkillsDirectoryScope {
+        self.skill_directory_scope
+    }
+
+    /// 执行 select_skill_directory_scope 对应的领域操作。
+    ///
+    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    pub(crate) fn select_skill_directory_scope(&mut self, scope: SkillsDirectoryScope) {
+        self.skill_directory_scope = scope;
+    }
+
     /// 执行 is_bucket_enabled 对应的领域操作。
     ///
     /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
     /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
     pub(crate) fn is_bucket_enabled(&self, bucket: SessionToolBucket) -> bool {
         self.enabled_buckets.contains(&bucket)
-    }
-
-    /// 执行 is_all_enabled 对应的领域操作。
-    ///
-    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
-    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-    pub(crate) fn is_all_enabled(&self) -> bool {
-        self.enabled_buckets.len() == SessionToolBucket::ALL.len()
-            && self.explicit_allowed_tools.is_none()
     }
 
     /// 执行 reset 对应的领域操作。
@@ -248,6 +265,9 @@ impl SessionToolSelectorState {
     pub(crate) fn reset(&mut self) {
         self.enabled_buckets = SessionToolBucket::ALL.into_iter().collect();
         self.explicit_allowed_tools = None;
+        self.manual_tools.clear();
+        self.manual_skills.clear();
+        self.query.clear();
     }
 
     /// 执行 toggle_bucket 对应的领域操作。
@@ -270,8 +290,77 @@ impl SessionToolSelectorState {
     ///
     /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
     /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    #[cfg(test)]
     pub(crate) fn has_custom_tool_selection(&self) -> bool {
         self.explicit_allowed_tools.is_some()
+    }
+
+    /// 执行 has_manual_context_selection 对应的领域操作。
+    ///
+    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    pub(crate) fn has_manual_context_selection(&self) -> bool {
+        !self.manual_tools.is_empty() || !self.manual_skills.is_empty()
+    }
+
+    /// 执行 toggle_manual_tool 对应的领域操作。
+    ///
+    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    pub(crate) fn toggle_manual_tool(&mut self, tool_id: &str) {
+        let tool_id = tool_id.trim();
+        if tool_id.is_empty() {
+            return;
+        }
+        if !self.manual_tools.insert(tool_id.to_string()) {
+            self.manual_tools.remove(tool_id);
+        }
+    }
+
+    /// 执行 is_manual_tool_selected 对应的领域操作。
+    ///
+    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    pub(crate) fn is_manual_tool_selected(&self, tool_id: &str) -> bool {
+        self.manual_tools.contains(tool_id)
+    }
+
+    /// 执行 selected_manual_tools 对应的领域操作。
+    ///
+    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    pub(crate) fn selected_manual_tools(&self) -> Vec<String> {
+        self.manual_tools.iter().cloned().collect()
+    }
+
+    /// 执行 toggle_manual_skill 对应的领域操作。
+    ///
+    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    pub(crate) fn toggle_manual_skill(&mut self, skill_id: &str) {
+        let skill_id = skill_id.trim();
+        if skill_id.is_empty() {
+            return;
+        }
+        if !self.manual_skills.insert(skill_id.to_string()) {
+            self.manual_skills.remove(skill_id);
+        }
+    }
+
+    /// 执行 is_manual_skill_selected 对应的领域操作。
+    ///
+    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    pub(crate) fn is_manual_skill_selected(&self, skill_id: &str) -> bool {
+        self.manual_skills.contains(skill_id)
+    }
+
+    /// 执行 selected_manual_skills 对应的领域操作。
+    ///
+    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
+    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
+    pub(crate) fn selected_manual_skills(&self) -> Vec<String> {
+        self.manual_skills.iter().cloned().collect()
     }
 
     /// 执行 select_all_tools 对应的领域操作。
@@ -355,7 +444,8 @@ impl SessionToolSelectorState {
             return;
         };
 
-        selected_tools.retain(|tool_id| bucket_filtered_tools.iter().any(|candidate| candidate == tool_id));
+        selected_tools
+            .retain(|tool_id| bucket_filtered_tools.iter().any(|candidate| candidate == tool_id));
 
         if selected_tools.is_empty() || selected_tools.len() == bucket_filtered_tools.len() {
             self.explicit_allowed_tools = None;
@@ -375,29 +465,6 @@ impl SessionToolSelectorState {
             .into_iter()
             .filter(|tool_id| tool_group(tool_id) == group)
             .collect()
-    }
-
-    /// 执行 group_enabled_tool_count 对应的领域操作。
-    ///
-    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
-    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-    pub(crate) fn group_enabled_tool_count(
-        &self,
-        tools: &[String],
-        group: SessionToolGroup,
-    ) -> usize {
-        self.filter_tools(tools)
-            .into_iter()
-            .filter(|tool_id| tool_group(tool_id) == group)
-            .count()
-    }
-
-    /// 执行 is_tool_enabled 对应的领域操作。
-    ///
-    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
-    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-    pub(crate) fn is_tool_enabled(&self, tools: &[String], tool_id: &str) -> bool {
-        self.filter_tools(tools).iter().any(|candidate| candidate == tool_id)
     }
 
     /// 执行 toggle_tool 对应的领域操作。
@@ -432,11 +499,7 @@ impl SessionToolSelectorState {
     ///
     /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
     /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-    pub(crate) fn toggle_group_tools(
-        &mut self,
-        tools: &[String],
-        group: SessionToolGroup,
-    ) -> bool {
+    pub(crate) fn toggle_group_tools(&mut self, tools: &[String], group: SessionToolGroup) -> bool {
         let group_tools = self.available_tools_for_group(tools, group);
         if group_tools.is_empty() {
             return true;
@@ -498,26 +561,6 @@ impl SessionToolSelectorState {
 /// 表示 SessionToolInventory 相关的应用状态或派生数据。
 pub(crate) struct SessionToolInventory {
     pub(crate) base_tools: Vec<String>,
-    pub(crate) effective_tools: Vec<String>,
-    pub(crate) static_filtered: bool,
-}
-
-impl SessionToolInventory {
-    /// 执行 is_empty 对应的领域操作。
-    ///
-    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
-    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-    pub(crate) fn is_empty(&self) -> bool {
-        self.base_tools.is_empty()
-    }
-
-    /// 执行 group_count 对应的领域操作。
-    ///
-    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
-    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-    pub(crate) fn group_count(&self, group: SessionToolGroup) -> usize {
-        self.base_tools.iter().filter(|tool_id| tool_group(tool_id) == group).count()
-    }
 }
 
 /// 执行 tool_bucket 对应的领域操作。
@@ -526,23 +569,47 @@ impl SessionToolInventory {
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
 pub(crate) fn tool_bucket(tool_id: &str) -> SessionToolBucket {
     match tool_id {
-        "read" | "file_read" | "read_file" | "pdf_read" | "ls" | "grep"
-        | "content_search" | "glob" | "glob_search" | "code_search" | "codesearch"
-        | "lsp" | "memory_recall" => SessionToolBucket::ReadOnly,
+        "read" | "file_read" | "read_file" | "pdf_read" | "ls" | "grep" | "content_search"
+        | "glob" | "glob_search" | "code_search" | "codesearch" | "lsp" | "memory_recall" => {
+            SessionToolBucket::ReadOnly
+        }
         "write" | "file_write" | "apply_patch" | "edit" | "edit_file" | "editfile"
         | "file_edit" | "notebook_edit" => SessionToolBucket::Edit,
         "bash" | "shell" | "process" | "git_operations" => SessionToolBucket::Execution,
         "browser" | "browser_open" | "http_request" | "web_fetch" | "fetch_webpage"
-        | "web_search" | "websearch" | "web_search_tool" | "screenshot"
-        | "image_info" => SessionToolBucket::Browser,
-        "AgentTool" | "Agent" | "agent" | "delegate_coordination_status" | "schedule" | "cron_add" | "cron_list" | "cron_remove"
-        | "cron_update" | "cron_run" | "cron_runs" | "todoread" | "todowrite"
-        | "plan_enter" | "enter_plan_mode" | "plan_exit" | "exit_plan_mode"
-        | "verify_plan_execution" | "enter_worktree" | "exit_worktree" | "tool_search"
-        | "question" | "skill" | "memory_store" | "memory_forget" | "sop_execute"
-        | "sop_advance" | "sop_approve" | "sop_list" | "sop_status" => {
-            SessionToolBucket::Agent
+        | "web_search" | "websearch" | "web_search_tool" | "screenshot" | "image_info" => {
+            SessionToolBucket::Browser
         }
+        "AgentTool"
+        | "Agent"
+        | "agent"
+        | "delegate_coordination_status"
+        | "schedule"
+        | "cron_add"
+        | "cron_list"
+        | "cron_remove"
+        | "cron_update"
+        | "cron_run"
+        | "cron_runs"
+        | "todoread"
+        | "todowrite"
+        | "plan_enter"
+        | "enter_plan_mode"
+        | "plan_exit"
+        | "exit_plan_mode"
+        | "verify_plan_execution"
+        | "enter_worktree"
+        | "exit_worktree"
+        | "tool_search"
+        | "question"
+        | "skill"
+        | "memory_store"
+        | "memory_forget"
+        | "sop_execute"
+        | "sop_advance"
+        | "sop_approve"
+        | "sop_list"
+        | "sop_status" => SessionToolBucket::Agent,
         _ => SessionToolBucket::Other,
     }
 }
@@ -556,28 +623,52 @@ pub(crate) fn tool_group(tool_id: &str) -> SessionToolGroup {
         "read" | "file_read" | "pdf_read" | "ls" | "write" | "file_write" => {
             SessionToolGroup::Files
         }
-        "grep" | "content_search" | "glob" | "glob_search" | "code_search"
-        | "codesearch" | "lsp" => SessionToolGroup::Search,
-        "apply_patch" | "edit" | "edit_file" | "editfile" | "file_edit"
-        | "notebook_edit" | "bash" | "shell" | "process" | "git_operations" => {
-            SessionToolGroup::Execute
-        }
-        "browser" | "browser_open" | "http_request" | "web_fetch" | "web_search"
-        | "websearch" | "web_search_tool" | "screenshot" | "image_info" => {
-            SessionToolGroup::Web
-        }
-        "AgentTool" | "Agent" | "agent" | "delegate_coordination_status" | "question"
-        | "skill" | "schedule" | "cron_add" | "cron_list" | "cron_remove"
-        | "cron_update" | "cron_run" | "cron_runs" | "todoread" | "todowrite"
-        | "plan_enter" | "enter_plan_mode" | "plan_exit" | "exit_plan_mode"
-        | "verify_plan_execution" | "enter_worktree" | "exit_worktree"
-        | "sop_execute" | "sop_advance" | "sop_approve" | "sop_list" | "sop_status" => {
-            SessionToolGroup::Collaboration
-        }
+        "grep" | "content_search" | "glob" | "glob_search" | "code_search" | "codesearch"
+        | "lsp" => SessionToolGroup::Search,
+        "apply_patch" | "edit" | "edit_file" | "editfile" | "file_edit" | "notebook_edit"
+        | "bash" | "shell" | "process" | "git_operations" => SessionToolGroup::Execute,
+        "browser" | "browser_open" | "http_request" | "web_fetch" | "web_search" | "websearch"
+        | "web_search_tool" | "screenshot" | "image_info" => SessionToolGroup::Web,
+        "AgentTool"
+        | "Agent"
+        | "agent"
+        | "delegate_coordination_status"
+        | "question"
+        | "skill"
+        | "schedule"
+        | "cron_add"
+        | "cron_list"
+        | "cron_remove"
+        | "cron_update"
+        | "cron_run"
+        | "cron_runs"
+        | "todoread"
+        | "todowrite"
+        | "plan_enter"
+        | "enter_plan_mode"
+        | "plan_exit"
+        | "exit_plan_mode"
+        | "verify_plan_execution"
+        | "enter_worktree"
+        | "exit_worktree"
+        | "sop_execute"
+        | "sop_advance"
+        | "sop_approve"
+        | "sop_list"
+        | "sop_status" => SessionToolGroup::Collaboration,
         "memory_recall" | "memory_store" | "memory_forget" => SessionToolGroup::Memory,
-        "tool_search" | "proxy_config" | "model_routing_config" | "composio"
-        | "pushover" | "agents_list" | "agents_send" | "agents_inbox" | "state_get"
-        | "state_set" | "batch" | "wasm_module" => SessionToolGroup::Integration,
+        "tool_search"
+        | "proxy_config"
+        | "model_routing_config"
+        | "composio"
+        | "pushover"
+        | "agents_list"
+        | "agents_send"
+        | "agents_inbox"
+        | "state_get"
+        | "state_set"
+        | "batch"
+        | "wasm_module" => SessionToolGroup::Integration,
         _ => SessionToolGroup::Other,
     }
 }

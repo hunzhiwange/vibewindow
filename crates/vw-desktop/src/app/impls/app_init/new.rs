@@ -1,9 +1,10 @@
 use super::*;
+use crate::app::TodoPanelPlacement;
+#[cfg(target_arch = "wasm32")]
+use crate::app::state::RedisToolPersistedState;
 use iced::Task;
 use iced::Theme;
 use std::collections::{HashMap, HashSet};
-#[cfg(target_arch = "wasm32")]
-use crate::app::state::RedisToolPersistedState;
 
 impl App {
     /// 创建并初始化应用程序实例
@@ -368,8 +369,9 @@ impl App {
             input_context_menu_open: false,
             input_context_menu_pos: None,
             chat_reset_menu_idx: None,
-            chat_todo_expanded: false,
-            chat_todo_anim: 0.0,
+            chat_todo_expanded: true,
+            chat_todo_anim: 1.0,
+            chat_todo_placement: TodoPanelPlacement::ChatTopRight,
             chat_todo_session_id: None,
             chat_todo_items: vec![],
 
@@ -487,6 +489,23 @@ impl App {
             chat_scroll_id: iced::widget::Id::new("chat"),
             chat_scroll_offset_y: 1.0,
             chat_scroll_viewport_h: 0.0,
+            task_pet_scroll_id: iced::widget::Id::new("task_pet"),
+            task_pet_position: iced::Point::new(620.0, 96.0),
+            task_pet_collapsed: true,
+            task_pet_expand_progress: 0.0,
+            task_pet_expand_target: None,
+            task_pet_dragging: false,
+            task_pet_drag_anchor: None,
+            task_pet_drag_start: iced::Point::ORIGIN,
+            task_pet_drag_direction: 1,
+            task_pet_walk_until_ms: 0,
+            task_pet_avatar_kind: state::TaskPetAvatarKind::Robot,
+            task_pet_robot_hovered: false,
+            task_pet_items: Vec::new(),
+            task_pet_hovered_request_id: None,
+            task_pet_reply_request_id: None,
+            task_pet_reply_input: String::new(),
+            task_pet_dismissed_request_ids: HashSet::new(),
             chat_stream_autoscroll_last_ms: 0,
             chat_autoscroll_hold_until_ms: 0,
             chat_panel_fullscreen: false,
@@ -514,6 +533,8 @@ impl App {
             // ========== 光标和窗口位置 ==========
             cursor_position: iced::Point::ORIGIN,
             window_position: (0.0, 0.0),
+            main_window_id: None,
+            task_pet_window_id: None,
 
             // ========== 最近项目编辑 ==========
             recent_projects_edits: {
@@ -620,6 +641,8 @@ impl App {
             git_commit_scope: String::new(),
             git_commit_description: String::new(),
             git_commit_in_progress: false,
+            show_git_commit_help_modal: false,
+            show_git_filter_help_modal: false,
             staged_files_selected: vec![],
             staged_hunks_selected: vec![],
             staged_lines_selected: vec![],
@@ -668,6 +691,7 @@ impl App {
             // ========== 设置标签页 ==========
             settings_tab: SettingsTab::Sessions,
             system_settings_tab: components::system_settings::SystemTab::General,
+            system_settings_query: String::new(),
             system_settings_help_tab: None,
             provider_settings: super::state::ProviderSettingsState::default(),
             model_settings: super::state::ModelSettingsState::default(),
@@ -889,6 +913,7 @@ impl App {
             // ========== 技能设置 ==========
             skills_settings: super::state::SkillsSettingsState {
                 open_skills_enabled: skills_cfg.open_skills_enabled,
+                directory_provider: skills_cfg.directory_provider,
                 open_skills_dir_input: skills_cfg.open_skills_dir.unwrap_or_default(),
                 prompt_injection_mode: skills_cfg.prompt_injection_mode,
                 active_tab: super::state::SkillsSettingsTab::Skills,
@@ -1096,6 +1121,7 @@ impl App {
                                 max_depth: config.max_depth,
                                 agentic: config.agentic,
                                 allowed_tools: config.allowed_tools,
+                                allowed_skills: config.allowed_skills,
                                 options: config.options,
                                 permission: config.permission,
                                 max_iterations: config.max_iterations,
