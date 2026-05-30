@@ -16,4 +16,3 @@ fn normalize_ignores_empty_sections_and_dedupes_lists() {
     assert!(normalized.linguistics.is_none());
     assert_eq!(normalized.psychology.unwrap().moral_compass.unwrap(), vec!["care"]);
 }
-

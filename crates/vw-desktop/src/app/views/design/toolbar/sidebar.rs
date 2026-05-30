@@ -2,8 +2,7 @@
 
 use iced::widget::scrollable::{Direction, Scrollbar};
 use iced::widget::{
-    Space, button, column, container, image, scrollable, slider, svg, text, text_input,
-    tooltip,
+    Space, button, column, container, image, scrollable, slider, svg, text, text_input, tooltip,
 };
 use iced::{Color, Element, Length, Theme};
 
@@ -39,12 +38,7 @@ fn parse_toolbar_hex_color(input: &str) -> Option<Color> {
 
     match raw.len() {
         6 => Some(Color::from_rgba8(parse(0)?, parse(2)?, parse(4)?, 1.0)),
-        8 => Some(Color::from_rgba8(
-            parse(0)?,
-            parse(2)?,
-            parse(4)?,
-            f32::from(parse(6)?) / 255.0,
-        )),
+        8 => Some(Color::from_rgba8(parse(0)?, parse(2)?, parse(4)?, f32::from(parse(6)?) / 255.0)),
         _ => None,
     }
 }
@@ -119,8 +113,8 @@ pub fn render_toolbar(
         ("流程图", vec![DesignTool::Parallelogram, DesignTool::Trapezoid]),
     ];
     let brush_palette = [
-        "#FFFFFF", "#111827", "#EF4444", "#F97316", "#F59E0B", "#22C55E", "#06B6D4",
-        "#3B82F6", "#A855F7",
+        "#FFFFFF", "#111827", "#EF4444", "#F97316", "#F59E0B", "#22C55E", "#06B6D4", "#3B82F6",
+        "#A855F7",
     ];
 
     let tool_icon = |tool: DesignTool| match tool {
@@ -490,7 +484,8 @@ pub fn render_toolbar(
             .padding([10, 12])
             .style(|theme: &Theme| {
                 let palette = theme.palette();
-                let is_dark = palette.background.r + palette.background.g + palette.background.b < 1.5;
+                let is_dark =
+                    palette.background.r + palette.background.g + palette.background.b < 1.5;
                 container::Style {
                     background: Some(
                         if is_dark {
@@ -672,7 +667,8 @@ pub fn render_toolbar(
 
                 let tooltip_style = |theme: &Theme| {
                     let palette = theme.palette();
-                    let is_dark = palette.background.r + palette.background.g + palette.background.b < 1.5;
+                    let is_dark =
+                        palette.background.r + palette.background.g + palette.background.b < 1.5;
                     container::Style {
                         background: Some(
                             if is_dark {
@@ -705,7 +701,8 @@ pub fn render_toolbar(
                 for chunk in visible_icons.chunks(4) {
                     let mut card_row = iced::widget::row![].spacing(8);
                     for name in chunk {
-                        let selected = active_family == toolbar_icon_family && name == toolbar_icon_name;
+                        let selected =
+                            active_family == toolbar_icon_family && name == toolbar_icon_name;
                         let icon_color = if selected {
                             figma_active_bg
                         } else {
@@ -743,10 +740,12 @@ pub fn render_toolbar(
                         .width(Length::Fill)
                         .padding([8, 6])
                         .style(icon_button_style(selected))
-                        .on_press(Message::Design(DesignMessage::SelectToolbarIcon {
-                            family: active_family.to_string(),
-                            name: name.clone(),
-                        }));
+                        .on_press(Message::Design(
+                            DesignMessage::SelectToolbarIcon {
+                                family: active_family.to_string(),
+                                name: name.clone(),
+                            },
+                        ));
                         let hover_preview = tooltip::Tooltip::new(
                             item,
                             container(
@@ -766,7 +765,8 @@ pub fn render_toolbar(
                             tooltip::Position::Right,
                         )
                         .gap(8.0);
-                        card_row = card_row.push(container(hover_preview).width(Length::FillPortion(1)));
+                        card_row =
+                            card_row.push(container(hover_preview).width(Length::FillPortion(1)));
                     }
                     grid = grid.push(card_row);
                 }
@@ -791,19 +791,25 @@ pub fn render_toolbar(
                     iced::widget::row![
                         container(
                             scrollable(family_list)
-                                .direction(Direction::Vertical(Scrollbar::new().width(4).scroller_width(4)))
+                                .direction(Direction::Vertical(
+                                    Scrollbar::new().width(4).scroller_width(4)
+                                ))
                                 .height(Length::Fill)
                         )
                         .width(Length::Fixed(112.0)),
                         column![
                             text_input("搜索图标名...", icon_filter_query)
-                                .on_input(|value| Message::Design(DesignMessage::SetIconFilter(value)))
+                                .on_input(|value| Message::Design(DesignMessage::SetIconFilter(
+                                    value
+                                )))
                                 .style(input_style)
                                 .padding([6, 8])
                                 .size(12),
                             text(result_summary).size(11).style(iced::widget::text::secondary),
                             scrollable(grid)
-                                .direction(Direction::Vertical(Scrollbar::new().width(4).scroller_width(4)))
+                                .direction(Direction::Vertical(
+                                    Scrollbar::new().width(4).scroller_width(4)
+                                ))
                                 .height(Length::Fill)
                         ]
                         .spacing(10)

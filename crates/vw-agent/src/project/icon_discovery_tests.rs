@@ -4,4 +4,3 @@ use super::*;
 fn discover_function_type_is_available() {
     let _ = discover;
 }
-

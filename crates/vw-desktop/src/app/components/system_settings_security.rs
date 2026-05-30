@@ -91,10 +91,7 @@ fn bool_row<'a>(
     field_row(
         label,
         description,
-        checkbox(checked)
-            .label(checkbox_label)
-            .on_toggle(on_toggle)
-            .style(settings_checkbox_style),
+        checkbox(checked).label(checkbox_label).on_toggle(on_toggle).style(settings_checkbox_style),
     )
 }
 
@@ -107,9 +104,7 @@ fn slider_row<'a>(
     field_row(
         label,
         description,
-        row![slider.into(), settings_value_badge(value)]
-            .spacing(12)
-            .align_y(Alignment::Center),
+        row![slider.into(), settings_value_badge(value)].spacing(12).align_y(Alignment::Center),
     )
 }
 
@@ -144,7 +139,9 @@ fn sandbox_backend_options(enabled: &str) -> Vec<LabeledOption> {
 
 fn sandbox_backend_description(backend: &str) -> &'static str {
     match backend {
-        "landlock" => "使用 Linux Landlock 约束文件系统与进程权限，适合支持 Landlock 的 Linux 环境。",
+        "landlock" => {
+            "使用 Linux Landlock 约束文件系统与进程权限，适合支持 Landlock 的 Linux 环境。"
+        }
         "firejail" => "使用 Firejail 进行沙箱隔离，可额外传入命令行参数定制策略。",
         "bubblewrap" => "使用 Bubblewrap 构造轻量级容器隔离，适合更细粒度的命名空间控制。",
         "docker" => "使用 Docker 容器作为执行边界，适合已有容器环境的部署方式。",
@@ -188,23 +185,21 @@ fn sandbox_backend_description(backend: &str) -> &'static str {
 pub fn view(app: &App) -> Element<'_, Message> {
     let s = &app.security_settings;
     let enabled_options = sandbox_enabled_options();
-    let enabled_selected = enabled_options
-        .iter()
-        .find(|option| option.value == s.sandbox_enabled_input)
-        .cloned();
+    let enabled_selected =
+        enabled_options.iter().find(|option| option.value == s.sandbox_enabled_input).cloned();
     let backend_options = sandbox_backend_options(&s.sandbox_enabled_input);
-    let backend_selected = backend_options
-        .iter()
-        .find(|option| option.value == s.sandbox_backend_input)
-        .cloned();
+    let backend_selected =
+        backend_options.iter().find(|option| option.value == s.sandbox_backend_input).cloned();
     let help_btn =
         settings_help_button(Message::Settings(message::SettingsMessage::SecurityHelpOpen));
     let sandbox_enabled_row = field_row(
         "沙箱启用",
         "选择自动检测、强制启用或强制禁用沙箱。",
-        pick_list(enabled_options, enabled_selected, |value| Message::Settings(
-            message::SettingsMessage::SecuritySandboxEnabledChanged(value.value.to_string())
-        ))
+        pick_list(enabled_options, enabled_selected, |value| {
+            Message::Settings(message::SettingsMessage::SecuritySandboxEnabledChanged(
+                value.value.to_string(),
+            ))
+        })
         .padding([10, 14])
         .text_size(13)
         .style(settings_pick_list_style)
@@ -215,9 +210,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let sandbox_backend_row = field_row(
         "沙箱后端",
         "根据启用策略收窄可选值，避免互相矛盾的配置。",
-        pick_list(backend_options, backend_selected, |value| Message::Settings(
-            message::SettingsMessage::SecuritySandboxBackendChanged(value.value.to_string())
-        ))
+        pick_list(backend_options, backend_selected, |value| {
+            Message::Settings(message::SettingsMessage::SecuritySandboxBackendChanged(
+                value.value.to_string(),
+            ))
+        })
         .padding([10, 14])
         .text_size(13)
         .style(settings_pick_list_style)
@@ -225,10 +222,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .width(Length::Fixed(280.0)),
     );
 
-    let sandbox_backend_card = settings_section_card(
-        "后端说明",
-        sandbox_backend_description(&s.sandbox_backend_input),
-    );
+    let sandbox_backend_card =
+        settings_section_card("后端说明", sandbox_backend_description(&s.sandbox_backend_input));
 
     let firejail_args_row = text_row(
         "Firejail 参数",
@@ -279,7 +274,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "持续监控执行进程的内存占用。",
         s.resources_memory_monitoring,
         "开启",
-        |v| Message::Settings(message::SettingsMessage::SecurityResourcesMemoryMonitoringToggled(v)),
+        |v| {
+            Message::Settings(message::SettingsMessage::SecurityResourcesMemoryMonitoringToggled(v))
+        },
     );
 
     let audit_enabled_row = bool_row(
@@ -303,7 +300,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "限制单个审计日志文件的最大大小。",
         slider(1.0..=10_000.0, s.audit_max_size_mb as f32, |v| {
             Message::Settings(message::SettingsMessage::SecurityAuditMaxSizeMbChanged(
-                v.round() as u32,
+                v.round() as u32
             ))
         })
         .width(Length::Fill),
@@ -318,13 +315,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
         |v| Message::Settings(message::SettingsMessage::SecurityAuditSignEventsToggled(v)),
     );
 
-    let otp_enabled_row = bool_row(
-        "OTP",
-        "启用敏感动作的二次验证。",
-        s.otp_enabled,
-        "开启",
-        |v| Message::Settings(message::SettingsMessage::SecurityOtpEnabledToggled(v)),
-    );
+    let otp_enabled_row =
+        bool_row("OTP", "启用敏感动作的二次验证。", s.otp_enabled, "开启", |v| {
+            Message::Settings(message::SettingsMessage::SecurityOtpEnabledToggled(v))
+        });
 
     let otp_method_row = text_row(
         "OTP 方法",
@@ -339,7 +333,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "单个 OTP 令牌的有效时长。",
         slider(1.0..=600.0, s.otp_token_ttl_secs as f32, |v: f32| {
             Message::Settings(message::SettingsMessage::SecurityOtpTokenTtlSecsChanged(
-                v.round() as u64,
+                v.round() as u64
             ))
         })
         .width(Length::Fill),
@@ -351,7 +345,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "验证结果的缓存有效期。",
         slider(1.0..=3600.0, s.otp_cache_valid_secs as f32, |v: f32| {
             Message::Settings(message::SettingsMessage::SecurityOtpCacheValidSecsChanged(
-                v.round() as u64,
+                v.round() as u64
             ))
         })
         .width(Length::Fill),
@@ -379,9 +373,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "按域名分类启用 OTP 门控。",
         "逗号分隔",
         &s.otp_gated_domain_categories_input,
-        |v| Message::Settings(
-            message::SettingsMessage::SecurityOtpGatedDomainCategoriesChanged(v),
-        ),
+        |v| Message::Settings(message::SettingsMessage::SecurityOtpGatedDomainCategoriesChanged(v)),
     );
 
     let estop_enabled_row = bool_row(
@@ -429,9 +421,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "遇到未知系统调用时立即告警。",
         s.syscall_anomaly_alert_on_unknown_syscall,
         "开启",
-        |v| Message::Settings(
-            message::SettingsMessage::SecuritySyscallAnomalyAlertOnUnknownSyscallToggled(v),
-        ),
+        |v| {
+            Message::Settings(
+                message::SettingsMessage::SecuritySyscallAnomalyAlertOnUnknownSyscallToggled(v),
+            )
+        },
     );
 
     let denied_row = slider_row(
@@ -482,7 +476,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         slider(1.0..=3600.0, s.syscall_anomaly_alert_cooldown_secs as f32, |v: f32| {
             Message::Settings(
                 message::SettingsMessage::SecuritySyscallAnomalyAlertCooldownSecsChanged(
-                    v.round() as u64,
+                    v.round() as u64
                 ),
             )
         })
@@ -503,9 +497,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "允许的系统调用白名单基线，使用逗号分隔。",
         "逗号分隔",
         &s.syscall_anomaly_baseline_syscalls_input,
-        |v| Message::Settings(
-            message::SettingsMessage::SecuritySyscallAnomalyBaselineSyscallsChanged(v),
-        ),
+        |v| {
+            Message::Settings(
+                message::SettingsMessage::SecuritySyscallAnomalyBaselineSyscallsChanged(v),
+            )
+        },
     );
 
     let canary_row = bool_row(

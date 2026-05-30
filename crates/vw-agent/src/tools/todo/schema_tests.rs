@@ -20,8 +20,8 @@ fn todo_input_defaults_status_priority_and_numeric_id() {
 
 #[test]
 fn todo_patch_accepts_partial_update() {
-    let patch: TodoPatch = serde_json::from_value(json!({"id": 1, "status": "completed"}))
-        .expect("valid patch");
+    let patch: TodoPatch =
+        serde_json::from_value(json!({"id": 1, "status": "completed"})).expect("valid patch");
 
     assert_eq!(patch.id.as_deref(), Some("1"));
     assert_eq!(patch.content, None);

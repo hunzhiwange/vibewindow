@@ -2,18 +2,19 @@
 //!
 //! # 核心功能
 //!
-//! **原子灵魂导出（Atomic Soul Export）**：将 `MemoryCategory::Core` 类型的记忆从 SQLite 数据库
-//! 导出到 `MEMORY_SNAPSHOT.md` 文件，使代理的"灵魂"始终在 Git 版本控制中可见。
+//! **原子记忆导出（Atomic Memory Export）**：将 `MemoryCategory::Core` 类型的记忆从 SQLite 数据库
+//! 导出到用户态数据目录中的 `MEMORY_SNAPSHOT.md` 文件。
 //!
 //! **自动水合（Auto-Hydration）**：如果 `brain.db` 数据库不存在但 `MEMORY_SNAPSHOT.md` 文件存在，
 //! 系统会自动将所有条目重新索引到全新的 SQLite 数据库中。
 //!
 //! # 使用场景
 //!
-//! - 版本控制：将核心记忆提交到 Git 仓库，便于追踪和恢复
+//! - 备份：将核心记忆导出到用户态数据目录，便于追踪和恢复
 //! - 灾难恢复：当数据库丢失时，从快照文件快速恢复记忆
 //! - 迁移：在不同环境间迁移代理的核心记忆
 
+use super::paths;
 use anyhow::Result;
 use chrono::Local;
 use rusqlite::{Connection, params};
@@ -23,8 +24,7 @@ use std::path::{Path, PathBuf};
 
 /// 快照文件名。
 ///
-/// 该文件位于工作区根目录，以便于 Git 版本控制的可见性。
-/// 文件名固定为 `MEMORY_SNAPSHOT.md`，采用 Markdown 格式存储核心记忆。
+/// 文件名固定为 `MEMORY_SNAPSHOT.md`，位于用户态项目数据目录，采用 Markdown 格式存储核心记忆。
 pub const SNAPSHOT_FILENAME: &str = "MEMORY_SNAPSHOT.md";
 
 /// 快照文件头部内容。
@@ -40,12 +40,12 @@ const SNAPSHOT_HEADER: &str = "# 💡 VibeWindow Memory Snapshot\n\n\
 
 /// 将所有核心记忆从 SQLite 数据库导出到 `MEMORY_SNAPSHOT.md` 文件。
 ///
-/// 该函数会从工作区的 `memory/brain.db` 数据库中读取所有 `category = 'core'` 的记忆条目，
+/// 该函数会从用户态项目数据目录的 `memory/brain.db` 数据库中读取所有 `category = 'core'` 的记忆条目，
 /// 并将其格式化为 Markdown 文档写入 `MEMORY_SNAPSHOT.md` 文件。
 ///
 /// # 参数
 ///
-/// * `workspace_dir` - 工作区目录路径，快照文件将创建在此目录下
+/// * `workspace_dir` - 工作区目录路径，仅用于派生用户态项目数据目录
 ///
 /// # 返回值
 ///
@@ -79,8 +79,9 @@ const SNAPSHOT_HEADER: &str = "# 💡 VibeWindow Memory Snapshot\n\n\
 /// }
 /// ```
 pub fn export_snapshot(workspace_dir: &Path) -> Result<usize> {
+    let storage_dir = paths::project_data_dir(workspace_dir)?;
     // 构建数据库文件路径
-    let db_path = workspace_dir.join("memory").join("brain.db");
+    let db_path = storage_dir.join("memory").join("brain.db");
 
     // 如果数据库不存在，直接返回 0（无需导出）
     if !db_path.exists() {
@@ -129,7 +130,7 @@ pub fn export_snapshot(workspace_dir: &Path) -> Result<usize> {
     }
 
     // 将内容写入快照文件
-    let snapshot_path = snapshot_path(workspace_dir);
+    let snapshot_path = snapshot_path(&storage_dir);
     fs::write(&snapshot_path, output)?;
 
     tracing::info!(
@@ -182,8 +183,9 @@ pub fn export_snapshot(workspace_dir: &Path) -> Result<usize> {
 /// }
 /// ```
 pub fn hydrate_from_snapshot(workspace_dir: &Path) -> Result<usize> {
+    let storage_dir = paths::project_data_dir(workspace_dir)?;
     // 检查快照文件是否存在
-    let snapshot = snapshot_path(workspace_dir);
+    let snapshot = snapshot_path(&storage_dir);
     if !snapshot.exists() {
         return Ok(0);
     }
@@ -198,7 +200,7 @@ pub fn hydrate_from_snapshot(workspace_dir: &Path) -> Result<usize> {
     }
 
     // 确保记忆目录存在
-    let db_dir = workspace_dir.join("memory");
+    let db_dir = storage_dir.join("memory");
     fs::create_dir_all(&db_dir)?;
 
     // 创建或打开数据库并配置 WAL 模式
@@ -307,8 +309,11 @@ pub fn hydrate_from_snapshot(workspace_dir: &Path) -> Result<usize> {
 /// }
 /// ```
 pub fn should_hydrate(workspace_dir: &Path) -> bool {
-    let db_path = workspace_dir.join("memory").join("brain.db");
-    let snapshot = snapshot_path(workspace_dir);
+    let Ok(storage_dir) = paths::project_data_dir(workspace_dir) else {
+        return false;
+    };
+    let db_path = storage_dir.join("memory").join("brain.db");
+    let snapshot = snapshot_path(&storage_dir);
 
     // 检查数据库是否缺失或为空
     let db_missing_or_empty = if db_path.exists() {

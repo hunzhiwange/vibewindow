@@ -28,12 +28,12 @@ use iced::widget::scrollable::{Direction, Scrollbar};
 use iced::widget::{Space, button, column, container, row, scrollable, text};
 use iced::{Background, Color, Element, Length, Theme};
 
+use crate::app::components::status_animation::spinner_frame;
 use crate::app::{
     App, Message,
     assets::Icon,
     message::{self},
 };
-use crate::app::components::status_animation::spinner_frame;
 
 mod find_results;
 mod icons;
@@ -141,11 +141,9 @@ pub fn view_file_manager(app: &App) -> Element<'_, Message> {
 
     let refresh_content = |refreshing: bool| {
         if refreshing {
-            container(
-                text(spinner_frame(app.file_manager_refresh_frame)).size(13),
-            )
-            .width(Length::Fixed(16.0))
-            .align_x(iced::alignment::Horizontal::Center)
+            container(text(spinner_frame(app.file_manager_refresh_frame)).size(13))
+                .width(Length::Fixed(16.0))
+                .align_x(iced::alignment::Horizontal::Center)
         } else {
             container(icons::themed_icon_svg(Icon::ArrowRepeat))
                 .width(Length::Fixed(16.0))

@@ -53,7 +53,7 @@ use self::workspace_checks::check_workspace;
 #[cfg(test)]
 use self::config_checks::provider_validation_error;
 #[cfg(test)]
-use self::model_probe::{classify_model_probe_error, ModelProbeOutcome};
+use self::model_probe::{ModelProbeOutcome, classify_model_probe_error};
 #[cfg(test)]
 use self::utils::truncate_for_display;
 #[cfg(test)]

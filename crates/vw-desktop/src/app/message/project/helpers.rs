@@ -5,6 +5,7 @@
 use crate::app::message::project::ProjectMessage;
 use crate::app::{App, Message, state::FindInFolderMatch};
 use iced::Task;
+#[cfg(not(target_arch = "wasm32"))]
 use image::{ImageFormat, RgbaImage};
 use regex::RegexBuilder;
 use sha2::{Digest, Sha256};
@@ -57,22 +58,12 @@ fn sanitize_attachment_stem(path: &Path) -> String {
     let stem = path.file_stem().and_then(|value| value.to_str()).unwrap_or("image");
     let sanitized = stem
         .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
-                ch
-            } else {
-                '-'
-            }
-        })
+        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '-' })
         .collect::<String>()
         .trim_matches('-')
         .to_string();
 
-    if sanitized.is_empty() {
-        "image".to_string()
-    } else {
-        sanitized
-    }
+    if sanitized.is_empty() { "image".to_string() } else { sanitized }
 }
 
 fn build_image_attachment_snapshot_path(
@@ -97,6 +88,7 @@ fn build_image_attachment_snapshot_path(
     snapshot_dir.join(format!("{stem}-{short_digest}.{extension}"))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn build_clipboard_image_attachment_path(
     width: u32,
     height: u32,
@@ -130,9 +122,8 @@ fn stabilize_image_attachment(
 
     let target = build_image_attachment_snapshot_path(source, metadata, snapshot_dir);
     if !target.exists() {
-        std::fs::copy(source, &target).map_err(|error| {
-            format!("复制图片附件失败：{}（{}）", source.display(), error)
-        })?;
+        std::fs::copy(source, &target)
+            .map_err(|error| format!("复制图片附件失败：{}（{}）", source.display(), error))?;
     }
 
     Ok(target)
@@ -149,18 +140,18 @@ fn attachment_name(path: &Path) -> String {
 ///
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 变更范围限制在当前消息处理路径内，不引入额外的流程分支。
-pub(crate) fn collect_local_attachments(app: &App, picked: Vec<String>) -> (Vec<String>, Vec<String>) {
+pub(crate) fn collect_local_attachments(
+    app: &App,
+    picked: Vec<String>,
+) -> (Vec<String>, Vec<String>) {
     let max_images = app.multimodal_settings.max_images.clamp(1, 16) as usize;
-    let max_bytes = (app.multimodal_settings.max_image_size_mb.clamp(1, 20) as u64)
-        .saturating_mul(1024 * 1024);
+    let max_bytes =
+        (app.multimodal_settings.max_image_size_mb.clamp(1, 20) as u64).saturating_mul(1024 * 1024);
     let mut seen = app.files.iter().cloned().collect::<HashSet<_>>();
     let project_root = app.project_path.as_deref().map(Path::new);
     let snapshot_dir = chat_image_attachment_dir();
-    let mut image_count = app
-        .files
-        .iter()
-        .filter(|path| is_supported_image_attachment(Path::new(path)))
-        .count();
+    let mut image_count =
+        app.files.iter().filter(|path| is_supported_image_attachment(Path::new(path))).count();
     let mut accepted = Vec::new();
     let mut errors = Vec::new();
 
@@ -268,6 +259,7 @@ pub(crate) fn append_local_attachments(app: &mut App, picked: Vec<String>) {
 ///
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 变更范围限制在当前消息处理路径内，不引入额外的流程分支。
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn persist_clipboard_image_attachment(
     width: u32,
     height: u32,
@@ -285,9 +277,9 @@ pub(crate) fn persist_clipboard_image_attachment(
     if !target.exists() {
         let image = RgbaImage::from_raw(width, height, rgba_bytes.to_vec())
             .ok_or_else(|| "剪贴板图片数据无效".to_string())?;
-        image.save_with_format(&target, ImageFormat::Png).map_err(|error| {
-            format!("保存剪贴板图片失败：{}（{}）", target.display(), error)
-        })?;
+        image
+            .save_with_format(&target, ImageFormat::Png)
+            .map_err(|error| format!("保存剪贴板图片失败：{}（{}）", target.display(), error))?;
     }
 
     Ok(target.to_string_lossy().to_string())

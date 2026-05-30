@@ -120,23 +120,29 @@ pub fn session_loading_placeholder(app: &App) -> Element<'_, Message> {
     .padding([6, 10])
     .style(placeholder_chip_style);
 
-    let branch_row = container(row![
-        icon_svg(Icon::GitBranch)
-            .style(|theme: &Theme, _status| svg::Style { color: Some(muted_icon_color(theme)) }),
-        text(branch_text).size(14),
-    ]
-    .spacing(6)
-    .align_y(Alignment::Center))
+    let branch_row = container(
+        row![
+            icon_svg(Icon::GitBranch).style(|theme: &Theme, _status| svg::Style {
+                color: Some(muted_icon_color(theme))
+            }),
+            text(branch_text).size(14),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center),
+    )
     .padding([6, 10])
     .style(placeholder_chip_style);
 
-    let modified_row = container(row![
-        icon_svg(Icon::Clock)
-            .style(|theme: &Theme, _status| svg::Style { color: Some(muted_icon_color(theme)) }),
-        text(modified_text).size(14),
-    ]
-    .spacing(6)
-    .align_y(Alignment::Center))
+    let modified_row = container(
+        row![
+            icon_svg(Icon::Clock).style(|theme: &Theme, _status| svg::Style {
+                color: Some(muted_icon_color(theme))
+            }),
+            text(modified_text).size(14),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center),
+    )
     .padding([6, 10])
     .style(placeholder_chip_style);
 
@@ -315,22 +321,28 @@ pub fn empty_session_placeholder(app: &App) -> Element<'_, Message> {
     let path_text = current_project_path_label(app);
     let branch_text = format!("分支 {}", current_branch_label(app));
     let modified_text = relative_modified_label(app);
-    let branch_row = container(row![
-        icon_svg(Icon::GitBranch)
-            .style(|theme: &Theme, _status| svg::Style { color: Some(muted_icon_color(theme)) }),
-        text(branch_text).size(15),
-    ]
-    .spacing(6)
-    .align_y(Alignment::Center))
+    let branch_row = container(
+        row![
+            icon_svg(Icon::GitBranch).style(|theme: &Theme, _status| svg::Style {
+                color: Some(muted_icon_color(theme))
+            }),
+            text(branch_text).size(15),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center),
+    )
     .padding([6, 10])
     .style(placeholder_chip_style);
-    let modified_row = container(row![
-        icon_svg(Icon::Clock)
-            .style(|theme: &Theme, _status| svg::Style { color: Some(muted_icon_color(theme)) }),
-        text(modified_text).size(15),
-    ]
-    .spacing(6)
-    .align_y(Alignment::Center))
+    let modified_row = container(
+        row![
+            icon_svg(Icon::Clock).style(|theme: &Theme, _status| svg::Style {
+                color: Some(muted_icon_color(theme))
+            }),
+            text(modified_text).size(15),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center),
+    )
     .padding([6, 10])
     .style(placeholder_chip_style);
 

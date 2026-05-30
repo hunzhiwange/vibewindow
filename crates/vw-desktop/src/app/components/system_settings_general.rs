@@ -10,8 +10,8 @@
 
 use crate::app::components::system_settings_common::{
     SETTINGS_LABEL_WIDTH, settings_divider, settings_muted_text_style, settings_page_intro,
-    settings_panel, settings_pick_list_menu_style, settings_pick_list_style,
-    settings_section_card, settings_value_badge,
+    settings_panel, settings_pick_list_menu_style, settings_pick_list_style, settings_section_card,
+    settings_value_badge,
 };
 use crate::app::{App, Message, PreviewAutoSaveMode, Shell, TerminalTheme, message};
 use iced::widget::{column, container, pick_list, row, slider, text};

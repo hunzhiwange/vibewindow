@@ -5,16 +5,16 @@
 
 use std::borrow::Cow;
 
-use crate::app::models::{self, ParsedChatBlock};
 use crate::app::App;
+use crate::app::models::{self, ParsedChatBlock};
 
-use super::parse::{borrowed_blocks, hash_chat_content, owned_blocks_from_raw, RenderBlock};
+use super::super::tools::{is_explore_tool, tool_name_from_raw};
+use super::super::utils::{normalize_display_text, strip_internal_tool_trace, truncate_chars};
+use super::parse::{RenderBlock, borrowed_blocks, hash_chat_content, owned_blocks_from_raw};
 use super::text::estimate_text_height;
 use super::tool_summaries::{
     collect_tool_card_texts, count_code_blocks, normalized_visible_text, summarize_explore_items,
 };
-use super::super::tools::{is_explore_tool, tool_name_from_raw};
-use super::super::utils::{normalize_display_text, strip_internal_tool_trace, truncate_chars};
 
 const LARGE_MESSAGE_RAW_CHARS: usize = 12_000;
 const LARGE_MESSAGE_VISIBLE_CHARS: usize = 8_000;
@@ -29,7 +29,9 @@ fn flush_explore_summaries(
     group_idx: usize,
     force_running: bool,
 ) {
-    if let Some(summary) = summarize_explore_items(items.iter().map(String::as_str), group_idx, force_running) {
+    if let Some(summary) =
+        summarize_explore_items(items.iter().map(String::as_str), group_idx, force_running)
+    {
         out.push(summary);
     }
     items.clear();

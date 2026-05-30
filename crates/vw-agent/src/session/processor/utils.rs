@@ -21,8 +21,8 @@ pub(crate) use message_format::{
 #[allow(unused_imports)]
 pub(crate) use output_compaction::{
     compact_tool_output, compact_tool_output_for_ui, is_streaming_tool,
-    rewrite_todowrite_completed_when_no_work, sanitize_tool_input,
-    sanitize_tool_input_for_ui, tool_fingerprint, truncate_string,
+    rewrite_todowrite_completed_when_no_work, sanitize_tool_input, sanitize_tool_input_for_ui,
+    tool_fingerprint, truncate_string,
 };
 pub(crate) use query_analysis::should_try_auto_complete_todos;
 #[allow(unused_imports)]

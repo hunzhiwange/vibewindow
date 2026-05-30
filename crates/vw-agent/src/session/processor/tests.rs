@@ -384,11 +384,8 @@ mod tests {
     #[test]
     fn inline_tool_execution_appends_tool_context_back_to_llm_messages() {
         let workspace = tempfile::tempdir().expect("temp workspace should be created");
-        std::fs::write(
-            workspace.path().join("style.css"),
-            "body { color: black; }\n",
-        )
-        .expect("style.css should be written");
+        std::fs::write(workspace.path().join("style.css"), "body { color: black; }\n")
+            .expect("style.css should be written");
 
         let mut session = Session::new("inline-tool-session".to_string());
         let ctx = ToolRuntimeContext::new(
@@ -413,7 +410,11 @@ mod tests {
         assert!(ran_tool);
 
         let mut llm_messages = Vec::new();
-        llm_messages::extend_llm_messages_from_session_range(&mut llm_messages, &session, start_index);
+        llm_messages::extend_llm_messages_from_session_range(
+            &mut llm_messages,
+            &session,
+            start_index,
+        );
 
         let inline_text = assistant_text.trim();
         assert_eq!(inline_text, "先读取样式文件");
@@ -424,18 +425,24 @@ mod tests {
 
         assert_eq!(llm_messages.len(), 3);
         assert_eq!(llm_messages[0].get("role").and_then(|value| value.as_str()), Some("assistant"));
-        assert!(llm_messages[0]
-            .get("content")
-            .and_then(|value| value.as_str())
-            .is_some_and(|content| content.contains("/file_read")));
-        assert!(llm_messages[1]
-            .get("content")
-            .and_then(|value| value.as_str())
-            .is_some_and(|content| content.contains("tool file_read")));
-        assert!(llm_messages[2]
-            .get("content")
-            .and_then(|value| value.as_str())
-            .is_some_and(|content| content.contains("先读取样式文件")));
+        assert!(
+            llm_messages[0]
+                .get("content")
+                .and_then(|value| value.as_str())
+                .is_some_and(|content| content.contains("/file_read"))
+        );
+        assert!(
+            llm_messages[1]
+                .get("content")
+                .and_then(|value| value.as_str())
+                .is_some_and(|content| content.contains("tool file_read"))
+        );
+        assert!(
+            llm_messages[2]
+                .get("content")
+                .and_then(|value| value.as_str())
+                .is_some_and(|content| content.contains("先读取样式文件"))
+        );
     }
 
     #[test]

@@ -24,4 +24,3 @@ fn prompt_sorts_neural_matrix_keys() {
     assert!(prompt.contains("**姓名:** Nova"));
     assert!(prompt.find("alpha").unwrap() < prompt.find("zeta").unwrap());
 }
-

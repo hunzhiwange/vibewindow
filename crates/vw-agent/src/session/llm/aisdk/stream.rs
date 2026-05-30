@@ -29,7 +29,7 @@ use aisdk::core::language_model::{
 #[cfg(not(target_arch = "wasm32"))]
 use aisdk::core::tools::{Tool as AiTool, ToolExecute as AiToolExecute};
 #[cfg(not(target_arch = "wasm32"))]
-use iced::futures::StreamExt;
+use futures_util::StreamExt;
 #[cfg(not(target_arch = "wasm32"))]
 use serde_json::{Map, Value};
 #[cfg(not(target_arch = "wasm32"))]

@@ -183,4 +183,3 @@ fn regenerate_ids(el: &mut DesignElement, counter: &mut u64) {
         regenerate_ids(child, counter);
     }
 }
-

@@ -1,10 +1,7 @@
 //! 提供桌面端命名图标查找。
 //! 模块将用户可读图标名映射到内置资源，避免 UI 层直接依赖文件名。
 
-use iced::{
-    Color,
-    widget::image,
-};
+use iced::{Color, widget::image};
 use include_dir::{Dir, include_dir};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
@@ -16,9 +13,8 @@ static NAMED_ICON_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../assets/
 static NAMED_ICON_IMAGES: Lazy<Mutex<HashMap<String, image::Handle>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-static NAMED_ICON_FAMILY_JSONS: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
-    super::named_icon_generated::NAMED_ICON_FAMILY_JSONS.iter().copied().collect()
-});
+static NAMED_ICON_FAMILY_JSONS: Lazy<HashMap<&'static str, &'static str>> =
+    Lazy::new(|| super::named_icon_generated::NAMED_ICON_FAMILY_JSONS.iter().copied().collect());
 
 /// NamedIconFamily 表示该模块对外暴露的结构化状态。
 #[derive(Debug, Clone, Deserialize)]

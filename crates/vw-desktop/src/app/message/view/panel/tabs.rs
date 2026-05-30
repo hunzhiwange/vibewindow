@@ -10,8 +10,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             if let Some(prev_path) = previous_project_path.clone() {
                 app.project_preview_tabs
                     .insert(prev_path.clone(), std::mem::take(&mut app.preview_tabs));
-                app.project_preview_active_path
-                    .insert(prev_path, app.active_preview_path.take());
+                app.project_preview_active_path.insert(prev_path, app.active_preview_path.take());
             }
             app.screen = Screen::Home;
             app.active_menu = None;
@@ -50,8 +49,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             if let Some(prev_path) = previous_project_path.clone() {
                 app.project_preview_tabs
                     .insert(prev_path.clone(), std::mem::take(&mut app.preview_tabs));
-                app.project_preview_active_path
-                    .insert(prev_path, app.active_preview_path.take());
+                app.project_preview_active_path.insert(prev_path, app.active_preview_path.take());
             }
             app.active_tab_id = Some(id.clone());
             if let Some(tab) = app.open_tabs.iter().find(|t| t.id == id) {
@@ -173,7 +171,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
                                     std::mem::take(&mut app.preview_tabs),
                                 );
                                 app.project_preview_active_path
-                                .insert(prev_path, app.active_preview_path.take());
+                                    .insert(prev_path, app.active_preview_path.take());
                             }
                             app.project_path = None;
                             app.preview_tab_menu_path = None;

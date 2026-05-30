@@ -7,4 +7,3 @@ fn extra_builds_owned_json_map() {
     assert_eq!(map.get("name"), Some(&json!("demo")));
     assert_eq!(map.get("ok"), Some(&json!(true)));
 }
-

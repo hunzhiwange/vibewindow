@@ -2,13 +2,12 @@ use super::context::{ToolUseContext, scope_tool_use_context};
 use super::decision::finalize_tool_input;
 use super::hooks::{PostToolHook, PreToolHook};
 use super::{
-    Tool, ToolCallResult, ToolRenderHint, ToolSpec, TOOL_SEARCH_TOOL_ID,
-    TODO_READ_TOOL_ID, TODO_WRITE_TOOL_ID, VERIFY_PLAN_EXECUTION_TOOL_ID,
-    is_enter_plan_mode_tool_id, is_exit_plan_mode_tool_id, is_question_tool_id,
-    is_web_fetch_tool_id,
+    TODO_READ_TOOL_ID, TODO_WRITE_TOOL_ID, TOOL_SEARCH_TOOL_ID, Tool, ToolCallResult,
+    ToolRenderHint, ToolSpec, VERIFY_PLAN_EXECUTION_TOOL_ID, is_enter_plan_mode_tool_id,
+    is_exit_plan_mode_tool_id, is_question_tool_id, is_web_fetch_tool_id,
 };
-use crate::app::agent::tools::FileSnapshot;
 use crate::app::agent::providers::{ChatMessage, ToolCall};
+use crate::app::agent::tools::FileSnapshot;
 use serde_json::Value;
 use std::fmt;
 use std::fmt::Write;
@@ -21,30 +20,21 @@ use vw_api_types::tools::PermissionRequestDto;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ToolCallError {
     /// 调用被权限或安全策略拒绝。
-    Denied {
-        message: String,
-        permission_request: Option<PermissionRequestDto>,
-    },
+    Denied { message: String, permission_request: Option<PermissionRequestDto> },
     /// 调用失败。
     Failed(String),
 }
 
 impl ToolCallError {
     pub fn denied(message: impl Into<String>) -> Self {
-        Self::Denied {
-            message: message.into(),
-            permission_request: None,
-        }
+        Self::Denied { message: message.into(), permission_request: None }
     }
 
     pub fn denied_with_permission_request(
         message: impl Into<String>,
         permission_request: PermissionRequestDto,
     ) -> Self {
-        Self::Denied {
-            message: message.into(),
-            permission_request: Some(permission_request),
-        }
+        Self::Denied { message: message.into(), permission_request: Some(permission_request) }
     }
 
     pub fn message(&self) -> &str {
@@ -115,27 +105,34 @@ pub async fn execute_tool_from_registry(
     let hook_runner = tool_use_context.hook_runner();
     let started = Instant::now();
     let execution_context = tool_use_context.clone();
-    let (tool_name, final_input, mut result) = scope_tool_use_context(
-        tool_use_context.clone(),
-        async move {
+    let (tool_name, final_input, mut result) =
+        scope_tool_use_context(tool_use_context.clone(), async move {
             let (approved_name, approved_input) =
-                prepare_tool_input(tools, requested_name, input, execution_context.as_ref()).await?;
+                prepare_tool_input(tools, requested_name, input, execution_context.as_ref())
+                    .await?;
             let (hooked_name, hooked_input) =
-                PreToolHook::run(hook_runner, approved_name.clone(), approved_input.clone()).await?;
-            let (final_name, final_input) = if hooked_name == approved_name && hooked_input == approved_input {
-                (approved_name, approved_input)
-            } else {
-                prepare_tool_input(tools, hooked_name.as_str(), hooked_input, execution_context.as_ref()).await?
-            };
+                PreToolHook::run(hook_runner, approved_name.clone(), approved_input.clone())
+                    .await?;
+            let (final_name, final_input) =
+                if hooked_name == approved_name && hooked_input == approved_input {
+                    (approved_name, approved_input)
+                } else {
+                    prepare_tool_input(
+                        tools,
+                        hooked_name.as_str(),
+                        hooked_input,
+                        execution_context.as_ref(),
+                    )
+                    .await?
+                };
 
             let Some(tool) = find_tool_by_name(tools, final_name.as_str()) else {
                 return Err(ToolCallError::Failed(format!("Unknown tool: {final_name}")));
             };
             let result = tool.call(final_input.clone()).await.map_err(classify_anyhow_error)?;
             Ok::<_, ToolCallError>((final_name, final_input, result))
-        },
-    )
-    .await?;
+        })
+        .await?;
 
     PostToolHook::run(hook_runner, tool_name.as_str(), &result, started.elapsed()).await;
 
@@ -173,8 +170,8 @@ pub fn build_tool_result_history_messages(
     }
 
     if native_tool_calls.is_empty() {
-        let all_results_have_ids = use_native_tools
-            && results.iter().all(|entry| entry.tool_call_id.is_some());
+        let all_results_have_ids =
+            use_native_tools && results.iter().all(|entry| entry.tool_call_id.is_some());
 
         if all_results_have_ids {
             return results
@@ -194,8 +191,7 @@ pub fn build_tool_result_history_messages(
             let _ = writeln!(
                 content,
                 "<tool_result name=\"{}\">\n{}\n</tool_result>",
-                entry.tool_name,
-                entry.output,
+                entry.tool_name, entry.output,
             );
         }
 
@@ -306,7 +302,9 @@ fn normalize_tool_args(tool_id: &str, args: Value) -> Value {
             }
         }
         id if is_web_fetch_tool_id(id) => {
-            if !obj.contains_key("url") && let Some(value) = obj.get("href").cloned() {
+            if !obj.contains_key("url")
+                && let Some(value) = obj.get("href").cloned()
+            {
                 obj.entry("url".to_string()).or_insert(value);
             }
         }
@@ -317,9 +315,8 @@ fn normalize_tool_args(tool_id: &str, args: Value) -> Value {
 }
 
 fn ensure_default_render_hint(result: &mut ToolCallResult, spec: &ToolSpec) {
-    let hint = result
-        .render_hint
-        .get_or_insert_with(|| ToolRenderHint::titled(spec.display_name.clone()));
+    let hint =
+        result.render_hint.get_or_insert_with(|| ToolRenderHint::titled(spec.display_name.clone()));
     if hint.title.is_none() {
         hint.title = Some(spec.display_name.clone());
     }
@@ -361,7 +358,10 @@ fn tool_allowed_in_plan_mode(spec: &ToolSpec) -> bool {
         || is_exit_plan_mode_tool_id(spec.id.as_str())
         || matches!(
             spec.id.as_str(),
-            TODO_READ_TOOL_ID | TODO_WRITE_TOOL_ID | VERIFY_PLAN_EXECUTION_TOOL_ID | TOOL_SEARCH_TOOL_ID
+            TODO_READ_TOOL_ID
+                | TODO_WRITE_TOOL_ID
+                | VERIFY_PLAN_EXECUTION_TOOL_ID
+                | TOOL_SEARCH_TOOL_ID
         )
 }
 
@@ -426,10 +426,7 @@ fn snapshot_for_input_path(root: Option<&Path>, input: &Value) -> Option<FileSna
 }
 
 fn input_value_usize(input: &Value, key: &str) -> Option<usize> {
-    input
-        .get(key)
-        .and_then(Value::as_u64)
-        .and_then(|value| usize::try_from(value).ok())
+    input.get(key).and_then(Value::as_u64).and_then(|value| usize::try_from(value).ok())
 }
 
 fn file_read_partial_view(result: &ToolCallResult) -> bool {
@@ -473,9 +470,7 @@ fn segmented_read_partial(
         return false;
     }
 
-    start.unwrap_or(0) != 1
-        || has_more.unwrap_or(false)
-        || truncated_by_bytes.unwrap_or(false)
+    start.unwrap_or(0) != 1 || has_more.unwrap_or(false) || truncated_by_bytes.unwrap_or(false)
 }
 
 fn is_denied_error(message: &str) -> bool {

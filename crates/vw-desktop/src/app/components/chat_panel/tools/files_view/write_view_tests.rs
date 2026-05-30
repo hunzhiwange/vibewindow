@@ -1,5 +1,5 @@
-use super::write_view::write_tool_summary;
 use super::FileListState;
+use super::write_view::write_tool_summary;
 
 fn file_list_state(items: Vec<(String, String)>) -> FileListState {
     FileListState {

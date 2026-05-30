@@ -95,14 +95,11 @@ pub fn left_to_right_sweep_mix(
         return 0.0;
     }
 
-    let position = if char_count <= 1 {
-        0.5
-    } else {
-        char_idx as f32 / char_count.saturating_sub(1) as f32
-    };
+    let position =
+        if char_count <= 1 { 0.5 } else { char_idx as f32 / char_count.saturating_sub(1) as f32 };
     let sweep_half_width = (0.78 / char_count as f32).clamp(0.16, 0.28);
-    let cycle =
-        (now_ms % LEFT_TO_RIGHT_HIGHLIGHT_CYCLE_MS) as f32 / LEFT_TO_RIGHT_HIGHLIGHT_CYCLE_MS as f32;
+    let cycle = (now_ms % LEFT_TO_RIGHT_HIGHLIGHT_CYCLE_MS) as f32
+        / LEFT_TO_RIGHT_HIGHLIGHT_CYCLE_MS as f32;
     let center = cycle * (1.0 + sweep_half_width * 2.0) - sweep_half_width;
     let distance = (position - center).abs();
     let mix = (1.0 - distance / sweep_half_width).clamp(0.0, 1.0);
@@ -133,11 +130,7 @@ pub fn neutral_sweep_text_color(
         mix_color(base, Color::BLACK, 0.18)
     };
 
-    mix_color(
-        base,
-        highlight,
-        left_to_right_sweep_mix(now_ms, char_idx, char_count, true),
-    )
+    mix_color(base, highlight, left_to_right_sweep_mix(now_ms, char_idx, char_count, true))
 }
 
 /// 混合两个颜色（线性插值）

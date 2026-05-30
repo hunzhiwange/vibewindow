@@ -5,9 +5,9 @@
 
 use crate::app::components::system_settings_common::{
     SETTINGS_CONTROL_PADDING, SETTINGS_CONTROL_TEXT_SIZE, SETTINGS_LABEL_WIDTH,
-    settings_error_banner, settings_help_button, settings_muted_text_style,
-    settings_page_intro, settings_panel, settings_section_card, settings_text_input_style,
-    settings_value_badge, with_settings_help_modal,
+    settings_error_banner, settings_help_button, settings_muted_text_style, settings_page_intro,
+    settings_panel, settings_section_card, settings_text_input_style, settings_value_badge,
+    with_settings_help_modal,
 };
 use crate::app::message::settings::{GatewayClientMessage, SettingsMessage};
 use crate::app::views::design::properties::number_input::NumberInput;
@@ -123,32 +123,69 @@ pub fn view(app: &App) -> Element<'_, Message> {
         GatewayClientMessage::HelpOpen,
     )));
 
-    let host_row = text_row("目标主机", "桌面端请求所连接的 Gateway 主机。", "127.0.0.1", &s.host_input, |value| {
-        Message::Settings(SettingsMessage::GatewayClient(GatewayClientMessage::HostChanged(value)))
-    });
-    let port_row = number_row("目标端口", "桌面端请求所连接的 Gateway 端口。", s.port as u32, 1, u16::MAX as u32, "", |value| {
-        Message::Settings(SettingsMessage::GatewayClient(GatewayClientMessage::PortChanged(
-            value as u16,
-        )))
-    });
-    let bearer_row = secure_text_row("Bearer Token", "优先使用的配对令牌；填写后会作为 Authorization: Bearer 发送。", "已配对 Bearer Token", &s.bearer_token_input, |value| {
-        Message::Settings(SettingsMessage::GatewayClient(GatewayClientMessage::BearerTokenChanged(
-            value,
-        )))
-    });
-    let username_row = text_row("用户名", "Basic Auth 用户名。", "vibewindow", &s.username_input, |value| {
-        Message::Settings(SettingsMessage::GatewayClient(GatewayClientMessage::UsernameChanged(
-            value,
-        )))
-    });
-    let password_row = secure_text_row("密码", "Basic Auth 密码；留空时不发送 Authorization 头。", "Basic Auth 密码", &s.password_input, |value| {
-        Message::Settings(SettingsMessage::GatewayClient(GatewayClientMessage::PasswordChanged(
-            value,
-        )))
-    });
-    let skey_row = secure_text_row("SKey", "可选共享密钥，会作为 x-skey 头发送。", "可选共享密钥", &s.skey_input, |value| {
-        Message::Settings(SettingsMessage::GatewayClient(GatewayClientMessage::SkeyChanged(value)))
-    });
+    let host_row = text_row(
+        "目标主机",
+        "桌面端请求所连接的 Gateway 主机。",
+        "127.0.0.1",
+        &s.host_input,
+        |value| {
+            Message::Settings(SettingsMessage::GatewayClient(GatewayClientMessage::HostChanged(
+                value,
+            )))
+        },
+    );
+    let port_row = number_row(
+        "目标端口",
+        "桌面端请求所连接的 Gateway 端口。",
+        s.port as u32,
+        1,
+        u16::MAX as u32,
+        "",
+        |value| {
+            Message::Settings(SettingsMessage::GatewayClient(GatewayClientMessage::PortChanged(
+                value as u16,
+            )))
+        },
+    );
+    let bearer_row = secure_text_row(
+        "Bearer Token",
+        "优先使用的配对令牌；填写后会作为 Authorization: Bearer 发送。",
+        "已配对 Bearer Token",
+        &s.bearer_token_input,
+        |value| {
+            Message::Settings(SettingsMessage::GatewayClient(
+                GatewayClientMessage::BearerTokenChanged(value),
+            ))
+        },
+    );
+    let username_row =
+        text_row("用户名", "Basic Auth 用户名。", "vibewindow", &s.username_input, |value| {
+            Message::Settings(SettingsMessage::GatewayClient(
+                GatewayClientMessage::UsernameChanged(value),
+            ))
+        });
+    let password_row = secure_text_row(
+        "密码",
+        "Basic Auth 密码；留空时不发送 Authorization 头。",
+        "Basic Auth 密码",
+        &s.password_input,
+        |value| {
+            Message::Settings(SettingsMessage::GatewayClient(
+                GatewayClientMessage::PasswordChanged(value),
+            ))
+        },
+    );
+    let skey_row = secure_text_row(
+        "SKey",
+        "可选共享密钥，会作为 x-skey 头发送。",
+        "可选共享密钥",
+        &s.skey_input,
+        |value| {
+            Message::Settings(SettingsMessage::GatewayClient(GatewayClientMessage::SkeyChanged(
+                value,
+            )))
+        },
+    );
 
     let mut content = column![
         row![

@@ -1,8 +1,8 @@
 use crate::app::components::mind_map;
 use crate::app::{App, Message};
 use crate::apps::mindmap::state::MindMapTab;
-use iced::widget::text_editor;
 use iced::Task;
+use iced::widget::text_editor;
 
 use super::super::persist::persist;
 use super::node_ops_helpers::push_undo;
@@ -73,10 +73,7 @@ pub(super) fn node_text_changed(app: &mut App, value: String) -> Task<Message> {
 }
 
 /// 处理文本编辑器的动作。
-pub(super) fn node_text_editor_action(
-    app: &mut App,
-    action: text_editor::Action,
-) -> Task<Message> {
+pub(super) fn node_text_editor_action(app: &mut App, action: text_editor::Action) -> Task<Message> {
     let Some(tab) = app.active_mindmap_tab_mut() else {
         return Task::none();
     };
@@ -98,8 +95,7 @@ pub(super) fn node_text_editor_enter(app: &mut App, shift: bool) -> Task<Message
     }
 
     if shift {
-        tab.node_text_editor
-            .perform(text_editor::Action::Edit(text_editor::Edit::Insert('\n')));
+        tab.node_text_editor.perform(text_editor::Action::Edit(text_editor::Edit::Insert('\n')));
         return Task::none();
     }
 

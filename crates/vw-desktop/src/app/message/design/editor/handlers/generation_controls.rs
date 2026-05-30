@@ -91,9 +91,7 @@ pub(super) fn toggle_design_generation_model_popover(app: &mut App) -> Task<Mess
         }
     }
     if should_refresh_models {
-        return Task::done(Message::Settings(
-            crate::app::message::SettingsMessage::ModelsRefresh,
-        ));
+        return Task::done(Message::Settings(crate::app::message::SettingsMessage::ModelsRefresh));
     }
     Task::none()
 }
@@ -177,10 +175,7 @@ pub(super) fn design_generation_parallel_pages_changed(
     value: String,
 ) -> Task<Message> {
     if let Some(state) = app.active_design_state_mut() {
-        let filtered = value
-            .chars()
-            .filter(|ch| ch.is_ascii_digit())
-            .collect::<String>();
+        let filtered = value.chars().filter(|ch| ch.is_ascii_digit()).collect::<String>();
         state.design_generation_parallel_pages_input = filtered.clone();
         let parsed = filtered.parse::<usize>().ok().filter(|value| *value > 0);
         if let Some(parsed) = parsed {
@@ -519,7 +514,8 @@ pub(super) fn design_generation_apply_partial_regenerate(app: &mut App) -> Task<
         state.design_generation_summary = Some("暂无可重新生成的模块。".to_string());
         return Task::none();
     }
-    state.design_generation_summary = Some(format!("已触发重新生成：{} 个页面任务。", targets.len()));
+    state.design_generation_summary =
+        Some(format!("已触发重新生成：{} 个页面任务。", targets.len()));
     state.design_generation_loading = true;
     let mut tasks = vec![Task::done(Message::Design(DesignMessage::Snapshot))];
     tasks.extend(targets.into_iter().map(|(page_id, module_id)| {
@@ -539,7 +535,8 @@ pub(super) fn set_design_page_target_frame(
     target_frame_id: String,
 ) -> Task<Message> {
     if let Some(state) = app.active_design_state_mut()
-        && let Some(page) = find_generation_page_mut(&mut state.design_generation_pages, &page_frame_id)
+        && let Some(page) =
+            find_generation_page_mut(&mut state.design_generation_pages, &page_frame_id)
         && let Some(module) = page.modules.iter_mut().find(|module| module.module_id == module_id)
     {
         let normalized = normalize_target_frame_id(&target_frame_id);
@@ -547,11 +544,8 @@ pub(super) fn set_design_page_target_frame(
         if !module.target_frame_options.iter().any(|option| option == &normalized) {
             module.target_frame_options.push(normalized.clone());
         }
-        state.design_generation_summary = Some(format!(
-            "模块“{}”的汇总目标已切换为 {}",
-            module.title, normalized
-        ));
+        state.design_generation_summary =
+            Some(format!("模块“{}”的汇总目标已切换为 {}", module.title, normalized));
     }
     Task::none()
 }
-

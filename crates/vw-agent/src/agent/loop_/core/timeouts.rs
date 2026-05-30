@@ -131,10 +131,7 @@ pub fn effective_message_timeout_secs(configured: u64) -> u64 {
 /// - 设置整个消息处理循环的超时上限
 /// - 为工具链式调用预留足够的总时间
 /// - 平衡响应速度和任务完成率
-pub fn message_timeout_budget_secs(
-    message_timeout_secs: u64,
-    max_tool_iterations: usize,
-) -> u64 {
+pub fn message_timeout_budget_secs(message_timeout_secs: u64, max_tool_iterations: usize) -> u64 {
     // 确保迭代次数至少为1，避免0次迭代导致预算为0
     let iterations = max_tool_iterations.max(1) as u64;
 

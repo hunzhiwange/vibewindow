@@ -151,12 +151,7 @@ fn parse_hex_color(input: &str) -> Option<Color> {
 
     match raw.len() {
         6 => Some(Color::from_rgba8(parse(0)?, parse(2)?, parse(4)?, 1.0)),
-        8 => Some(Color::from_rgba8(
-            parse(0)?,
-            parse(2)?,
-            parse(4)?,
-            f32::from(parse(6)?) / 255.0,
-        )),
+        8 => Some(Color::from_rgba8(parse(0)?, parse(2)?, parse(4)?, f32::from(parse(6)?) / 255.0)),
         _ => None,
     }
 }

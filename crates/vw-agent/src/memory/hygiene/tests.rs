@@ -1,19 +1,19 @@
-//! 内存清理模块的单元测试
-//!
-//! 本模块包含对 `hygiene` 模块的完整测试套件，验证内存归档、清理和修剪功能。
-//!
-//! # 测试覆盖范围
-//!
-//! - **日常记忆文件归档**：验证过期的日常 Markdown 文件被正确归档
-//! - **会话文件归档**：验证过期的会话日志文件被正确归档
-//! - **执行节流**：验证基于时间间隔的执行控制机制
-//! - **归档文件清理**：验证超过保留期限的归档文件被正确清理
-//! - **数据库修剪**：验证 SQLite 后端中过期对话记录的修剪逻辑
-//!
-//! # 测试策略
-//!
-//! 所有测试使用临时目录作为工作空间，确保测试隔离且不产生副作用。
-//! 通过模拟不同时间点的文件创建，验证时间相关逻辑的正确性。
+// 内存清理模块的单元测试
+//
+// 本模块包含对 `hygiene` 模块的完整测试套件，验证内存归档、清理和修剪功能。
+//
+// # 测试覆盖范围
+//
+// - **日常记忆文件归档**：验证过期的日常 Markdown 文件被正确归档
+// - **会话文件归档**：验证过期的会话日志文件被正确归档
+// - **执行节流**：验证基于时间间隔的执行控制机制
+// - **归档文件清理**：验证超过保留期限的归档文件被正确清理
+// - **数据库修剪**：验证 SQLite 后端中过期对话记录的修剪逻辑
+//
+// # 测试策略
+//
+// 所有测试使用临时目录作为工作空间，确保测试隔离且不产生副作用。
+// 通过模拟不同时间点的文件创建，验证时间相关逻辑的正确性。
 
 use super::*;
 use crate::app::agent::memory::{Memory, MemoryCategory, SqliteMemory};
@@ -28,6 +28,25 @@ use tempfile::TempDir;
 /// 返回配置了默认归档和清理参数的 `MemoryConfig`
 fn default_cfg() -> MemoryConfig {
     MemoryConfig::default()
+}
+
+#[test]
+fn hygiene_state_path_uses_user_worktree_dir() {
+    let tmp = TempDir::new().unwrap();
+    let workspace = tmp.path();
+
+    let path = state_path(workspace).unwrap();
+    let home = directories::UserDirs::new().unwrap().home_dir().to_path_buf();
+
+    assert!(
+        path.starts_with(home.join(".vibewindow").join("worktree")),
+        "state path should stay in the user VibeWindow worktree state directory"
+    );
+    assert!(path.to_string_lossy().contains("/workspaces/"));
+    assert!(
+        !path.starts_with(workspace),
+        "state path should not be written inside the project workspace"
+    );
 }
 
 /// 测试归档过期的日常记忆文件
@@ -45,13 +64,14 @@ fn default_cfg() -> MemoryConfig {
 fn archives_old_daily_memory_files() {
     let tmp = TempDir::new().unwrap();
     let workspace = tmp.path();
-    fs::create_dir_all(workspace.join("memory")).unwrap();
+    let storage = paths::project_data_dir(workspace).unwrap();
+    fs::create_dir_all(storage.join("memory")).unwrap();
 
     let old = (Local::now().date_naive() - Duration::days(10)).format("%Y-%m-%d").to_string();
     let today = Local::now().date_naive().format("%Y-%m-%d").to_string();
 
-    let old_file = workspace.join("memory").join(format!("{old}.md"));
-    let today_file = workspace.join("memory").join(format!("{today}.md"));
+    let old_file = storage.join("memory").join(format!("{old}.md"));
+    let today_file = storage.join("memory").join(format!("{today}.md"));
     fs::write(&old_file, "old note").unwrap();
     fs::write(&today_file, "fresh note").unwrap();
 
@@ -59,7 +79,11 @@ fn archives_old_daily_memory_files() {
 
     assert!(!old_file.exists(), "old daily file should be archived");
     assert!(
-        workspace.join("memory").join("archive").join(format!("{old}.md")).exists(),
+        !workspace.join("state").exists(),
+        "hygiene state should not be created inside the project workspace"
+    );
+    assert!(
+        storage.join("memory").join("archive").join(format!("{old}.md")).exists(),
         "old daily file should exist in memory/archive"
     );
     assert!(today_file.exists(), "today file should remain in place");
@@ -79,18 +103,19 @@ fn archives_old_daily_memory_files() {
 fn archives_old_session_files() {
     let tmp = TempDir::new().unwrap();
     let workspace = tmp.path();
-    fs::create_dir_all(workspace.join("sessions")).unwrap();
+    let storage = paths::project_data_dir(workspace).unwrap();
+    fs::create_dir_all(storage.join("sessions")).unwrap();
 
     let old = (Local::now().date_naive() - Duration::days(10)).format("%Y-%m-%d").to_string();
     let old_name = format!("{old}-agent.log");
-    let old_file = workspace.join("sessions").join(&old_name);
+    let old_file = storage.join("sessions").join(&old_name);
     fs::write(&old_file, "old session").unwrap();
 
     run_if_due(&default_cfg(), workspace).unwrap();
 
     assert!(!old_file.exists(), "old session file should be archived");
     assert!(
-        workspace.join("sessions").join("archive").join(&old_name).exists(),
+        storage.join("sessions").join("archive").join(&old_name).exists(),
         "archived session file should exist"
     );
 }
@@ -110,17 +135,18 @@ fn archives_old_session_files() {
 fn skips_second_run_within_cadence_window() {
     let tmp = TempDir::new().unwrap();
     let workspace = tmp.path();
-    fs::create_dir_all(workspace.join("memory")).unwrap();
+    let storage = paths::project_data_dir(workspace).unwrap();
+    fs::create_dir_all(storage.join("memory")).unwrap();
 
     let old_a = (Local::now().date_naive() - Duration::days(10)).format("%Y-%m-%d").to_string();
-    let file_a = workspace.join("memory").join(format!("{old_a}.md"));
+    let file_a = storage.join("memory").join(format!("{old_a}.md"));
     fs::write(&file_a, "first").unwrap();
 
     run_if_due(&default_cfg(), workspace).unwrap();
     assert!(!file_a.exists(), "first old file should be archived");
 
     let old_b = (Local::now().date_naive() - Duration::days(9)).format("%Y-%m-%d").to_string();
-    let file_b = workspace.join("memory").join(format!("{old_b}.md"));
+    let file_b = storage.join("memory").join(format!("{old_b}.md"));
     fs::write(&file_b, "second").unwrap();
 
     // 由于节流门控机制阻止连续执行，此次运行应被跳过
@@ -143,7 +169,8 @@ fn skips_second_run_within_cadence_window() {
 fn purges_old_memory_archives() {
     let tmp = TempDir::new().unwrap();
     let workspace = tmp.path();
-    let archive_dir = workspace.join("memory").join("archive");
+    let storage = paths::project_data_dir(workspace).unwrap();
+    let archive_dir = storage.join("memory").join("archive");
     fs::create_dir_all(&archive_dir).unwrap();
 
     let old = (Local::now().date_naive() - Duration::days(40)).format("%Y-%m-%d").to_string();
@@ -183,13 +210,14 @@ async fn prunes_old_conversation_rows_in_sqlite_backend() {
     let workspace = tmp.path();
 
     // 初始化 SQLite 后端并存储测试数据
+    let storage = paths::project_data_dir(workspace).unwrap();
     let mem: SqliteMemory = SqliteMemory::new(workspace).unwrap();
     mem.store("conv_old", "outdated", MemoryCategory::Conversation, None).await.unwrap();
     mem.store("core_keep", "durable", MemoryCategory::Core, None).await.unwrap();
     drop(mem);
 
     // 直接修改数据库，模拟过期数据
-    let db_path = workspace.join("memory").join("brain.db");
+    let db_path = storage.join("memory").join("brain.db");
     let conn = Connection::open(&db_path).unwrap();
     let old_cutoff = (Local::now() - Duration::days(60)).to_rfc3339();
     conn.execute(

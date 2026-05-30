@@ -259,7 +259,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .height(Length::Fill)
     .into();
 
-    let main_content = row(vec![layers, center_area, properties]).width(Length::Fill).height(Length::Fill);
+    let main_content =
+        row(vec![layers, center_area, properties]).width(Length::Fill).height(Length::Fill);
 
     let floating_resize_hotzones: Element<'_, Message> = {
         let hotzone_width = 8.0;

@@ -53,10 +53,11 @@
 
 use crate::app::components::system_settings_common::{
     settings_close_button, settings_muted_text_style, settings_panel_style,
+    settings_text_input_style,
 };
 use crate::app::{App, Message, message};
 use iced::widget::scrollable::{Direction, Scrollbar};
-use iced::widget::{button, column, container, row, scrollable, text};
+use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Alignment, Background, Border, Color, Element, Length, Shadow, Vector};
 
 /// 系统设置标签页枚举
@@ -299,6 +300,60 @@ impl std::fmt::Display for SystemTab {
     }
 }
 
+fn system_tab_search_text(tab: SystemTab) -> &'static str {
+    match tab {
+        SystemTab::General => "常规设置 general app basic 基础",
+        SystemTab::DialogueFlow => "对话流 dialogue flow permission 对话 权限",
+        SystemTab::Editor => "编辑器 editor code 编辑",
+        SystemTab::Projects => "项目 projects workspace 工作区",
+        SystemTab::Providers => "提供商 providers api key model 模型",
+        SystemTab::Models => "模型 models llm ai provider",
+        SystemTab::EmbeddingRoutes => "嵌入路由 embedding routes vector model 模型",
+        SystemTab::ModelRoutes => "模型路由 model routes routing 模型",
+        SystemTab::QueryClassification => "查询分类 query classification rules 规则",
+        SystemTab::GoalLoop => "目标循环配置 goal loop run automation 运行 自动化",
+        SystemTab::Heartbeat => "心跳配置 heartbeat monitor follow up 自动化",
+        SystemTab::Cron => "定时任务配置 cron schedule task 自动化",
+        SystemTab::Sop => "标准流程配置 sop workflow run 运行",
+        SystemTab::Scheduler => "调度配置 scheduler tasks run 运行",
+        SystemTab::Agents => "委托代理配置 agents subagent model tools 模型 工具",
+        SystemTab::AgentsIpc => "代理通信配置 agents ipc communication",
+        SystemTab::Coordination => "协调配置 coordination agents",
+        SystemTab::Reliability => "可靠性配置 reliability retry run 运行",
+        SystemTab::Channels => "通道配置 channels cli message",
+        SystemTab::Memory => "记忆配置 memory embedding vector 模型",
+        SystemTab::Runtime => "运行时配置 runtime native docker wasm run 运行",
+        SystemTab::Autonomy => "自治配置 autonomy agent run 运行",
+        SystemTab::Security => "安全配置 security policy permission",
+        SystemTab::GatewayClient => "客户端网关 gateway client connection",
+        SystemTab::Gateway => "服务端网关 gateway server api",
+        SystemTab::Observability => "可观测性配置 observability log monitor",
+        SystemTab::Storage => "存储配置 storage database",
+        SystemTab::Proxy => "代理配置 proxy network",
+        SystemTab::Tunnel => "隧道配置 tunnel public gateway",
+        SystemTab::Composio => "composio 集成配置 oauth tools 工具",
+        SystemTab::Skills => "技能配置 skills tools plugins 工具",
+        SystemTab::Hooks => "钩子配置 hooks tool command 工具",
+        SystemTab::Research => "研究配置 research search tool 工具",
+        SystemTab::WebSearch => "网页搜索配置 web search brave tool 工具 搜索",
+        SystemTab::HttpRequest => "网络请求配置 http request tool allowlist 工具",
+        SystemTab::Browser => "浏览器配置 browser computer use tool 工具",
+        SystemTab::Multimodal => "多模态配置 multimodal image vision model 模型",
+        SystemTab::Transcription => "转录配置 transcription audio speech model 模型",
+    }
+}
+
+fn system_tab_matches_query(tab: SystemTab, query: &str) -> bool {
+    let query = query.trim();
+    if query.is_empty() {
+        return true;
+    }
+
+    let needle = query.to_lowercase();
+    tab.to_string().to_lowercase().contains(&needle)
+        || system_tab_search_text(tab).to_lowercase().contains(&needle)
+}
+
 fn active_tab_help_modal_open(app: &App, active_tab: SystemTab) -> bool {
     crate::app::components::system_settings_help::help_open_for_tab(
         app.system_settings_help_tab,
@@ -381,91 +436,115 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     // 获取当前激活的标签页
     let active_tab = app.system_settings_tab;
+    let filtered_tabs = SystemTab::all()
+        .iter()
+        .copied()
+        .filter(|tab| system_tab_matches_query(*tab, &app.system_settings_query))
+        .collect::<Vec<_>>();
+    let query_input = text_input("搜索配置", &app.system_settings_query)
+        .on_input(|value| Message::Settings(message::SettingsMessage::SystemTabQueryChanged(value)))
+        .padding([8, 10])
+        .size(13)
+        .style(settings_text_input_style);
 
     // 构建左侧标签页导航栏
     // 为每个标签页创建按钮，根据激活状态和悬停状态应用不同样式
-    let tabs_bar = column(
-        SystemTab::all()
-            .iter()
-            .map(|tab| {
-                // 判断当前标签页是否处于激活状态
-                let is_active = *tab == active_tab;
-                // 创建标签页文本标签
-                let label = text(tab.to_string()).size(13);
+    let tabs_bar: Element<'_, Message> = if filtered_tabs.is_empty() {
+        container(text("没有匹配的配置").size(12).style(settings_muted_text_style))
+            .padding([10, 12])
+            .width(Length::Fill)
+            .into()
+    } else {
+        column(
+            filtered_tabs
+                .iter()
+                .map(|tab| {
+                    // 判断当前标签页是否处于激活状态
+                    let is_active = *tab == active_tab;
+                    // 创建标签页文本标签
+                    let label = text(tab.to_string()).size(13);
 
-                // 构建标签页按钮
-                let btn = button(container(label).width(Length::Fill).padding([8, 12]))
-                    .width(Length::Fill)
-                    .on_press(Message::Settings(message::SettingsMessage::SystemTabSelected(*tab)))
-                    .style(move |theme: &iced::Theme, status| {
-                        let palette = theme.extended_palette();
-                        let is_dark = theme.palette().background.r
-                            + theme.palette().background.g
-                            + theme.palette().background.b
-                            < 1.5;
-                        let bg = if is_active {
-                            Some(Background::Color(if is_dark {
-                                theme.palette().primary.scale_alpha(0.18)
-                            } else {
-                                theme.palette().primary.scale_alpha(0.08)
-                            }))
-                        } else {
-                            match status {
-                                iced::widget::button::Status::Hovered => Some(Background::Color(
-                                    if is_dark {
-                                        palette.background.weak.color.scale_alpha(0.72)
-                                    } else {
-                                        Color::WHITE.scale_alpha(0.78)
-                                    },
-                                )),
-                                iced::widget::button::Status::Pressed => Some(Background::Color(
-                                    if is_dark {
-                                        palette.background.strong.color.scale_alpha(0.86)
-                                    } else {
-                                        palette.background.weak.color.scale_alpha(0.92)
-                                    },
-                                )),
-                                _ => None,
-                            }
-                        };
-
-                        iced::widget::button::Style {
-                            background: bg,
-                            text_color: if is_active {
-                                theme.palette().primary.scale_alpha(0.96)
-                            } else {
-                                theme.palette().text.scale_alpha(0.92)
-                            },
-                            border: Border {
-                                radius: 14.0.into(),
-                                width: 1.0,
-                                color: if is_active {
-                                    theme.palette().primary.scale_alpha(0.24)
-                                } else if is_dark {
-                                    palette.background.strong.color.scale_alpha(0.78)
+                    // 构建标签页按钮
+                    let btn = button(container(label).width(Length::Fill).padding([8, 12]))
+                        .width(Length::Fill)
+                        .on_press(Message::Settings(message::SettingsMessage::SystemTabSelected(
+                            *tab,
+                        )))
+                        .style(move |theme: &iced::Theme, status| {
+                            let palette = theme.extended_palette();
+                            let is_dark = theme.palette().background.r
+                                + theme.palette().background.g
+                                + theme.palette().background.b
+                                < 1.5;
+                            let bg = if is_active {
+                                Some(Background::Color(if is_dark {
+                                    theme.palette().primary.scale_alpha(0.18)
                                 } else {
-                                    Color::from_rgba8(15, 23, 42, 0.06)
-                                },
-                            },
-                            shadow: if is_active {
-                                Shadow {
-                                    color: Color::BLACK.scale_alpha(if is_dark { 0.18 } else { 0.06 }),
-                                    offset: Vector::new(0.0, 6.0),
-                                    blur_radius: 14.0,
-                                }
+                                    theme.palette().primary.scale_alpha(0.08)
+                                }))
                             } else {
-                                Shadow::default()
-                            },
-                            ..Default::default()
-                        }
-                    });
+                                match status {
+                                    iced::widget::button::Status::Hovered => {
+                                        Some(Background::Color(if is_dark {
+                                            palette.background.weak.color.scale_alpha(0.72)
+                                        } else {
+                                            Color::WHITE.scale_alpha(0.78)
+                                        }))
+                                    }
+                                    iced::widget::button::Status::Pressed => {
+                                        Some(Background::Color(if is_dark {
+                                            palette.background.strong.color.scale_alpha(0.86)
+                                        } else {
+                                            palette.background.weak.color.scale_alpha(0.92)
+                                        }))
+                                    }
+                                    _ => None,
+                                }
+                            };
 
-                container(btn).width(Length::Fill).into()
-            })
-            .collect::<Vec<_>>(),
-    )
-    .spacing(4)
-    .padding([2, 2]);
+                            iced::widget::button::Style {
+                                background: bg,
+                                text_color: if is_active {
+                                    theme.palette().primary.scale_alpha(0.96)
+                                } else {
+                                    theme.palette().text.scale_alpha(0.92)
+                                },
+                                border: Border {
+                                    radius: 14.0.into(),
+                                    width: 1.0,
+                                    color: if is_active {
+                                        theme.palette().primary.scale_alpha(0.24)
+                                    } else if is_dark {
+                                        palette.background.strong.color.scale_alpha(0.78)
+                                    } else {
+                                        Color::from_rgba8(15, 23, 42, 0.06)
+                                    },
+                                },
+                                shadow: if is_active {
+                                    Shadow {
+                                        color: Color::BLACK.scale_alpha(if is_dark {
+                                            0.18
+                                        } else {
+                                            0.06
+                                        }),
+                                        offset: Vector::new(0.0, 6.0),
+                                        blur_radius: 14.0,
+                                    }
+                                } else {
+                                    Shadow::default()
+                                },
+                                ..Default::default()
+                            }
+                        });
+
+                    container(btn).width(Length::Fill).into()
+                })
+                .collect::<Vec<_>>(),
+        )
+        .spacing(4)
+        .padding([2, 2])
+        .into()
+    };
 
     // 根据当前激活的标签页加载对应的配置内容视图
     let content: Element<'_, Message> = match active_tab {
@@ -522,7 +601,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
     };
 
     // 创建关闭按钮（右上角 × 符号）
-    let close_btn = settings_close_button(Message::View(message::ViewMessage::ToggleSystemSettings));
+    let close_btn =
+        settings_close_button(Message::View(message::ViewMessage::ToggleSystemSettings));
 
     // 构建全屏设置面板主体内容
     // 面板占满内容区，不再以小尺寸模态框居中显示
@@ -547,14 +627,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 container(
                     column![
                         text("分类").size(11).style(settings_muted_text_style),
+                        query_input,
                         scrollable(
-                            container(tabs_bar)
-                                .padding(iced::Padding::default().right(10.0))
+                            container(tabs_bar).padding(iced::Padding::default().right(10.0))
                         )
-                            .direction(Direction::Vertical(
-                                Scrollbar::new().width(4).scroller_width(4)
-                            ))
-                            .height(Length::Fill)
+                        .direction(Direction::Vertical(Scrollbar::new().width(4).scroller_width(4)))
+                        .height(Length::Fill)
                     ]
                     .spacing(8)
                     .height(Length::Fill),
@@ -569,13 +647,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
                         + theme.palette().background.b
                         < 1.5;
                     iced::widget::container::Style {
-                        background: Some(Background::Color(
-                            if is_dark {
-                                extended.background.base.color.scale_alpha(0.66)
-                            } else {
-                                Color::WHITE.scale_alpha(0.72)
-                            },
-                        )),
+                        background: Some(Background::Color(if is_dark {
+                            extended.background.base.color.scale_alpha(0.66)
+                        } else {
+                            Color::WHITE.scale_alpha(0.72)
+                        })),
                         border: Border {
                             radius: 20.0.into(),
                             width: 1.0,
@@ -614,12 +690,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     } else {
                         scrollable(
                             container(content_with_help)
-                                .padding(iced::Padding::default().right(10.0))
+                                .padding(iced::Padding::default().right(10.0)),
                         )
-                            .direction(Direction::Vertical(
-                                Scrollbar::new().width(4).scroller_width(4),
-                            ))
-                            .into()
+                        .direction(Direction::Vertical(Scrollbar::new().width(4).scroller_width(4)))
+                        .into()
                     };
                     container(content_panel)
                         .padding([18, 20])

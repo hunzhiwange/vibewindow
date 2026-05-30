@@ -8,10 +8,7 @@ fn new_preserves_security_boundary_inputs() {
         Arc::new(SecurityPolicy::default()),
         vec!["example.com".to_string()],
         Some("session-a".to_string()),
-        ComputerUseConfig {
-            timeout_ms: 42,
-            ..Default::default()
-        },
+        ComputerUseConfig { timeout_ms: 42, ..Default::default() },
     );
 
     assert_eq!(client.allowed_domains, vec!["example.com"]);

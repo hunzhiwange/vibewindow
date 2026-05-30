@@ -168,3 +168,59 @@ pub enum TaskEvent {
 
 /// 取消任务响应沿用通用确认结构。
 pub type CancelTaskResponse = OperationAck;
+
+/// 任务看板任务池状态。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskPoolStatus {
+    Pool,
+    Pending,
+    Planning,
+    Running,
+    Failed,
+    Paused,
+    CodeComplete,
+    CodeReview,
+    PrSubmitted,
+    Completed,
+    Archived,
+}
+
+/// 任务池调度使用的任务快照。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskPoolScheduleTaskDto {
+    pub id: String,
+    pub status: TaskPoolStatus,
+    pub priority: u32,
+    pub order: u32,
+    pub created_at_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_promote_delay_ms: Option<u64>,
+    #[serde(default)]
+    pub deleted: bool,
+    #[serde(default)]
+    pub archived: bool,
+}
+
+/// 任务池调度配置快照。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskPoolScheduleSettingsDto {
+    pub auto_execute: bool,
+    pub auto_promote_pool_tasks: bool,
+    pub max_concurrent: u32,
+    pub auto_promote_delay_seconds: u64,
+}
+
+/// 任务池调度请求。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskPoolScheduleRequest {
+    pub now_ms: u64,
+    pub settings: TaskPoolScheduleSettingsDto,
+    pub tasks: Vec<TaskPoolScheduleTaskDto>,
+}
+
+/// 任务池调度响应。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskPoolScheduleResponse {
+    pub promote_task_ids: Vec<String>,
+}

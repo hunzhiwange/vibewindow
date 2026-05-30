@@ -12,9 +12,9 @@ use regex::Regex;
 use rusqlite::types::ValueRef;
 use serde_json::{Map, Value, json};
 use vw_api_types::data::{
-    AiDataConnectionDto, AiDataConnectionKind, AiDataCountMode, AiDataPageDto,
-    AiDataQueryKind, AiDataQueryRequest, AiDataQueryResponse, AiDataReportDto,
-    AiDataReportSourceDto, AiDataSettings, AiDataTemplateFieldDto, AiDataTransformerFieldDto,
+    AiDataConnectionDto, AiDataConnectionKind, AiDataCountMode, AiDataPageDto, AiDataQueryKind,
+    AiDataQueryRequest, AiDataQueryResponse, AiDataReportDto, AiDataReportSourceDto,
+    AiDataSettings, AiDataTemplateFieldDto, AiDataTransformerFieldDto,
 };
 
 static PLACEHOLDER_RE: Lazy<Regex> =
@@ -22,9 +22,8 @@ static PLACEHOLDER_RE: Lazy<Regex> =
 static SINGLE_PLACEHOLDER_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^\s*\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}\s*$").expect("single placeholder regex")
 });
-static ORDER_BY_SEGMENT_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?i)^([A-Za-z0-9_.]+)(\s+(ASC|DESC))?$").expect("order by regex")
-});
+static ORDER_BY_SEGMENT_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)^([A-Za-z0-9_.]+)(\s+(ASC|DESC))?$").expect("order by regex"));
 
 const FORMAT_SYS_NUMBER: i64 = 1;
 const FORMAT_SYS_PRICE: i64 = 2;
@@ -101,23 +100,18 @@ pub(super) async fn test_connection(
         }
         AiDataConnectionKind::Http => {
             let url = http_endpoint(connection, connection.default_path.as_deref())?;
-            let response = send_json_request(
-                connection,
-                reqwest::Method::GET,
-                Some(&url),
-                None,
-                timeout_secs,
-            )
-            .await?;
+            let response =
+                send_json_request(connection, reqwest::Method::GET, Some(&url), None, timeout_secs)
+                    .await?;
             Ok(format!("HTTP OK: {}", response.0))
         }
-        AiDataConnectionKind::Mysql => Err(
-            "当前构建未启用 MySQL 执行器；如需接入请启用 memory-mariadb feature".to_string(),
-        ),
-        AiDataConnectionKind::Postgres => Err(
-            "当前构建未启用 PostgreSQL 执行器；如需接入请启用 memory-postgres feature"
-                .to_string(),
-        ),
+        AiDataConnectionKind::Mysql => {
+            Err("当前构建未启用 MySQL 执行器；如需接入请启用 memory-mariadb feature".to_string())
+        }
+        AiDataConnectionKind::Postgres => {
+            Err("当前构建未启用 PostgreSQL 执行器；如需接入请启用 memory-postgres feature"
+                .to_string())
+        }
     }
 }
 
@@ -163,13 +157,13 @@ pub(super) async fn connection_catalog(
             "default_path": connection.default_path,
             "headers": connection.headers.keys().collect::<Vec<_>>()
         })),
-        AiDataConnectionKind::Mysql => Err(
-            "当前构建未启用 MySQL 目录读取；如需接入请启用 memory-mariadb feature".to_string(),
-        ),
-        AiDataConnectionKind::Postgres => Err(
-            "当前构建未启用 PostgreSQL 目录读取；如需接入请启用 memory-postgres feature"
-                .to_string(),
-        ),
+        AiDataConnectionKind::Mysql => {
+            Err("当前构建未启用 MySQL 目录读取；如需接入请启用 memory-mariadb feature".to_string())
+        }
+        AiDataConnectionKind::Postgres => {
+            Err("当前构建未启用 PostgreSQL 目录读取；如需接入请启用 memory-postgres feature"
+                .to_string())
+        }
     }
 }
 
@@ -257,9 +251,8 @@ fn resolve_query(
         .clone()
         .or_else(|| source_from_report.as_ref().map(|item| item.query_kind.clone()))
         .unwrap_or_else(|| connection_default_query_kind(&connection.kind));
-    let resolved_order_by = request
-        .order_by
-        .or_else(|| report_default_order_by(report_config.as_ref()));
+    let resolved_order_by =
+        request.order_by.or_else(|| report_default_order_by(report_config.as_ref()));
     let resolved_template_code = request.template_code.or_else(|| {
         report_default_template_code(
             report_config.as_ref(),
@@ -366,9 +359,7 @@ pub(super) fn prepare_report_config(report_config: &Value) -> Value {
         && is_visible_flag(alert_menu.get("show"))
     {
         alert_menu.entry("menu".to_string()).or_insert_with(|| Value::Array(Vec::new()));
-        alert_menu
-            .entry("variable".to_string())
-            .or_insert_with(|| Value::Object(Map::new()));
+        alert_menu.entry("variable".to_string()).or_insert_with(|| Value::Object(Map::new()));
     }
 
     Value::Object(object)
@@ -388,7 +379,10 @@ fn is_visible_flag(flag: Option<&Value>) -> bool {
         Some(Value::Number(value)) => value.as_i64().unwrap_or(1) != 0,
         Some(Value::String(value)) => {
             let normalized = value.trim().to_ascii_uppercase();
-            !(normalized.is_empty() || normalized == "F" || normalized == "FALSE" || normalized == "0")
+            !(normalized.is_empty()
+                || normalized == "F"
+                || normalized == "FALSE"
+                || normalized == "0")
         }
         Some(_) => true,
     }
@@ -422,13 +416,15 @@ fn report_default_template_code(
         .iter()
         .find(|item| {
             item.get("template_code").and_then(Value::as_str).is_some()
-                && source_key.is_none_or(|key| item.get("source").and_then(Value::as_str) == Some(key))
+                && source_key
+                    .is_none_or(|key| item.get("source").and_then(Value::as_str) == Some(key))
                 && item.get("type").and_then(Value::as_str) == Some("table")
         })
         .or_else(|| {
             modules.iter().find(|item| {
                 item.get("template_code").and_then(Value::as_str).is_some()
-                    && source_key.is_none_or(|key| item.get("source").and_then(Value::as_str) == Some(key))
+                    && source_key
+                        .is_none_or(|key| item.get("source").and_then(Value::as_str) == Some(key))
             })
         })
         .or_else(|| {
@@ -437,7 +433,9 @@ fn report_default_template_code(
                     && item.get("type").and_then(Value::as_str) == Some("table")
             })
         })
-        .or_else(|| modules.iter().find(|item| item.get("template_code").and_then(Value::as_str).is_some()))
+        .or_else(|| {
+            modules.iter().find(|item| item.get("template_code").and_then(Value::as_str).is_some())
+        })
         .and_then(|item| item.get("template_code").and_then(Value::as_str))
         .map(ToOwned::to_owned)
 }
@@ -539,10 +537,7 @@ async fn execute_cube_query(
     if matches!(resolved.count_mode, AiDataCountMode::Only) {
         return Err("Cube 查询暂不支持 count_only".to_string());
     }
-    let cube_query = resolved
-        .cube_query
-        .as_ref()
-        .ok_or_else(|| "缺少 Cube query".to_string())?;
+    let cube_query = resolved.cube_query.as_ref().ok_or_else(|| "缺少 Cube query".to_string())?;
     let rendered_query = render_json_template(cube_query, &resolved.params);
     let body = json!({ "query": rendered_query });
     let url = cube_endpoint(&resolved.connection, "load")?;
@@ -556,7 +551,12 @@ async fn execute_cube_query(
     .await?;
     let (mut items, total_record) = extract_items_and_total(value.clone());
     post_process_items(&mut items, resolved)?;
-    let page = build_page(total_record.unwrap_or(items.len() as u64), resolved.page, resolved.limit, items.len());
+    let page = build_page(
+        total_record.unwrap_or(items.len() as u64),
+        resolved.page,
+        resolved.limit,
+        items.len(),
+    );
     Ok(AiDataQueryResponse {
         page,
         items,
@@ -588,20 +588,29 @@ async fn execute_http_query(
         &resolved.params,
     );
     let url = http_endpoint(&resolved.connection, Some(&path))?;
-    let body = resolved
-        .http_body
-        .as_ref()
-        .map(|value| render_json_template(value, &resolved.params));
+    let body =
+        resolved.http_body.as_ref().map(|value| render_json_template(value, &resolved.params));
     let (status, value) = if method == reqwest::Method::GET || method == reqwest::Method::HEAD {
         send_query_request(&resolved.connection, &url, &resolved.params, timeout_secs).await?
     } else {
         let final_body = merge_json_object(body, &resolved.params);
-        send_json_request(&resolved.connection, method, Some(&url), final_body.as_ref(), timeout_secs)
-            .await?
+        send_json_request(
+            &resolved.connection,
+            method,
+            Some(&url),
+            final_body.as_ref(),
+            timeout_secs,
+        )
+        .await?
     };
     let (mut items, total_record) = extract_items_and_total(value.clone());
     post_process_items(&mut items, resolved)?;
-    let page = build_page(total_record.unwrap_or(items.len() as u64), resolved.page, resolved.limit, items.len());
+    let page = build_page(
+        total_record.unwrap_or(items.len() as u64),
+        resolved.page,
+        resolved.limit,
+        items.len(),
+    );
     Ok(AiDataQueryResponse {
         page,
         items,
@@ -630,23 +639,20 @@ async fn execute_sql_rows(
                 .await
                 .map_err(|e| e.to_string())?
         }
-        AiDataConnectionKind::Mysql => Err(
-            "当前构建未启用 MySQL 执行器；如需接入请启用 memory-mariadb feature".to_string(),
-        ),
-        AiDataConnectionKind::Postgres => Err(
-            "当前构建未启用 PostgreSQL 执行器；如需接入请启用 memory-postgres feature"
-                .to_string(),
-        ),
+        AiDataConnectionKind::Mysql => {
+            Err("当前构建未启用 MySQL 执行器；如需接入请启用 memory-mariadb feature".to_string())
+        }
+        AiDataConnectionKind::Postgres => {
+            Err("当前构建未启用 PostgreSQL 执行器；如需接入请启用 memory-postgres feature"
+                .to_string())
+        }
         AiDataConnectionKind::Cube | AiDataConnectionKind::Http => {
             Err("当前连接类型不支持 SQL 查询".to_string())
         }
     }
 }
 
-async fn execute_sql_count(
-    connection: &AiDataConnectionDto,
-    sql: String,
-) -> Result<u64, String> {
+async fn execute_sql_count(connection: &AiDataConnectionDto, sql: String) -> Result<u64, String> {
     match connection.kind {
         AiDataConnectionKind::Sqlite => {
             let path = sqlite_path(connection)?;
@@ -654,13 +660,13 @@ async fn execute_sql_count(
                 .await
                 .map_err(|e| e.to_string())?
         }
-        AiDataConnectionKind::Mysql => Err(
-            "当前构建未启用 MySQL 执行器；如需接入请启用 memory-mariadb feature".to_string(),
-        ),
-        AiDataConnectionKind::Postgres => Err(
-            "当前构建未启用 PostgreSQL 执行器；如需接入请启用 memory-postgres feature"
-                .to_string(),
-        ),
+        AiDataConnectionKind::Mysql => {
+            Err("当前构建未启用 MySQL 执行器；如需接入请启用 memory-mariadb feature".to_string())
+        }
+        AiDataConnectionKind::Postgres => {
+            Err("当前构建未启用 PostgreSQL 执行器；如需接入请启用 memory-postgres feature"
+                .to_string())
+        }
         AiDataConnectionKind::Cube | AiDataConnectionKind::Http => {
             Err("当前连接类型不支持 SQL 计数查询".to_string())
         }
@@ -837,15 +843,18 @@ fn sql_literal(value: &Value) -> String {
     match value {
         Value::Null => "NULL".to_string(),
         Value::Bool(v) => {
-            if *v { "1".to_string() } else { "0".to_string() }
+            if *v {
+                "1".to_string()
+            } else {
+                "0".to_string()
+            }
         }
         Value::Number(v) => v.to_string(),
         Value::String(v) => format!("'{}'", v.replace('\'', "''")),
         Value::Array(values) => values.iter().map(sql_literal).collect::<Vec<_>>().join(", "),
-        Value::Object(_) => format!(
-            "'{}'",
-            serde_json::to_string(value).unwrap_or_default().replace('\'', "''")
-        ),
+        Value::Object(_) => {
+            format!("'{}'", serde_json::to_string(value).unwrap_or_default().replace('\'', "''"))
+        }
     }
 }
 
@@ -879,7 +888,12 @@ fn sanitize_order_by(order_by: Option<&str>) -> Result<Option<String>, String> {
     Ok((!parts.is_empty()).then(|| parts.join(", ")))
 }
 
-fn build_page(total_record: u64, current_page: u32, per_page: u32, item_len: usize) -> AiDataPageDto {
+fn build_page(
+    total_record: u64,
+    current_page: u32,
+    per_page: u32,
+    item_len: usize,
+) -> AiDataPageDto {
     let total_page = if total_record == 0 {
         0
     } else {
@@ -987,7 +1001,10 @@ fn query_mock_template_source(
     BTreeMap::new()
 }
 
-fn template_field_map_from_mock_source(value: &Value, template_code: &str) -> BTreeMap<String, i64> {
+fn template_field_map_from_mock_source(
+    value: &Value,
+    template_code: &str,
+) -> BTreeMap<String, i64> {
     match value {
         Value::Array(items) => {
             for item in items {
@@ -1042,7 +1059,10 @@ fn template_field_map_from_slice(fields: &[AiDataTemplateFieldDto]) -> BTreeMap<
     map
 }
 
-fn lookup_template_fields(report_config: Option<&Value>, template_code: &str) -> BTreeMap<String, i64> {
+fn lookup_template_fields(
+    report_config: Option<&Value>,
+    template_code: &str,
+) -> BTreeMap<String, i64> {
     let Some(report_config) = report_config else {
         return BTreeMap::new();
     };
@@ -1105,10 +1125,9 @@ fn template_field_map_from_value(value: &Value) -> BTreeMap<String, i64> {
             }
             map
         }
-        Value::Object(object) => object
-            .get("fields")
-            .map(template_field_map_from_value)
-            .unwrap_or_default(),
+        Value::Object(object) => {
+            object.get("fields").map(template_field_map_from_value).unwrap_or_default()
+        }
         _ => BTreeMap::new(),
     }
 }
@@ -1163,11 +1182,7 @@ fn normalize_numeric_value(value: Value, decimals: u32) -> Value {
         return value;
     };
     let rounded = round_to(number, decimals);
-    if rounded.fract().abs() < f64::EPSILON {
-        json!(rounded as i64)
-    } else {
-        json!(rounded)
-    }
+    if rounded.fract().abs() < f64::EPSILON { json!(rounded as i64) } else { json!(rounded) }
 }
 
 fn normalize_int_value(value: Value) -> Value {
@@ -1214,16 +1229,16 @@ fn apply_transformer_fields(
         }
         let transformer_type = normalize_field_code(&transformer.transformer_type);
         match transformer_type.as_str() {
-            "percentage" => apply_percentage_transformer(items, &field_code, &transformer.transformer_args),
-            "goods_options_name" | "goodsoptionsname" => {
-                apply_goods_options_name_transformer(
-                    items,
-                    &field_code,
-                    &transformer.transformer_args,
-                    report_config,
-                    params,
-                )
+            "percentage" => {
+                apply_percentage_transformer(items, &field_code, &transformer.transformer_args)
             }
+            "goods_options_name" | "goodsoptionsname" => apply_goods_options_name_transformer(
+                items,
+                &field_code,
+                &transformer.transformer_args,
+                report_config,
+                params,
+            ),
             _ => {
                 // 未知转换器直接报错，避免悄悄返回未转换但看似成功的数据。
                 return Err(format!(
@@ -1296,12 +1311,11 @@ fn apply_goods_options_name_transformer(
             continue;
         };
 
-        let lookup_key = find_actual_field_key(object, "options_id").unwrap_or_else(|| target_key.clone());
+        let lookup_key =
+            find_actual_field_key(object, "options_id").unwrap_or_else(|| target_key.clone());
         let lookup_value = object.get(&lookup_key).cloned().unwrap_or(Value::Null);
-        let fallback_value = object
-            .get("options_name")
-            .cloned()
-            .unwrap_or_else(|| lookup_value.clone());
+        let fallback_value =
+            object.get("options_name").cloned().unwrap_or_else(|| lookup_value.clone());
         let replacement = resolve_mock_goods_options_name(
             object,
             &lookup_value,
@@ -1340,12 +1354,7 @@ fn collect_mock_goods_options_records(
         return records;
     };
 
-    for key in [
-        "mock_goods_options",
-        "mockGoodsOptions",
-        "mock_options",
-        "mockOptions",
-    ] {
+    for key in ["mock_goods_options", "mockGoodsOptions", "mock_options", "mockOptions"] {
         if let Some(value) = report_config.get(key) {
             extend_mock_goods_options_records(value, &mut records);
         }
@@ -1479,7 +1488,8 @@ fn resolve_mock_goods_options_name(
         }
 
         // company_id/goods_id 命中的记录更具体，应优先于仅按 options_id 命中的兜底记录。
-        let score = usize::from(record.company_id.is_some()) + usize::from(record.goods_id.is_some());
+        let score =
+            usize::from(record.company_id.is_some()) + usize::from(record.goods_id.is_some());
         if best_match.is_none_or(|(_, best_score)| score > best_score) {
             best_match = Some((record, score));
         }
@@ -1495,8 +1505,12 @@ fn resolve_goods_lookup_company_id(
 ) -> Option<String> {
     btree_value_by_normalized_key(transformer_args, "company_id")
         .and_then(value_lookup_string)
-        .or_else(|| btree_value_by_normalized_key(params, "company_id").and_then(value_lookup_string))
-        .or_else(|| json_value_by_normalized_key(object, "company_id").and_then(value_lookup_string))
+        .or_else(|| {
+            btree_value_by_normalized_key(params, "company_id").and_then(value_lookup_string)
+        })
+        .or_else(|| {
+            json_value_by_normalized_key(object, "company_id").and_then(value_lookup_string)
+        })
 }
 
 fn resolve_goods_lookup_goods_id(
@@ -1514,17 +1528,22 @@ fn resolve_goods_lookup_goods_id(
     }
 
     for key in ["goods_id", "product_id"] {
-        if let Some(value) = json_value_by_normalized_key(object, key).and_then(value_lookup_string) {
+        if let Some(value) = json_value_by_normalized_key(object, key).and_then(value_lookup_string)
+        {
             return Some(value);
         }
     }
     for key in ["goods_id", "product_id"] {
-        if let Some(value) = btree_value_by_normalized_key(params, key).and_then(value_lookup_string) {
+        if let Some(value) =
+            btree_value_by_normalized_key(params, key).and_then(value_lookup_string)
+        {
             return Some(value);
         }
     }
     for key in ["goods_id", "product_id"] {
-        if let Some(value) = btree_value_by_normalized_key(transformer_args, key).and_then(value_lookup_string) {
+        if let Some(value) =
+            btree_value_by_normalized_key(transformer_args, key).and_then(value_lookup_string)
+        {
             return Some(value);
         }
     }
@@ -1541,21 +1560,12 @@ fn normalize_options_lookup_key(value: &str) -> String {
         && let Ok(Value::Array(items)) = serde_json::from_str::<Value>(trimmed)
     {
         // 兼容历史接口把多规格 options_id 序列化为 JSON 数组字符串的形态。
-        let joined = items
-            .iter()
-            .filter_map(value_lookup_string)
-            .collect::<Vec<_>>()
-            .join(",");
+        let joined = items.iter().filter_map(value_lookup_string).collect::<Vec<_>>().join(",");
         if !joined.is_empty() {
             return joined;
         }
     }
-    trimmed
-        .split(',')
-        .map(str::trim)
-        .filter(|item| !item.is_empty())
-        .collect::<Vec<_>>()
-        .join(",")
+    trimmed.split(',').map(str::trim).filter(|item| !item.is_empty()).collect::<Vec<_>>().join(",")
 }
 
 fn value_lookup_string(value: &Value) -> Option<String> {
@@ -1568,11 +1578,7 @@ fn value_lookup_string(value: &Value) -> Option<String> {
         Value::Number(number) => Some(number.to_string()),
         Value::Bool(value) => Some(value.to_string()),
         Value::Array(items) => {
-            let joined = items
-                .iter()
-                .filter_map(value_lookup_string)
-                .collect::<Vec<_>>()
-                .join(",");
+            let joined = items.iter().filter_map(value_lookup_string).collect::<Vec<_>>().join(",");
             (!joined.is_empty()).then_some(joined)
         }
         _ => None,
@@ -1629,10 +1635,7 @@ fn format_goods_options_name_value(value: Value) -> Value {
 }
 
 fn find_actual_field_key(object: &Map<String, Value>, normalized_target: &str) -> Option<String> {
-    object
-        .keys()
-        .find(|key| normalize_field_code(key) == normalized_target)
-        .cloned()
+    object.keys().find(|key| normalize_field_code(key) == normalized_target).cloned()
 }
 
 fn normalize_field_code(value: &str) -> String {
@@ -1680,7 +1683,8 @@ fn extract_items_and_total(value: Value) -> (Vec<Value>, Option<u64>) {
             if let Some(items) = object.remove("data").and_then(|value| value.as_array().cloned()) {
                 return (items, total);
             }
-            if let Some(items) = object.remove("items").and_then(|value| value.as_array().cloned()) {
+            if let Some(items) = object.remove("items").and_then(|value| value.as_array().cloned())
+            {
                 return (items, total);
             }
             if let Some(items) = object.remove("list").and_then(|value| value.as_array().cloned()) {
@@ -1716,7 +1720,10 @@ fn http_endpoint(connection: &AiDataConnectionDto, path: Option<&str>) -> Result
 
 fn cube_endpoint(connection: &AiDataConnectionDto, tail: &str) -> Result<String, String> {
     let prefix = connection.default_path.as_deref().unwrap_or("/cubejs-api/v1");
-    http_endpoint(connection, Some(&format!("{}/{}", prefix.trim_end_matches('/'), tail.trim_start_matches('/'))))
+    http_endpoint(
+        connection,
+        Some(&format!("{}/{}", prefix.trim_end_matches('/'), tail.trim_start_matches('/'))),
+    )
 }
 
 fn build_http_client(timeout_secs: u32) -> Result<reqwest::Client, String> {
@@ -1746,10 +1753,8 @@ async fn send_query_request(
     timeout_secs: u32,
 ) -> Result<(u16, Value), String> {
     let client = build_http_client(timeout_secs)?;
-    let query = params
-        .iter()
-        .map(|(key, value)| (key.clone(), string_literal(value)))
-        .collect::<Vec<_>>();
+    let query =
+        params.iter().map(|(key, value)| (key.clone(), string_literal(value))).collect::<Vec<_>>();
     let request = apply_request_headers(client.get(url).query(&query), connection);
     let response = request.send().await.map_err(|e| e.to_string())?;
     parse_http_response(response).await
@@ -1842,6 +1847,7 @@ pub(super) fn report_source_context(
         .map(ToOwned::to_owned)
         .or_else(|| report.default_source_key.clone())
         .or_else(|| report.sources.first().map(|item| item.source_key.clone()))?;
-    let source = report.sources.iter().find(|item| item.source_key == effective_source_key)?.clone();
+    let source =
+        report.sources.iter().find(|item| item.source_key == effective_source_key)?.clone();
     Some((prepared_report(&report), source))
 }

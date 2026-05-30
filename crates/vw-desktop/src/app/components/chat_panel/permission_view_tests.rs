@@ -2,10 +2,9 @@
 //! 测试确保权限请求、拒绝和错误状态都能以明确 UI 呈现。
 
 use super::tools::{
-    pending_permission_badge_label, pending_permission_targets_message,
-    pending_permission_request_badge_label, pending_permission_request_for_message,
-    pending_permission_request_for_tool_call,
-    pending_permission_targets_tool_call,
+    pending_permission_badge_label, pending_permission_request_badge_label,
+    pending_permission_request_for_message, pending_permission_request_for_tool_call,
+    pending_permission_targets_message, pending_permission_targets_tool_call,
     tool_call_id_from_raw, tool_permission_target_summary,
 };
 
@@ -180,9 +179,8 @@ fn pending_permission_request_for_message_requires_unique_match() {
     };
 
     let unique_requests = [first.clone(), second.clone()];
-    let unique_match =
-        pending_permission_request_for_message(&unique_requests, Some("msg-2"))
-            .map(|request| request.id.as_str());
+    let unique_match = pending_permission_request_for_message(&unique_requests, Some("msg-2"))
+        .map(|request| request.id.as_str());
     let ambiguous_requests = [first, duplicate, second];
     let ambiguous_match =
         pending_permission_request_for_message(&ambiguous_requests, Some("msg-1"))

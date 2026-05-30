@@ -25,13 +25,12 @@ use unicode_width::UnicodeWidthStr;
 
 use super::input::{prompt_suggestions, selected_suggestion_index};
 use super::model::{
-    OverlayFocus, PromptMode, PromptSubmissionStatus, QueuedPromptCommand,
-    QueuedPromptCommandKind, UiOverlay, UiOverlayKind, UiQuestionSurfaceKind, UiStepState,
-    UiTurnTerminal,
+    OverlayFocus, PromptMode, PromptSubmissionStatus, QueuedPromptCommand, QueuedPromptCommandKind,
+    UiOverlay, UiOverlayKind, UiQuestionSurfaceKind, UiStepState, UiTurnTerminal,
 };
 use super::state::{
-    TuiState, TuiStatusSummary, TuiVisibleTranscriptWindow,
-    select_status_summary, select_visible_grouped_transcript_window,
+    TuiState, TuiStatusSummary, TuiVisibleTranscriptWindow, select_status_summary,
+    select_visible_grouped_transcript_window,
 };
 use layout::FullscreenLayoutSlots;
 use message_row::render_transcript_item_lines;
@@ -73,10 +72,7 @@ pub(crate) struct TuiPill {
 
 impl TuiPill {
     pub(crate) fn new(label: impl Into<String>, tone: TuiTone) -> Self {
-        Self {
-            label: label.into(),
-            tone,
-        }
+        Self { label: label.into(), tone }
     }
 }
 
@@ -272,7 +268,8 @@ impl TuiRenderer {
         let area = frame.area();
         let status = select_status_summary(state);
         let visible_window = select_visible_grouped_transcript_window(state);
-        let header = build_status_header(state, &status, badge_label, endpoint_label, spinner_frame);
+        let header =
+            build_status_header(state, &status, badge_label, endpoint_label, spinner_frame);
         let footer = build_status_footer(state, &status, &visible_window);
         let prompt_host = build_prompt_host(state);
         let layout = layout::compute_fullscreen_layout(
@@ -284,7 +281,8 @@ impl TuiRenderer {
         let project_context = build_project_context_host(state, &status);
         let modified_files = build_modified_files_host(state);
         let modal_host = build_modal_host(state);
-        let prompt_has_focus = matches!(state.overlays.focus, OverlayFocus::Prompt) && !state.prompt.is_busy();
+        let prompt_has_focus =
+            matches!(state.overlays.focus, OverlayFocus::Prompt) && !state.prompt.is_busy();
 
         frame.render_widget(
             Block::default().style(Style::default().bg(self.theme.background)),
@@ -318,12 +316,7 @@ impl TuiRenderer {
         TuiRenderFeedback { layout, cursor }
     }
 
-    fn render_header(
-        &self,
-        frame: &mut ratatui::Frame<'_>,
-        area: Rect,
-        header: &TuiStatusHeader,
-    ) {
+    fn render_header(&self, frame: &mut ratatui::Frame<'_>, area: Rect, header: &TuiStatusHeader) {
         let block = self.panel_block("会话", TuiPanelSurface::Base, TuiPanelBorder::Standard);
         let inner = block.inner(area);
         frame.render_widget(block, area);
@@ -409,10 +402,7 @@ impl TuiRenderer {
                 lines.push(Line::raw(""));
             } else if let Some(sticky_notice) = window_summary.sticky_notice() {
                 lines.push(Line::from(vec![
-                    Span::styled(
-                        "锚点 ",
-                        self.theme.accent_style().add_modifier(Modifier::BOLD),
-                    ),
+                    Span::styled("锚点 ", self.theme.accent_style().add_modifier(Modifier::BOLD)),
                     Span::styled(zh_sticky_notice(sticky_notice), self.theme.muted_style()),
                 ]));
                 lines.push(Line::raw(""));
@@ -427,9 +417,7 @@ impl TuiRenderer {
                     lines.push(Line::from(vec![
                         Span::styled(
                             "未读 ",
-                            Style::default()
-                                .fg(self.theme.warning)
-                                .add_modifier(Modifier::BOLD),
+                            Style::default().fg(self.theme.warning).add_modifier(Modifier::BOLD),
                         ),
                         Span::styled(
                             zh_unseen_divider_label(unseen_range),
@@ -494,10 +482,7 @@ impl TuiRenderer {
             .filter(|detail| !detail.trim().is_empty())
             .map(|detail| {
                 Line::from(vec![
-                    Span::styled(
-                        "补全 ",
-                        self.theme.accent_style().add_modifier(Modifier::BOLD),
-                    ),
+                    Span::styled("补全 ", self.theme.accent_style().add_modifier(Modifier::BOLD)),
                     Span::styled(detail.to_string(), self.theme.muted_style()),
                 ])
             });
@@ -510,16 +495,10 @@ impl TuiRenderer {
         let helper_text = if prompt_viewport.hidden_above == 0 {
             prompt_host.helper_text.clone()
         } else {
-            format!(
-                "{} · 上方已折叠 {} 行",
-                prompt_host.helper_text, prompt_viewport.hidden_above
-            )
+            format!("{} · 上方已折叠 {} 行", prompt_host.helper_text, prompt_viewport.hidden_above)
         };
         let helper_line = Line::from(vec![
-            Span::styled(
-                "输入 ",
-                self.theme.accent_style().add_modifier(Modifier::BOLD),
-            ),
+            Span::styled("输入 ", self.theme.accent_style().add_modifier(Modifier::BOLD)),
             Span::styled(helper_text, self.theme.muted_style()),
         ]);
 
@@ -558,12 +537,8 @@ impl TuiRenderer {
         cursor
     }
 
-    fn render_prompt_suggestion_rows(
-        &self,
-        rows: &[TuiPromptSuggestionRow],
-    ) -> Vec<Line<'static>> {
-        rows
-            .iter()
+    fn render_prompt_suggestion_rows(&self, rows: &[TuiPromptSuggestionRow]) -> Vec<Line<'static>> {
+        rows.iter()
             .map(|row| {
                 let marker = if row.selected { ">" } else { " " };
                 let marker_style = if row.selected {
@@ -625,7 +600,8 @@ impl TuiRenderer {
         area: Rect,
         modified_files: &TuiModifiedFilesHost,
     ) {
-        let block = self.panel_block("工作区变更", TuiPanelSurface::Raised, TuiPanelBorder::Standard);
+        let block =
+            self.panel_block("工作区变更", TuiPanelSurface::Raised, TuiPanelBorder::Standard);
         let inner = block.inner(area);
         frame.render_widget(block, area);
 
@@ -674,15 +650,9 @@ impl TuiRenderer {
 
     fn pill_style(&self, tone: TuiTone) -> Style {
         let background = tone_color(tone, self.theme);
-        let foreground = if matches!(tone, TuiTone::Muted) {
-            self.theme.text
-        } else {
-            self.theme.background
-        };
-        Style::default()
-            .fg(foreground)
-            .bg(background)
-            .add_modifier(Modifier::BOLD)
+        let foreground =
+            if matches!(tone, TuiTone::Muted) { self.theme.text } else { self.theme.background };
+        Style::default().fg(foreground).bg(background).add_modifier(Modifier::BOLD)
     }
 
     fn render_pills_line(&self, pills: &[TuiPill], detail: Option<&str>) -> Line<'static> {
@@ -721,16 +691,9 @@ pub(crate) fn build_status_header(
         },
         terminal: terminal_label(&status.turn_terminal).to_string(),
         terminal_tone: terminal_tone(&status.turn_terminal),
-        provider: status
-            .provider_name
-            .clone()
-            .unwrap_or_else(|| "-".to_string()),
+        provider: status.provider_name.clone().unwrap_or_else(|| "-".to_string()),
         model: status.model_name.clone().unwrap_or_else(|| "-".to_string()),
-        scope: state
-            .session
-            .scope
-            .clone()
-            .unwrap_or_else(|| "-".to_string()),
+        scope: state.session.scope.clone().unwrap_or_else(|| "-".to_string()),
         cwd: compact_path_label(state.project.workspace_root.as_deref()),
         gateway: truncate_label(endpoint_label, 28),
         session_id: status.session_id.clone().unwrap_or_else(|| "-".to_string()),
@@ -748,10 +711,7 @@ pub(crate) fn build_status_footer(
     let window_summary = visible_window.window_summary();
 
     if let Some(error) = state.status.last_error.as_ref() {
-        pills.push(TuiPill::new(
-            truncate_label(format!("错误 {error}"), 24),
-            TuiTone::Danger,
-        ));
+        pills.push(TuiPill::new(truncate_label(format!("错误 {error}"), 24), TuiTone::Danger));
     }
 
     pills.push(TuiPill::new(
@@ -759,10 +719,7 @@ pub(crate) fn build_status_footer(
         terminal_tone(&status.turn_terminal),
     ));
     pills.push(TuiPill::new(
-        format!(
-            "令牌 {}/{}",
-            status.token_usage.input_tokens, status.token_usage.output_tokens
-        ),
+        format!("令牌 {}/{}", status.token_usage.input_tokens, status.token_usage.output_tokens),
         if status.token_usage.input_tokens > 0 || status.token_usage.output_tokens > 0 {
             TuiTone::Accent
         } else {
@@ -771,11 +728,7 @@ pub(crate) fn build_status_footer(
     ));
     pills.push(TuiPill::new(
         format!("步骤 {}", status.step_count),
-        if status.step_count > 0 {
-            TuiTone::Accent
-        } else {
-            TuiTone::Muted
-        },
+        if status.step_count > 0 { TuiTone::Accent } else { TuiTone::Muted },
     ));
     pills.push(TuiPill::new(
         format!("视口 {}", zh_viewport_label(viewport_summary)),
@@ -796,25 +749,15 @@ pub(crate) fn build_status_footer(
     }
     pills.push(TuiPill::new(
         format!("队列 {}", state.prompt.queued_commands.len()),
-        if state.prompt.queued_commands.is_empty() {
-            TuiTone::Muted
-        } else {
-            TuiTone::Warning
-        },
+        if state.prompt.queued_commands.is_empty() { TuiTone::Muted } else { TuiTone::Warning },
     ));
 
     if status.pending_questions > 0 {
-        pills.push(TuiPill::new(
-            format!("问题 {}", status.pending_questions),
-            TuiTone::Warning,
-        ));
+        pills.push(TuiPill::new(format!("问题 {}", status.pending_questions), TuiTone::Warning));
     }
 
     if status.todo_count > 0 {
-        pills.push(TuiPill::new(
-            format!("待办 {}", status.todo_count),
-            TuiTone::Warning,
-        ));
+        pills.push(TuiPill::new(format!("待办 {}", status.todo_count), TuiTone::Warning));
     }
 
     TuiStatusFooter {
@@ -850,11 +793,7 @@ pub(crate) fn build_prompt_host(state: &TuiState) -> TuiPromptHost {
         .map(|(index, suggestion)| {
             TuiPill::new(
                 truncate_label(suggestion.label.as_str(), 20),
-                if Some(index) == selected_index {
-                    TuiTone::Accent
-                } else {
-                    TuiTone::Muted
-                },
+                if Some(index) == selected_index { TuiTone::Accent } else { TuiTone::Muted },
             )
         })
         .collect::<Vec<_>>();
@@ -867,23 +806,16 @@ pub(crate) fn build_prompt_host(state: &TuiState) -> TuiPromptHost {
             selected: Some(visible_start + offset) == selected_index,
         })
         .collect::<Vec<_>>();
-    let suggestion_detail = (suggestion_total == 0).then(|| {
-        matches!(state.prompt.mode, PromptMode::SlashCommand)
-            .then(|| "未找到匹配命令，继续输入或退格调整。".to_string())
-    }).flatten();
+    let suggestion_detail = (suggestion_total == 0)
+        .then(|| {
+            matches!(state.prompt.mode, PromptMode::SlashCommand)
+                .then(|| "未找到匹配命令，继续输入或退格调整。".to_string())
+        })
+        .flatten();
 
-    let mut queued_commands = state
-        .prompt
-        .queued_commands
-        .iter()
-        .take(3)
-        .map(queue_command_pill)
-        .collect::<Vec<_>>();
-    let remaining = state
-        .prompt
-        .queued_commands
-        .len()
-        .saturating_sub(queued_commands.len());
+    let mut queued_commands =
+        state.prompt.queued_commands.iter().take(3).map(queue_command_pill).collect::<Vec<_>>();
+    let remaining = state.prompt.queued_commands.len().saturating_sub(queued_commands.len());
     if remaining > 0 {
         queued_commands.push(TuiPill::new(format!("+{remaining} more"), TuiTone::Muted));
     }
@@ -917,16 +849,9 @@ pub(crate) fn build_prompt_host(state: &TuiState) -> TuiPromptHost {
         footer_pills: vec![
             TuiPill::new(
                 format!("模式 {}", prompt_mode_label(&state.prompt.mode)),
-                if state.prompt.is_busy() {
-                    TuiTone::Warning
-                } else {
-                    TuiTone::Accent
-                },
+                if state.prompt.is_busy() { TuiTone::Warning } else { TuiTone::Accent },
             ),
-            TuiPill::new(
-                format!("历史 {}", state.prompt.history.entries.len()),
-                TuiTone::Muted,
-            ),
+            TuiPill::new(format!("历史 {}", state.prompt.history.entries.len()), TuiTone::Muted),
             TuiPill::new(
                 format!(
                     "模型 {}",
@@ -940,11 +865,7 @@ pub(crate) fn build_prompt_host(state: &TuiState) -> TuiPromptHost {
                 } else {
                     "补全空闲".to_string()
                 },
-                if suggestion_total > 0 {
-                    TuiTone::Accent
-                } else {
-                    TuiTone::Muted
-                },
+                if suggestion_total > 0 { TuiTone::Accent } else { TuiTone::Muted },
             ),
             last_submission_pill(state),
         ],
@@ -992,20 +913,13 @@ pub(crate) fn build_project_context_host(
     } else {
         truncate_label(state.session.title.as_str(), 36)
     };
-    let session_id = truncate_label(
-        state.session.session_id.as_deref().unwrap_or("-"),
-        24,
-    );
+    let session_id = truncate_label(state.session.session_id.as_deref().unwrap_or("-"), 24);
 
     TuiProjectContextHost {
         pills: vec![
             TuiPill::new(
                 format!("范围 {}", truncate_label(scope, 16)),
-                if scope == "-" {
-                    TuiTone::Muted
-                } else {
-                    TuiTone::Accent
-                },
+                if scope == "-" { TuiTone::Muted } else { TuiTone::Accent },
             ),
             TuiPill::new(
                 if state.session.session_id.is_some() {
@@ -1025,11 +939,7 @@ pub(crate) fn build_project_context_host(
                 } else {
                     format!("git 脏区 {}", modified_files.len())
                 },
-                if modified_files.is_empty() {
-                    TuiTone::Muted
-                } else {
-                    TuiTone::Warning
-                },
+                if modified_files.is_empty() { TuiTone::Muted } else { TuiTone::Warning },
             ),
         ],
         body_lines: vec![
@@ -1060,11 +970,7 @@ pub(crate) fn build_modified_files_host(state: &TuiState) -> TuiModifiedFilesHos
         pills: vec![
             TuiPill::new(
                 format!("数量 {}", modified_files.len()),
-                if modified_files.is_empty() {
-                    TuiTone::Muted
-                } else {
-                    TuiTone::Accent
-                },
+                if modified_files.is_empty() { TuiTone::Muted } else { TuiTone::Accent },
             ),
             TuiPill::new(
                 if state.project.workspace_root.is_some() {
@@ -1096,19 +1002,13 @@ fn render_prompt_value_lines(
     viewport_rows: usize,
 ) -> RenderedPromptViewport {
     let viewport_rows = viewport_rows.max(1);
-    let (cursor_line, cursor_column) = prompt_cursor_line_column(
-        prompt_host.value.as_str(),
-        prompt_host.cursor_char_index,
-    );
+    let (cursor_line, cursor_column) =
+        prompt_cursor_line_column(prompt_host.value.as_str(), prompt_host.cursor_char_index);
 
     let raw_lines = if prompt_host.value.is_empty() {
         vec![String::new()]
     } else {
-        prompt_host
-            .value
-            .split('\n')
-            .map(ToOwned::to_owned)
-            .collect::<Vec<_>>()
+        prompt_host.value.split('\n').map(ToOwned::to_owned).collect::<Vec<_>>()
     };
     let total_lines = raw_lines.len().max(1);
     let visible_start = cursor_line.saturating_add(1).saturating_sub(viewport_rows);
@@ -1136,19 +1036,13 @@ fn render_prompt_value_lines(
         .unwrap_or_default();
     let current_prefix = prompt_line_prefix(cursor_line);
     let cursor_prefix_width = UnicodeWidthStr::width(current_prefix);
-    let cursor_text = current_line
-        .chars()
-        .take(cursor_column)
-        .collect::<String>();
+    let cursor_text = current_line.chars().take(cursor_column).collect::<String>();
     let cursor_x = cursor_prefix_width.saturating_add(UnicodeWidthStr::width(cursor_text.as_str()));
     let cursor_y = top_padding.saturating_add(cursor_line.saturating_sub(visible_start));
 
     RenderedPromptViewport {
         lines,
-        cursor: TuiCursorPlacement {
-            x: usize_to_u16(cursor_x),
-            y: usize_to_u16(cursor_y),
-        },
+        cursor: TuiCursorPlacement { x: usize_to_u16(cursor_x), y: usize_to_u16(cursor_y) },
         hidden_above: visible_start,
     }
 }
@@ -1167,14 +1061,8 @@ pub(crate) fn build_modal_host(state: &TuiState) -> Option<TuiModalHost> {
     Some(TuiModalHost {
         title,
         chips: vec![
-            TuiPill::new(
-                format!("类型 {}", overlay_kind_label(overlay.kind())),
-                TuiTone::Accent,
-            ),
-            TuiPill::new(
-                format!("层级 {}", state.overlays.stack.len()),
-                TuiTone::Accent,
-            ),
+            TuiPill::new(format!("类型 {}", overlay_kind_label(overlay.kind())), TuiTone::Accent),
+            TuiPill::new(format!("层级 {}", state.overlays.stack.len()), TuiTone::Accent),
             TuiPill::new(
                 format!("焦点 {}", overlay_focus_label(state.overlays.focus)),
                 if matches!(state.overlays.focus, OverlayFocus::Overlay) {
@@ -1183,10 +1071,7 @@ pub(crate) fn build_modal_host(state: &TuiState) -> Option<TuiModalHost> {
                     TuiTone::Muted
                 },
             ),
-            TuiPill::new(
-                truncate_label(format!("栈 {stack_summary}"), 40),
-                TuiTone::Muted,
-            ),
+            TuiPill::new(truncate_label(format!("栈 {stack_summary}"), 40), TuiTone::Muted),
         ],
         body_lines,
     })
@@ -1209,22 +1094,12 @@ fn overlay_body_lines(overlay: &UiOverlay) -> (String, Vec<String>) {
                 ),
             ],
         ),
-        UiOverlay::Search(overlay) => (
-            "搜索".to_string(),
-            search_overlay_body_lines(overlay),
-        ),
-        UiOverlay::Question(overlay) => (
-            overlay.modal_title().to_string(),
-            question_overlay_body_lines(overlay),
-        ),
-        UiOverlay::Todo(overlay) => (
-            "待办".to_string(),
-            todo_overlay_body_lines(overlay),
-        ),
-        UiOverlay::Task(overlay) => (
-            "任务面板".to_string(),
-            task_overlay_body_lines(overlay),
-        ),
+        UiOverlay::Search(overlay) => ("搜索".to_string(), search_overlay_body_lines(overlay)),
+        UiOverlay::Question(overlay) => {
+            (overlay.modal_title().to_string(), question_overlay_body_lines(overlay))
+        }
+        UiOverlay::Todo(overlay) => ("待办".to_string(), todo_overlay_body_lines(overlay)),
+        UiOverlay::Task(overlay) => ("任务面板".to_string(), task_overlay_body_lines(overlay)),
         UiOverlay::CommandPalette(overlay) => (
             "命令面板".to_string(),
             vec![
@@ -1251,50 +1126,39 @@ fn overlay_body_lines(overlay: &UiOverlay) -> (String, Vec<String>) {
                 },
             ],
         ),
-        UiOverlay::Mcp(overlay) => (
-            "MCP".to_string(),
-            {
-                let mut lines = vec![
-                    format!("配置来源: {}", overlay.config_source),
-                    format!("服务器数: {}", overlay.servers.len()),
-                ];
-                if overlay.servers.is_empty() {
-                    lines.push(String::new());
-                    lines.push("当前没有可展示的 MCP 服务器。".to_string());
-                } else {
-                    lines.push(String::new());
-                    lines.extend(overlay.servers.iter().take(8).map(|server| {
-                        format!(
-                            "{} [{}] {}",
-                            server.name,
-                            server.transport.label(),
-                            server.address
-                        )
-                    }));
-                }
-                lines
-            },
-        ),
-        UiOverlay::Memory(overlay) => (
-            "记忆".to_string(),
-            {
-                let mut lines = vec![format!("条目数: {}", overlay.entries.len())];
-                if overlay.entries.is_empty() {
-                    lines.push(String::new());
-                    lines.push("当前没有可展示的记忆文件。".to_string());
-                } else {
-                    lines.push(String::new());
-                    lines.extend(
-                        overlay
-                            .entries
-                            .iter()
-                            .take(8)
-                            .map(|entry| format!("{} [{}]", entry.filename, entry.scope)),
-                    );
-                }
-                lines
-            },
-        ),
+        UiOverlay::Mcp(overlay) => ("MCP".to_string(), {
+            let mut lines = vec![
+                format!("配置来源: {}", overlay.config_source),
+                format!("服务器数: {}", overlay.servers.len()),
+            ];
+            if overlay.servers.is_empty() {
+                lines.push(String::new());
+                lines.push("当前没有可展示的 MCP 服务器。".to_string());
+            } else {
+                lines.push(String::new());
+                lines.extend(overlay.servers.iter().take(8).map(|server| {
+                    format!("{} [{}] {}", server.name, server.transport.label(), server.address)
+                }));
+            }
+            lines
+        }),
+        UiOverlay::Memory(overlay) => ("记忆".to_string(), {
+            let mut lines = vec![format!("条目数: {}", overlay.entries.len())];
+            if overlay.entries.is_empty() {
+                lines.push(String::new());
+                lines.push("当前没有可展示的记忆文件。".to_string());
+            } else {
+                lines.push(String::new());
+                lines.extend(
+                    overlay
+                        .entries
+                        .iter()
+                        .take(8)
+                        .map(|entry| format!("{} [{}]", entry.filename, entry.scope)),
+                );
+            }
+            lines
+        }),
     }
 }
 
@@ -1308,10 +1172,7 @@ fn search_overlay_body_lines(overlay: &super::model::UiSearchOverlay) -> Vec<Str
                 overlay.query.clone()
             }
         ),
-        format!(
-            "大小写: {}",
-            if overlay.case_sensitive { "区分" } else { "不区分" }
-        ),
+        format!("大小写: {}", if overlay.case_sensitive { "区分" } else { "不区分" }),
         format!("匹配数: {}", overlay.matches.len()),
         String::new(),
     ];
@@ -1330,11 +1191,7 @@ fn search_overlay_body_lines(overlay: &super::model::UiSearchOverlay) -> Vec<Str
     };
 
     if let Some(selected) = overlay.matches.get(selected_index) {
-        lines.push(format!(
-            "选中: {}/{}",
-            selected_index.saturating_add(1),
-            overlay.matches.len()
-        ));
+        lines.push(format!("选中: {}/{}", selected_index.saturating_add(1), overlay.matches.len()));
         lines.push(selected.preview.clone());
     }
     lines.push(String::new());
@@ -1359,8 +1216,7 @@ fn question_overlay_body_lines(overlay: &super::model::UiQuestionOverlay) -> Vec
         UiQuestionSurfaceKind::ToolFallback => {
             if let Some(tool) = overlay.tool.as_ref() {
                 lines.push(
-                    "该提问来自工具回退通道，你可以直接在这里回答，无需离开 tui_v2。"
-                        .to_string(),
+                    "该提问来自工具回退通道，你可以直接在这里回答，无需离开 tui_v2。".to_string(),
                 );
                 lines.push(format!("工具调用: {}", tool.call_id));
                 lines.push(format!("来源消息: {}", tool.message_id));
@@ -1390,19 +1246,10 @@ fn question_overlay_body_lines(overlay: &super::model::UiQuestionOverlay) -> Vec
     }
     lines.push(prompt.question.clone());
 
-    let answers = overlay
-        .answers
-        .get(overlay.selected_index)
-        .cloned()
-        .unwrap_or_default();
+    let answers = overlay.answers.get(overlay.selected_index).cloned().unwrap_or_default();
     let selected_answers = answers
         .iter()
-        .map(|answer| {
-            answer
-                .strip_prefix("__custom__:")
-                .unwrap_or(answer.as_str())
-                .to_string()
-        })
+        .map(|answer| answer.strip_prefix("__custom__:").unwrap_or(answer.as_str()).to_string())
         .collect::<Vec<_>>();
 
     if !prompt.options.is_empty() {
@@ -1428,11 +1275,7 @@ fn question_overlay_body_lines(overlay: &super::model::UiQuestionOverlay) -> Vec
     lines.push(String::new());
     lines.push(format!(
         "当前回答: {}",
-        if selected_answers.is_empty() {
-            "-".to_string()
-        } else {
-            selected_answers.join(", ")
-        }
+        if selected_answers.is_empty() { "-".to_string() } else { selected_answers.join(", ") }
     ));
     if !prompt.multiple
         && selected_answers.len() == 1
@@ -1450,29 +1293,19 @@ fn question_overlay_body_lines(overlay: &super::model::UiQuestionOverlay) -> Vec
     }
     lines.push(match overlay.surface_kind() {
         UiQuestionSurfaceKind::PermissionRequest => {
-            "按键: 1-9 选择授权  Tab/Shift+Tab 切题  Enter 提交  Ctrl+R 拒绝  Esc 关闭"
-                .to_string()
+            "按键: 1-9 选择授权  Tab/Shift+Tab 切题  Enter 提交  Ctrl+R 拒绝  Esc 关闭".to_string()
         }
-        _ => {
-            "按键: 1-9 选择  Tab/Shift+Tab 切题  Enter 提交  Ctrl+R 拒绝  Esc 关闭"
-                .to_string()
-        }
+        _ => "按键: 1-9 选择  Tab/Shift+Tab 切题  Enter 提交  Ctrl+R 拒绝  Esc 关闭".to_string(),
     });
     lines
 }
 
 fn todo_overlay_body_lines(overlay: &super::model::UiTodoOverlay) -> Vec<String> {
-    let completed_count = overlay
-        .items
-        .iter()
-        .filter(|item| item.status.eq_ignore_ascii_case("completed"))
-        .count();
+    let completed_count =
+        overlay.items.iter().filter(|item| item.status.eq_ignore_ascii_case("completed")).count();
     let pending_count = overlay.items.len().saturating_sub(completed_count);
     let mut lines = vec![
-        format!(
-            "会话: {}",
-            overlay.session_id.as_deref().unwrap_or("-")
-        ),
+        format!("会话: {}", overlay.session_id.as_deref().unwrap_or("-")),
         format!("条目: {}", overlay.items.len()),
         format!("脏标记: {}", overlay.dirty),
         format!("状态汇总: 待处理={} 已完成={}", pending_count, completed_count),
@@ -1490,11 +1323,7 @@ fn todo_overlay_body_lines(overlay: &super::model::UiTodoOverlay) -> Vec<String>
         lines.push(format!(
             "{} [{}] {} ({})",
             marker,
-            if item.status.eq_ignore_ascii_case("completed") {
-                "x"
-            } else {
-                " "
-            },
+            if item.status.eq_ignore_ascii_case("completed") { "x" } else { " " },
             truncate_label(item.content.as_str(), 44),
             item.priority
         ));
@@ -1526,10 +1355,7 @@ fn todo_overlay_body_lines(overlay: &super::model::UiTodoOverlay) -> Vec<String>
 
 fn task_overlay_body_lines(overlay: &super::model::UiTaskOverlay) -> Vec<String> {
     let mut lines = vec![
-        format!(
-            "会话: {}",
-            overlay.session_id.as_deref().unwrap_or("-")
-        ),
+        format!("会话: {}", overlay.session_id.as_deref().unwrap_or("-")),
         format!("终端: {}", terminal_label(&overlay.turn_terminal)),
         format!("待处理问题: {}", overlay.pending_questions),
         format!("待办: {}", overlay.todo_count),
@@ -1574,14 +1400,8 @@ fn task_overlay_body_lines(overlay: &super::model::UiTaskOverlay) -> Vec<String>
             step.usage.cached_tokens,
             step.usage.reasoning_tokens
         ));
-        lines.push(format!(
-            "模型: {}",
-            step.model.as_deref().unwrap_or("-")
-        ));
-        lines.push(format!(
-            "结束原因: {}",
-            step.finish_reason.as_deref().unwrap_or("-")
-        ));
+        lines.push(format!("模型: {}", step.model.as_deref().unwrap_or("-")));
+        lines.push(format!("结束原因: {}", step.finish_reason.as_deref().unwrap_or("-")));
     }
 
     lines.push(String::new());
@@ -1688,10 +1508,7 @@ fn queue_command_pill(command: &QueuedPromptCommand) -> TuiPill {
         QueuedPromptCommandKind::Submit => "发送",
         QueuedPromptCommandKind::SlashCommand => "命令",
     };
-    TuiPill::new(
-        truncate_label(format!("{kind} {}", command.raw), 24),
-        TuiTone::Warning,
-    )
+    TuiPill::new(truncate_label(format!("{kind} {}", command.raw), 24), TuiTone::Warning)
 }
 
 fn last_submission_pill(state: &TuiState) -> TuiPill {
@@ -1744,11 +1561,7 @@ fn overlay_kind_label(kind: UiOverlayKind) -> &'static str {
 }
 
 fn prompt_line_prefix(line_index: usize) -> &'static str {
-    if line_index == 0 {
-        "> "
-    } else {
-        "· "
-    }
+    if line_index == 0 { "> " } else { "· " }
 }
 
 fn prompt_cursor_line_column(value: &str, char_index: usize) -> (usize, usize) {
@@ -1863,15 +1676,10 @@ fn truncate_start(value: impl AsRef<str>, max_chars: usize) -> String {
     }
 
     if max_chars <= 3 {
-        return value
-            .chars()
-            .skip(count.saturating_sub(max_chars))
-            .collect();
+        return value.chars().skip(count.saturating_sub(max_chars)).collect();
     }
 
-    let suffix = value
-        .chars()
-        .skip(count.saturating_sub(max_chars.saturating_sub(3)))
-        .collect::<String>();
+    let suffix =
+        value.chars().skip(count.saturating_sub(max_chars.saturating_sub(3))).collect::<String>();
     format!("...{suffix}")
 }

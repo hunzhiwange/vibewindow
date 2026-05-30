@@ -13,4 +13,3 @@ use iced::Task;
 pub fn update(_app: &mut App, _message: PreviewMessage) -> Task<Message> {
     Task::none()
 }
-

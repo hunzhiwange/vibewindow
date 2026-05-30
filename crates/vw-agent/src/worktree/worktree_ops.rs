@@ -149,7 +149,8 @@ pub async fn remove(input: RemoveInput) -> Result<bool, Error> {
         return Err(Error::Invalid(removed.error_text("Failed to remove git worktree")));
     }
 
-    if let Some(branch) = entry.branch.as_deref().and_then(|value| value.strip_prefix("refs/heads/"))
+    if let Some(branch) =
+        entry.branch.as_deref().and_then(|value| value.strip_prefix("refs/heads/"))
     {
         let deleted = run_git(&["branch", "-D", branch], &primary).await?;
         if !deleted.success {

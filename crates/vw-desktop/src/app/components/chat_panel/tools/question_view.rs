@@ -24,7 +24,9 @@ use super::canonical_tool_name;
 /// 重新导出 use super::tool_meta::tool_header_title，让上层模块通过稳定路径访问。
 use super::tool_meta::tool_header_title;
 /// 重新导出 use super::tool_parse::{tool_input, tool_output_text, tool_result_data, tool_status, tool_summary_text}，让上层模块通过稳定路径访问。
-use super::tool_parse::{tool_input, tool_output_text, tool_result_data, tool_status, tool_summary_text};
+use super::tool_parse::{
+    tool_input, tool_output_text, tool_result_data, tool_status, tool_summary_text,
+};
 
 /// 处理 question request targets message 对应的局部职责。
 ///
@@ -91,15 +93,19 @@ fn question_request_matches_message(app: &App, msg_idx: usize) -> bool {
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
 pub(super) fn parse_questions(input: &str) -> Vec<vw_shared::question::Info> {
-    if !input.trim_start().starts_with('{') {
+    let trimmed = input.trim();
+    if !(trimmed.starts_with('{') || trimmed.starts_with('[')) {
         return Vec::new();
     }
 
-    serde_json::from_str::<serde_json::Value>(input.trim())
-        .ok()
-        .and_then(|value| value.get("questions").cloned())
-        .and_then(|value| serde_json::from_value::<Vec<vw_shared::question::Info>>(value).ok())
-        .unwrap_or_default()
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) else {
+        return Vec::new();
+    };
+
+    let questions =
+        if value.is_array() { value } else { value.get("questions").cloned().unwrap_or_default() };
+
+    serde_json::from_value::<Vec<vw_shared::question::Info>>(questions).ok().unwrap_or_default()
 }
 
 /// 解析 answers 的输入文本，返回后续视图可以直接消费的结构化结果。
@@ -130,7 +136,9 @@ pub(super) fn parse_answers(value: &serde_json::Value, output: &str) -> BTreeMap
         .map(|(index, answers)| {
             let text = answers
                 .into_iter()
-                .map(|answer| answer.strip_prefix("__custom__:").unwrap_or(answer.as_str()).to_string())
+                .map(|answer| {
+                    answer.strip_prefix("__custom__:").unwrap_or(answer.as_str()).to_string()
+                })
                 .collect::<Vec<_>>()
                 .join(" / ");
             (index.to_string(), text)
@@ -303,9 +311,11 @@ pub fn tool_question_view<'a>(
             .unwrap_or_default();
 
         let mut item = column![
-            text(label).size(13).font(bold_font()).style(|theme: &Theme| iced::widget::text::Style {
-                // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                color: Some(chat_secondary_text_color(theme)),
+            text(label).size(13).font(bold_font()).style(|theme: &Theme| {
+                iced::widget::text::Style {
+                    // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                    color: Some(chat_secondary_text_color(theme)),
+                }
             }),
             text(prompt).size(13).style(|theme: &Theme| iced::widget::text::Style {
                 // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
@@ -316,12 +326,12 @@ pub fn tool_question_view<'a>(
 
         if !answer_text.trim().is_empty() {
             item = item.push(
-                text(format!("回答: {}", truncate_chars(answer_text.trim(), 160)))
-                    .size(12)
-                    .style(|theme: &Theme| iced::widget::text::Style {
+                text(format!("回答: {}", truncate_chars(answer_text.trim(), 160))).size(12).style(
+                    |theme: &Theme| iced::widget::text::Style {
                         // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
                         color: Some(chat_secondary_text_color(theme)),
-                    }),
+                    },
+                ),
             );
         }
 
@@ -329,14 +339,12 @@ pub fn tool_question_view<'a>(
     }
 
     if questions.len() > 3 {
-        body = body.push(
-            text(format!("还有 {} 个问题", questions.len() - 3))
-                .size(12)
-                .style(|theme: &Theme| iced::widget::text::Style {
-                    // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                    color: Some(chat_secondary_muted_text_color(theme)),
-                }),
-        );
+        body = body.push(text(format!("还有 {} 个问题", questions.len() - 3)).size(12).style(
+            |theme: &Theme| iced::widget::text::Style {
+                // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                color: Some(chat_secondary_muted_text_color(theme)),
+            },
+        ));
     }
 
     let card = mouse_area(

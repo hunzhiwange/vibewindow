@@ -127,4 +127,3 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
     // 历史操作不需要产生额外的异步任务
     Task::none()
 }
-

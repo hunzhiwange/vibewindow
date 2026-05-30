@@ -36,7 +36,9 @@
 //! );
 //! ```
 
-use super::traits::{Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec};
+use super::traits::{
+    Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec,
+};
 use super::url_validation::{
     DomainPolicy, UrlSchemePolicy, normalize_allowed_domains, validate_url,
 };

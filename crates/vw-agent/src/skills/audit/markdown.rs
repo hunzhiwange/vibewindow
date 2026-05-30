@@ -19,6 +19,27 @@ pub(super) fn audit_markdown_file(
     path: &Path,
     report: &mut SkillAuditReport,
 ) -> Result<()> {
+    audit_markdown_content(root, path, report, true)
+}
+
+/// 审计附加 Markdown 资源。
+///
+/// 附加资料常包含示例链接、上游文档路径或占位文件名。运行时不会自动展开这些链接，
+/// 因此这里保留高风险文本检测，但不把链接完整性作为技能加载的阻断条件。
+pub(super) fn audit_markdown_resource_file(
+    root: &Path,
+    path: &Path,
+    report: &mut SkillAuditReport,
+) -> Result<()> {
+    audit_markdown_content(root, path, report, false)
+}
+
+fn audit_markdown_content(
+    root: &Path,
+    path: &Path,
+    report: &mut SkillAuditReport,
+    audit_links: bool,
+) -> Result<()> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("failed to read markdown file {}", path.display()))?;
     let rel = relative_display(root, path);
@@ -27,14 +48,21 @@ pub(super) fn audit_markdown_file(
         report.findings.push(format!("{rel}: detected high-risk command pattern ({pattern})."));
     }
 
-    for raw_target in extract_markdown_links(&content) {
-        audit_markdown_link_target(root, path, &raw_target, report);
+    if audit_links {
+        for raw_target in extract_markdown_links(&content) {
+            audit_markdown_link_target(root, path, &raw_target, report);
+        }
     }
 
     Ok(())
 }
 
-fn audit_markdown_link_target(root: &Path, source: &Path, raw: &str, report: &mut SkillAuditReport) {
+fn audit_markdown_link_target(
+    root: &Path,
+    source: &Path,
+    raw: &str,
+    report: &mut SkillAuditReport,
+) {
     let normalized = normalize_markdown_target(raw);
     if normalized.is_empty() || normalized.starts_with('#') {
         return;

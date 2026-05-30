@@ -148,14 +148,14 @@ impl<'a> MindMapCanvas<'a> {
             let child_count =
                 mind_map::node(self.doc, node_path).map(descendant_count).unwrap_or(0);
             if child_count > 0
-                && let Some((center, r)) = toggle_center {
-                    let badge_rect =
-                        self.collapsed_count_badge_rect(node_path, center, r, child_count);
-                    min_x = min_x.min(badge_rect.x);
-                    min_y = min_y.min(badge_rect.y);
-                    max_x = max_x.max(badge_rect.x + badge_rect.width);
-                    max_y = max_y.max(badge_rect.y + badge_rect.height);
-                }
+                && let Some((center, r)) = toggle_center
+            {
+                let badge_rect = self.collapsed_count_badge_rect(node_path, center, r, child_count);
+                min_x = min_x.min(badge_rect.x);
+                min_y = min_y.min(badge_rect.y);
+                max_x = max_x.max(badge_rect.x + badge_rect.width);
+                max_y = max_y.max(badge_rect.y + badge_rect.height);
+            }
         }
 
         Some(Rectangle::new(Point::new(min_x, min_y), Size::new(max_x - min_x, max_y - min_y)))

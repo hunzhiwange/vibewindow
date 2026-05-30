@@ -131,13 +131,8 @@ pub(super) fn handle_question_submit(app: &mut App) -> Task<Message> {
         let allow_multi = req.questions.get(i).and_then(|q| q.multiple).unwrap_or(false);
         let allow_custom = req.questions.get(i).and_then(|q| q.custom).unwrap_or(false);
         let mut a = app.question_modal_answers.get(i).cloned().unwrap_or_default();
-        let custom = app
-            .question_modal_custom
-            .get(i)
-            .cloned()
-            .unwrap_or_default()
-            .trim()
-            .to_string();
+        let custom =
+            app.question_modal_custom.get(i).cloned().unwrap_or_default().trim().to_string();
         if allow_custom && !custom.is_empty() {
             if allow_multi {
                 if !a.contains(&custom) {

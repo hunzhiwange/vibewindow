@@ -6,8 +6,7 @@ use super::canvas::WorkflowCanvas;
 use super::message::WorkflowMessage;
 use super::model::{
     WorkflowEdge, WorkflowNode, WorkflowNodeIconDescriptor, WorkflowNodeTypeDescriptor,
-    pretty_block_type,
-    supported_node_types, workflow_node_accent_color, workflow_node_icon,
+    pretty_block_type, supported_node_types, workflow_node_accent_color, workflow_node_icon,
     workflow_system_variables,
 };
 pub(super) use super::state;
@@ -16,24 +15,22 @@ use super::state::{
     WorkflowCodeVariableDraft, WorkflowNodeEditorMode, WorkflowNodeEditorTab,
     WorkflowNodeRetryDraft, WorkflowNodeVisualDraft, WorkflowState, WorkflowVariablePanelKind,
 };
+use crate::app::Message;
 use crate::app::assets::{self, Icon};
 use crate::app::components::overlays::PointBelowOverlay;
 use crate::app::components::system_settings_common::{
     danger_action_btn_style, primary_action_btn_style, round_icon_btn_style,
-    rounded_action_btn_style,
-    settings_close_button, settings_modal_backdrop_style, settings_modal_card_style,
-    settings_modal_overlay,
-    settings_muted_text_style, settings_pick_list_menu_style,
-    settings_pick_list_style, settings_panel_style, settings_section_card,
-    settings_text_editor_style, settings_text_input_style, settings_value_badge,
+    rounded_action_btn_style, settings_close_button, settings_modal_backdrop_style,
+    settings_modal_card_style, settings_modal_overlay, settings_muted_text_style,
+    settings_panel_style, settings_pick_list_menu_style, settings_pick_list_style,
+    settings_section_card, settings_text_editor_style, settings_text_input_style,
+    settings_value_badge,
 };
-use crate::app::Message;
 use iced::widget::{
-    Space, button, checkbox, container, image, mouse_area, pick_list, scrollable, slider, svg,
+    Space, button, checkbox, container, image, mouse_area, pick_list, scrollable,
     scrollable::{Direction, Scrollbar},
-    stack, text, text_editor, text_input,
+    slider, stack, svg, text, text_editor, text_input, toggler,
     tooltip::{Position as TooltipPosition, Tooltip},
-    toggler,
 };
 use iced::{Alignment, Background, Border, Color, Element, Length, Point, Shadow, Theme, Vector};
 
@@ -141,10 +138,7 @@ fn node_editor_title_input_style(
     }
 }
 
-fn node_editor_description_style(
-    theme: &Theme,
-    status: text_editor::Status,
-) -> text_editor::Style {
+fn node_editor_description_style(theme: &Theme, status: text_editor::Status) -> text_editor::Style {
     let palette = theme.palette();
     let extended = theme.extended_palette();
     let is_dark = is_dark_theme(theme);
@@ -188,9 +182,13 @@ fn next_step_jump_card_style(
         iced::widget::button::Status::Pressed => {
             Some(Background::Color(extended.background.strong.color.scale_alpha(0.92)))
         }
-        iced::widget::button::Status::Hovered => Some(Background::Color(
-            extended.background.weak.color.scale_alpha(if is_dark { 0.92 } else { 0.96 }),
-        )),
+        iced::widget::button::Status::Hovered => {
+            Some(Background::Color(extended.background.weak.color.scale_alpha(if is_dark {
+                0.92
+            } else {
+                0.96
+            })))
+        }
         _ => Some(Background::Color(if is_dark {
             extended.background.base.color.scale_alpha(0.86)
         } else {
@@ -204,10 +202,10 @@ fn next_step_jump_card_style(
             width: 1.0,
             color: match status {
                 iced::widget::button::Status::Pressed => theme.palette().primary.scale_alpha(0.72),
-                iced::widget::button::Status::Hovered => {
-                    theme.palette().primary.scale_alpha(0.34)
+                iced::widget::button::Status::Hovered => theme.palette().primary.scale_alpha(0.34),
+                _ => {
+                    extended.background.strong.color.scale_alpha(if is_dark { 0.56 } else { 0.14 })
                 }
-                _ => extended.background.strong.color.scale_alpha(if is_dark { 0.56 } else { 0.14 }),
             },
             radius: 14.0.into(),
         },
@@ -233,11 +231,7 @@ impl std::fmt::Display for WorkflowAppSwitchOption {
 }
 
 fn workflow_app_display_name(name: &str) -> String {
-    if name.trim().is_empty() {
-        "未命名应用".to_string()
-    } else {
-        name.to_string()
-    }
+    if name.trim().is_empty() { "未命名应用".to_string() } else { name.to_string() }
 }
 
 fn workflow_app_switch_options(state: &WorkflowState) -> Vec<WorkflowAppSwitchOption> {
@@ -258,22 +252,17 @@ fn workflow_app_switch_options(state: &WorkflowState) -> Vec<WorkflowAppSwitchOp
                 format!("{} {}", app.meta.icon, name)
             };
 
-            WorkflowAppSwitchOption {
-                id: app.id.clone(),
-                label,
-            }
+            WorkflowAppSwitchOption { id: app.id.clone(), label }
         })
         .collect()
 }
 
 fn build_app_switcher(state: &WorkflowState) -> Element<'static, Message> {
     let options = workflow_app_switch_options(state);
-    let selected = state.active_app_id.as_ref().and_then(|active_id| {
-        options
-            .iter()
-            .find(|option| option.id == *active_id)
-            .cloned()
-    });
+    let selected = state
+        .active_app_id
+        .as_ref()
+        .and_then(|active_id| options.iter().find(|option| option.id == *active_id).cloned());
 
     if options.is_empty() {
         container(Space::new().width(Length::Shrink).height(Length::Fixed(0.0)))
@@ -293,7 +282,8 @@ fn build_app_switcher(state: &WorkflowState) -> Element<'static, Message> {
 }
 
 pub fn view(state: &WorkflowState) -> Element<'_, Message> {
-    let canvas_base: Element<'_, Message> = if !state.has_apps() || state.document.nodes.is_empty() {
+    let canvas_base: Element<'_, Message> = if !state.has_apps() || state.document.nodes.is_empty()
+    {
         container(Space::new().width(Length::Fill).height(Length::Fill))
             .width(Length::Fill)
             .height(Length::Fill)
@@ -320,11 +310,9 @@ pub fn view(state: &WorkflowState) -> Element<'_, Message> {
 
     let canvas_area = build_canvas_area(state, canvas_base);
 
-    let mut layers: Vec<Element<'_, Message>> = vec![container(canvas_area)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .style(root_style)
-        .into()];
+    let mut layers: Vec<Element<'_, Message>> = vec![
+        container(canvas_area).width(Length::Fill).height(Length::Fill).style(root_style).into(),
+    ];
 
     if let Some(error) = &state.error_message {
         layers.push(
@@ -355,11 +343,7 @@ pub fn view(state: &WorkflowState) -> Element<'_, Message> {
     if state.variable_editor.is_some() {
         layers.push(build_variable_editor_modal(state));
     }
-    if state
-        .node_editor
-        .as_ref()
-        .and_then(|editor| editor.start_variable_editor.as_ref())
-        .is_some()
+    if state.node_editor.as_ref().and_then(|editor| editor.start_variable_editor.as_ref()).is_some()
     {
         layers.push(build_start_variable_editor_modal(state));
     }

@@ -35,11 +35,11 @@
 use crate::app::agent::bus;
 use crate::app::agent::file::ignore;
 use crate::app::agent::flag;
-use std::sync::LazyLock;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 

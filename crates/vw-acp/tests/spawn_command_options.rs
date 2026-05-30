@@ -109,10 +109,8 @@ fn unique_temp_dir() -> std::path::PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("system time should be after unix epoch")
         .as_nanos();
-    std::env::temp_dir().join(format!(
-        "vw-acp-spawn-command-options-{nanos}-{}",
-        std::process::id()
-    ))
+    std::env::temp_dir()
+        .join(format!("vw-acp-spawn-command-options-{nanos}-{}", std::process::id()))
 }
 
 #[cfg(unix)]
@@ -124,11 +122,8 @@ async fn build_spawn_command_uses_augmented_shell_path() {
     let script = profile_bin.join("vw-acp-path-script");
 
     make_executable(&script, "#!/bin/sh\nprintf profile-path-ok\n");
-    fs::write(
-        home.join(".profile"),
-        format!("export PATH={}:$PATH\n", profile_bin.display()),
-    )
-    .expect("profile should be written");
+    fs::write(home.join(".profile"), format!("export PATH={}:$PATH\n", profile_bin.display()))
+        .expect("profile should be written");
 
     // 强制 HOME/PATH 指向测试夹，确保命令解析依赖本用例创建的 profile，而不是
     // 开发者机器上的真实 shell 配置。

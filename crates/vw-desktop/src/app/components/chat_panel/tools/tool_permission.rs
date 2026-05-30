@@ -153,11 +153,7 @@ pub(crate) fn pending_permission_request_for_message<'a>(
         .iter()
         .filter(|request| pending_permission_targets_message(Some(request), Some(message_id)));
     let first = matches.next()?;
-    if matches.next().is_none() {
-        Some(first)
-    } else {
-        None
-    }
+    if matches.next().is_none() { Some(first) } else { None }
 }
 
 /// 解析或展示工具权限请求的 pending permission badge label 状态。
@@ -266,16 +262,12 @@ pub(crate) fn tool_permission_state(
         .map(str::trim)
         .filter(|text| !text.is_empty())
         .unwrap_or_default();
-    let combined = [
-        error_text.as_str(),
-        summary_text.as_str(),
-        permission_reason,
-        permission_warning,
-    ]
-    .into_iter()
-    .filter(|text| !text.is_empty())
-    .collect::<Vec<_>>()
-    .join("\n");
+    let combined =
+        [error_text.as_str(), summary_text.as_str(), permission_reason, permission_warning]
+            .into_iter()
+            .filter(|text| !text.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
     let lower = combined.to_ascii_lowercase();
 
     if lower.contains("approval required")
@@ -498,11 +490,7 @@ fn permission_request_input_summary(
         // Value 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
         Value::String(text) => {
             let trimmed = text.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(truncate_chars(trimmed, 80).to_string())
-            }
+            if trimmed.is_empty() { None } else { Some(truncate_chars(trimmed, 80).to_string()) }
         }
         _ => None,
     }

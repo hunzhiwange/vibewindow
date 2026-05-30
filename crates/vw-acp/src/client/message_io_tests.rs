@@ -55,10 +55,7 @@ async fn tapped_reader_and_writer_forward_successful_bytes() {
     );
     let input = tokio::io::duplex(128);
     let (mut writer, reader) = input;
-    writer
-        .write_all(br#"{"jsonrpc":"2.0","method":"session/update"}"#)
-        .await
-        .expect("write input");
+    writer.write_all(br#"{"jsonrpc":"2.0","method":"session/update"}"#).await.expect("write input");
     writer.write_all(b"\n").await.expect("write newline");
     drop(writer);
 

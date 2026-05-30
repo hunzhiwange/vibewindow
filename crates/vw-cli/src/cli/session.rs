@@ -313,9 +313,7 @@ impl GitWorkspaceStatus {
 /// // 可能返回: ["Cargo.toml", "src/main.rs", "src/lib.rs"]
 /// ```
 pub(crate) fn collect_modified_files(worktree: &Path) -> Vec<String> {
-    collect_git_workspace_status(worktree)
-        .modified_files()
-        .to_vec()
+    collect_git_workspace_status(worktree).modified_files().to_vec()
 }
 
 /// 收集当前工作区的 Git 状态语义。
@@ -324,13 +322,7 @@ pub(crate) fn collect_modified_files(worktree: &Path) -> Vec<String> {
 /// “没有变更”和“Git 不可用”。
 pub(crate) fn collect_git_workspace_status(worktree: &Path) -> GitWorkspaceStatus {
     let output = git_std_command()
-        .args([
-            "-c",
-            "core.quotepath=false",
-            "status",
-            "--porcelain",
-            "--untracked-files=all",
-        ])
+        .args(["-c", "core.quotepath=false", "status", "--porcelain", "--untracked-files=all"])
         .current_dir(worktree)
         .output();
 
@@ -365,12 +357,7 @@ fn parse_git_status_porcelain_path(line: &str) -> Option<String> {
         return None;
     }
 
-    Some(
-        path.split_once(" -> ")
-            .map(|(_, renamed_path)| renamed_path)
-            .unwrap_or(path)
-            .to_string(),
-    )
+    Some(path.split_once(" -> ").map(|(_, renamed_path)| renamed_path).unwrap_or(path).to_string())
 }
 
 /// 获取当前 Git 分支名称

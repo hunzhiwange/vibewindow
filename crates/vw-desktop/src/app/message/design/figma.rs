@@ -3,9 +3,9 @@
 //! 注释聚焦模块职责、消息边界和失败处理方式，帮助维护者在不改变逻辑的前提下理解代码。
 
 use super::DesignMessage;
-use crate::app::views::design::models::{DesignTool, compute_tree_metrics};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::app::views::design::models::DesignDoc;
+use crate::app::views::design::models::{DesignTool, compute_tree_metrics};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::app::views::design::state::{FigmaProgressStage, FigmaProgressState};
 use crate::app::{App, Message};
@@ -168,4 +168,3 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
         _ => None,
     }
 }
-

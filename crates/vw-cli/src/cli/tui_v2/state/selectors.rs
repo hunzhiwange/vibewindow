@@ -10,9 +10,8 @@ use std::mem;
 
 use super::TuiState;
 use crate::cli::tui_v2::model::{
-    UiAssistantMessage, UiMessage, UiMessageId, UiOverlay, UiSearchMatch, UiStep,
-    UiThinkingBlock, UiTokenUsage, UiToolCall, UiToolResult, UiTurnTerminal,
-    UiUserMessage,
+    UiAssistantMessage, UiMessage, UiMessageId, UiOverlay, UiSearchMatch, UiStep, UiThinkingBlock,
+    UiTokenUsage, UiToolCall, UiToolResult, UiTurnTerminal, UiUserMessage,
 };
 use unicode_width::UnicodeWidthChar;
 
@@ -256,10 +255,7 @@ impl TuiSearchTextCache {
     }
 
     pub(crate) fn rebuild(&mut self, messages: &[UiMessage]) {
-        self.entries = messages
-            .iter()
-            .map(search_text_cache_entry_for_message)
-            .collect();
+        self.entries = messages.iter().map(search_text_cache_entry_for_message).collect();
     }
 
     pub(crate) fn refresh_message(&mut self, messages: &[UiMessage], message_index: usize) {
@@ -343,7 +339,8 @@ impl TuiTranscriptLayoutCache {
 
         for (content_width, bucket) in &mut self.buckets {
             if bucket.item_heights.len() != projection.len() {
-                *bucket = derive_transcript_layout_cache_bucket(messages, projection, *content_width);
+                *bucket =
+                    derive_transcript_layout_cache_bucket(messages, projection, *content_width);
                 continue;
             }
 
@@ -452,9 +449,7 @@ impl TuiTranscriptProjectionCache {
     }
 
     pub(crate) fn item_index_for_message(&self, message_index: usize) -> Option<usize> {
-        self.items
-            .iter()
-            .position(|item| item.span().contains(message_index))
+        self.items.iter().position(|item| item.span().contains(message_index))
     }
 }
 
@@ -472,10 +467,7 @@ pub(crate) struct MessageWindowSpan {
 
 impl MessageWindowSpan {
     fn single(index: usize) -> Self {
-        Self {
-            start: index,
-            end: index.saturating_add(1),
-        }
+        Self { start: index, end: index.saturating_add(1) }
     }
 
     fn contains(self, index: usize) -> bool {
@@ -506,13 +498,11 @@ impl TuiTranscriptProjectionItem {
 
     fn materialize<'a>(&self, messages: &'a [UiMessage]) -> TuiTranscriptItem<'a> {
         match self {
-            Self::Standalone { message_index, .. } => {
-                TuiTranscriptItem::Standalone(
-                    messages
-                        .get(*message_index)
-                        .expect("transcript standalone index must stay in sync with messages"),
-                )
-            }
+            Self::Standalone { message_index, .. } => TuiTranscriptItem::Standalone(
+                messages
+                    .get(*message_index)
+                    .expect("transcript standalone index must stay in sync with messages"),
+            ),
             Self::AssistantTurn {
                 assistant_index,
                 preface_message_indices,
@@ -594,8 +584,10 @@ pub(crate) fn select_visible_grouped_transcript_window(
     let sticky_prompt = derive_sticky_prompt_summary(&state.messages, projection, top_item_index);
 
     if state.scroll.viewport_height == 0 {
-        let covered_message_start = projection.items().first().map(|item| item.span().start).unwrap_or_default();
-        let covered_message_end = projection.items().last().map(|item| item.span().end).unwrap_or_default();
+        let covered_message_start =
+            projection.items().first().map(|item| item.span().start).unwrap_or_default();
+        let covered_message_end =
+            projection.items().last().map(|item| item.span().end).unwrap_or_default();
         let unseen_range = derive_unseen_range_summary(
             &state.messages,
             projection,
@@ -631,9 +623,8 @@ pub(crate) fn select_visible_grouped_transcript_window(
         state.scroll.viewport_width,
         state.scroll.viewport_height as usize,
     );
-    let end_item_index = visible_end_index
-        .saturating_add(state.scroll.overscan)
-        .min(projection.len());
+    let end_item_index =
+        visible_end_index.saturating_add(state.scroll.overscan).min(projection.len());
     let items = projection.items()[start_item_index..end_item_index]
         .iter()
         .map(|item| item.materialize(&state.messages))
@@ -711,7 +702,10 @@ pub(crate) fn derive_transcript_projection_cache(
                 }));
                 pending_user_id = None;
             }
-            UiMessage::Thinking(_) | UiMessage::Step(_) | UiMessage::ToolCall(_) | UiMessage::ToolResult(_) => {
+            UiMessage::Thinking(_)
+            | UiMessage::Step(_)
+            | UiMessage::ToolCall(_)
+            | UiMessage::ToolResult(_) => {
                 if let Some(TranscriptBuilderItem::AssistantTurn(turn)) = items.last_mut()
                     && assistant_turn_accepts_message(turn, message)
                 {
@@ -738,10 +732,7 @@ pub(crate) fn derive_transcript_projection_cache(
 
     flush_pending_preface(&mut items, &mut pending_preface);
 
-    let items = items
-        .into_iter()
-        .map(finalize_transcript_projection_item)
-        .collect::<Vec<_>>();
+    let items = items.into_iter().map(finalize_transcript_projection_item).collect::<Vec<_>>();
     let anchors = items.iter().map(|item| item.span().start).collect();
     TuiTranscriptProjectionCache { items, anchors }
 }
@@ -888,7 +879,9 @@ fn flush_pending_preface<'a>(
     }
 }
 
-fn finalize_transcript_projection_item(item: TranscriptBuilderItem<'_>) -> TuiTranscriptProjectionItem {
+fn finalize_transcript_projection_item(
+    item: TranscriptBuilderItem<'_>,
+) -> TuiTranscriptProjectionItem {
     match item {
         TranscriptBuilderItem::Standalone(message) => TuiTranscriptProjectionItem::Standalone {
             message_index: message.index,
@@ -964,10 +957,8 @@ fn derive_unseen_range_summary(
     }
 
     let first_unseen_message = last_seen_message.saturating_add(1);
-    let first_unseen_item_index = projection
-        .items()
-        .iter()
-        .position(|item| item.span().end > first_unseen_message)?;
+    let first_unseen_item_index =
+        projection.items().iter().position(|item| item.span().end > first_unseen_message)?;
 
     Some(TuiUnseenRangeSummary {
         first_unseen_message,
@@ -979,15 +970,18 @@ fn derive_unseen_range_summary(
     })
 }
 
-fn user_prompt_index_for_assistant(messages: &[UiMessage], assistant_index: usize) -> Option<usize> {
+fn user_prompt_index_for_assistant(
+    messages: &[UiMessage],
+    assistant_index: usize,
+) -> Option<usize> {
     let UiMessage::Assistant(assistant) = messages.get(assistant_index)? else {
         return None;
     };
 
     if let Some(parent_id) = assistant.base.parent_id.as_ref()
-        && let Some((index, _)) = messages.iter().enumerate().rev().find(|(_, message)| {
-            matches!(message, UiMessage::User(user) if &user.base.id == parent_id)
-        })
+        && let Some((index, _)) = messages.iter().enumerate().rev().find(
+            |(_, message)| matches!(message, UiMessage::User(user) if &user.base.id == parent_id),
+        )
     {
         return Some(index);
     }
@@ -1019,10 +1013,7 @@ fn truncate_preview(value: &str, max_chars: usize) -> String {
         return value.chars().take(max_chars).collect();
     }
 
-    let prefix = value
-        .chars()
-        .take(max_chars.saturating_sub(3))
-        .collect::<String>();
+    let prefix = value.chars().take(max_chars.saturating_sub(3)).collect::<String>();
     format!("{prefix}...")
 }
 
@@ -1030,10 +1021,7 @@ fn materialize_transcript_items<'a>(
     messages: &'a [UiMessage],
     items: &[TuiTranscriptProjectionItem],
 ) -> Vec<TuiTranscriptItem<'a>> {
-    items
-        .iter()
-        .map(|item| item.materialize(messages))
-        .collect()
+    items.iter().map(|item| item.materialize(messages)).collect()
 }
 
 fn message_indices_to_indexed_messages<'a>(
@@ -1056,12 +1044,12 @@ fn derive_turn_entries(messages: Vec<IndexedUiMessage<'_>>) -> Vec<TuiAssistantT
 
     for message in messages {
         match message.message {
-            UiMessage::Thinking(thinking) => entries.push(TuiAssistantTurnEntry::Thinking(thinking)),
+            UiMessage::Thinking(thinking) => {
+                entries.push(TuiAssistantTurnEntry::Thinking(thinking));
+            }
             UiMessage::Step(step) => entries.push(TuiAssistantTurnEntry::Step(step)),
-            UiMessage::ToolCall(call) => entries.push(TuiAssistantTurnEntry::Tool(TuiToolCallGroup {
-                call,
-                results: Vec::new(),
-            })),
+            UiMessage::ToolCall(call) => entries
+                .push(TuiAssistantTurnEntry::Tool(TuiToolCallGroup { call, results: Vec::new() })),
             UiMessage::ToolResult(result) => {
                 if let Some(TuiAssistantTurnEntry::Tool(tool_group)) = entries.last_mut()
                     && tool_result_matches_call(tool_group.call, result)
@@ -1151,10 +1139,7 @@ fn build_collapsed_explore_results(
     }
 }
 
-fn assistant_turn_accepts_message(
-    turn: &AssistantTurnBuilder<'_>,
-    message: &UiMessage,
-) -> bool {
+fn assistant_turn_accepts_message(turn: &AssistantTurnBuilder<'_>, message: &UiMessage) -> bool {
     match message {
         UiMessage::Thinking(_) | UiMessage::Step(_) | UiMessage::ToolCall(_) => true,
         UiMessage::ToolResult(result) => {
@@ -1175,25 +1160,19 @@ fn can_stage_preface_message(
     };
 
     match message {
-        UiMessage::Thinking(_) | UiMessage::ToolCall(_) => message
-            .base()
-            .parent_id
-            .as_ref()
-            .is_some_and(|parent_id| parent_id == user_id),
+        UiMessage::Thinking(_) | UiMessage::ToolCall(_) => {
+            message.base().parent_id.as_ref().is_some_and(|parent_id| parent_id == user_id)
+        }
         UiMessage::ToolResult(result) => tool_result_matches_messages(result, pending_preface),
         _ => false,
     }
 }
 
-fn tool_result_matches_messages(
-    result: &UiToolResult,
-    messages: &[IndexedUiMessage<'_>],
-) -> bool {
+fn tool_result_matches_messages(result: &UiToolResult, messages: &[IndexedUiMessage<'_>]) -> bool {
     messages.iter().rev().any(|message| match message {
-        IndexedUiMessage {
-            message: UiMessage::ToolCall(call),
-            ..
-        } => tool_result_matches_call(call, result),
+        IndexedUiMessage { message: UiMessage::ToolCall(call), .. } => {
+            tool_result_matches_call(call, result)
+        }
         _ => false,
     })
 }
@@ -1304,12 +1283,7 @@ fn transcript_window_end_index_by_estimated_rows(
 }
 
 fn tool_result_matches_call(call: &UiToolCall, result: &UiToolResult) -> bool {
-    if result
-        .base
-        .parent_id
-        .as_ref()
-        .is_some_and(|parent_id| parent_id == &call.base.id)
-    {
+    if result.base.parent_id.as_ref().is_some_and(|parent_id| parent_id == &call.base.id) {
         return true;
     }
 
@@ -1369,10 +1343,7 @@ fn searchable_text(message: &UiMessage) -> Cow<'_, str> {
 fn search_text_cache_entry_for_message(message: &UiMessage) -> TuiSearchTextCacheEntry {
     let text = searchable_text(message).into_owned();
     let ascii_lowercase_text = text.to_ascii_lowercase();
-    TuiSearchTextCacheEntry {
-        text,
-        ascii_lowercase_text,
-    }
+    TuiSearchTextCacheEntry { text, ascii_lowercase_text }
 }
 
 fn derive_transcript_layout_cache_bucket(
@@ -1386,10 +1357,7 @@ fn derive_transcript_layout_cache_bucket(
         .map(|item| estimate_transcript_projection_item_height(messages, item, content_width))
         .collect();
 
-    TuiTranscriptLayoutCacheBucket {
-        content_width,
-        item_heights,
-    }
+    TuiTranscriptLayoutCacheBucket { content_width, item_heights }
 }
 
 fn estimate_transcript_projection_item_height(
@@ -1414,8 +1382,12 @@ fn transcript_item_line_texts(item: &TuiTranscriptItem<'_>) -> Vec<String> {
         TuiTranscriptItem::Standalone(message) => vec![message_line_text(message)],
         TuiTranscriptItem::AssistantTurn(turn) => {
             let mut lines = vec![assistant_line_text(turn.assistant)];
-            lines.extend(turn.preface.iter().map(|entry| assistant_turn_entry_line_text(entry, true)));
-            lines.extend(turn.children.iter().map(|entry| assistant_turn_entry_line_text(entry, false)));
+            lines.extend(
+                turn.preface.iter().map(|entry| assistant_turn_entry_line_text(entry, true)),
+            );
+            lines.extend(
+                turn.children.iter().map(|entry| assistant_turn_entry_line_text(entry, false)),
+            );
             lines
         }
     }
@@ -1434,20 +1406,15 @@ fn message_line_text(message: &UiMessage) -> String {
         UiMessage::System(message) => format!("SYSTEM {}", message.text),
         UiMessage::ToolCall(message) => format!("TOOL   {} {:?}", message.tool_name, message.state),
         UiMessage::ToolResult(message) => format!("RESULT {}", message.content),
-        UiMessage::Thinking(message) => format!(
-            "THINK  {}",
-            message.summary.as_deref().unwrap_or(message.content.as_str())
-        ),
+        UiMessage::Thinking(message) => {
+            format!("THINK  {}", message.summary.as_deref().unwrap_or(message.content.as_str()))
+        }
         UiMessage::Error(message) => format!("ERROR  {}", message.message),
     }
 }
 
 fn assistant_line_text(message: &UiAssistantMessage) -> String {
-    format!(
-        "ASSIST {} [{}]",
-        message.text,
-        terminal_label_text(&message.terminal)
-    )
+    format!("ASSIST {} [{}]", message.text, terminal_label_text(&message.terminal))
 }
 
 fn assistant_turn_entry_line_text(entry: &TuiAssistantTurnEntry<'_>, is_preface: bool) -> String {
@@ -1487,10 +1454,7 @@ fn wrapped_line_count(text: &str, content_width: u16) -> usize {
     let mut total_rows = 0usize;
 
     for segment in text.split('\n') {
-        let display_width = segment
-            .chars()
-            .map(|ch| ch.width().unwrap_or(0))
-            .sum::<usize>();
+        let display_width = segment.chars().map(|ch| ch.width().unwrap_or(0)).sum::<usize>();
         total_rows = total_rows.saturating_add(display_width.max(1).div_ceil(content_width));
     }
 
@@ -1515,11 +1479,7 @@ fn excerpt_around(text: &str, start: usize, end: usize) -> String {
     let suffix = if preview_end < text.len() { "..." } else { "" };
     // 用 […] 标记匹配关键词，便于在预览中直观定位
     let matched = &text[start..end];
-    format!(
-        "{prefix}{}[{matched}]{}{suffix}",
-        &text[preview_start..start],
-        &text[end..preview_end],
-    )
+    format!("{prefix}{}[{matched}]{}{suffix}", &text[preview_start..start], &text[end..preview_end],)
 }
 
 fn floor_char_boundary(text: &str, index: usize) -> usize {

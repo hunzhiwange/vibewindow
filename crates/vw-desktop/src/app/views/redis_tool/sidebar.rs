@@ -72,34 +72,25 @@ pub(super) fn build_sidebar<'a>(app: &'a App) -> Element<'a, Message> {
             || connection.host.to_ascii_lowercase().contains(&query)
     }) {
         matched_connections += 1;
-        let selected = app.redis_tool.selected_connection_id.as_deref() == Some(connection.id.as_str());
+        let selected =
+            app.redis_tool.selected_connection_id.as_deref() == Some(connection.id.as_str());
         let runtime_loaded = app
             .redis_tool
             .runtime_overview
             .as_ref()
             .is_some_and(|overview| overview.connection_id == connection.id);
-        let last_used = connection
-            .last_used_ms
-            .map(format_timestamp)
-            .unwrap_or_else(|| "未进入".to_string());
+        let last_used =
+            connection.last_used_ms.map(format_timestamp).unwrap_or_else(|| "未进入".to_string());
 
         let badges = build_badges(connection);
         let mut content = column![
-            row![
-                text(&connection.name).size(14),
-                Space::new().width(Length::Fill),
-                badges,
-            ]
-            .align_y(Alignment::Center),
+            row![text(&connection.name).size(14), Space::new().width(Length::Fill), badges,]
+                .align_y(Alignment::Center),
             text(format!("{}:{}  /  DB {}", connection.host, connection.port, connection.db))
                 .size(12)
                 .style(settings_muted_text_style),
-            text(connection_mode_summary(connection))
-                .size(11)
-                .style(settings_muted_text_style),
-            text(format!("最近使用：{last_used}"))
-                .size(11)
-                .style(settings_muted_text_style),
+            text(connection_mode_summary(connection)).size(11).style(settings_muted_text_style),
+            text(format!("最近使用：{last_used}")).size(11).style(settings_muted_text_style),
         ]
         .spacing(6);
 
@@ -107,7 +98,11 @@ pub(super) fn build_sidebar<'a>(app: &'a App) -> Element<'a, Message> {
             content = content.push(
                 row![
                     settings_value_badge("已展开"),
-                    settings_value_badge(if runtime_loaded { "信息已加载" } else { "待加载" }),
+                    settings_value_badge(if runtime_loaded {
+                        "信息已加载"
+                    } else {
+                        "待加载"
+                    }),
                 ]
                 .spacing(6)
                 .align_y(Alignment::Center),
@@ -120,19 +115,17 @@ pub(super) fn build_sidebar<'a>(app: &'a App) -> Element<'a, Message> {
         }
 
         let item = button(
-            container(
-                content,
-            )
-            .padding([14, 14])
-            .width(Length::Fill)
-            .style(move |theme: &Theme| connection_item_style(theme, selected)),
+            container(content)
+                .padding([14, 14])
+                .width(Length::Fill)
+                .style(move |theme: &Theme| connection_item_style(theme, selected)),
         )
         .padding(0)
         .width(Length::Fill)
         .style(button::text)
-        .on_press_maybe((!is_busy).then_some(Message::RedisTool(RedisToolMessage::SelectConnection(
-            connection.id.clone(),
-        ))));
+        .on_press_maybe((!is_busy).then_some(Message::RedisTool(
+            RedisToolMessage::SelectConnection(connection.id.clone()),
+        )));
 
         list = list.push(item);
     }
@@ -149,12 +142,8 @@ pub(super) fn build_sidebar<'a>(app: &'a App) -> Element<'a, Message> {
     column![
         action_bar,
         search,
-        container(
-            scrollable(list)
-                .direction(redis_scroll_direction())
-                .height(Length::Fill),
-        )
-        .height(Length::Fill),
+        container(scrollable(list).direction(redis_scroll_direction()).height(Length::Fill),)
+            .height(Length::Fill),
     ]
     .spacing(12)
     .width(Length::Fill)
@@ -162,7 +151,9 @@ pub(super) fn build_sidebar<'a>(app: &'a App) -> Element<'a, Message> {
     .into()
 }
 
-fn build_badges<'a>(connection: &'a crate::app::state::RedisConnectionConfig) -> Element<'a, Message> {
+fn build_badges<'a>(
+    connection: &'a crate::app::state::RedisConnectionConfig,
+) -> Element<'a, Message> {
     let labels = connection_badge_labels(connection);
     if labels.is_empty() {
         return Space::new().width(Length::Shrink).into();

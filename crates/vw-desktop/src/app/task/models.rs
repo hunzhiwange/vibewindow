@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU32, Ordering};
 use time::OffsetDateTime;
 
 /// 公开的 TASK_MODEL_AUTO 常量，集中保存该模块复用的稳定取值。
@@ -13,6 +14,8 @@ pub const CLAUDE_DEFAULT_MODEL_ALIAS: &str = "default";
 /// 公开的 CLAUDE_SUPPORTED_MODEL_ALIASES 常量，集中保存该模块复用的稳定取值。
 pub const CLAUDE_SUPPORTED_MODEL_ALIASES: &[&str] =
     &[CLAUDE_DEFAULT_MODEL_ALIAS, "sonnet", "opus", "haiku"];
+
+static SUBTASK_ID_SEQUENCE: AtomicU32 = AtomicU32::new(0);
 
 /// 公开的 normalize_task_model_input 函数。
 ///
@@ -140,6 +143,7 @@ pub enum TaskStatus {
     #[default]
     Pool,
     Pending,
+    Planning,
     Running,
     Failed,
     Paused,
@@ -154,10 +158,11 @@ impl TaskStatus {
     /// 公开的 all 函数。
     ///
     /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
-    pub fn all() -> [TaskStatus; 10] {
+    pub fn all() -> [TaskStatus; 11] {
         [
             TaskStatus::Pool,
             TaskStatus::Pending,
+            TaskStatus::Planning,
             TaskStatus::Running,
             TaskStatus::Failed,
             TaskStatus::Paused,
@@ -176,6 +181,7 @@ impl TaskStatus {
         match self {
             TaskStatus::Pool => "任务池",
             TaskStatus::Pending => "待执行",
+            TaskStatus::Planning => "任务拆分",
             TaskStatus::Running => "执行中",
             TaskStatus::Failed => "执行失败",
             TaskStatus::Paused => "暂停中",
@@ -193,7 +199,8 @@ impl TaskStatus {
     pub fn next(&self) -> Option<TaskStatus> {
         match self {
             TaskStatus::Pool => Some(TaskStatus::Pending),
-            TaskStatus::Pending => Some(TaskStatus::Running),
+            TaskStatus::Pending => Some(TaskStatus::Planning),
+            TaskStatus::Planning => Some(TaskStatus::Running),
             TaskStatus::Running => Some(TaskStatus::CodeComplete),
             TaskStatus::Failed => Some(TaskStatus::Pending),
             TaskStatus::Paused => None,
@@ -212,6 +219,7 @@ impl TaskStatus {
         match s {
             "pool" | "Pool" => Some(TaskStatus::Pool),
             "pending" | "Pending" => Some(TaskStatus::Pending),
+            "planning" | "Planning" => Some(TaskStatus::Planning),
             "running" | "Running" => Some(TaskStatus::Running),
             "failed" | "Failed" => Some(TaskStatus::Failed),
             "paused" | "Paused" => Some(TaskStatus::Paused),
@@ -231,6 +239,7 @@ impl TaskStatus {
         match self {
             TaskStatus::Pool => "pool",
             TaskStatus::Pending => "pending",
+            TaskStatus::Planning => "planning",
             TaskStatus::Running => "running",
             TaskStatus::Failed => "failed",
             TaskStatus::Paused => "paused",
@@ -241,6 +250,21 @@ impl TaskStatus {
             TaskStatus::Archived => "archived",
         }
     }
+}
+
+/// 子任务执行状态。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SubTaskStatus {
+    #[default]
+    Pending,
+    Running,
+    Completed,
+    Failed,
+}
+
+fn default_subtask_status() -> SubTaskStatus {
+    SubTaskStatus::Pending
 }
 
 fn now_ms() -> u64 {
@@ -275,9 +299,21 @@ pub struct TaskLogEntry {
 pub struct SubTask {
     pub id: String,
     pub content: String,
+    #[serde(default)]
+    pub boundary: String,
+    #[serde(default)]
+    pub acceptance_criteria: Vec<String>,
+    #[serde(default)]
+    pub target_files: Vec<String>,
     pub created_at_ms: u64,
     pub order: u32,
     pub completed: bool,
+    #[serde(default = "default_subtask_status")]
+    pub status: SubTaskStatus,
+    #[serde(default)]
+    pub execution_started_at_ms: Option<u64>,
+    #[serde(default)]
+    pub last_execution_duration_ms: Option<u64>,
 }
 
 impl SubTask {
@@ -286,14 +322,53 @@ impl SubTask {
     /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
     pub fn new(content: String) -> Self {
         let ms = now_ms();
-        let rand_suffix: u32 = (ms % 100000) as u32;
+        let seq = SUBTASK_ID_SEQUENCE.fetch_add(1, Ordering::Relaxed) % 100000;
         Self {
-            id: format!("SUB-{}{:05}", ms % 100000, rand_suffix),
+            id: format!("SUB-{ms}.{seq:05}"),
             content,
+            boundary: String::new(),
+            acceptance_criteria: Vec::new(),
+            target_files: Vec::new(),
             created_at_ms: ms,
             order: 0,
             completed: false,
+            status: SubTaskStatus::Pending,
+            execution_started_at_ms: None,
+            last_execution_duration_ms: None,
         }
+    }
+
+    pub fn start_execution(&mut self) {
+        self.status = SubTaskStatus::Running;
+        self.completed = false;
+        self.execution_started_at_ms = Some(now_ms());
+        self.last_execution_duration_ms = None;
+    }
+
+    pub fn mark_completed(&mut self) {
+        if let Some(started_at) = self.execution_started_at_ms {
+            self.last_execution_duration_ms = Some(now_ms().saturating_sub(started_at));
+        }
+        self.execution_started_at_ms = None;
+        self.status = SubTaskStatus::Completed;
+        self.completed = true;
+    }
+
+    pub fn mark_failed(&mut self) {
+        if let Some(started_at) = self.execution_started_at_ms {
+            self.last_execution_duration_ms = Some(now_ms().saturating_sub(started_at));
+        }
+        self.execution_started_at_ms = None;
+        self.status = SubTaskStatus::Failed;
+        self.completed = false;
+    }
+
+    pub fn display_execution_duration_ms(&self, now_ms: u64) -> Option<u64> {
+        if self.status == SubTaskStatus::Running {
+            let started_at = self.execution_started_at_ms.unwrap_or(self.created_at_ms);
+            return Some(now_ms.saturating_sub(started_at));
+        }
+        self.last_execution_duration_ms
     }
 }
 

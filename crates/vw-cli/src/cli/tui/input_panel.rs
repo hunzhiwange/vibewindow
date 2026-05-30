@@ -196,10 +196,7 @@ pub(crate) fn render_input_box(
     // 根据输入内容决定显示文本
     let input_text = if input.is_empty() {
         // 输入为空时显示占位符（深灰色）
-        Text::from(Line::from(Span::styled(
-            "随便问点什么...",
-            Style::default().fg(TEXT_SUBTLE),
-        )))
+        Text::from(Line::from(Span::styled("随便问点什么...", Style::default().fg(TEXT_SUBTLE))))
     } else {
         // 输入非空时显示实际文本
         Text::from(input.to_string())
@@ -214,8 +211,8 @@ pub(crate) fn render_input_box(
     let bg_widget = Paragraph::new(Text::from(""))
         .style(Style::default().fg(TEXT_PRIMARY).bg(SURFACE_ELEVATED));
     f.render_widget(bg_widget, area);
-    let input_widget = Paragraph::new(input_text)
-        .style(Style::default().fg(TEXT_PRIMARY).bg(SURFACE_ELEVATED));
+    let input_widget =
+        Paragraph::new(input_text).style(Style::default().fg(TEXT_PRIMARY).bg(SURFACE_ELEVATED));
     f.render_widget(input_widget, text_area);
     text_area
 }

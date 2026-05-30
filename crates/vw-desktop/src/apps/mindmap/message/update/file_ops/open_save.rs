@@ -251,8 +251,7 @@ pub(crate) fn save_as_json(app: &mut App) -> Task<Message> {
 
     Task::perform(
         async move {
-            let file =
-                rfd::AsyncFileDialog::new().set_file_name("mindmap.json").save_file().await;
+            let file = rfd::AsyncFileDialog::new().set_file_name("mindmap.json").save_file().await;
             if let Some(file) = file {
                 if let Err(error) = file.write(json.as_bytes()).await {
                     return Err(error.to_string());
@@ -284,7 +283,9 @@ pub(crate) fn file_saved(app: &mut App, path: Option<String>) -> Task<Message> {
     if let Some(path) = path {
         let top = if let Some(tab) = app.active_mindmap_tab_mut() {
             tab.file_path = Some(path.clone());
-            if let Some(name) = std::path::Path::new(&path).file_name().and_then(|segment| segment.to_str()) {
+            if let Some(name) =
+                std::path::Path::new(&path).file_name().and_then(|segment| segment.to_str())
+            {
                 tab.title = name.to_string();
             }
             Some((tab.id.clone(), tab.title.clone()))

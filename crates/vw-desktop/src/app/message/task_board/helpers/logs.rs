@@ -75,7 +75,10 @@ pub(crate) fn sync_task_logs_editor(app: &mut crate::app::App, task: Option<&Tas
 pub(crate) fn task_logs_should_stay_in_memory(status: TaskStatus) -> bool {
     matches!(
         status,
-        TaskStatus::Running | TaskStatus::CodeReview | TaskStatus::PrSubmitted
+        TaskStatus::Planning
+            | TaskStatus::Running
+            | TaskStatus::CodeReview
+            | TaskStatus::PrSubmitted
     )
 }
 
@@ -119,8 +122,7 @@ pub(crate) fn apply_cached_logs_to_task(app: &mut crate::app::App, task: &mut Ta
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
 pub(crate) fn refresh_task_log_cache(app: &mut crate::app::App, task: &Task) {
     if task_logs_should_stay_in_memory(task.status) {
-        app.task_board_log_cache
-            .insert(task.id.clone(), task.logs.clone());
+        app.task_board_log_cache.insert(task.id.clone(), task.logs.clone());
     } else {
         app.task_board_log_cache.remove(task.id.as_str());
     }
@@ -131,12 +133,7 @@ pub(crate) fn refresh_task_log_cache(app: &mut crate::app::App, task: &Task) {
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
 pub(crate) fn refresh_task_log_cache_by_id(app: &mut crate::app::App, task_id: &str) {
-    if let Some(task) = app
-        .task_board_tasks
-        .iter()
-        .find(|task| task.id == task_id)
-        .cloned()
-    {
+    if let Some(task) = app.task_board_tasks.iter().find(|task| task.id == task_id).cloned() {
         refresh_task_log_cache(app, &task);
     }
 }
@@ -151,8 +148,7 @@ pub(crate) fn sync_task_log_cache_for_loaded_tasks(app: &mut crate::app::App) {
         .iter()
         .map(|task| task.id.clone())
         .collect::<std::collections::HashSet<_>>();
-    app.task_board_log_cache
-        .retain(|task_id, _| valid_ids.contains(task_id));
+    app.task_board_log_cache.retain(|task_id, _| valid_ids.contains(task_id));
 
     let cache_snapshot = app.task_board_log_cache.clone();
     for task in &mut app.task_board_tasks {
@@ -188,11 +184,7 @@ pub(crate) fn set_viewing_logs(app: &mut crate::app::App, task: Option<Task>) {
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
 pub(crate) fn sync_viewing_logs(app: &mut crate::app::App, task_id: &str) {
-    if app
-        .task_board_viewing_logs
-        .as_ref()
-        .is_some_and(|viewing| viewing.id == task_id)
-    {
+    if app.task_board_viewing_logs.as_ref().is_some_and(|viewing| viewing.id == task_id) {
         if let Some(updated) = app.task_board_tasks.iter().find(|t| t.id == task_id).cloned() {
             set_viewing_logs(app, Some(updated));
         }

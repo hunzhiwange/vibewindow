@@ -115,7 +115,10 @@ fn question_validate_input_normalizes_claude_fields() {
     assert_eq!(normalized["questions"][0]["header"], "Pick a libra");
     assert_eq!(normalized["questions"][0]["multiSelect"], false);
     assert_eq!(normalized["questions"][0]["custom"], true);
-    assert_eq!(normalized["questions"][0]["options"][0]["preview"], "<pre>import { z } from 'zod'</pre>");
+    assert_eq!(
+        normalized["questions"][0]["options"][0]["preview"],
+        "<pre>import { z } from 'zod'</pre>"
+    );
 }
 
 #[test]
@@ -189,5 +192,10 @@ async fn question_call_with_prefilled_answers_returns_claude_shape() {
         result.data["annotations"]["Which library should we use?"]["notes"],
         "Keep parity with Claude"
     );
-    assert!(result.model_result.as_str().is_some_and(|text| text.contains("User has answered your questions")));
+    assert!(
+        result
+            .model_result
+            .as_str()
+            .is_some_and(|text| text.contains("User has answered your questions"))
+    );
 }

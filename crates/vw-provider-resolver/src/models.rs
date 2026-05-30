@@ -27,7 +27,7 @@ pub use vw_shared::provider::models::{
 };
 
 /// 打包内置的模型元数据，作为本地兜底数据源。
-const BUNDLED_MODELS_TEXT: &str = include_str!("../../../assets/model/api.json");
+const BUNDLED_MODELS_TEXT: &str = include_str!("../assets/model/api.json");
 
 #[allow(dead_code)]
 /// 返回 models.dev 的基础地址。
@@ -87,17 +87,17 @@ fn parse_models_text(label: &str, text: &str) -> Option<HashMap<String, Provider
             if let Some(providers) = obj.get("providers")
                 && let Ok(json) =
                     serde_json::from_value::<HashMap<String, Provider>>(providers.clone())
-                {
-                    info!(providers = json.len(), "{label}_parsed_wrapped");
-                    return Some(json);
-                }
+            {
+                info!(providers = json.len(), "{label}_parsed_wrapped");
+                return Some(json);
+            }
 
             if let Some(data) = obj.get("data")
                 && let Ok(json) = serde_json::from_value::<HashMap<String, Provider>>(data.clone())
-                {
-                    info!(providers = json.len(), "{label}_parsed_data");
-                    return Some(json);
-                }
+            {
+                info!(providers = json.len(), "{label}_parsed_data");
+                return Some(json);
+            }
         }
         Value::Array(arr) => {
             info!(kind = "array", len = arr.len(), "{label}_parse_shape");
@@ -168,9 +168,10 @@ pub async fn get() -> HashMap<String, Provider> {
 /// 若缓存为空，则触发实际加载并回填缓存。
 pub async fn get() -> HashMap<String, Provider> {
     if let Ok(lock) = CACHE.lock()
-        && let Some(v) = lock.clone() {
-            return v;
-        }
+        && let Some(v) = lock.clone()
+    {
+        return v;
+    }
 
     let data = load().await;
 

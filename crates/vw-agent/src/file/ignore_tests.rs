@@ -3,7 +3,10 @@ use glob::Pattern;
 
 #[test]
 fn split_path_accepts_unix_and_windows_separators() {
-    assert_eq!(split_path("src\\nested/file.rs").collect::<Vec<_>>(), vec!["src", "nested", "file.rs"]);
+    assert_eq!(
+        split_path("src\\nested/file.rs").collect::<Vec<_>>(),
+        vec!["src", "nested", "file.rs"]
+    );
 }
 
 #[test]

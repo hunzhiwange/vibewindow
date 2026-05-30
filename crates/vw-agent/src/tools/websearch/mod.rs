@@ -47,7 +47,9 @@
 //! println!("Search results: {}", result.output);
 //! ```
 
-use super::traits::{Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec};
+use super::traits::{
+    Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec,
+};
 use super::url_validation::{DomainPolicy, UrlSchemePolicy, validate_url};
 use crate::app::agent::security::SecurityPolicy;
 use async_trait::async_trait;
@@ -441,10 +443,8 @@ impl Tool for WebSearchTool {
             .and_then(|args| args.query.clone())
             .map(|value| value.trim().to_string())
             .unwrap_or_default();
-        let requested_lr = parsed_args
-            .as_ref()
-            .and_then(|args| args.lr.clone())
-            .unwrap_or_default();
+        let requested_lr =
+            parsed_args.as_ref().and_then(|args| args.lr.clone()).unwrap_or_default();
 
         if !legacy.success {
             let mut result = ToolCallResult::from_legacy_result(legacy);

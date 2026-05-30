@@ -1,5 +1,5 @@
-use super::config_validate::{normalize_wire_api, validate_config};
 use super::Config;
+use super::config_validate::{normalize_wire_api, validate_config};
 
 #[test]
 fn normalize_wire_api_accepts_common_spellings() {

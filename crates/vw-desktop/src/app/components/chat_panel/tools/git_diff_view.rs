@@ -19,12 +19,12 @@ use crate::app::components::git_panel::embedded_custom_text_diff_view;
 /// 重新导出 use crate::app::{App, Message, message}，让上层模块通过稳定路径访问。
 use crate::app::{App, Message, message};
 
+/// 重新导出 use super::canonical_tool_name，让上层模块通过稳定路径访问。
+use super::canonical_tool_name;
 /// 重新导出 use super::tool_meta::{tool_header_title, tool_inline_summary}，让上层模块通过稳定路径访问。
 use super::tool_meta::{tool_header_title, tool_inline_summary};
 /// 重新导出 use super::tool_parse::{tool_error_text, tool_input, tool_status}，让上层模块通过稳定路径访问。
 use super::tool_parse::{tool_error_text, tool_input, tool_status};
-/// 重新导出 use super::canonical_tool_name，让上层模块通过稳定路径访问。
-use super::canonical_tool_name;
 
 /// GitDiffPreview 保存 git_diff_view 模块需要跨函数传递的状态。
 ///
@@ -160,7 +160,10 @@ pub(super) fn structured_git_diff_output(value: &serde_json::Value) -> Option<se
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-pub(super) fn parse_git_diff_previews(input: &str, value: &serde_json::Value) -> Option<Vec<GitDiffPreview>> {
+pub(super) fn parse_git_diff_previews(
+    input: &str,
+    value: &serde_json::Value,
+) -> Option<Vec<GitDiffPreview>> {
     let args = serde_json::from_str::<serde_json::Value>(input.trim()).ok()?;
     let output_json = value
         .get("output")
@@ -680,13 +683,14 @@ pub fn tool_git_diff_view<'a>(
 
     let mut summary = tool_inline_summary(tool_name, input).unwrap_or_default();
     if summary.is_empty()
-        && let Some(previews) = previews.as_ref() {
-            summary = if previews.len() == 1 {
-                previews[0].path.clone()
-            } else {
-                format!("{} 个文件", previews.len())
-            };
-        }
+        && let Some(previews) = previews.as_ref()
+    {
+        summary = if previews.len() == 1 {
+            previews[0].path.clone()
+        } else {
+            format!("{} 个文件", previews.len())
+        };
+    }
 
     let header_meta: Option<Element<'a, Message>> = if let Some(previews) = previews.as_ref() {
         let adds = previews.iter().map(|item| item.additions).sum::<usize>();

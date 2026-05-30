@@ -14,7 +14,6 @@ use crate::app::{Message, message};
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::{button, column, container, row, text};
 use iced::{Alignment, Background, Border, Element, Length};
-use std::path::Path;
 
 /// 构建或处理 `catalog_matches_query` 对应的界面片段与交互数据。
 ///
@@ -118,74 +117,22 @@ fn catalog_skill_initials(skill: &CatalogSkillMeta) -> String {
 
 fn section_copy(source: &str) -> (Icon, &'static str, &'static str) {
     match source {
-        "workspace" => {
-            (Icon::FolderOpen, "项目目录", "当前项目的 .vibewindow/skills 与 skills 目录。")
-        }
-        "ancestor" => (Icon::FolderOpen, "父级目录", "从上级目录逐层发现的 .vibewindow/skills。"),
-        "global" => (Icon::FolderOpen, "全局目录", "当前用户的 ~/.vibewindow/skills。"),
-        "bundled" => (Icon::Sliders, "内置技能", "产品内置技能，可按需安装到当前项目。"),
+        "workspace" => (Icon::FolderOpen, "项目目录", "当前项目优先命中的技能。"),
+        "ancestor" => (Icon::FolderOpen, "父级目录", "从上级目录逐层发现。"),
+        "global" => (Icon::FolderOpen, "全局目录", "当前用户全局技能。"),
+        "bundled" => (Icon::Sliders, "内置技能", "可按需安装到当前项目。"),
         _ => (Icon::Grid1x2, "其他来源", "未归类的技能来源。"),
     }
 }
 
 fn source_label(source: &str) -> &'static str {
     match source {
-        "workspace" => "Workspace",
-        "ancestor" => "Parent",
-        "global" => "Global",
-        "bundled" => "Built-in",
-        _ => "Source",
+        "workspace" => "本目录",
+        "ancestor" => "父级目录",
+        "global" => "全局目录",
+        "bundled" => "内置技能",
+        _ => "来源",
     }
-}
-
-fn compact_source_path(path: &str) -> String {
-    let trimmed = path.trim();
-    if trimmed.is_empty() {
-        return String::new();
-    }
-
-    let mut display = trimmed.to_string();
-    if let Some(home) = std::env::var_os("HOME") {
-        let home = home.to_string_lossy();
-        if display.starts_with(home.as_ref()) {
-            display = format!("~{}", &display[home.len()..]);
-        }
-    }
-
-    let path = Path::new(&display);
-    let parts = path
-        .components()
-        .map(|component| component.as_os_str().to_string_lossy().to_string())
-        .collect::<Vec<_>>();
-
-    if parts.len() <= 4 {
-        return display;
-    }
-
-    let tail = &parts[parts.len().saturating_sub(4)..];
-    if display.starts_with("~/") {
-        format!("~/.../{}", tail.join("/"))
-    } else if display.starts_with('/') {
-        format!("/.../{}", tail.join("/"))
-    } else {
-        format!(".../{}", tail.join("/"))
-    }
-}
-
-fn source_path_text(path: Option<String>) -> Element<'static, Message> {
-    let display = path.as_deref().map(compact_source_path).unwrap_or_default();
-
-    container(
-        text(display)
-            .size(11)
-            .width(Length::Fill)
-            .wrapping(iced::widget::text::Wrapping::Word)
-            .style(|theme: &iced::Theme| iced::widget::text::Style {
-                color: Some(theme.palette().text.scale_alpha(0.58)),
-            }),
-    )
-    .width(Length::Fill)
-    .into()
 }
 
 fn catalog_item(skill: CatalogSkillMeta, is_selected: bool) -> Element<'static, Message> {
@@ -200,7 +147,6 @@ fn catalog_item(skill: CatalogSkillMeta, is_selected: bool) -> Element<'static, 
     };
     let kind = skill.kind;
     let source = skill.source.clone();
-    let source_path = skill.source_path.clone();
 
     let status_badge = if skill.installed {
         skill_badge(if skill.enabled { "已启用" } else { "已禁用" }, skill.enabled)
@@ -208,11 +154,45 @@ fn catalog_item(skill: CatalogSkillMeta, is_selected: bool) -> Element<'static, 
         skill_badge("未安装", false)
     };
 
+    let details = column![
+        row![
+            text(title).size(15).width(Length::Fill).wrapping(iced::widget::text::Wrapping::Word),
+            skill_badge(
+                match kind {
+                    CatalogSkillKind::Recommended => "Featured",
+                    CatalogSkillKind::System => "Built-in",
+                    CatalogSkillKind::Personal => "Local",
+                },
+                matches!(kind, CatalogSkillKind::Recommended),
+            ),
+            if is_selected { skill_badge("当前", true) } else { skill_badge("查看", false) },
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+        text(description)
+            .size(12)
+            .width(Length::Fill)
+            .wrapping(iced::widget::text::Wrapping::Word)
+            .style(|theme: &iced::Theme| iced::widget::text::Style {
+                color: Some(theme.palette().text.scale_alpha(0.68)),
+            }),
+        row![
+            skill_badge(skill_id, false),
+            skill_badge(resource_text, false),
+            skill_badge(source_label(&source), false),
+            status_badge,
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center),
+    ]
+    .spacing(8)
+    .width(Length::Fill);
+
     let content = container(
         row![
             container(text(initials).size(16))
-                .width(52)
-                .height(52)
+                .width(44)
+                .height(44)
                 .align_x(Horizontal::Center)
                 .align_y(Vertical::Center)
                 .style(move |theme: &iced::Theme| {
@@ -233,52 +213,16 @@ fn catalog_item(skill: CatalogSkillMeta, is_selected: bool) -> Element<'static, 
                     iced::widget::container::Style {
                         text_color: Some(text_color),
                         background: Some(Background::Color(background)),
-                        border: Border { radius: 16.0.into(), ..Default::default() },
+                        border: Border { radius: 12.0.into(), ..Default::default() },
                         ..Default::default()
                     }
                 }),
-            column![
-                row![
-                    text(title)
-                        .size(17)
-                        .width(Length::Fill)
-                        .wrapping(iced::widget::text::Wrapping::Word),
-                    skill_badge(
-                        match kind {
-                            CatalogSkillKind::Recommended => "Featured",
-                            CatalogSkillKind::System => "Built-in",
-                            CatalogSkillKind::Personal => "Local",
-                        },
-                        matches!(kind, CatalogSkillKind::Recommended),
-                    ),
-                ]
-                .spacing(8)
-                .align_y(Alignment::Center),
-                text(description)
-                    .size(13)
-                    .width(Length::Fill)
-                    .wrapping(iced::widget::text::Wrapping::Word)
-                    .style(|theme: &iced::Theme| iced::widget::text::Style {
-                        color: Some(theme.palette().text.scale_alpha(0.7)),
-                    }),
-                row![
-                    skill_badge(skill_id, false),
-                    skill_badge(resource_text, false),
-                    skill_badge(source_label(&source), false),
-                    status_badge,
-                ]
-                .spacing(8)
-                .align_y(Alignment::Center),
-                source_path_text(source_path),
-            ]
-            .spacing(10)
-            .width(Length::Fill),
-            skill_badge("点击查看", is_selected),
+            details,
         ]
-        .spacing(16)
+        .spacing(14)
         .align_y(Alignment::Start),
     )
-    .padding([18, 20])
+    .padding([13, 15])
     .width(Length::Fill)
     .style(move |theme: &iced::Theme| {
         let mut style = settings_panel_style(theme);
@@ -301,7 +245,7 @@ fn catalog_item(skill: CatalogSkillMeta, is_selected: bool) -> Element<'static, 
         }));
         style.border.color =
             if is_selected { palette.primary.base.color.scale_alpha(0.54) } else { base_border };
-        style.border.radius = 18.0.into();
+        style.border.radius = 14.0.into();
         style.shadow = iced::Shadow::default();
         style
     });
@@ -334,7 +278,7 @@ pub(super) fn catalog_group_section<'a>(
 ) -> Element<'a, Message> {
     let (icon, title, subtitle) = section_copy(source);
     let skill_count = skills.len();
-    let rows = skills.into_iter().fold(column![].spacing(12), |column, skill| {
+    let rows = skills.into_iter().fold(column![].spacing(8), |column, skill| {
         let is_selected = selected_skill_id == Some(skill.id.as_str());
         column.push(catalog_item(skill, is_selected))
     });
@@ -372,6 +316,6 @@ pub(super) fn catalog_group_section<'a>(
         .align_y(Alignment::Center),
         rows,
     ]
-    .spacing(14)
+    .spacing(10)
     .into()
 }

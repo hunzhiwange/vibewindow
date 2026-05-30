@@ -3,8 +3,8 @@
 //! 本模块只负责视图组合与样式适配，不持有业务状态，也不扩大外部能力边界。
 
 use crate::app::components::system_settings_common::{
-    primary_action_btn_style, rounded_action_btn_style, settings_divider, settings_muted_text_style,
-    settings_panel, settings_panel_style, settings_value_badge,
+    primary_action_btn_style, rounded_action_btn_style, settings_divider,
+    settings_muted_text_style, settings_panel, settings_panel_style, settings_value_badge,
 };
 use crate::app::message::RedisToolMessage;
 use crate::app::state::{RedisDetailTab, RedisRuntimeOverview};
@@ -13,9 +13,8 @@ use iced::widget::{Space, button, column, container, row, scrollable, text};
 use iced::{Alignment, Element, Length};
 
 use super::common::{
-    advanced_execution_note, build_detail_action_button, connection_mode_label,
-    current_load_count, enabled_feature_summary, masked_connection_preview, overview_row,
-    redis_scroll_direction,
+    advanced_execution_note, build_detail_action_button, connection_mode_label, current_load_count,
+    enabled_feature_summary, masked_connection_preview, overview_row, redis_scroll_direction,
 };
 
 mod analysis;
@@ -45,35 +44,45 @@ use runtime::{
 /// 此函数不返回 `Result`；不可用状态会通过空视图、禁用控件或回退文案表达。
 pub(super) fn build_detail_panel<'a>(app: &'a App, compact: bool) -> Element<'a, Message> {
     let is_busy = app.redis_tool.is_gateway_loading();
-    let title = if app.redis_tool.draft_is_new {
-        "新建连接".to_string()
+    let title = if app.redis_tool.selected_connection_id.is_none() {
+        "未选择连接".to_string()
     } else if app.redis_tool.draft.name.trim().is_empty() {
         "连接详情".to_string()
     } else {
         app.redis_tool.draft.name.clone()
     };
 
-    let subtitle = if app.redis_tool.draft_is_new {
-        "先填写连接参数，再按标签切换键树、内容分析、命令与运行态视图。"
-            .to_string()
+    let subtitle = if app.redis_tool.selected_connection_id.is_none() {
+        "从左侧选择已保存连接，或打开弹窗新建一个 Redis 连接。".to_string()
     } else {
-        "已保存连接可在右侧标签切换键树、内容分析、命令、连接配置和运行态信息。"
-            .to_string()
+        "已保存连接可在右侧标签切换键树、内容分析、命令、连接配置和运行态信息。".to_string()
     };
 
     let actions = row![
         build_detail_action_button(
-            "保存连接",
-            Message::RedisTool(RedisToolMessage::SaveDraft),
+            if app.redis_tool.selected_connection_id.is_some() {
+                "编辑配置"
+            } else {
+                "新建连接"
+            },
+            if app.redis_tool.selected_connection_id.is_some() {
+                Message::RedisTool(RedisToolMessage::OpenConnectionModal)
+            } else {
+                Message::RedisTool(RedisToolMessage::NewConnection)
+            },
             true,
             !is_busy,
         ),
-        build_detail_action_button(
-            "复制URI",
-            Message::RedisTool(RedisToolMessage::CopySelectedUri),
-            false,
-            !is_busy,
-        ),
+        if app.redis_tool.selected_connection_id.is_some() {
+            build_detail_action_button(
+                "复制URI",
+                Message::RedisTool(RedisToolMessage::CopySelectedUri),
+                false,
+                !is_busy,
+            )
+        } else {
+            Space::new().width(Length::Shrink).into()
+        },
         if app.redis_tool.selected_connection_id.is_some() {
             build_detail_action_button(
                 "测试连接",
@@ -135,43 +144,36 @@ pub(super) fn build_detail_panel<'a>(app: &'a App, compact: bool) -> Element<'a,
     .into()
 }
 
-fn build_connection_workspace<'a>(app: &'a App, compact: bool, is_busy: bool) -> Element<'a, Message> {
-    let form = settings_panel(
-        column![
-            container(
-                column![
-                    row![
-                        text("连接配置").size(14),
-                        Space::new().width(Length::Fill),
-                        settings_value_badge(connection_mode_label(&app.redis_tool.draft)),
-                    ]
-                    .align_y(Alignment::Center),
-                    text("通过页签维护基础参数与高级连接能力。当前仅 SSH 隧道仍未接入测试链路。")
-                        .size(12)
-                        .style(settings_muted_text_style),
-                ]
-                .spacing(4),
-            )
-            .padding([4, 0]),
-            settings_divider(),
-            build_tab_bar(app, is_busy),
-            settings_divider(),
-            build_active_tab(app, compact),
-        ]
-        .spacing(0),
-    );
-
+fn build_connection_workspace<'a>(
+    app: &'a App,
+    compact: bool,
+    is_busy: bool,
+) -> Element<'a, Message> {
+    let action_label = if app.redis_tool.selected_connection_id.is_some() {
+        "编辑配置"
+    } else {
+        "新建连接"
+    };
+    let action_message = if app.redis_tool.selected_connection_id.is_some() {
+        RedisToolMessage::OpenConnectionModal
+    } else {
+        RedisToolMessage::NewConnection
+    };
     let mut workspace_content = column![
         row![
             column![
                 text("工作区预览").size(14),
-                text("配置保存后会进入连接列表，导入导出会保留高级字段。")
+                text("连接参数从弹窗维护，当前页只保留摘要与运行入口。")
                     .size(12)
                     .style(settings_muted_text_style),
             ]
             .spacing(4),
             Space::new().width(Length::Fill),
             settings_value_badge(format!("默认加载 {} 项", current_load_count(app))),
+            button(text(action_label).size(13))
+                .on_press_maybe((!is_busy).then_some(Message::RedisTool(action_message)))
+                .padding([10, 14])
+                .style(primary_action_btn_style),
         ]
         .align_y(Alignment::Center)
         .spacing(12),
@@ -179,11 +181,7 @@ fn build_connection_workspace<'a>(app: &'a App, compact: bool, is_busy: bool) ->
         overview_row("连接预览", masked_connection_preview(app)),
         overview_row(
             "当前模式",
-            if app.redis_tool.draft_is_new {
-                "新建连接"
-            } else {
-                "已保存连接"
-            },
+            if app.redis_tool.draft_is_new { "新建连接" } else { "已保存连接" },
         ),
         overview_row("连接拓扑", connection_mode_label(&app.redis_tool.draft)),
         overview_row("启用特性", enabled_feature_summary(&app.redis_tool.draft)),
@@ -207,7 +205,42 @@ fn build_connection_workspace<'a>(app: &'a App, compact: bool, is_busy: bool) ->
 
     let workspace = settings_panel(workspace_content);
 
-    column![form, workspace].spacing(12).into()
+    container(workspace)
+        .width(Length::Fill)
+        .height(if compact { Length::Shrink } else { Length::Fill })
+        .into()
+}
+
+pub(super) fn build_connection_form_panel<'a>(
+    app: &'a App,
+    compact: bool,
+    is_busy: bool,
+) -> Element<'a, Message> {
+    settings_panel(
+        column![
+            container(
+                column![
+                    row![
+                        text("连接配置").size(14),
+                        Space::new().width(Length::Fill),
+                        settings_value_badge(connection_mode_label(&app.redis_tool.draft)),
+                    ]
+                    .align_y(Alignment::Center),
+                    text("通过页签维护基础参数与高级连接能力。当前仅 SSH 隧道仍未接入测试链路。")
+                        .size(12)
+                        .style(settings_muted_text_style),
+                ]
+                .spacing(4),
+            )
+            .padding([4, 0]),
+            settings_divider(),
+            build_tab_bar(app, is_busy),
+            settings_divider(),
+            build_active_tab(app, compact),
+        ]
+        .spacing(0),
+    )
+    .into()
 }
 
 fn build_detail_workspace<'a>(app: &'a App, compact: bool, is_busy: bool) -> Element<'a, Message> {
@@ -256,17 +289,19 @@ fn build_detail_tab_bar<'a>(app: &'a App, is_busy: bool) -> Element<'a, Message>
         let active = app.redis_tool.detail_tab == tab;
         let tab_button: Element<'a, Message> = if active {
             button(text(tab.title()).size(13))
-                .on_press_maybe((!is_busy).then_some(Message::RedisTool(
-                    RedisToolMessage::DetailTabChanged(tab),
-                )))
+                .on_press_maybe(
+                    (!is_busy)
+                        .then_some(Message::RedisTool(RedisToolMessage::DetailTabChanged(tab))),
+                )
                 .padding([8, 12])
                 .style(primary_action_btn_style)
                 .into()
         } else {
             button(text(tab.title()).size(13))
-                .on_press_maybe((!is_busy).then_some(Message::RedisTool(
-                    RedisToolMessage::DetailTabChanged(tab),
-                )))
+                .on_press_maybe(
+                    (!is_busy)
+                        .then_some(Message::RedisTool(RedisToolMessage::DetailTabChanged(tab))),
+                )
                 .padding([8, 12])
                 .style(rounded_action_btn_style)
                 .into()
@@ -359,11 +394,8 @@ fn build_active_detail_tab<'a>(
 
 fn build_detail_hint_state<'a>(title: &'a str, description: &'a str) -> Element<'a, Message> {
     settings_panel(
-        column![
-            text(title).size(14),
-            text(description).size(12).style(settings_muted_text_style),
-        ]
-        .spacing(8),
+        column![text(title).size(14), text(description).size(12).style(settings_muted_text_style),]
+            .spacing(8),
     )
     .into()
 }

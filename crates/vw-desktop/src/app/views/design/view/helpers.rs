@@ -101,13 +101,12 @@ pub(super) fn design_tooltip_dark_style(_theme: &Theme) -> container::Style {
     }
 }
 
-pub(super) fn design_pill_button_style(
-    theme: &Theme,
-    status: button::Status,
-) -> button::Style {
+pub(super) fn design_pill_button_style(theme: &Theme, status: button::Status) -> button::Style {
     let p = theme.extended_palette();
     let bg = match status {
-        button::Status::Hovered => Some(Background::Color(p.background.weak.color.scale_alpha(0.35))),
+        button::Status::Hovered => {
+            Some(Background::Color(p.background.weak.color.scale_alpha(0.35)))
+        }
         button::Status::Pressed => Some(Background::Color(p.background.strong.color)),
         _ => None,
     };
@@ -125,7 +124,9 @@ pub(super) fn design_square_icon_button_style(
 ) -> button::Style {
     let p = theme.extended_palette();
     let bg = match status {
-        button::Status::Hovered => Some(Background::Color(p.background.weak.color.scale_alpha(0.35))),
+        button::Status::Hovered => {
+            Some(Background::Color(p.background.weak.color.scale_alpha(0.35)))
+        }
         button::Status::Pressed => {
             Some(Background::Color(p.background.strong.color.scale_alpha(0.45)))
         }
@@ -145,7 +146,9 @@ pub(super) fn design_round_icon_button_style(
 ) -> button::Style {
     let p = theme.extended_palette();
     let bg = match status {
-        button::Status::Hovered => Some(Background::Color(p.background.weak.color.scale_alpha(0.28))),
+        button::Status::Hovered => {
+            Some(Background::Color(p.background.weak.color.scale_alpha(0.28)))
+        }
         button::Status::Pressed => {
             Some(Background::Color(p.background.strong.color.scale_alpha(0.36)))
         }
@@ -165,11 +168,7 @@ pub(super) fn design_is_dark(theme: &Theme) -> bool {
 }
 
 pub(super) fn design_contrast_text_color(background: Color) -> Color {
-    if background.r + background.g + background.b > 1.5 {
-        Color::BLACK
-    } else {
-        Color::WHITE
-    }
+    if background.r + background.g + background.b > 1.5 { Color::BLACK } else { Color::WHITE }
 }
 #[cfg(test)]
 #[path = "helpers_tests.rs"]

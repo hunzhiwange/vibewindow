@@ -1,8 +1,8 @@
 //! 提供按字符串 key 隔离的异步读写锁。
 //! 实现偏向等待中的写者，避免持续读流量导致写操作长期饥饿。
 
-use std::sync::LazyLock;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 
@@ -18,7 +18,8 @@ struct Entry {
     writers_notify: Notify,
 }
 
-static LOCKS: LazyLock<Mutex<HashMap<String, Arc<Entry>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static LOCKS: LazyLock<Mutex<HashMap<String, Arc<Entry>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 fn get(key: &str) -> Arc<Entry> {
     let mut locks = LOCKS.lock().expect("locks mutex poisoned");

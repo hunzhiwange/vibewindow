@@ -1,22 +1,22 @@
 //! 工作流画布外壳视图模块，负责组合画布区域、悬浮工具栏、上下文菜单和快速插入面板。
 
-    use super::*;
+use super::*;
 use iced::widget::{column, row};
 
 /// 构建 status chip 对应的界面元素。
 ///
 /// 参数由当前工作流状态或编辑草稿提供；返回值是可直接嵌入 iced 视图树的元素。
 pub(super) fn build_status_chip<'a>(status: &'a str) -> Element<'a, Message> {
-    container(text(status).size(12))
-        .padding([8, 12])
-        .style(floating_panel_style)
-        .into()
+    container(text(status).size(12)).padding([8, 12]).style(floating_panel_style).into()
 }
 
 /// 构建 canvas area 对应的界面元素。
 ///
 /// 参数由当前工作流状态或编辑草稿提供；返回值是可直接嵌入 iced 视图树的元素。
-pub(super) fn build_canvas_area<'a>(state: &'a WorkflowState, canvas_base: Element<'a, Message>) -> Element<'a, Message> {
+pub(super) fn build_canvas_area<'a>(
+    state: &'a WorkflowState,
+    canvas_base: Element<'a, Message>,
+) -> Element<'a, Message> {
     let zoom_presets = [10u32, 20, 40, 70, 80, 100, 125, 150, 175, 200, 250, 300, 400];
     let mut layers = vec![canvas_base];
 
@@ -97,12 +97,7 @@ pub(super) fn build_canvas_area<'a>(state: &'a WorkflowState, canvas_base: Eleme
     if let Some(status) = &state.status_message {
         layers.push(
             container(build_status_chip(status))
-                .padding(iced::Padding {
-                    top: 0.0,
-                    right: 0.0,
-                    bottom: FLOATING_MARGIN,
-                    left: 0.0,
-                })
+                .padding(iced::Padding { top: 0.0, right: 0.0, bottom: FLOATING_MARGIN, left: 0.0 })
                 .align_x(iced::alignment::Horizontal::Center)
                 .align_y(iced::alignment::Vertical::Bottom)
                 .width(Length::Fill)
@@ -115,7 +110,8 @@ pub(super) fn build_canvas_area<'a>(state: &'a WorkflowState, canvas_base: Eleme
         layers.push(build_canvas_context_menu_overlay(state));
     }
 
-    let canvas_with_ui: Element<'a, Message> = stack(layers).width(Length::Fill).height(Length::Fill).into();
+    let canvas_with_ui: Element<'a, Message> =
+        stack(layers).width(Length::Fill).height(Length::Fill).into();
 
     let mut canvas_with_overlays = if state.action_menu_open {
         PointBelowOverlay::new(canvas_with_ui, build_action_menu_overlay(state))
@@ -152,11 +148,7 @@ pub(super) fn build_left_toolbar_overlay(state: &WorkflowState) -> Element<'_, M
         column![
             toolbar_icon_button(
                 Icon::Plus,
-                if state.quick_insert_panel_open {
-                    "收起插入菜单"
-                } else {
-                    "插入节点"
-                },
+                if state.quick_insert_panel_open { "收起插入菜单" } else { "插入节点" },
                 WorkflowMessage::ToggleQuickInsertPanel,
                 state.quick_insert_panel_open,
             ),
@@ -178,7 +170,12 @@ pub(super) fn build_left_toolbar_overlay(state: &WorkflowState) -> Element<'_, M
                 WorkflowMessage::OpenVariablePanel(WorkflowVariablePanelKind::System),
                 variable_panel_is_open(state, WorkflowVariablePanelKind::System),
             ),
-            toolbar_icon_button(Icon::ArrowsFullscreen, "适配视图", WorkflowMessage::ZoomFit, false),
+            toolbar_icon_button(
+                Icon::ArrowsFullscreen,
+                "适配视图",
+                WorkflowMessage::ZoomFit,
+                false
+            ),
         ]
         .spacing(8),
     )
@@ -193,12 +190,7 @@ pub(super) fn build_left_toolbar_overlay(state: &WorkflowState) -> Element<'_, M
     container(overlay)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(iced::Padding {
-            top: 18.0,
-            right: 0.0,
-            bottom: 0.0,
-            left: 18.0,
-        })
+        .padding(iced::Padding { top: 18.0, right: 0.0, bottom: 0.0, left: 18.0 })
         .align_x(iced::alignment::Horizontal::Left)
         .align_y(iced::alignment::Vertical::Top)
         .into()
@@ -234,19 +226,17 @@ pub(super) fn build_canvas_context_menu_overlay(state: &WorkflowState) -> Elemen
             )]
             .spacing(6);
 
-            if state
-                .document
-                .node(node_id)
-                .is_some_and(|node| node.block_type != "start")
-            {
-                actions = actions.push(context_menu_button("复制节点", WorkflowMessage::DuplicateSelectedNode));
+            if state.document.node(node_id).is_some_and(|node| node.block_type != "start") {
+                actions = actions
+                    .push(context_menu_button("复制节点", WorkflowMessage::DuplicateSelectedNode));
             }
 
             actions = actions.push(context_menu_button(
                 "新增下游节点",
                 WorkflowMessage::OpenDownstreamNodePicker(node_id.clone()),
             ));
-            actions = actions.push(context_menu_button("删除节点", WorkflowMessage::DeleteSelectedNode));
+            actions =
+                actions.push(context_menu_button("删除节点", WorkflowMessage::DeleteSelectedNode));
 
             container(actions)
                 .width(Length::Fixed(208.0))
@@ -254,12 +244,9 @@ pub(super) fn build_canvas_context_menu_overlay(state: &WorkflowState) -> Elemen
                 .style(modal_card_style)
                 .into()
         }
-        WorkflowCanvasContextMenuTarget::NodeInsert(_) => build_context_node_picker_menu(
-            state,
-            "新增下游节点",
-            "点击后自动关联到当前节点",
-            true,
-        ),
+        WorkflowCanvasContextMenuTarget::NodeInsert(_) => {
+            build_context_node_picker_menu(state, "新增下游节点", "点击后自动关联到当前节点", true)
+        }
     };
 
     container(
@@ -284,7 +271,10 @@ pub(super) fn build_canvas_context_menu_overlay(state: &WorkflowState) -> Elemen
 /// 提供 variable panel is open 功能。
 ///
 /// 参数和返回值遵循调用方所在模块的工作流约定，错误会显式向上传递或由 UI 状态承载。
-pub(super) fn variable_panel_is_open(state: &WorkflowState, kind: WorkflowVariablePanelKind) -> bool {
+pub(super) fn variable_panel_is_open(
+    state: &WorkflowState,
+    kind: WorkflowVariablePanelKind,
+) -> bool {
     state.variable_panel.as_ref() == Some(&kind)
 }
 
@@ -327,9 +317,7 @@ pub(super) fn toolbar_icon_button(
     .height(Length::Fixed(button_size))
     .on_press(Message::WorkflowTool(message));
 
-    Tooltip::new(button, toolbar_tooltip_bubble(tooltip), TooltipPosition::Right)
-        .gap(8.0)
-        .into()
+    Tooltip::new(button, toolbar_tooltip_bubble(tooltip), TooltipPosition::Right).gap(8.0).into()
 }
 
 /// 提供 toolbar tooltip bubble 功能。
@@ -341,11 +329,7 @@ pub(super) fn toolbar_tooltip_bubble<'a>(label: &'a str) -> Element<'a, Message>
         .style(|_theme: &Theme| iced::widget::container::Style {
             background: Some(Color::from_rgba8(24, 24, 24, 0.96).into()),
             text_color: Some(Color::WHITE),
-            border: Border {
-                width: 0.0,
-                color: Color::TRANSPARENT,
-                radius: 8.0.into(),
-            },
+            border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 8.0.into() },
             shadow: Shadow {
                 color: Color::BLACK.scale_alpha(0.40),
                 offset: Vector::new(0.0, 6.0),
@@ -369,11 +353,7 @@ pub(super) fn available_node_types(
         .iter()
         .copied()
         .filter(|node_type| {
-            if node_type.block_type == "start" {
-                !exclude_start && !has_start_node
-            } else {
-                true
-            }
+            if node_type.block_type == "start" { !exclude_start && !has_start_node } else { true }
         })
         .collect()
 }
@@ -423,7 +403,9 @@ pub(super) fn build_quick_insert_panel(state: &WorkflowState) -> Element<'static
 /// 提供 quick insert node button 功能。
 ///
 /// 参数和返回值遵循调用方所在模块的工作流约定，错误会显式向上传递或由 UI 状态承载。
-pub(super) fn quick_insert_node_button(node_type: WorkflowNodeTypeDescriptor) -> Element<'static, Message> {
+pub(super) fn quick_insert_node_button(
+    node_type: WorkflowNodeTypeDescriptor,
+) -> Element<'static, Message> {
     let accent = workflow_node_accent_color(node_type.block_type);
     button(
         row![

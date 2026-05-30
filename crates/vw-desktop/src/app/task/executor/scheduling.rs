@@ -48,7 +48,8 @@ pub fn simulate_task_execution_step(
     current_status: TaskStatus,
 ) -> Option<TaskStatus> {
     match current_status {
-        TaskStatus::Pending => Some(TaskStatus::Running),
+        TaskStatus::Pending => Some(TaskStatus::Planning),
+        TaskStatus::Planning => Some(TaskStatus::Running),
         TaskStatus::Running => Some(TaskStatus::CodeComplete),
         TaskStatus::Failed => Some(TaskStatus::Pending),
         TaskStatus::Paused => None,
@@ -65,6 +66,7 @@ pub fn simulate_task_execution_step(
 /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
 pub fn count_running_tasks(tasks_by_status: &HashMap<TaskStatus, Vec<models::Task>>) -> usize {
     tasks_by_status.get(&TaskStatus::Running).map(std::vec::Vec::len).unwrap_or(0)
+        + tasks_by_status.get(&TaskStatus::Planning).map(std::vec::Vec::len).unwrap_or(0)
 }
 
 /// 公开的 get_pool_and_pending_count 函数。
@@ -75,7 +77,8 @@ pub fn get_pool_and_pending_count(
 ) -> usize {
     let pool = tasks_by_status.get(&TaskStatus::Pool).map(std::vec::Vec::len).unwrap_or(0);
     let pending = tasks_by_status.get(&TaskStatus::Pending).map(std::vec::Vec::len).unwrap_or(0);
-    pool + pending
+    let planning = tasks_by_status.get(&TaskStatus::Planning).map(std::vec::Vec::len).unwrap_or(0);
+    pool + pending + planning
 }
 
 /// 公开的 get_total_task_count 函数。

@@ -1019,10 +1019,11 @@ where
             && let Some(on_close) = &self.on_close
             && let Some(cursor_position) = cursor.position()
             && !self.target_bounds.contains(cursor_position)
-            && !bounds.contains(cursor_position) {
-                shell.publish(on_close.clone());
-                shell.capture_event();
-            }
+            && !bounds.contains(cursor_position)
+        {
+            shell.publish(on_close.clone());
+            shell.capture_event();
+        }
 
         self.overlay
             .as_widget_mut()

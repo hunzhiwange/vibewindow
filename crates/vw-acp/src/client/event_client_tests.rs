@@ -44,9 +44,9 @@ async fn session_notification_forwards_text_delta() {
     client
         .session_notification(acp::SessionNotification::new(
             "session-1",
-            acp::SessionUpdate::AgentMessageChunk(acp::ContentChunk::new(
-                acp::ContentBlock::Text(acp::TextContent::new("hello")),
-            )),
+            acp::SessionUpdate::AgentMessageChunk(acp::ContentChunk::new(acp::ContentBlock::Text(
+                acp::TextContent::new("hello"),
+            ))),
         ))
         .await
         .expect("session notification");
@@ -58,16 +58,16 @@ async fn session_notification_forwards_text_delta() {
 }
 
 #[tokio::test]
-async fn session_notification_reports_session_mismatch_without_delta() {
+async fn session_notification_accepts_session_change_and_forwards_delta() {
     let (event_tx, mut event_rx) = mpsc::unbounded_channel();
     let client = event_client(event_tx, Some("expected".to_string()));
 
     client
         .session_notification(acp::SessionNotification::new(
             "actual",
-            acp::SessionUpdate::AgentThoughtChunk(acp::ContentChunk::new(
-                acp::ContentBlock::Text(acp::TextContent::new("hidden")),
-            )),
+            acp::SessionUpdate::AgentThoughtChunk(acp::ContentChunk::new(acp::ContentBlock::Text(
+                acp::TextContent::new("hidden"),
+            ))),
         ))
         .await
         .expect("session notification");
@@ -79,7 +79,12 @@ async fn session_notification_reports_session_mismatch_without_delta() {
         }
         other => panic!("unexpected event: {other:?}"),
     }
+    match event_rx.recv().await.expect("event") {
+        InternalEvent::Delta(delta) => assert_eq!(delta, "hidden"),
+        other => panic!("unexpected event: {other:?}"),
+    }
     assert!(event_rx.try_recv().is_err());
+    assert_eq!(client.expected_session_id.lock().as_deref(), Some("actual"));
 }
 
 #[tokio::test]

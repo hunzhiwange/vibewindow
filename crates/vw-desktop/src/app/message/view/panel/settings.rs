@@ -1,10 +1,12 @@
 use super::ViewMessage;
 #[cfg(not(target_arch = "wasm32"))]
+use crate::app::FocusArea;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::app::config::save_json_tool_content;
 #[cfg(target_arch = "wasm32")]
 use crate::app::config::save_json_tool_content_async;
 use crate::app::message::{ProjectMessage, SettingsMessage};
-use crate::app::{App, FocusArea, Message, SettingsTab, set_config_field};
+use crate::app::{App, Message, SettingsTab, set_config_field};
 use iced::Task;
 #[cfg(not(target_arch = "wasm32"))]
 use std::ffi::OsString;
@@ -26,26 +28,23 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             set_config_field("show_settings", serde_json::Value::Bool(app.show_settings));
             if app.show_settings
                 && let Some(path) = app.project_path.as_deref().map(str::to_owned)
-                    && !app.project_sessions.contains_key(&path)
-                        && !app.project_sessions_loading.contains(&path)
-                    {
-                        app.project_sessions_loading.insert(path.clone());
-                        let project_path_clone = path.clone();
-                        return Task::perform(
-                            async move {
-                                let client =
-                                    crate::app::gateway_client().map_err(|err| err.to_string())?;
-                                client
-                                    .session_list::<Vec<vw_shared::session::info::Info>>(Some(
-                                        &project_path_clone,
-                                    ))
-                                    .await
-                            },
-                            |res| {
-                                Message::Project(ProjectMessage::ProjectSessionsLoaded(path, res))
-                            },
-                        );
-                    }
+                && !app.project_sessions.contains_key(&path)
+                && !app.project_sessions_loading.contains(&path)
+            {
+                app.project_sessions_loading.insert(path.clone());
+                let project_path_clone = path.clone();
+                return Task::perform(
+                    async move {
+                        let client = crate::app::gateway_client().map_err(|err| err.to_string())?;
+                        client
+                            .session_list::<Vec<vw_shared::session::info::Info>>(Some(
+                                &project_path_clone,
+                            ))
+                            .await
+                    },
+                    |res| Message::Project(ProjectMessage::ProjectSessionsLoaded(path, res)),
+                );
+            }
             Task::none()
         }
         ViewMessage::ProjectFileNewSession => {
@@ -358,23 +357,21 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
     }
 }
 
-pub fn close_requested(app: &mut App) -> Task<Message> {
-    let save_task = if app.json_tool_remember {
-        save_json_tool_content_task(app.json_tool_editor.text())
-    } else {
-        Task::none()
-    };
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        // Kill all independent webview children
-        for child in app.independent_webview_children.iter_mut() {
-            let child: &mut std::process::Child = child;
-            let _ = child.kill();
-        }
-        app.independent_webview_children.clear();
+pub fn close_requested(app: &mut App, window_id: iced::window::Id) -> Task<Message> {
+    if app.task_pet_window_id == Some(window_id) {
+        return iced::window::close(window_id);
     }
-    // Propagate close event to window
-    Task::batch(vec![save_task, iced::window::latest().and_then(iced::window::close)])
+
+    if app.main_window_id == Some(window_id) {
+        let save_task = if app.json_tool_remember {
+            save_json_tool_content_task(app.json_tool_editor.text())
+        } else {
+            Task::none()
+        };
+        return Task::batch(vec![save_task, iced::window::close(window_id)]);
+    }
+
+    Task::none()
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -429,11 +426,8 @@ fn install_cli_tool() -> Result<String, String> {
             )
         })?;
     } else if let Ok(url) = std::env::var("VIBEWINDOW_CLI_URL") {
-        let tmp_path = install_dir.join(if cfg!(windows) {
-            "vibewindow.tmp.exe"
-        } else {
-            "vibewindow.tmp"
-        });
+        let tmp_path =
+            install_dir.join(if cfg!(windows) { "vibewindow.tmp.exe" } else { "vibewindow.tmp" });
         download_file(&url, &tmp_path)?;
         fs::rename(&tmp_path, &target_bin).map_err(|e| format!("移动临时文件失败: {e}"))?;
     } else {
@@ -591,13 +585,15 @@ fn resolve_home_dir() -> Result<PathBuf, String> {
         return Ok(user_dirs.home_dir().to_path_buf());
     }
     if let Ok(home) = std::env::var("HOME")
-        && !home.trim().is_empty() {
-            return Ok(PathBuf::from(home));
-        }
+        && !home.trim().is_empty()
+    {
+        return Ok(PathBuf::from(home));
+    }
     if let Ok(home) = std::env::var("USERPROFILE")
-        && !home.trim().is_empty() {
-            return Ok(PathBuf::from(home));
-        }
+        && !home.trim().is_empty()
+    {
+        return Ok(PathBuf::from(home));
+    }
     Err("无法定位用户主目录".to_string())
 }
 
@@ -645,14 +641,16 @@ fn download_file(url: &str, dest: &Path) -> Result<(), String> {
         let curl =
             Command::new("curl").arg("-fsSL").arg(url).arg("-o").arg(dest.as_os_str()).status();
         if let Ok(status) = curl
-            && status.success() {
-                return Ok(());
-            }
+            && status.success()
+        {
+            return Ok(());
+        }
         let wget = Command::new("wget").arg("-qO").arg(dest.as_os_str()).arg(url).status();
         if let Ok(status) = wget
-            && status.success() {
-                return Ok(());
-            }
+            && status.success()
+        {
+            return Ok(());
+        }
         Err("下载失败，请手动下载并安装，或确保已安装 curl/wget".to_string())
     }
 }

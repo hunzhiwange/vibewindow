@@ -5,21 +5,22 @@
 //! 文件系统操作集中放在阻塞任务中执行，避免阻塞异步网关运行时。
 
 use axum::Json;
+use axum::Router;
 use axum::extract::Query;
+use axum::routing::{get, post};
 use include_dir::{Dir, include_dir};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use vw_gateway_client::{
-    DesktopSkillCatalogEntryDto, DesktopSkillDetailDto, DesktopSkillPathDto,
-};
+use vw_gateway_client::{DesktopSkillCatalogEntryDto, DesktopSkillDetailDto, DesktopSkillPathDto};
 
 use crate::app::agent::gateway::ApiError;
 use crate::app::agent::skills::{
-    LocalSkillSourceKind, discover_local_skill_source_dirs, is_local_skill_disabled,
-    local_skill_disabled_marker_path, read_markdown_skill_metadata,
+    LocalSkillSourceKind, discover_local_skill_source_dirs_with_provider, is_local_skill_disabled,
+    local_skill_disabled_marker_path, read_markdown_skill_metadata, workspace_skills_dir,
 };
+use vw_config_types::skills::SkillsDirectoryProvider;
 
 static BUILT_IN_SKILLS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../skills");
 static RECOMMENDED_SKILL_IDS: &[&str] = &["find-skills", "skill-creator"];
@@ -43,6 +44,23 @@ description: 当用户需要 {name} 相关帮助时使用该技能。
 2. 根据目标执行步骤。
 3. 返回结果并说明限制。
 "#;
+
+/// 构建前端中立的 skills API 路由表。
+///
+/// 这些接口由 gateway 统一聚合技能目录，桌面、Web 或其他前端都只消费这里的
+/// DTO，不直接扫描本地技能目录。
+pub(crate) fn router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
+    Router::new()
+        .route("/skills", get(catalog_get))
+        .route("/skills/detail", get(detail_get))
+        .route("/skills/create", post(create_post))
+        .route("/skills/install-built-in", post(install_builtin_post))
+        .route("/skills/set-enabled", post(set_enabled_post))
+        .route("/skills/delete", post(delete_post))
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum BuiltInSkillGroup {
@@ -160,10 +178,13 @@ pub(crate) async fn catalog_get(
     Query(query): Query<SkillsCatalogQuery>,
 ) -> Result<Json<Vec<DesktopSkillCatalogEntryDto>>, ApiError> {
     let project_path = normalize_optional_project_path(query.project_path);
-    let items = tokio::task::spawn_blocking(move || collect_catalog_skills(project_path.as_deref()))
-        .await
-        .map_err(|err| ApiError::internal(format!("desktop skills catalog task failed: {err}")))?
-        .map_err(ApiError::bad_request)?;
+    let directory_provider = crate::app::agent::config::get().await.skills.directory_provider;
+    let items = tokio::task::spawn_blocking(move || {
+        collect_catalog_skills(project_path.as_deref(), directory_provider)
+    })
+    .await
+    .map_err(|err| ApiError::internal(format!("desktop skills catalog task failed: {err}")))?
+    .map_err(ApiError::bad_request)?;
 
     Ok(Json(items))
 }
@@ -189,9 +210,10 @@ pub(crate) async fn detail_get(
     if skill_id.is_empty() {
         return Err(ApiError::bad_request("skill_id is required"));
     }
+    let directory_provider = crate::app::agent::config::get().await.skills.directory_provider;
 
     let detail = tokio::task::spawn_blocking(move || {
-        resolve_skill_detail(project_path.as_deref(), &skill_id)
+        resolve_skill_detail(project_path.as_deref(), &skill_id, directory_provider)
     })
     .await
     .map_err(|err| ApiError::internal(format!("desktop skill detail task failed: {err}")))?
@@ -217,10 +239,13 @@ pub(crate) async fn create_post(
     Json(body): Json<SkillsProjectRequest>,
 ) -> Result<Json<DesktopSkillPathDto>, ApiError> {
     let project_path = resolve_project_path(&body.project_path).map_err(ApiError::bad_request)?;
-    let path = tokio::task::spawn_blocking(move || create_new_skill_scaffold(&project_path))
-        .await
-        .map_err(|err| ApiError::internal(format!("desktop skills create task failed: {err}")))?
-        .map_err(ApiError::bad_request)?;
+    let directory_provider = crate::app::agent::config::get().await.skills.directory_provider;
+    let path = tokio::task::spawn_blocking(move || {
+        create_new_skill_scaffold(&project_path, directory_provider)
+    })
+    .await
+    .map_err(|err| ApiError::internal(format!("desktop skills create task failed: {err}")))?
+    .map_err(ApiError::bad_request)?;
 
     Ok(Json(DesktopSkillPathDto { path }))
 }
@@ -246,13 +271,14 @@ pub(crate) async fn install_builtin_post(
     if skill_id.is_empty() {
         return Err(ApiError::bad_request("skill_id is required"));
     }
+    let directory_provider = crate::app::agent::config::get().await.skills.directory_provider;
 
-    let path = tokio::task::spawn_blocking(move || install_built_in_skill(&project_path, &skill_id))
-        .await
-        .map_err(|err| {
-            ApiError::internal(format!("desktop skills install task failed: {err}"))
-        })?
-        .map_err(ApiError::bad_request)?;
+    let path = tokio::task::spawn_blocking(move || {
+        install_built_in_skill(&project_path, &skill_id, directory_provider)
+    })
+    .await
+    .map_err(|err| ApiError::internal(format!("desktop skills install task failed: {err}")))?
+    .map_err(ApiError::bad_request)?;
 
     Ok(Json(DesktopSkillPathDto { path }))
 }
@@ -278,10 +304,11 @@ pub(crate) async fn set_enabled_post(
     if skill_id.is_empty() {
         return Err(ApiError::bad_request("skill_id is required"));
     }
+    let directory_provider = crate::app::agent::config::get().await.skills.directory_provider;
 
     let enabled = body.enabled;
     let path = tokio::task::spawn_blocking(move || {
-        set_local_skill_enabled(project_path.as_deref(), &skill_id, enabled)
+        set_local_skill_enabled(project_path.as_deref(), &skill_id, enabled, directory_provider)
     })
     .await
     .map_err(|err| ApiError::internal(format!("desktop skill toggle task failed: {err}")))?
@@ -311,9 +338,10 @@ pub(crate) async fn delete_post(
     if skill_id.is_empty() {
         return Err(ApiError::bad_request("skill_id is required"));
     }
+    let directory_provider = crate::app::agent::config::get().await.skills.directory_provider;
 
     let path = tokio::task::spawn_blocking(move || {
-        delete_local_skill(project_path.as_deref(), &skill_id)
+        delete_local_skill(project_path.as_deref(), &skill_id, directory_provider)
     })
     .await
     .map_err(|err| ApiError::internal(format!("desktop skill delete task failed: {err}")))?
@@ -322,8 +350,11 @@ pub(crate) async fn delete_post(
     Ok(Json(DesktopSkillPathDto { path }))
 }
 
-fn collect_catalog_skills(project_path: Option<&str>) -> Result<Vec<DesktopSkillCatalogEntryDto>, String> {
-    let local_skills = discover_local_skills(project_path)?;
+fn collect_catalog_skills(
+    project_path: Option<&str>,
+    directory_provider: SkillsDirectoryProvider,
+) -> Result<Vec<DesktopSkillCatalogEntryDto>, String> {
+    let local_skills = discover_local_skills(project_path, directory_provider)?;
     let local_skill_ids = local_skills.iter().map(|skill| skill.id.clone()).collect::<HashSet<_>>();
     let local_by_id = local_skills
         .iter()
@@ -340,9 +371,7 @@ fn collect_catalog_skills(project_path: Option<&str>) -> Result<Vec<DesktopSkill
 
             DesktopSkillCatalogEntryDto {
                 id: skill.id.clone(),
-                title: local
-                    .map(|item| item.title.clone())
-                    .unwrap_or_else(|| skill.title.clone()),
+                title: local.map(|item| item.title.clone()).unwrap_or_else(|| skill.title.clone()),
                 description: local
                     .map(|item| item.description.clone())
                     .unwrap_or_else(|| skill.description.clone()),
@@ -449,12 +478,17 @@ fn discover_built_in_skills() -> Vec<BuiltInSkillMeta> {
     skills
 }
 
-fn discover_local_skills(project_path: Option<&str>) -> Result<Vec<LocalCatalogSkillMeta>, String> {
+fn discover_local_skills(
+    project_path: Option<&str>,
+    directory_provider: SkillsDirectoryProvider,
+) -> Result<Vec<LocalCatalogSkillMeta>, String> {
     let workspace_dir = project_path.map(resolve_project_path).transpose()?;
     let mut skills = Vec::new();
     let mut seen_ids = HashSet::new();
 
-    for source_dir in discover_local_skill_source_dirs(workspace_dir.as_deref()) {
+    for source_dir in
+        discover_local_skill_source_dirs_with_provider(workspace_dir.as_deref(), directory_provider)
+    {
         let entries = match std::fs::read_dir(&source_dir.path) {
             Ok(entries) => entries,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
@@ -477,7 +511,8 @@ fn discover_local_skills(project_path: Option<&str>) -> Result<Vec<LocalCatalogS
                 continue;
             }
 
-            let Some((title, description)) = read_local_catalog_metadata(&entry.path(), &skill_id) else {
+            let Some((title, description)) = read_local_catalog_metadata(&entry.path(), &skill_id)
+            else {
                 continue;
             };
 
@@ -570,8 +605,9 @@ fn find_built_in_skill(skill_id: &str) -> Option<&'static BuiltInSkillMeta> {
 fn resolve_skill_detail(
     project_path: Option<&str>,
     skill_id: &str,
+    directory_provider: SkillsDirectoryProvider,
 ) -> Result<DesktopSkillDetailDto, String> {
-    if let Some(local_skill) = discover_local_skills(project_path)?
+    if let Some(local_skill) = discover_local_skills(project_path, directory_provider)?
         .into_iter()
         .find(|skill| skill.id == skill_id)
     {
@@ -604,8 +640,8 @@ fn resolve_skill_detail(
         });
     }
 
-    let built_in_skill = find_built_in_skill(skill_id)
-        .ok_or_else(|| format!("未找到技能: {skill_id}"))?;
+    let built_in_skill =
+        find_built_in_skill(skill_id).ok_or_else(|| format!("未找到技能: {skill_id}"))?;
     let document_content = read_built_in_skill_markdown(skill_id)?;
 
     Ok(DesktopSkillDetailDto {
@@ -659,8 +695,12 @@ fn read_local_skill_document(skill_dir: &Path) -> Result<(String, String), Strin
     Err(format!("技能目录缺少 SKILL.md 或 SKILL.toml: {}", skill_dir.display()))
 }
 
-fn resolve_local_skill_dir(project_path: Option<&str>, skill_id: &str) -> Result<PathBuf, String> {
-    let skill = discover_local_skills(project_path)?
+fn resolve_local_skill_dir(
+    project_path: Option<&str>,
+    skill_id: &str,
+    directory_provider: SkillsDirectoryProvider,
+) -> Result<PathBuf, String> {
+    let skill = discover_local_skills(project_path, directory_provider)?
         .into_iter()
         .find(|item| item.id == skill_id)
         .ok_or_else(|| format!("未找到可管理的本地技能: {skill_id}"))?;
@@ -676,15 +716,15 @@ fn set_local_skill_enabled(
     project_path: Option<&str>,
     skill_id: &str,
     enabled: bool,
+    directory_provider: SkillsDirectoryProvider,
 ) -> Result<String, String> {
-    let skill_dir = resolve_local_skill_dir(project_path, skill_id)?;
+    let skill_dir = resolve_local_skill_dir(project_path, skill_id, directory_provider)?;
     let marker_path = local_skill_disabled_marker_path(&skill_dir);
 
     // 技能启用状态用禁用标记表达，避免修改用户维护的 SKILL 文档内容。
     if enabled {
         if marker_path.exists() {
-            std::fs::remove_file(&marker_path)
-                .map_err(|err| format!("移除禁用标记失败: {err}"))?;
+            std::fs::remove_file(&marker_path).map_err(|err| format!("移除禁用标记失败: {err}"))?;
         }
     } else if !marker_path.exists() {
         std::fs::write(&marker_path, b"disabled\n")
@@ -694,8 +734,12 @@ fn set_local_skill_enabled(
     Ok(skill_dir.display().to_string())
 }
 
-fn delete_local_skill(project_path: Option<&str>, skill_id: &str) -> Result<String, String> {
-    let skill_dir = resolve_local_skill_dir(project_path, skill_id)?;
+fn delete_local_skill(
+    project_path: Option<&str>,
+    skill_id: &str,
+    directory_provider: SkillsDirectoryProvider,
+) -> Result<String, String> {
+    let skill_dir = resolve_local_skill_dir(project_path, skill_id, directory_provider)?;
     std::fs::remove_dir_all(&skill_dir).map_err(|err| format!("删除技能目录失败: {err}"))?;
     Ok(skill_dir.display().to_string())
 }
@@ -765,22 +809,20 @@ fn uuid_suffix() -> String {
         .unwrap_or_else(|_| "custom".to_string())
 }
 
-fn create_new_skill_scaffold(project_path: &Path) -> Result<String, String> {
-    let skills_root = project_path.join("skills");
+fn create_new_skill_scaffold(
+    project_path: &Path,
+    directory_provider: SkillsDirectoryProvider,
+) -> Result<String, String> {
+    let skills_root = workspace_skills_dir(project_path, directory_provider);
     std::fs::create_dir_all(&skills_root).map_err(|err| format!("创建 skills 目录失败: {err}"))?;
 
     let skill_dir = unique_skill_directory(&skills_root);
     std::fs::create_dir_all(&skill_dir).map_err(|err| format!("创建技能目录失败: {err}"))?;
 
-    let skill_name = skill_dir
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("new-skill")
-        .to_string();
+    let skill_name =
+        skill_dir.file_name().and_then(|name| name.to_str()).unwrap_or("new-skill").to_string();
     let title = skill_name.replace('-', " ");
-    let content = NEW_SKILL_TEMPLATE
-        .replace("{name}", &skill_name)
-        .replace("{title}", &title);
+    let content = NEW_SKILL_TEMPLATE.replace("{name}", &skill_name).replace("{title}", &title);
     std::fs::write(skill_dir.join("SKILL.md"), content)
         .map_err(|err| format!("写入 SKILL.md 失败: {err}"))?;
 
@@ -808,12 +850,16 @@ fn copy_bundled_dir_recursive(source: &Dir<'_>, dest: &Path) -> Result<(), Strin
     Ok(())
 }
 
-fn install_built_in_skill(project_path: &Path, skill_id: &str) -> Result<String, String> {
+fn install_built_in_skill(
+    project_path: &Path,
+    skill_id: &str,
+    directory_provider: SkillsDirectoryProvider,
+) -> Result<String, String> {
     let Some(skill_dir) = BUILT_IN_SKILLS_DIR.get_dir(skill_id) else {
         return Err(format!("未找到内置技能: {skill_id}"));
     };
 
-    let skills_root = project_path.join("skills");
+    let skills_root = workspace_skills_dir(project_path, directory_provider);
     std::fs::create_dir_all(&skills_root).map_err(|err| format!("创建 skills 目录失败: {err}"))?;
 
     let target_dir = skills_root.join(skill_id);

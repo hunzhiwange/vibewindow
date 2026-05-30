@@ -67,9 +67,9 @@ pub use text_diff::view_custom_text_diff;
 pub(crate) use comment_editor::diff_comment_editor;
 pub(super) use context_menu::wrap_diff_row_with_context_menu;
 pub(super) use styles::{
-    diff_highlight_enabled, diff_line_number_with_background, diff_split_divider,
-    diff_split_pane, diff_split_pane_with_background, merge_diff_row,
-    merge_diff_row_with_background, split_line_number_area,
+    diff_highlight_enabled, diff_line_number_with_background, diff_split_divider, diff_split_pane,
+    diff_split_pane_with_background, merge_diff_row, merge_diff_row_with_background,
+    split_line_number_area,
 };
 
 pub(super) struct DiffRenderCtx<'a> {

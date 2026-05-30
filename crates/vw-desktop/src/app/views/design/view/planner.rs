@@ -51,7 +51,9 @@ fn design_chat_icon_style(alpha: f32) -> impl Fn(&Theme, svg::Status) -> svg::St
 
 fn design_chat_action_fill(theme: &Theme) -> Color {
     let p = theme.extended_palette();
-    if theme.palette().background.r + theme.palette().background.g + theme.palette().background.b < 1.5 {
+    if theme.palette().background.r + theme.palette().background.g + theme.palette().background.b
+        < 1.5
+    {
         p.background.strong.color.scale_alpha(0.92)
     } else {
         Color::BLACK
@@ -278,13 +280,19 @@ pub(super) fn render_design_planner_panel_overlay<'a>(
                     .width(Length::Fixed(collapsed_chevron_size))
                     .height(Length::Fixed(collapsed_chevron_size))
                     .style(|theme: &Theme, _| svg::Style {
-                        color: Some(theme.extended_palette().background.base.text.scale_alpha(0.82)),
+                        color: Some(
+                            theme.extended_palette().background.base.text.scale_alpha(0.82)
+                        ),
                     }),
-                text("使用氛围视窗进行设计...").size(collapsed_title_size).style(|theme: &Theme| {
-                    iced::widget::text::Style {
-                        color: Some(theme.extended_palette().background.base.text.scale_alpha(0.92)),
+                text("使用氛围视窗进行设计...").size(collapsed_title_size).style(
+                    |theme: &Theme| {
+                        iced::widget::text::Style {
+                            color: Some(
+                                theme.extended_palette().background.base.text.scale_alpha(0.92),
+                            ),
+                        }
                     }
-                }),
+                ),
                 Space::new().width(Length::Fill),
                 container(
                     svg(assets::get_icon(Icon::ArrowUp))
@@ -370,7 +378,8 @@ fn render_design_planner_panel<'a>(app: &'a App, state: &'a DesignState) -> Elem
         design_planner_header_compact_size(18.0)
     };
     let page_count = state.design_generation_pages.len();
-    let module_count = state.design_generation_pages.iter().map(|page| page.modules.len()).sum::<usize>();
+    let module_count =
+        state.design_generation_pages.iter().map(|page| page.modules.len()).sum::<usize>();
     let generated_count = state
         .design_generation_pages
         .iter()
@@ -550,7 +559,8 @@ fn render_design_planner_panel<'a>(app: &'a App, state: &'a DesignState) -> Elem
         .padding(0)
         .style(design_round_icon_button_style)
         .on_press(Message::Design(DesignMessage::DesignPlannerNewChatSession));
-        let tip = container(text("新建会话").size(12)).style(design_tooltip_dark_style).padding([6, 8]);
+        let tip =
+            container(text("新建会话").size(12)).style(design_tooltip_dark_style).padding([6, 8]);
         Tooltip::new(btn, tip, TooltipPosition::Bottom).gap(8)
     };
 
@@ -639,7 +649,8 @@ fn render_design_planner_panel<'a>(app: &'a App, state: &'a DesignState) -> Elem
 
     let build_prompt_editor = || {
         let line_count = state.design_chat_input.text().lines().count().max(1);
-        let visible_lines = line_count.clamp(if compact { 2 } else { 3 }, if compact { 5 } else { 6 }) as f32;
+        let visible_lines =
+            line_count.clamp(if compact { 2 } else { 3 }, if compact { 5 } else { 6 }) as f32;
         let editor_height = 17.0 * visible_lines + 10.0;
         text_editor(&state.design_chat_input)
             .placeholder("简要描述网站需求，例如布局、模块和响应式要求")
@@ -738,7 +749,9 @@ fn render_design_planner_panel<'a>(app: &'a App, state: &'a DesignState) -> Elem
                         text_color: theme.extended_palette().background.base.text,
                         ..Default::default()
                     })
-                    .on_press(Message::Design(DesignMessage::DesignGenerationCopyChatMessage(index)));
+                    .on_press(Message::Design(DesignMessage::DesignGenerationCopyChatMessage(
+                        index,
+                    )));
 
                 if is_step_message {
                     let step_ok = !message.content.starts_with("Step failed:");
@@ -827,7 +840,9 @@ fn render_design_planner_panel<'a>(app: &'a App, state: &'a DesignState) -> Elem
                             }
                         }),
                     )
-                    .on_press(Message::Design(DesignMessage::DesignGenerationSelectChatMessage(index)))
+                    .on_press(Message::Design(DesignMessage::DesignGenerationSelectChatMessage(
+                        index,
+                    )))
                     .into()
                 }
             })

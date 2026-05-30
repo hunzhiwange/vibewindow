@@ -1,7 +1,10 @@
 #[test]
 fn format_position_keeps_file_line_and_column() {
     assert_eq!(super::format_position("src/main.rs", 7, 3), "文件:src/main.rs 行:7 列:3");
-    assert_eq!(super::format_selection_positions("src/main.rs", 1, 2, 3, 4), "@src/main.rs:1:2-3:4");
+    assert_eq!(
+        super::format_selection_positions("src/main.rs", 1, 2, 3, 4),
+        "@src/main.rs:1:2-3:4"
+    );
 }
 
 #[test]
@@ -20,7 +23,10 @@ tool call
 after"#;
     let (thinks, visible, open) = super::split_think(raw);
     assert!(thinks.is_empty());
-    assert_eq!(visible, "before
-after");
+    assert_eq!(
+        visible,
+        "before
+after"
+    );
     assert!(!open);
 }

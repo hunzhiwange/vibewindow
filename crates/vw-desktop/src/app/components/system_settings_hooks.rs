@@ -41,9 +41,14 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let enabled_row = field_row(
         "启用",
         "控制是否开启运行时 hooks 执行。",
-        checkbox(s.enabled).label("开启运行时 hooks 执行").on_toggle(|value| {
-            Message::Settings(message::SettingsMessage::Hooks(HooksMessage::EnabledToggled(value)))
-        }).style(settings_checkbox_style),
+        checkbox(s.enabled)
+            .label("开启运行时 hooks 执行")
+            .on_toggle(|value| {
+                Message::Settings(message::SettingsMessage::Hooks(HooksMessage::EnabledToggled(
+                    value,
+                )))
+            })
+            .style(settings_checkbox_style),
     );
 
     let enabled_hint = row![
@@ -55,17 +60,21 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .spacing(16)
     .align_y(Alignment::Center);
 
-    let builtin_header =
-        settings_section_card("内置钩子", "当前提供审计类内置 hooks。后续新增内置项时会继续在这里扩展。");
+    let builtin_header = settings_section_card(
+        "内置钩子",
+        "当前提供审计类内置 hooks。后续新增内置项时会继续在这里扩展。",
+    );
 
     let command_logger_row = field_row(
         "command_logger",
         "记录命令调用信息，便于审计与问题回溯。",
-        checkbox(s.command_logger).on_toggle(|value| {
+        checkbox(s.command_logger)
+            .on_toggle(|value| {
                 Message::Settings(message::SettingsMessage::Hooks(
                     HooksMessage::CommandLoggerToggled(value),
                 ))
-            }).style(settings_checkbox_style),
+            })
+            .style(settings_checkbox_style),
     );
 
     let custom_placeholder = settings_section_card(

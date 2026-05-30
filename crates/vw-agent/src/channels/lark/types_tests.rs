@@ -24,5 +24,8 @@ fn ws_endpoint_response_deserializes_optional_fields() {
     .expect("endpoint response");
 
     assert_eq!(response.code, 0);
-    assert_eq!(response.data.expect("data").client_config.expect("config").ping_interval, Some(1000));
+    assert_eq!(
+        response.data.expect("data").client_config.expect("config").ping_interval,
+        Some(1000)
+    );
 }

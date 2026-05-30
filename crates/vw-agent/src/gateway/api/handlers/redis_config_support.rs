@@ -8,8 +8,8 @@ use std::collections::HashSet;
 
 use uuid::Uuid;
 use vw_api_types::tool::{
-    GatewayRedisConnectionConfig, GatewayRedisConnectionUpsertBody,
-    GatewayRedisSentinelConfig, GatewayRedisSshTunnelConfig, GatewayRedisTlsCertConfig,
+    GatewayRedisConnectionConfig, GatewayRedisConnectionUpsertBody, GatewayRedisSentinelConfig,
+    GatewayRedisSshTunnelConfig, GatewayRedisTlsCertConfig,
 };
 
 use crate::app::agent::gateway::ApiError;
@@ -291,10 +291,7 @@ pub(super) fn build_connection_uri(
         format!("{username}:{password}@")
     };
 
-    Ok(format!(
-        "{scheme}://{auth}{}:{}/{}",
-        connection.host, connection.port, connection.db
-    ))
+    Ok(format!("{scheme}://{auth}{}:{}/{}", connection.host, connection.port, connection.db))
 }
 
 /// 从配置路径加载 TLS 证书材料。
@@ -318,20 +315,16 @@ pub(super) fn load_tls_certificates_from_paths(
     let root_cert = read_optional_tls_file(&config.ca_cert_path, "CA 证书")?;
 
     let client_tls = match (client_cert, client_key) {
-        (Some(client_cert), Some(client_key)) => Some(::redis::ClientTlsConfig {
-            client_cert,
-            client_key,
-        }),
+        (Some(client_cert), Some(client_key)) => {
+            Some(::redis::ClientTlsConfig { client_cert, client_key })
+        }
         (None, None) => None,
         _ => {
             return Err("客户端证书和私钥必须同时提供，或同时留空".to_string());
         }
     };
 
-    Ok(::redis::TlsCertificates {
-        client_tls,
-        root_cert,
-    })
+    Ok(::redis::TlsCertificates { client_tls, root_cert })
 }
 
 fn read_optional_tls_file(path: &str, label: &str) -> Result<Option<Vec<u8>>, String> {
@@ -340,11 +333,9 @@ fn read_optional_tls_file(path: &str, label: &str) -> Result<Option<Vec<u8>>, St
         return Ok(None);
     }
 
-    let expanded = shellexpand::full(trimmed)
-        .map_err(|error| format!("{label}路径无效: {error}"))?;
-    std::fs::read(expanded.as_ref())
-        .map(Some)
-        .map_err(|error| format!("读取{label}失败: {error}"))
+    let expanded =
+        shellexpand::full(trimmed).map_err(|error| format!("{label}路径无效: {error}"))?;
+    std::fs::read(expanded.as_ref()).map(Some).map_err(|error| format!("读取{label}失败: {error}"))
 }
 
 /// 判断 TLS 配置中是否提供了任意自定义证书材料。

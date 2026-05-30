@@ -12,7 +12,10 @@ use crate::app::components::overlays::AboveOverlay;
 use crate::app::message::DesignMessage;
 use crate::app::message::design::VariableKindPreset;
 
-use super::styles::{VARIABLE_FOOTER_HEIGHT, VARIABLE_MENU_BUTTON_HEIGHT, menu_button_style, menu_surface_style, variables_palette};
+use super::styles::{
+    VARIABLE_FOOTER_HEIGHT, VARIABLE_MENU_BUTTON_HEIGHT, menu_button_style, menu_surface_style,
+    variables_palette,
+};
 use super::table::divider;
 
 /// 渲染对应界面。
@@ -26,7 +29,10 @@ use super::table::divider;
 ///
 /// # 错误
 /// 此函数不返回 `Result`；不可用状态会通过空视图、禁用控件或回退文案表达。
-pub(super) fn render_variable_footer<'a>(menu_open: bool, label_font: Font) -> Element<'a, Message> {
+pub(super) fn render_variable_footer<'a>(
+    menu_open: bool,
+    label_font: Font,
+) -> Element<'a, Message> {
     column![
         divider(),
         container(
@@ -229,7 +235,10 @@ pub(super) fn render_menu_item<'a>(
 ///
 /// # 错误
 /// 此函数不返回 `Result`；不可用状态会通过空视图、禁用控件或回退文案表达。
-pub(super) fn render_collection_menu<'a>(theme_name: String, label_font: Font) -> Element<'a, Message> {
+pub(super) fn render_collection_menu<'a>(
+    theme_name: String,
+    label_font: Font,
+) -> Element<'a, Message> {
     container(
         column![
             render_menu_item(
@@ -276,7 +285,10 @@ pub(super) fn render_collection_menu<'a>(theme_name: String, label_font: Font) -
 ///
 /// # 错误
 /// 此函数不返回 `Result`；不可用状态会通过空视图、禁用控件或回退文案表达。
-pub(super) fn render_variant_menu<'a>(theme_name: String, label_font: Font) -> Element<'a, Message> {
+pub(super) fn render_variant_menu<'a>(
+    theme_name: String,
+    label_font: Font,
+) -> Element<'a, Message> {
     container(
         column![
             render_menu_item(

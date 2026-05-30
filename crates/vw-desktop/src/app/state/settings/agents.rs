@@ -5,7 +5,8 @@
 
 use super::*;
 use vw_config_types::agent::{
-    BuiltinAgentKind, DelegateAgentConfig, builtin_agent_config, builtin_agent_keys, builtin_agent_spec,
+    BuiltinAgentKind, DelegateAgentConfig, builtin_agent_config, builtin_agent_keys,
+    builtin_agent_spec,
 };
 
 #[derive(Debug, Clone)]
@@ -28,6 +29,7 @@ pub(crate) struct DelegateAgentSettingsEntry {
     pub(crate) max_depth: u32,
     pub(crate) agentic: bool,
     pub(crate) allowed_tools: Vec<String>,
+    pub(crate) allowed_skills: Vec<String>,
     pub(crate) max_iterations: u32,
 }
 
@@ -77,6 +79,7 @@ impl DelegateAgentSettingsEntry {
             max_depth: config.max_depth.clamp(1, 32),
             agentic: config.agentic,
             allowed_tools: config.allowed_tools,
+            allowed_skills: config.allowed_skills,
             max_iterations: config.max_iterations.clamp(1, 100) as u32,
         }
     }
@@ -100,18 +103,16 @@ fn default_agent_label(key: &str, config: &DelegateAgentConfig) -> String {
 ///
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-pub(crate) fn ordered_agent_keys(configured_agents: &std::collections::HashMap<String, DelegateAgentConfig>) -> Vec<String> {
+pub(crate) fn ordered_agent_keys(
+    configured_agents: &std::collections::HashMap<String, DelegateAgentConfig>,
+) -> Vec<String> {
     let mut custom_agent_keys = configured_agents
         .keys()
         .filter(|key| builtin_agent_spec(key.as_str()).is_none())
         .cloned()
         .collect::<Vec<_>>();
     custom_agent_keys.sort();
-    builtin_agent_keys()
-        .into_iter()
-        .map(str::to_string)
-        .chain(custom_agent_keys)
-        .collect()
+    builtin_agent_keys().into_iter().map(str::to_string).chain(custom_agent_keys).collect()
 }
 
 #[derive(Debug, Clone)]
@@ -140,7 +141,10 @@ impl Default for AgentsSettingsState {
             entries: builtin_agent_keys()
                 .iter()
                 .map(|key| {
-                    DelegateAgentSettingsEntry::from_config(key, Some(default_agent_config_for_key(key)))
+                    DelegateAgentSettingsEntry::from_config(
+                        key,
+                        Some(default_agent_config_for_key(key)),
+                    )
                 })
                 .collect(),
             new_agent_key_input: String::new(),

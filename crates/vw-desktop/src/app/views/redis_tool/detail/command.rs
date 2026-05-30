@@ -58,11 +58,13 @@ pub(super) fn build_command_panel<'a>(app: &'a App, is_busy: bool) -> Element<'a
                     .direction(redis_scroll_direction())
                     .height(Length::Fixed(240.0)),
             )
-                .padding([10, 0])
-                .width(Length::Fill),
+            .padding([10, 0])
+            .width(Length::Fill),
             row![
                 text_input("例如：INFO server 或 GET my_key", &app.redis_tool.command_input)
-                    .on_input(|value| Message::RedisTool(RedisToolMessage::CommandInputChanged(value)))
+                    .on_input(|value| Message::RedisTool(RedisToolMessage::CommandInputChanged(
+                        value
+                    )))
                     .on_submit(Message::RedisTool(RedisToolMessage::RunCommand))
                     .padding([10, 12])
                     .size(13)
@@ -90,12 +92,8 @@ fn build_command_output_entry<'a>(entry: &'a RedisCommandOutputEntry) -> Element
                 text(&entry.command).size(12),
                 Space::new().width(Length::Fill),
                 settings_value_badge(if entry.is_error { "ERROR" } else { "OK" }),
-                text(format!("{} ms", entry.cost_ms))
-                    .size(11)
-                    .style(settings_muted_text_style),
-                text(format_timestamp(entry.time_ms))
-                    .size(11)
-                    .style(settings_muted_text_style),
+                text(format!("{} ms", entry.cost_ms)).size(11).style(settings_muted_text_style),
+                text(format_timestamp(entry.time_ms)).size(11).style(settings_muted_text_style),
             ]
             .spacing(8)
             .align_y(Alignment::Center),

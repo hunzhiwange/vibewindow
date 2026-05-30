@@ -130,13 +130,11 @@ fn inbox_correlation_counts_stay_consistent_with_overflow_evictions() {
     }
 
     assert_eq!(
-        bus.pending_for_agent_correlation("worker", "corr-a")
-            .expect("corr-a pending should work"),
+        bus.pending_for_agent_correlation("worker", "corr-a").expect("corr-a pending should work"),
         1
     );
     assert_eq!(
-        bus.pending_for_agent_correlation("worker", "corr-b")
-            .expect("corr-b pending should work"),
+        bus.pending_for_agent_correlation("worker", "corr-b").expect("corr-b pending should work"),
         1
     );
 

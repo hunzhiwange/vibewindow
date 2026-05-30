@@ -15,7 +15,9 @@ use super::models::{
     connect_provider, current_provider_api_key, disconnect_provider, load_custom_provider_draft,
     save_custom_provider,
 };
-use super::tasks::{load_catalog_task, refresh_task, save_popular_providers_task, sync_remote_task};
+use super::tasks::{
+    load_catalog_task, refresh_task, save_popular_providers_task, sync_remote_task,
+};
 
 fn reset_models_sync_state(app: &mut App) {
     app.provider_settings.models_syncing = false;
@@ -45,8 +47,7 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             app.provider_settings.disconnect_confirm_provider_id = None;
             app.provider_settings.models_syncing = true;
             app.provider_settings.models_sync_progress = 0.08;
-            app.provider_settings.models_sync_label =
-                "正在从 models.dev 拉取模型目录…".to_string();
+            app.provider_settings.models_sync_label = "正在从 models.dev 拉取模型目录…".to_string();
             sync_remote_task()
         }
         SettingsMessage::ProviderModelsSyncTick => {

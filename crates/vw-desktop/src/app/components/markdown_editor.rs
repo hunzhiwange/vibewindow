@@ -52,15 +52,25 @@ fn mode_button_style(
 
     let background = if selected {
         match status {
-            iced::widget::button::Status::Hovered => Some(Background::Color(
-                theme.palette().primary.scale_alpha(if is_dark { 0.24 } else { 0.16 }),
-            )),
-            iced::widget::button::Status::Pressed => Some(Background::Color(
-                theme.palette().primary.scale_alpha(if is_dark { 0.30 } else { 0.20 }),
-            )),
-            _ => Some(Background::Color(
-                theme.palette().primary.scale_alpha(if is_dark { 0.18 } else { 0.12 }),
-            )),
+            iced::widget::button::Status::Hovered => {
+                Some(Background::Color(theme.palette().primary.scale_alpha(if is_dark {
+                    0.24
+                } else {
+                    0.16
+                })))
+            }
+            iced::widget::button::Status::Pressed => {
+                Some(Background::Color(theme.palette().primary.scale_alpha(if is_dark {
+                    0.30
+                } else {
+                    0.20
+                })))
+            }
+            _ => Some(Background::Color(theme.palette().primary.scale_alpha(if is_dark {
+                0.18
+            } else {
+                0.12
+            }))),
         }
     } else {
         match status {

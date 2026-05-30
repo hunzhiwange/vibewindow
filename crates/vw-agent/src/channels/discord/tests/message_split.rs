@@ -1,5 +1,5 @@
-use super::*;
 use super::super::message_split as discord_message_split;
+use super::*;
 
 /// 测试空消息的分割
 /// 空消息应该返回包含一个空字符串的向量
@@ -25,10 +25,7 @@ fn split_message_exactly_2000_chars() {
     let msg = "a".repeat(discord_message_split::DISCORD_MAX_MESSAGE_LENGTH);
     let chunks = discord_message_split::split_message_for_discord(&msg);
     assert_eq!(chunks.len(), 1);
-    assert_eq!(
-        chunks[0].chars().count(),
-        discord_message_split::DISCORD_MAX_MESSAGE_LENGTH
-    );
+    assert_eq!(chunks[0].chars().count(), discord_message_split::DISCORD_MAX_MESSAGE_LENGTH);
 }
 
 /// 测试刚超过限制的消息正确分割
@@ -38,10 +35,7 @@ fn split_message_just_over_limit() {
     let msg = "a".repeat(discord_message_split::DISCORD_MAX_MESSAGE_LENGTH + 1);
     let chunks = discord_message_split::split_message_for_discord(&msg);
     assert_eq!(chunks.len(), 2);
-    assert_eq!(
-        chunks[0].chars().count(),
-        discord_message_split::DISCORD_MAX_MESSAGE_LENGTH
-    );
+    assert_eq!(chunks[0].chars().count(), discord_message_split::DISCORD_MAX_MESSAGE_LENGTH);
     assert_eq!(chunks[1].chars().count(), 1);
 }
 
@@ -52,13 +46,9 @@ fn split_very_long_message() {
     let msg = "word ".repeat(2000);
     let chunks = discord_message_split::split_message_for_discord(&msg);
     assert_eq!(chunks.len(), 5);
-    assert!(
-        chunks
-            .iter()
-            .all(|chunk| {
-                chunk.chars().count() <= discord_message_split::DISCORD_MAX_MESSAGE_LENGTH
-            })
-    );
+    assert!(chunks.iter().all(|chunk| {
+        chunk.chars().count() <= discord_message_split::DISCORD_MAX_MESSAGE_LENGTH
+    }));
     let reconstructed = chunks.concat();
     assert_eq!(reconstructed, msg);
 }
@@ -90,14 +80,8 @@ fn split_without_good_break_points_hard_split() {
     let msg = "a".repeat(5000);
     let chunks = discord_message_split::split_message_for_discord(&msg);
     assert_eq!(chunks.len(), 3);
-    assert_eq!(
-        chunks[0].chars().count(),
-        discord_message_split::DISCORD_MAX_MESSAGE_LENGTH
-    );
-    assert_eq!(
-        chunks[1].chars().count(),
-        discord_message_split::DISCORD_MAX_MESSAGE_LENGTH
-    );
+    assert_eq!(chunks[0].chars().count(), discord_message_split::DISCORD_MAX_MESSAGE_LENGTH);
+    assert_eq!(chunks[1].chars().count(), discord_message_split::DISCORD_MAX_MESSAGE_LENGTH);
     assert_eq!(chunks[2].chars().count(), 1000);
 }
 
@@ -155,10 +139,7 @@ fn split_multibyte_only_content_without_panics() {
     let msg = "🦀".repeat(2500);
     let chunks = discord_message_split::split_message_for_discord(&msg);
     assert_eq!(chunks.len(), 2);
-    assert_eq!(
-        chunks[0].chars().count(),
-        discord_message_split::DISCORD_MAX_MESSAGE_LENGTH
-    );
+    assert_eq!(chunks[0].chars().count(), discord_message_split::DISCORD_MAX_MESSAGE_LENGTH);
     assert_eq!(chunks[1].chars().count(), 500);
     let reconstructed = chunks.concat();
     assert_eq!(reconstructed, msg);
@@ -170,13 +151,9 @@ fn split_multibyte_only_content_without_panics() {
 fn split_chunks_always_within_discord_limit() {
     let msg = "x".repeat(12_345);
     let chunks = discord_message_split::split_message_for_discord(&msg);
-    assert!(
-        chunks
-            .iter()
-            .all(|chunk| {
-                chunk.chars().count() <= discord_message_split::DISCORD_MAX_MESSAGE_LENGTH
-            })
-    );
+    assert!(chunks.iter().all(|chunk| {
+        chunk.chars().count() <= discord_message_split::DISCORD_MAX_MESSAGE_LENGTH
+    }));
 }
 
 /// 测试包含多个换行符的消息分割

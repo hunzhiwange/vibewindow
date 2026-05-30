@@ -61,7 +61,8 @@ impl<'a> DesignCanvas<'a> {
                 let mut payload = serde_json::Value::Null;
                 if let Some(el) = find_element_by_id(&self.doc.children, &drag.element_id) {
                     let mut fills = mesh::parse_fill_items(&el.fill);
-                    if let Some(FillItem::Object(FillObject::Mesh(m))) = fills.get_mut(drag.fill_index)
+                    if let Some(FillItem::Object(FillObject::Mesh(m))) =
+                        fills.get_mut(drag.fill_index)
                     {
                         m.normalize();
                         payload = mesh::mesh_curve_change_payload(m, drag.point_index, drag.kind);

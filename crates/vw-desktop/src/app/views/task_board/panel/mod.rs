@@ -33,6 +33,9 @@ pub(crate) use model_selector::build_model_selector;
 use styles::{editor_style, input_label, input_style, panel_container_style};
 use subtask_editor::{build_draft_mode_subtasks, build_edit_mode_subtasks, build_task_logs};
 
+const TASK_PANEL_SCROLLBAR_WIDTH: f32 = 4.0;
+const TASK_PANEL_SCROLLBAR_GUTTER: f32 = 12.0;
+
 fn task_status_tag_colors(status: crate::app::task::TaskStatus) -> (Color, Color) {
     match status {
         crate::app::task::TaskStatus::Pool => {
@@ -40,6 +43,9 @@ fn task_status_tag_colors(status: crate::app::task::TaskStatus) -> (Color, Color
         }
         crate::app::task::TaskStatus::Pending => {
             (Color::from_rgb8(37, 99, 235), Color::from_rgb8(219, 234, 254))
+        }
+        crate::app::task::TaskStatus::Planning => {
+            (Color::from_rgb8(79, 70, 229), Color::from_rgb8(224, 231, 255))
         }
         crate::app::task::TaskStatus::Running => {
             (Color::from_rgb8(147, 51, 234), Color::from_rgb8(243, 232, 255))
@@ -92,8 +98,9 @@ fn segmented_button_style(
     status: iced::widget::button::Status,
 ) -> iced::widget::button::Style {
     let p = theme.extended_palette();
-    let is_dark = theme.palette().background.r + theme.palette().background.g + theme.palette().background.b
-        < 1.5;
+    let is_dark =
+        theme.palette().background.r + theme.palette().background.g + theme.palette().background.b
+            < 1.5;
     let active_bg = if is_dark {
         theme.palette().primary.scale_alpha(0.18)
     } else {
@@ -108,7 +115,11 @@ fn segmented_button_style(
             Color::WHITE.scale_alpha(0.92)
         })),
         iced::widget::button::Status::Pressed => {
-            Some(Background::Color(p.background.strong.color.scale_alpha(if is_dark { 0.82 } else { 0.26 })))
+            Some(Background::Color(p.background.strong.color.scale_alpha(if is_dark {
+                0.82
+            } else {
+                0.26
+            })))
         }
         _ => Some(Background::Color(if active {
             active_bg
@@ -280,12 +291,19 @@ pub fn build_task_panel<'a>(app: &'a App, is_edit_mode: bool) -> Element<'a, Mes
         main_col = build_draft_mode_content(app, main_col);
     }
 
-    let content = scrollable(main_col)
-        .direction(iced::widget::scrollable::Direction::Vertical(
-            iced::widget::scrollable::Scrollbar::new().width(4).scroller_width(4),
-        ))
-        .width(Length::Fill)
-        .height(Length::Fill);
+    let content = scrollable(container(main_col).width(Length::Fill).padding(iced::Padding {
+        top: 0.0,
+        right: TASK_PANEL_SCROLLBAR_GUTTER,
+        bottom: 0.0,
+        left: 0.0,
+    }))
+    .direction(iced::widget::scrollable::Direction::Vertical(
+        iced::widget::scrollable::Scrollbar::new()
+            .width(TASK_PANEL_SCROLLBAR_WIDTH)
+            .scroller_width(TASK_PANEL_SCROLLBAR_WIDTH),
+    ))
+    .width(Length::Fill)
+    .height(Length::Fill);
 
     container(content)
         .padding(20)
@@ -557,9 +575,7 @@ fn build_import_field<'a>(app: &'a App) -> iced::Element<'a, Message> {
         button(text(title).size(12))
             .on_press(Message::TaskBoard(TaskBoardMessage::SetImportPromptFormat(format)))
             .padding([5, 10])
-            .style(move |theme: &Theme, status| {
-                segmented_button_style(theme, selected, status)
-            })
+            .style(move |theme: &Theme, status| segmented_button_style(theme, selected, status))
     }
 
     let selected_priority = app

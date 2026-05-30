@@ -24,7 +24,8 @@ use iced::widget::{button, container, row, scrollable, text};
 use iced::{Background, Color, Element, Length, Point};
 
 use super::super::styles::{
-    file_icon_for, should_show_preview_tabs_scrollbar, small_icon_svg, truncate_title,
+    file_icon_for, file_tab_icon_svg, should_show_preview_tabs_scrollbar, small_icon_svg,
+    truncate_title,
 };
 use super::super::tabs::build_preview_tab_menu;
 use super::super::widgets::DraggableArea;
@@ -129,7 +130,7 @@ pub fn build_header_tabs(app: &App) -> Element<'_, Message> {
         // 构建标签页内容：文件图标 + 标题 + 关闭按钮
         let tab_content = row![
             // 文件图标容器，固定宽度 16px
-            container(small_icon_svg(file_icon_for(&t.title))).width(Length::Fixed(16.0)),
+            container(file_tab_icon_svg(file_icon_for(&t.title))).width(Length::Fixed(16.0)),
             // 标题文本容器，宽度自适应收缩
             container(text(title).size(13))
                 .width(Length::Fill)

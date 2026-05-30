@@ -269,11 +269,8 @@ pub(super) fn render_shape_popover(
             .any(|(_, kind)| normalized_current_kind == normalize_shape_kind(kind))
             .then_some(*group_key)
     });
-    let selected_group_key = state
-        .context_shape_group_hover
-        .as_deref()
-        .or(active_group_key)
-        .unwrap_or("basic");
+    let selected_group_key =
+        state.context_shape_group_hover.as_deref().or(active_group_key).unwrap_or("basic");
 
     let mut group_list = iced::widget::column![].spacing(6);
     for (group_key, group_name, _) in &shape_groups {
@@ -327,11 +324,7 @@ pub(super) fn render_shape_popover(
 
     let right_panel = container(grid).padding(8).style(move |_theme: &Theme| container::Style {
         background: Some(popover_bg.into()),
-        border: iced::Border {
-            color: popover_border,
-            width: 1.0,
-            radius: 10.0.into(),
-        },
+        border: iced::Border { color: popover_border, width: 1.0, radius: 10.0.into() },
         shadow: iced::Shadow {
             color: Color::BLACK.scale_alpha(0.35),
             offset: iced::Vector::new(0.0, 4.0),
@@ -340,10 +333,7 @@ pub(super) fn render_shape_popover(
         ..Default::default()
     });
 
-    iced::widget::row![group_list, right_panel]
-        .spacing(6)
-        .align_y(iced::Alignment::Start)
-        .into()
+    iced::widget::row![group_list, right_panel].spacing(6).align_y(iced::Alignment::Start).into()
 }
 #[cfg(test)]
 #[path = "context_shape_tests.rs"]

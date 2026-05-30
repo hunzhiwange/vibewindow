@@ -7,4 +7,3 @@ fn default_policy_is_supervised_and_workspace_only() {
     assert!(policy.workspace_only);
     assert!(policy.block_high_risk_commands);
 }
-

@@ -262,7 +262,8 @@ pub(super) fn beautify_sql(input: &str) -> Option<String> {
                 if lower == "group" || lower == "order" {
                     let next_non_whitespace =
                         tokens.iter().skip(i + 1).find(|token| !matches!(token, Token::Whitespace));
-                    if matches!(next_non_whitespace, Some(Token::Word(next)) if next.eq_ignore_ascii_case("by")) {
+                    if matches!(next_non_whitespace, Some(Token::Word(next)) if next.eq_ignore_ascii_case("by"))
+                    {
                         out.push(' ');
                         pending_space = false;
                     }

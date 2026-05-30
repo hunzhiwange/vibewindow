@@ -44,7 +44,8 @@ impl WorkflowState {
         let scale_y = usable_height / bounds.height.max(1.0);
         let zoom = (scale_x.min(scale_y) * 0.92).clamp(0.1, 4.0);
 
-        let world_center = Point::new(bounds.x + bounds.width / 2.0, bounds.y + bounds.height / 2.0);
+        let world_center =
+            Point::new(bounds.x + bounds.width / 2.0, bounds.y + bounds.height / 2.0);
         let screen_center = Vector::new(usable_width / 2.0 + 24.0, usable_height / 2.0 + 24.0);
 
         self.zoom = zoom;
@@ -110,10 +111,7 @@ impl WorkflowState {
         self.context_menu = None;
         self.action_menu_open = false;
         self.zoom_menu_open = false;
-        self.connection_draft = Some(WorkflowConnectionDraft {
-            from: from.clone(),
-            cursor_world,
-        });
+        self.connection_draft = Some(WorkflowConnectionDraft { from: from.clone(), cursor_world });
         self.selected_node_id = Some(from.node_id);
         self.selected_edge_id = None;
         self.status_message = Some("拖到目标句柄以创建连线".to_string());
@@ -193,13 +191,8 @@ impl WorkflowState {
         let target_title = target_node.title.clone();
 
         let edge_id = generate_edge_id(&source, &target);
-        let next_z = self
-            .document
-            .edges
-            .iter()
-            .map(|edge| edge.z_index)
-            .fold(0.0_f32, f32::max)
-            + 1.0;
+        let next_z =
+            self.document.edges.iter().map(|edge| edge.z_index).fold(0.0_f32, f32::max) + 1.0;
 
         self.push_undo_snapshot();
         self.document.edges.push(WorkflowEdge {
@@ -255,26 +248,25 @@ impl WorkflowState {
 
         let descendant_ids = self.document.descendant_ids(&node_id);
         let removed_child_count = descendant_ids.len();
-        let removed_ids = std::iter::once(node_id.clone())
-            .chain(descendant_ids)
-            .collect::<HashSet<_>>();
+        let removed_ids =
+            std::iter::once(node_id.clone()).chain(descendant_ids).collect::<HashSet<_>>();
         let removed_edge_count = self
             .document
             .edges
             .iter()
             .filter(|edge| {
-                removed_ids.contains(edge.source.as_str()) || removed_ids.contains(edge.target.as_str())
+                removed_ids.contains(edge.source.as_str())
+                    || removed_ids.contains(edge.target.as_str())
             })
             .count();
 
         self.push_undo_snapshot();
 
-        self.document
-            .nodes
-            .retain(|candidate| !removed_ids.contains(candidate.id.as_str()));
-        self.document
-            .edges
-            .retain(|edge| !removed_ids.contains(edge.source.as_str()) && !removed_ids.contains(edge.target.as_str()));
+        self.document.nodes.retain(|candidate| !removed_ids.contains(candidate.id.as_str()));
+        self.document.edges.retain(|edge| {
+            !removed_ids.contains(edge.source.as_str())
+                && !removed_ids.contains(edge.target.as_str())
+        });
 
         self.selected_node_id = None;
         self.selected_edge_id = None;

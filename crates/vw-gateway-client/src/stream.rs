@@ -92,7 +92,9 @@ pub enum GatewayTypedChatStreamEvent {
         parent_message_id: Option<String>,
     },
     Error(String),
-    Unknown { event_type: Option<String> },
+    Unknown {
+        event_type: Option<String>,
+    },
 }
 
 #[deprecated(note = "use GatewayChatStreamEvent")]
@@ -121,17 +123,14 @@ const CHAT_STREAM_PATH: &str = "/v1/chat/stream";
 pub fn normalize_chat_stream_event(event: GatewayChatStreamEvent) -> GatewayTypedChatStreamEvent {
     match event {
         GatewayChatStreamEvent::Delta(delta) => GatewayTypedChatStreamEvent::Delta(delta),
-        GatewayChatStreamEvent::Done {
-            finish_reason,
-            usage,
-            message_id,
-            parent_message_id,
-        } => GatewayTypedChatStreamEvent::Done {
-            finish_reason,
-            usage: normalize_chat_usage(usage),
-            message_id,
-            parent_message_id,
-        },
+        GatewayChatStreamEvent::Done { finish_reason, usage, message_id, parent_message_id } => {
+            GatewayTypedChatStreamEvent::Done {
+                finish_reason,
+                usage: normalize_chat_usage(usage),
+                message_id,
+                parent_message_id,
+            }
+        }
         GatewayChatStreamEvent::Error(error) => GatewayTypedChatStreamEvent::Error(error),
         GatewayChatStreamEvent::Other(payload) => {
             match payload.get("type").and_then(serde_json::Value::as_str) {
@@ -512,10 +511,7 @@ fn parse_step_start_payload(payload: &serde_json::Value) -> GatewayChatStepStart
             .get("created_ms")
             .and_then(serde_json::Value::as_u64)
             .unwrap_or_default(),
-        model: payload
-            .get("model")
-            .and_then(serde_json::Value::as_str)
-            .map(ToOwned::to_owned),
+        model: payload.get("model").and_then(serde_json::Value::as_str).map(ToOwned::to_owned),
     }
 }
 
@@ -539,10 +535,7 @@ fn parse_step_finish_payload(payload: &serde_json::Value) -> GatewayChatStepFini
             .get("finish_reason")
             .and_then(serde_json::Value::as_str)
             .map(ToOwned::to_owned),
-        model: payload
-            .get("model")
-            .and_then(serde_json::Value::as_str)
-            .map(ToOwned::to_owned),
+        model: payload.get("model").and_then(serde_json::Value::as_str).map(ToOwned::to_owned),
     }
 }
 

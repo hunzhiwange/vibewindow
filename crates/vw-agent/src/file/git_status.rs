@@ -38,8 +38,9 @@ pub fn status_git(worktree: impl AsRef<Path>) -> Vec<Info> {
             let txt = String::from_utf8_lossy(&out.stdout).to_string();
             for path in txt.lines().filter(|line| !line.trim().is_empty()) {
                 let full = worktree.join(path);
-                let lines =
-                    std::fs::read_to_string(&full).map(|content| content.lines().count() as i64).unwrap_or(0);
+                let lines = std::fs::read_to_string(&full)
+                    .map(|content| content.lines().count() as i64)
+                    .unwrap_or(0);
                 changed.push(Info {
                     path: path.to_string(),
                     added: lines,

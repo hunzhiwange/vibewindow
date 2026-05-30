@@ -22,12 +22,7 @@ pub(crate) fn import_prompt_template(
     selected_model: &str,
     selected_executor: Option<&str>,
 ) -> String {
-    draft::import_prompt_template(
-        format,
-        selected_priority,
-        selected_model,
-        selected_executor,
-    )
+    draft::import_prompt_template(format, selected_priority, selected_model, selected_executor)
 }
 
 /// 对外暴露当前模块需要复用的能力。

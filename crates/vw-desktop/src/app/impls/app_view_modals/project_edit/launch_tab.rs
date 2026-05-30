@@ -44,7 +44,10 @@ pub(super) fn launch_tab<'a>(app: &'a App) -> Element<'a, Message> {
     .align_y(iced::Alignment::Center);
 
     column![
-        settings_section_card("启动与工作区", "设置 worktree 启用策略，以及创建工作区后的启动命令。"),
+        settings_section_card(
+            "启动与工作区",
+            "设置 worktree 启用策略，以及创建工作区后的启动命令。"
+        ),
         settings_panel(column![start_script_input, worktree_toggle].spacing(14))
     ]
     .spacing(12)

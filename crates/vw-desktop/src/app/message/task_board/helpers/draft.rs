@@ -99,12 +99,7 @@ pub(crate) fn task_execution_backend_label(task: &Task) -> String {
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
 pub(crate) fn parse_priority_or_default(priority: &str, default_priority: u32) -> u32 {
-    priority
-        .trim()
-        .parse::<u32>()
-        .ok()
-        .filter(|value| *value > 0)
-        .unwrap_or(default_priority)
+    priority.trim().parse::<u32>().ok().filter(|value| *value > 0).unwrap_or(default_priority)
 }
 
 /// 执行 import_demo_content 对应的领域操作。
@@ -149,11 +144,7 @@ pub(crate) fn import_prompt_template(
     selected_model: &str,
     selected_acp_agent: Option<&str>,
 ) -> String {
-    let model = if selected_model.trim().is_empty() {
-        "auto"
-    } else {
-        selected_model.trim()
-    };
+    let model = if selected_model.trim().is_empty() { "auto" } else { selected_model.trim() };
     let acp_agent = selected_acp_agent.unwrap_or("default");
     match format {
         TaskImportPromptFormat::Json => format!(

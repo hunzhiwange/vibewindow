@@ -7,4 +7,3 @@ fn tracker_counts_recorded_actions() {
     tracker.record();
     assert_eq!(tracker.count(), 2);
 }
-

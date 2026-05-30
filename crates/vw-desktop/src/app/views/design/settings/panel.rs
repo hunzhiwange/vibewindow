@@ -100,7 +100,9 @@ fn render_design_log_settings(app: &App, state: &DesignState) -> Element<'static
                 text("暂无历史日志文件")
                     .size(11)
                     .style(|theme: &Theme| iced::widget::text::Style {
-                        color: Some(theme.extended_palette().background.base.text.scale_alpha(0.72)),
+                        color: Some(
+                            theme.extended_palette().background.base.text.scale_alpha(0.72),
+                        ),
                     })
                     .into(),
             ]
@@ -426,7 +428,9 @@ fn settings_nav_item(
 fn settings_round_icon_button_style(theme: &Theme, status: button::Status) -> button::Style {
     let p = theme.extended_palette();
     let bg = match status {
-        button::Status::Hovered => Some(Background::Color(p.background.weak.color.scale_alpha(0.38))),
+        button::Status::Hovered => {
+            Some(Background::Color(p.background.weak.color.scale_alpha(0.38)))
+        }
         button::Status::Pressed => {
             Some(Background::Color(p.background.strong.color.scale_alpha(0.38)))
         }
@@ -443,7 +447,9 @@ fn settings_round_icon_button_style(theme: &Theme, status: button::Status) -> bu
 fn settings_pill_button_style(theme: &Theme, status: button::Status) -> button::Style {
     let p = theme.extended_palette();
     let bg = match status {
-        button::Status::Hovered => Some(Background::Color(p.background.weak.color.scale_alpha(0.36))),
+        button::Status::Hovered => {
+            Some(Background::Color(p.background.weak.color.scale_alpha(0.36)))
+        }
         button::Status::Pressed => {
             Some(Background::Color(p.background.strong.color.scale_alpha(0.36)))
         }

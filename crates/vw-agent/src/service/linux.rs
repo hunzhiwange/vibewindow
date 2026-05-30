@@ -4,9 +4,9 @@
 //! 停止、重启、状态查询和卸载流程。具体 OpenRC 安装细节放在 `openrc` 模块中。
 
 use crate::app::agent::config::Config;
-use anyhow::{Context, Result};
 #[cfg(target_os = "linux")]
 use anyhow::bail;
+use anyhow::{Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -184,8 +184,9 @@ fn install_linux_systemd(config: &Config) -> Result<()> {
 
     let exe = std::env::current_exe().context("Failed to resolve current executable")?;
     let env_lines = build_systemd_env_vars();
+    let config_dir_args = systemd_config_dir_args(config);
     let unit = format!(
-        "[Unit]\nDescription=VibeWindow daemon\nAfter=network.target\n\n[Service]\nType=simple\nExecStart={exe} daemon\nRestart=always\nRestartSec=3\n{env_lines}\n[Install]\nWantedBy=default.target\n",
+        "[Unit]\nDescription=VibeWindow daemon\nAfter=network.target\n\n[Service]\nType=simple\nExecStart={exe}{config_dir_args} daemon\nRestart=always\nRestartSec=3\n{env_lines}\n[Install]\nWantedBy=default.target\n",
         exe = exe.display(),
         env_lines = env_lines,
     );
@@ -196,6 +197,23 @@ fn install_linux_systemd(config: &Config) -> Result<()> {
     println!("✅ Installed systemd user service: {}", file.display());
     println!("   Start with: vibewindow service start");
     Ok(())
+}
+
+pub(super) fn systemd_config_dir_args(config: &Config) -> String {
+    config.config_path.parent().map_or_else(String::new, |path| {
+        format!(" --config-dir {}", systemd_quote_arg(&path.display().to_string()))
+    })
+}
+
+pub(super) fn systemd_quote_arg(value: &str) -> String {
+    if value
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '/' | '.' | '_' | '-' | ':'))
+    {
+        value.to_string()
+    } else {
+        format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
+    }
 }
 
 /// 返回 systemd user service 文件路径。

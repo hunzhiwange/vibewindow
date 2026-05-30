@@ -68,6 +68,7 @@ fn sample_agents() -> HashMap<String, DelegateAgentConfig> {
             max_depth: 3,
             agentic: false,
             allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
             options: HashMap::new(),
             permission: Value::Null,
             max_iterations: 10,
@@ -95,6 +96,7 @@ fn sample_agents() -> HashMap<String, DelegateAgentConfig> {
             max_depth: 2,
             agentic: false,
             allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
             options: HashMap::new(),
             permission: Value::Null,
             max_iterations: 10,
@@ -321,6 +323,7 @@ fn agentic_config(allowed_tools: Vec<String>, max_iterations: usize) -> Delegate
         max_depth: 3,
         agentic: true,
         allowed_tools,
+        allowed_skills: Vec::new(),
         options: HashMap::new(),
         permission: Value::Null,
         max_iterations,
@@ -475,6 +478,7 @@ async fn invalid_provider_returns_error() {
             max_depth: 3,
             agentic: false,
             allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
             options: HashMap::new(),
             permission: Value::Null,
             max_iterations: 10,
@@ -578,6 +582,7 @@ async fn delegate_context_is_prepended_to_prompt() {
             max_depth: 3,
             agentic: false,
             allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
             options: HashMap::new(),
             permission: Value::Null,
             max_iterations: 10,
@@ -623,6 +628,7 @@ async fn delegate_empty_context_omits_prefix() {
             max_depth: 3,
             agentic: false,
             allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
             options: HashMap::new(),
             permission: Value::Null,
             max_iterations: 10,
@@ -657,7 +663,8 @@ fn delegate_merges_workspace_identity_context_with_agent_prompt() {
     let tool = DelegateTool::new(sample_agents(), None, test_security())
         .with_workspace_identity_context("## Project Context\n\nAGENTS".to_string());
 
-    let merged = tool.merged_system_prompt(Some("You are a research assistant.")).unwrap();
+    let merged =
+        tool.merged_system_prompt("researcher", Some("You are a research assistant.")).unwrap();
 
     assert!(merged.contains("## Project Context"));
     assert!(merged.contains("AGENTS"));
@@ -669,7 +676,7 @@ fn delegate_uses_workspace_identity_context_without_agent_prompt() {
     let tool = DelegateTool::new(sample_agents(), None, test_security())
         .with_workspace_identity_context("## Project Context\n\nIDENTITY".to_string());
 
-    let merged = tool.merged_system_prompt(None).unwrap();
+    let merged = tool.merged_system_prompt("researcher", None).unwrap();
 
     assert_eq!(merged, "## Project Context\n\nIDENTITY");
 }
@@ -833,6 +840,7 @@ async fn execute_records_failure_events_in_coordination_bus() {
             max_depth: 3,
             agentic: false,
             allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
             options: HashMap::new(),
             permission: Value::Null,
             max_iterations: 10,
@@ -914,6 +922,7 @@ fn coordination_trace_transitions_state_to_completed() {
             max_depth: 2,
             agentic: false,
             allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
             options: HashMap::new(),
             permission: Value::Null,
             max_iterations: 10,

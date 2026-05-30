@@ -1,4 +1,4 @@
-use super::{icon_actions, icon_apps, icon_canvas, icon_files, icon_ui, Icon};
+use super::{Icon, icon_actions, icon_apps, icon_canvas, icon_files, icon_ui};
 use iced::widget::svg;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;

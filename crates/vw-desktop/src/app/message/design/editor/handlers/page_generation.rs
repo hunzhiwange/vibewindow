@@ -2,6 +2,7 @@
 //!
 //! 注释聚焦模块职责、消息边界和失败处理方式，帮助维护者在不改变逻辑的前提下理解代码。
 
+use super::super::DesignModuleExecutionResult;
 use super::super::canvas::{
     apply_module_doc_to_canvas, apply_page_doc_to_canvas, collect_retry_error_context,
     find_generation_module_index, find_generation_page_index, find_generation_page_mut,
@@ -15,13 +16,10 @@ use super::super::tasks::{
     next_queued_generation_pages, spawn_design_module_generation_task,
     summarize_generated_pages_for_prompt, summarize_page_modules_for_prompt,
 };
-use super::super::DesignModuleExecutionResult;
 use crate::app::message::DesignMessage;
 use crate::app::task::{TASK_MODEL_AUTO, TaskExecutorBackend};
 use crate::app::views::design::models::compute_tree_metrics;
-use crate::app::views::design::state::{
-    DesignChatMessage, DesignChatRole, DesignGenerationStatus,
-};
+use crate::app::views::design::state::{DesignChatMessage, DesignChatRole, DesignGenerationStatus};
 use crate::app::{App, Message};
 use iced::Task;
 
@@ -50,38 +48,34 @@ pub(super) fn regenerate_design_page(
 }
 
 fn generate_page_task(app: &mut App, page_frame_id: String, module_id: String) -> Task<Message> {
-    let project_path = app.project_path.clone().unwrap_or_else(|| {
-        std::env::current_dir().unwrap_or_default().display().to_string()
-    });
+    let project_path = app
+        .project_path
+        .clone()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default().display().to_string());
     let selected_acp_agent = app.acp_agent.clone();
     let Some(state) = app.active_design_state_mut() else {
         return Task::none();
     };
-    let Some(page_index) = find_generation_page_index(&state.design_generation_pages, &page_frame_id)
+    let Some(page_index) =
+        find_generation_page_index(&state.design_generation_pages, &page_frame_id)
     else {
         state.design_generation_summary = Some("未找到页面规划。".to_string());
         return Task::none();
     };
-    let module_index = find_generation_module_index(&state.design_generation_pages[page_index], &module_id)
-        .or_else(|| {
-            state.design_generation_pages[page_index]
-                .modules
-                .iter()
-                .position(|module| {
+    let module_index =
+        find_generation_module_index(&state.design_generation_pages[page_index], &module_id)
+            .or_else(|| {
+                state.design_generation_pages[page_index].modules.iter().position(|module| {
                     matches!(
                         module.status,
                         DesignGenerationStatus::Queued | DesignGenerationStatus::Placeholder
                     ) && !module.is_generating
                 })
-        });
+            });
     let Some(module_index) = module_index else {
         return Task::none();
     };
-    if state.design_generation_pages[page_index]
-        .modules
-        .iter()
-        .any(|module| module.is_generating)
-    {
+    if state.design_generation_pages[page_index].modules.iter().any(|module| module.is_generating) {
         return Task::none();
     }
     let parallel_limit = design_page_parallel_limit(state);
@@ -173,13 +167,15 @@ pub(super) fn design_page_generated(
     page_task_id: String,
     result: Result<DesignModuleExecutionResult, String>,
 ) -> Task<Message> {
-    let project_path = app.project_path.clone().unwrap_or_else(|| {
-        std::env::current_dir().unwrap_or_default().display().to_string()
-    });
+    let project_path = app
+        .project_path
+        .clone()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default().display().to_string());
     if let Some(state) = app.active_design_state_mut() {
         let current_log_file = state.design_generation_current_log_file.clone();
         let mut pending_logs: Vec<String> = Vec::new();
-        let Some(page_index) = find_generation_page_index(&state.design_generation_pages, &page_frame_id)
+        let Some(page_index) =
+            find_generation_page_index(&state.design_generation_pages, &page_frame_id)
         else {
             return Task::done(Message::Design(DesignMessage::Snapshot));
         };
@@ -205,9 +201,10 @@ pub(super) fn design_page_generated(
                 pending_logs.push(format!("[PAGE:{}] parsed design doc", page_title));
                 match apply_page_doc_to_canvas(state, &page_frame_id, &execution.doc) {
                     Ok(()) => {
-                        if let Some(page) =
-                            find_generation_page_mut(&mut state.design_generation_pages, &page_frame_id)
-                        {
+                        if let Some(page) = find_generation_page_mut(
+                            &mut state.design_generation_pages,
+                            &page_frame_id,
+                        ) {
                             page.status = DesignGenerationStatus::Filled;
                             for module in &mut page.modules {
                                 module.status = DesignGenerationStatus::Filled;
@@ -254,9 +251,10 @@ pub(super) fn design_page_generated(
                             ),
                             current_log_file.as_deref(),
                         );
-                        if let Some(page) =
-                            find_generation_page_mut(&mut state.design_generation_pages, &page_frame_id)
-                        {
+                        if let Some(page) = find_generation_page_mut(
+                            &mut state.design_generation_pages,
+                            &page_frame_id,
+                        ) {
                             page.status = DesignGenerationStatus::Failed;
                             for module in &mut page.modules {
                                 module.status = DesignGenerationStatus::Failed;
@@ -376,7 +374,8 @@ pub(super) fn aggregate_design_page(
         let mut aggregate_doc = None;
         let mut target_frame_id = None;
         let mut module_title = None;
-        if let Some(page_index) = find_generation_page_index(&state.design_generation_pages, &page_frame_id)
+        if let Some(page_index) =
+            find_generation_page_index(&state.design_generation_pages, &page_frame_id)
             && let Some(module_index) =
                 find_generation_module_index(&state.design_generation_pages[page_index], &module_id)
         {
@@ -392,10 +391,8 @@ pub(super) fn aggregate_design_page(
                 if let Err(error) = apply_module_doc_to_canvas(state, &target_frame_id, &doc) {
                     state.design_generation_summary = Some(error);
                 } else {
-                    state.design_generation_summary = Some(format!(
-                        "模块“{}”已导入到指定画布位置。",
-                        title
-                    ));
+                    state.design_generation_summary =
+                        Some(format!("模块“{}”已导入到指定画布位置。", title));
                     state.layer_tree_metrics = compute_tree_metrics(&state.doc);
                     state.canvas_cache.clear();
                 }
@@ -411,4 +408,3 @@ pub(super) fn aggregate_design_page(
     }
     Task::done(Message::Design(DesignMessage::Snapshot))
 }
-

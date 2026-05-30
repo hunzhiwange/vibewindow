@@ -99,9 +99,6 @@ pub enum TreeLayoutFormat {
     RightAligned,
 }
 
-
-
-
 impl FishboneLayoutFormat {
     /// 构建或更新 label 相关行为。
     ///
@@ -139,7 +136,6 @@ impl TimelineLayoutFormat {
     }
 }
 
-
 impl OrgChartLayoutFormat {
     /// 构建或更新 label 相关行为。
     ///
@@ -151,8 +147,6 @@ impl OrgChartLayoutFormat {
         }
     }
 }
-
-
 
 impl MindMapLayoutFormat {
     /// 构建或更新 label 相关行为。
@@ -180,7 +174,6 @@ impl TreeLayoutFormat {
         }
     }
 }
-
 
 impl MindMapDiagramType {
     /// 构建或更新 label 相关行为。

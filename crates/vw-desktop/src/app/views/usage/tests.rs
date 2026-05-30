@@ -1,18 +1,14 @@
 //! 用量视图的数据与展示行为测试，覆盖聚合结果和边界输入。
 
 use super::data::UsageData;
-use crate::app::models::{ChatMessage, ChatRole};
 use crate::app::App;
+use crate::app::models::{ChatMessage, ChatRole};
 
 #[test]
 fn usage_data_counts_tool_messages_separately() {
     let (mut app, _task) = App::new();
     app.chat = vec![
-        ChatMessage {
-            role: ChatRole::User,
-            content: "user".to_string(),
-            think_timing: Vec::new(),
-        },
+        ChatMessage { role: ChatRole::User, content: "user".to_string(), think_timing: Vec::new() },
         ChatMessage {
             role: ChatRole::Assistant,
             content: "assistant".to_string(),
@@ -20,8 +16,7 @@ fn usage_data_counts_tool_messages_separately() {
         },
         ChatMessage {
             role: ChatRole::Tool,
-            content: "tool grep\n{\"status\":\"completed\",\"output\":\"2 matches\"}\n"
-                .to_string(),
+            content: "tool grep\n{\"status\":\"completed\",\"output\":\"2 matches\"}\n".to_string(),
             think_timing: Vec::new(),
         },
         ChatMessage {

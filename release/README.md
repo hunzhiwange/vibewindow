@@ -11,6 +11,8 @@ Release publishing is driven by cargo-dist and GitHub Actions.
 - Windows publishes portable zip archives plus MSI installers for `x86_64-pc-windows-msvc` and `aarch64-pc-windows-msvc`.
 - npm publishes the CLI installer package as `vibewindow`, so users can run `npm install -g vibewindow`.
 
+Linux `.deb`/`.rpm` packages are built by `scripts/bundle_linux.sh` with `dpkg-deb` and `rpmbuild` after cargo-dist has produced the target binaries.
+
 ## Required GitHub Secrets
 
 - `NPM_TOKEN`: required for publishing the generated npm installer package.

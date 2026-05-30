@@ -13,7 +13,9 @@ use crate::app::components::system_settings_common::{
 };
 use crate::app::state::ProjectEditTab;
 use crate::app::views::design::properties::color_picker::{parse_color, render_color_picker};
-use iced::widget::{Space, button, column, container, mouse_area, opaque, row, scrollable, stack, text};
+use iced::widget::{
+    Space, button, column, container, mouse_area, opaque, row, scrollable, stack, text,
+};
 use iced::{Background, Color, Element, Length, Theme};
 
 use super::{App, Message};

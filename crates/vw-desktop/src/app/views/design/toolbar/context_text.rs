@@ -3,9 +3,9 @@
 use iced::widget::{Space, button, container, svg, text, text_input};
 use iced::{Color, Element, Length, Theme};
 
-use super::context_style::{extract_hex_token, parse_hex_color};
 use super::super::models::{ColorPickerTarget, DesignElement};
 use super::super::state::{ContextPopoverType, DesignState};
+use super::context_style::{extract_hex_token, parse_hex_color};
 use crate::app::Message;
 use crate::app::assets::{self, Icon};
 use crate::app::message::DesignMessage;
@@ -69,8 +69,10 @@ pub(super) fn render_text_context_toolbar(
     let current_size = parse_font_size_value(&el.font_size).round();
     let current_weight = el.font_weight.as_ref().and_then(|value| value.as_str()).unwrap_or("400");
     let bold_active = matches!(current_weight, "600" | "700" | "800" | "bold" | "Bold");
-    let strike_active = el.text_decoration.as_deref().is_some_and(|value| value.contains("line-through"));
-    let underline_active = el.text_decoration.as_deref().is_some_and(|value| value.contains("underline"));
+    let strike_active =
+        el.text_decoration.as_deref().is_some_and(|value| value.contains("line-through"));
+    let underline_active =
+        el.text_decoration.as_deref().is_some_and(|value| value.contains("underline"));
     let align_mode = el.text_align.as_deref().unwrap_or("left");
     let color_active = state.context_popover == Some(ContextPopoverType::TextColor);
 

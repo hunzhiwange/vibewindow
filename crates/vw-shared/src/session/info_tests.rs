@@ -10,12 +10,7 @@ fn info_serialization_uses_frontend_field_names_and_skips_empty_options() {
         share: None,
         title: "Title".to_string(),
         version: "1".to_string(),
-        time: super::TimeInfo {
-            created: 1,
-            updated: 2,
-            compacting: None,
-            archived: None,
-        },
+        time: super::TimeInfo { created: 1, updated: 2, compacting: None, archived: None },
         permission: None,
         revert: Some(super::RevertInfo {
             message_id: "msg-1".to_string(),

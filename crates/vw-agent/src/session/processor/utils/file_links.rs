@@ -68,20 +68,13 @@ fn normalize_file_reference_candidate(input: &str) -> Option<String> {
         value = target.trim_end_matches(')');
     }
 
-    value = value
-        .trim()
-        .trim_matches('`')
-        .trim_matches('"')
-        .trim_matches('\'')
-        .trim();
+    value = value.trim().trim_matches('`').trim_matches('"').trim_matches('\'').trim();
 
     if value.is_empty() {
         return None;
     }
 
-    if let Some(stripped) = value
-        .strip_prefix("file:///")
-        .or_else(|| value.strip_prefix("file://"))
+    if let Some(stripped) = value.strip_prefix("file:///").or_else(|| value.strip_prefix("file://"))
     {
         value = stripped;
     }
@@ -93,11 +86,7 @@ fn normalize_file_reference_candidate(input: &str) -> Option<String> {
     }
 
     let normalized = value.trim();
-    if normalized.is_empty() {
-        None
-    } else {
-        Some(normalized.to_string())
-    }
+    if normalized.is_empty() { None } else { Some(normalized.to_string()) }
 }
 
 /// 执行 maybe_inject_file_link 操作，并返回调用方需要的结果。

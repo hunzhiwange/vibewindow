@@ -69,9 +69,7 @@ pub(super) fn build_if_else_case_card<'a>(
         row![
             column![
                 text(format!("分支 {}", index + 1)).size(14),
-                text(format!("handle: {}", case.case_id))
-                    .size(11)
-                    .style(settings_muted_text_style),
+                text(format!("handle: {}", case.case_id)).size(11).style(settings_muted_text_style),
             ]
             .spacing(2),
             Space::new().width(Length::Fill),
@@ -83,13 +81,15 @@ pub(super) fn build_if_else_case_card<'a>(
         build_editor_field_validated(
             "逻辑运算",
             workflow_text_input("例如：and / or", &case.logical_operator, move |value| {
-                Message::WorkflowTool(
-                    WorkflowMessage::NodeEditorIfElseCaseLogicalOperatorChanged(index, value),
-                )
+                Message::WorkflowTool(WorkflowMessage::NodeEditorIfElseCaseLogicalOperatorChanged(
+                    index, value,
+                ))
             }),
             validation.first_error_for(&format!("if_else.cases[{index}].logical_operator")),
         ),
-        if let Some(error) = validation.first_error_for(&format!("if_else.cases[{index}].conditions")) {
+        if let Some(error) =
+            validation.first_error_for(&format!("if_else.cases[{index}].conditions"))
+        {
             build_inline_error(error)
         } else {
             container(Space::new().width(1).height(1)).into()
@@ -162,11 +162,13 @@ pub(super) fn build_if_else_condition_card<'a>(
                 "例如：1711528917469.text",
                 &condition.variable_selector_input,
                 move |value| {
-                    Message::WorkflowTool(WorkflowMessage::NodeEditorIfElseConditionSelectorChanged(
-                        case_index,
-                        condition_index,
-                        value,
-                    ))
+                    Message::WorkflowTool(
+                        WorkflowMessage::NodeEditorIfElseConditionSelectorChanged(
+                            case_index,
+                            condition_index,
+                            value,
+                        ),
+                    )
                 },
             ),
             validation.first_error_for(&format!(

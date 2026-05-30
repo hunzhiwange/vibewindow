@@ -46,9 +46,9 @@ pub(super) fn builtin_formatters() -> HashMap<String, FormatterInfo> {
         ],
         environment: HashMap::from([("BUN_BE_BUN".to_string(), "1".to_string())]),
         extensions: vec![
-            ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".html", ".htm",
-            ".css", ".scss", ".sass", ".less", ".vue", ".svelte", ".json", ".jsonc", ".yaml",
-            ".yml", ".toml", ".xml", ".md", ".mdx", ".graphql", ".gql",
+            ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".html", ".htm", ".css",
+            ".scss", ".sass", ".less", ".vue", ".svelte", ".json", ".jsonc", ".yaml", ".yml",
+            ".toml", ".xml", ".md", ".mdx", ".graphql", ".gql",
         ]
         .into_iter()
         .map(|s| s.to_string())
@@ -57,12 +57,7 @@ pub(super) fn builtin_formatters() -> HashMap<String, FormatterInfo> {
     });
     insert(FormatterInfo {
         name: "oxfmt".to_string(),
-        command: vec![
-            "bun".to_string(),
-            "x".to_string(),
-            "oxfmt".to_string(),
-            "$FILE".to_string(),
-        ],
+        command: vec!["bun".to_string(), "x".to_string(), "oxfmt".to_string(), "$FILE".to_string()],
         environment: HashMap::from([("BUN_BE_BUN".to_string(), "1".to_string())]),
         extensions: vec![".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]
             .into_iter()
@@ -82,9 +77,9 @@ pub(super) fn builtin_formatters() -> HashMap<String, FormatterInfo> {
         ],
         environment: HashMap::from([("BUN_BE_BUN".to_string(), "1".to_string())]),
         extensions: vec![
-            ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".html", ".htm",
-            ".css", ".scss", ".sass", ".less", ".vue", ".svelte", ".json", ".jsonc", ".yaml",
-            ".yml", ".toml", ".xml", ".md", ".mdx", ".graphql", ".gql",
+            ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".html", ".htm", ".css",
+            ".scss", ".sass", ".less", ".vue", ".svelte", ".json", ".jsonc", ".yaml", ".yml",
+            ".toml", ".xml", ".md", ".mdx", ".graphql", ".gql",
         ]
         .into_iter()
         .map(|s| s.to_string())
@@ -103,8 +98,8 @@ pub(super) fn builtin_formatters() -> HashMap<String, FormatterInfo> {
         command: vec!["clang-format".to_string(), "-i".to_string(), "$FILE".to_string()],
         environment: HashMap::new(),
         extensions: vec![
-            ".c", ".cc", ".cpp", ".cxx", ".c++", ".h", ".hh", ".hpp", ".hxx", ".h++", ".ino",
-            ".C", ".H",
+            ".c", ".cc", ".cpp", ".cxx", ".c++", ".h", ".hh", ".hpp", ".hxx", ".h++", ".ino", ".C",
+            ".H",
         ]
         .into_iter()
         .map(|s| s.to_string())

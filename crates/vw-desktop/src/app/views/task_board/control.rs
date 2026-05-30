@@ -16,9 +16,9 @@ use crate::app::components::system_settings_common::{
 use crate::app::message::TaskBoardMessage;
 use crate::app::{App, Message};
 
-use super::common::{button_style_danger, button_style_primary, button_style_secondary};
 use self::helpers::{running_dots, worktree_state_label};
 use self::worktree_office::build_worktree_pixel_office;
+use super::common::{button_style_danger, button_style_primary, button_style_secondary};
 
 /// 构建任务看板控制面板，包含所有控制按钮和 Worktree 池状态显示。
 pub fn build_control_buttons<'a>(app: &'a App) -> Element<'a, Message> {
@@ -316,17 +316,17 @@ pub fn build_control_buttons<'a>(app: &'a App) -> Element<'a, Message> {
         } else {
             "一键合并".to_string()
         };
-        let merge_btn = button(text(merge_btn_label).size(12))
-            .on_press_maybe(
-                (!worktree_manual_action_running)
-                    .then_some(Message::TaskBoard(TaskBoardMessage::CommitMergeAllWorktreesPressed)),
-            )
-            .padding([4, 8])
-            .style(if app.task_board_worktree_manual_confirm_kind == Some("merge") {
-                button_style_danger
-            } else {
-                button_style_secondary
-            });
+        let merge_btn =
+            button(text(merge_btn_label).size(12))
+                .on_press_maybe((!worktree_manual_action_running).then_some(Message::TaskBoard(
+                    TaskBoardMessage::CommitMergeAllWorktreesPressed,
+                )))
+                .padding([4, 8])
+                .style(if app.task_board_worktree_manual_confirm_kind == Some("merge") {
+                    button_style_danger
+                } else {
+                    button_style_secondary
+                });
         let mut title_row = row![title_line, clean_btn, delete_btn, merge_btn]
             .spacing(12)
             .align_y(Alignment::Center);

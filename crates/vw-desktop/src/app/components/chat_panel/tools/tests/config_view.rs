@@ -5,7 +5,9 @@
 use serde_json::json;
 
 /// 重新导出 use super::{parse_config_input, parse_config_result_from_output, summary_from_input, summary_from_result}，让上层模块通过稳定路径访问。
-use super::{parse_config_input, parse_config_result_from_output, summary_from_input, summary_from_result};
+use super::{
+    parse_config_input, parse_config_result_from_output, summary_from_input, summary_from_result,
+};
 
 /// 解析 config result from output reads get shape 的输入文本，返回后续视图可以直接消费的结构化结果。
 ///

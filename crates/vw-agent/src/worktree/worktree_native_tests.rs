@@ -4,9 +4,8 @@ use super::native::{CmdResult, parse_worktree_list, path_exists};
 
 #[test]
 fn parse_worktree_list_preserves_paths_and_branches() {
-    let entries = parse_worktree_list(
-        "worktree /repo\nbranch refs/heads/main\n\nworktree /repo-two\nbare\n",
-    );
+    let entries =
+        parse_worktree_list("worktree /repo\nbranch refs/heads/main\n\nworktree /repo-two\nbare\n");
 
     assert_eq!(entries.len(), 2);
     assert_eq!(entries[0].path, "/repo");

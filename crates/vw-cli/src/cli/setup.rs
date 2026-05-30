@@ -387,11 +387,11 @@ pub(crate) fn setup_cli(
         "Configure default model, scenario routing, and delegate agents. Use for natural-language requests like: 'set conversation to kimi and coding to gpt-5.3-codex'.",
     ));
 
-    // 条件性添加代理委托工具（仅在有配置的子代理时）
-    if !config.agents.is_empty() {
+    // 条件性添加代理委托工具（仅在实际注册 AgentTool 时）
+    if tools_registry.iter().any(|tool| tool.name() == "AgentTool") {
         tool_descs.push((
-            "delegate",
-            "Delegate a sub-task to a specialized agent. Use when: task needs different model/capability, or to parallelize work.",
+            "AgentTool",
+            "Launch a specialized agent through a single unified interface. Use it for synchronous sub-agent execution or background agent sessions, and use action=list/get/stop to inspect or control running sessions.",
         ));
     }
 

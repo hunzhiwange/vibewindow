@@ -84,15 +84,21 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
                                                 match response.bytes().await {
                                                     Ok(bytes) => {
                                                         let bytes = bytes.to_vec();
-                                                        let size_opt = image::load_from_memory(&bytes)
-                                                            .ok()
-                                                            .map(|img| img.dimensions());
+                                                        let size_opt =
+                                                            image::load_from_memory(&bytes)
+                                                                .ok()
+                                                                .map(|img| img.dimensions());
                                                         (
                                                             url_clone,
-                                                            Ok((Handle::from_bytes(bytes), size_opt)),
+                                                            Ok((
+                                                                Handle::from_bytes(bytes),
+                                                                size_opt,
+                                                            )),
                                                         )
                                                     }
-                                                    Err(error) => (url_clone, Err(error.to_string())),
+                                                    Err(error) => {
+                                                        (url_clone, Err(error.to_string()))
+                                                    }
                                                 }
                                             } else {
                                                 (
@@ -135,8 +141,7 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
                         state.tailwind_html_editor = iced::widget::text_editor::Content::new();
                         state.tailwind_node_class_editor =
                             iced::widget::text_editor::Content::new();
-                        state.tailwind_node_text_editor =
-                            iced::widget::text_editor::Content::new();
+                        state.tailwind_node_text_editor = iced::widget::text_editor::Content::new();
                         state.tailwind_node_class_input.clear();
                         state.tailwind_node_class_dropdown_open = false;
                     }
@@ -165,8 +170,7 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
                             class: &str,
                         ) {
                             if path.is_empty() {
-                                node.attributes
-                                    .insert("class".to_string(), class.to_string());
+                                node.attributes.insert("class".to_string(), class.to_string());
                                 return;
                             }
                             let idx = path[0];
@@ -206,20 +210,14 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
                         .join(" ")
                 })
                 .unwrap_or_default();
-            Some(super::update(
-                app,
-                DesignMessage::UpdateTailwindNodeClass(id, path, normalized),
-            ))
+            Some(super::update(app, DesignMessage::UpdateTailwindNodeClass(id, path, normalized)))
         }
         DesignMessage::TailwindNodeTextCommit(id, path) => {
             let text = app
                 .active_design_state()
                 .map(|state| state.tailwind_node_text_editor.text().to_string())
                 .unwrap_or_default();
-            Some(super::update(
-                app,
-                DesignMessage::UpdateTailwindNodeText(id, path, text),
-            ))
+            Some(super::update(app, DesignMessage::UpdateTailwindNodeText(id, path, text)))
         }
         DesignMessage::UpdateTailwindNodeText(id, path, text) => {
             if let Some(state) = app.active_design_state_mut() {
@@ -294,14 +292,11 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
                             state.tailwind_html_editor =
                                 iced::widget::text_editor::Content::with_text(&html);
                         }
-                        if state
-                            .doc
-                            .tailwind_selection
-                            .as_ref()
-                            .is_some_and(|(selected_id, selected_path)| {
+                        if state.doc.tailwind_selection.as_ref().is_some_and(
+                            |(selected_id, selected_path)| {
                                 selected_id == &id && selected_path.as_slice() == path.as_slice()
-                            })
-                        {
+                            },
+                        ) {
                             state.doc.tailwind_selection = None;
                             state.tailwind_node_class_editor =
                                 iced::widget::text_editor::Content::new();
@@ -319,4 +314,3 @@ pub(super) fn update(app: &mut App, message: DesignMessage) -> Option<Task<Messa
         _ => None,
     }
 }
-

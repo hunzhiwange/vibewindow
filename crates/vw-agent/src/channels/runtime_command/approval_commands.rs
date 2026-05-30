@@ -6,18 +6,13 @@
 
 use super::super::*;
 use super::{
-    approval_target_label,
-    describe_non_cli_approvals,
-    persist_non_cli_approval_to_config,
+    approval_target_label, describe_non_cli_approvals, persist_non_cli_approval_to_config,
     remove_non_cli_approval_from_config,
 };
 
 fn available_tools_preview(ctx: &ChannelRuntimeContext) -> String {
-    let mut available_tools = ctx
-        .tools_registry
-        .iter()
-        .map(|tool| tool.spec().id)
-        .collect::<Vec<_>>();
+    let mut available_tools =
+        ctx.tools_registry.iter().map(|tool| tool.spec().id).collect::<Vec<_>>();
     available_tools.sort();
     available_tools.into_iter().take(12).collect::<Vec<_>>().join(", ")
 }
@@ -258,7 +253,8 @@ pub(super) async fn handle_confirm_tool_approval(
             );
 
             // 即使批准成功，通道排除列表仍是更高优先级的安全边界，需要显式提示。
-            if tool_name != APPROVAL_ALL_TOOLS_ONCE_TOKEN && is_non_cli_tool_excluded(ctx, &tool_name)
+            if tool_name != APPROVAL_ALL_TOOLS_ONCE_TOKEN
+                && is_non_cli_tool_excluded(ctx, &tool_name)
             {
                 format!(
                     "{approval_message}\nNote: `{tool_name}` is currently listed in `autonomy.non_cli_excluded_tools` for this runtime. Remove it from config; the channel runtime auto-reloads this list from disk."
@@ -453,11 +449,8 @@ pub(super) fn handle_list_pending_approvals(
         let mut response = String::new();
         response.push_str("Pending approval requests (sender+chat/channel scoped):\n");
         for req in rows {
-            let reason = req
-                .reason
-                .as_deref()
-                .filter(|text| !text.trim().is_empty())
-                .unwrap_or("n/a");
+            let reason =
+                req.reason.as_deref().filter(|text| !text.trim().is_empty()).unwrap_or("n/a");
             let _ = writeln!(
                 response,
                 "- {}: tool={}, expires_at={}, reason={}",
@@ -515,9 +508,7 @@ pub(super) async fn handle_approve_tool(
             "{persistence_message}\nRuntime pending requests cleared: {cleared_pending}.\nNote: `{tool_name}` is currently listed in `autonomy.non_cli_excluded_tools` for this runtime. Remove it from config; the channel runtime auto-reloads this list from disk."
         )
     } else {
-        format!(
-            "{persistence_message}\nRuntime pending requests cleared: {cleared_pending}."
-        )
+        format!("{persistence_message}\nRuntime pending requests cleared: {cleared_pending}.")
     }
 }
 
@@ -539,7 +530,8 @@ pub(super) async fn handle_unapprove_tool(
 
     // 撤销同时清理 session grant、运行时持久化视图和 pending，保证后续状态单调收紧。
     let removed_session = ctx.approval_manager.revoke_non_cli_session(&tool_name);
-    let removed_runtime_persistent = ctx.approval_manager.apply_persistent_runtime_revoke(&tool_name);
+    let removed_runtime_persistent =
+        ctx.approval_manager.apply_persistent_runtime_revoke(&tool_name);
     let removed_pending = ctx.approval_manager.clear_non_cli_pending_requests_for_tool(&tool_name);
     match remove_non_cli_approval_from_config(ctx, &tool_name).await {
         Ok(Some((path, removed_persistent))) => format!(

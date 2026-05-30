@@ -46,8 +46,8 @@ pub mod sed;
 
 use super::traits::{Tool, ToolResult, ToolSpec};
 use crate::app::agent::runtime::RuntimeAdapter;
-use crate::app::agent::security::{SecurityPolicy, ShellRedirectPolicy};
 use crate::app::agent::security::SyscallAnomalyDetector;
+use crate::app::agent::security::{SecurityPolicy, ShellRedirectPolicy};
 use crate::tools::shell::ast::parse_command;
 use crate::tools::shell::compound::semantics::{ExitInterpretation, ExitSemantics};
 use crate::tools::shell::permissions::{Permission, PermissionContext, PermissionMode};
@@ -252,18 +252,26 @@ impl ShellTool {
         }
     }
 
-    fn validate_execution_plan(&self, shell_args: &ShellArgs) -> anyhow::Result<ShellExecutionPlan> {
+    fn validate_execution_plan(
+        &self,
+        shell_args: &ShellArgs,
+    ) -> anyhow::Result<ShellExecutionPlan> {
         let effective_command = self.security.apply_shell_redirect_policy(&shell_args.command);
         let sandbox_config = self.sandbox_config_for_workdir(&shell_args.workdir);
         let parsed = parse_command(&effective_command);
         let sandbox_decision = should_use_sandbox(&parsed, &sandbox_config);
         let permission_context = self.permission_context(shell_args, &sandbox_decision);
 
-        match self.security.check_shell_permission(&effective_command, &permission_context).permission {
+        match self
+            .security
+            .check_shell_permission(&effective_command, &permission_context)
+            .permission
+        {
             Some(Permission::Allow) => {}
             Some(Permission::Deny { reason }) => anyhow::bail!("Command not allowed: {reason}"),
             Some(Permission::Ask { reason, warning }) => {
-                let message = warning.map_or(reason.clone(), |warning| format!("{reason}. {warning}"));
+                let message =
+                    warning.map_or(reason.clone(), |warning| format!("{reason}. {warning}"));
                 anyhow::bail!(message);
             }
             None => anyhow::bail!("Shell permission check returned no decision"),
@@ -283,11 +291,7 @@ impl ShellTool {
             anyhow::bail!("Command not allowed: unsupported redirection target");
         }
 
-        Ok(ShellExecutionPlan {
-            effective_command,
-            sandbox_config,
-            sandbox_decision,
-        })
+        Ok(ShellExecutionPlan { effective_command, sandbox_config, sandbox_decision })
     }
 }
 

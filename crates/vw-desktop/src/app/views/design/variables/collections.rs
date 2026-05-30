@@ -13,7 +13,10 @@ use crate::app::message::DesignMessage;
 use crate::app::views::design::state::DesignState;
 
 use super::menus::{render_collection_menu, render_delete_confirm};
-use super::styles::{THEME_ADD_BUTTON_SIZE, THEME_TAB_BUTTON_HEIGHT, THEME_TAB_MENU_BUTTON_SIZE, THEME_TAB_MENU_GAP, variables_palette};
+use super::styles::{
+    THEME_ADD_BUTTON_SIZE, THEME_TAB_BUTTON_HEIGHT, THEME_TAB_MENU_BUTTON_SIZE, THEME_TAB_MENU_GAP,
+    variables_palette,
+};
 
 /// 执行本模块的界面辅助逻辑。
 ///
@@ -173,12 +176,8 @@ pub(super) fn render_add_collection_button<'a>() -> Element<'a, Message> {
         let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
         button::Style {
             background: Some(
-                if hovered {
-                    palette.menu_hover_bg.scale_alpha(0.94)
-                } else {
-                    Color::TRANSPARENT
-                }
-                .into(),
+                if hovered { palette.menu_hover_bg.scale_alpha(0.94) } else { Color::TRANSPARENT }
+                    .into(),
             ),
             text_color: palette.menu_text,
             border: Border { radius: 999.0.into(), width: 0.0, color: Color::TRANSPARENT },

@@ -19,8 +19,8 @@ mod tests {
     use super::*;
 
     use crate::app::agent::security::{AutonomyLevel, SecurityPolicy};
-    use crate::app::agent::tools::{WEB_FETCH_TOOL_ALIAS, WEB_FETCH_TOOL_ID};
     use crate::app::agent::tools::url_validation::{is_private_or_local_host, normalize_domain};
+    use crate::app::agent::tools::{WEB_FETCH_TOOL_ALIAS, WEB_FETCH_TOOL_ID};
 
     /// 创建基础测试用的 WebFetchTool 实例
     ///

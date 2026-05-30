@@ -6,7 +6,8 @@
 use super::MatrixChannel;
 use crate::app::agent::channels::traits::SendMessage;
 use matrix_sdk::{
-    RoomState, config::SyncSettings, ruma::OwnedRoomId, ruma::events::room::message::RoomMessageEventContent,
+    RoomState, config::SyncSettings, ruma::OwnedRoomId,
+    ruma::events::room::message::RoomMessageEventContent,
 };
 use std::sync::atomic::Ordering;
 

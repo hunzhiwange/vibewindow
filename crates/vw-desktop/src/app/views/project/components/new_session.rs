@@ -217,7 +217,9 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
             let item: Element<'a, Message> = if directory == "__create_worktree__" {
                 // 创建新工作区的特殊项
                 column![
-                    container(text(label.as_str().to_owned()).size(12)).width(Length::Fill).padding([2, 6]),
+                    container(text(label.as_str().to_owned()).size(12))
+                        .width(Length::Fill)
+                        .padding([2, 6]),
                     // 工作区名称输入框
                     text_input("例如: feature-login", &app.new_session_worktree_name)
                         .on_input(|v| {
@@ -230,7 +232,9 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
                     // 创建按钮
                     button(container(text("创建并使用该工作区").size(12)).width(Length::Fill))
                         .on_press(Message::Project(
-                            message::ProjectMessage::ProjectCreateSessionWorktree(path.as_str().to_owned()),
+                            message::ProjectMessage::ProjectCreateSessionWorktree(
+                                path.as_str().to_owned()
+                            ),
                         ))
                         .style(|_theme: &Theme, status| {
                             // 创建按钮的蓝色主题样式
@@ -598,7 +602,9 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
         .iter()
         .position(|p| p == &path)
         .and_then(|i| app.recent_projects_edits.get(i))
-        .map(|name: &String| if name.trim().is_empty() { path.as_str().to_owned() } else { name.as_str().to_owned() })
+        .map(|name: &String| {
+            if name.trim().is_empty() { path.as_str().to_owned() } else { name.as_str().to_owned() }
+        })
         .unwrap_or_else(|| path.as_str().to_owned());
 
     // 主面板容器

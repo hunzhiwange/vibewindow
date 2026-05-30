@@ -4,12 +4,12 @@
 use super::{
     load_session_or_default, now_ms, save_session_task, session_directory_for_save, start_next,
 };
-use crate::app::message::chat::session as chat_session;
 use crate::app::message::ProjectMessage;
+use crate::app::message::chat::scroll_chat_to_bottom_task;
+use crate::app::message::chat::session as chat_session;
 use crate::app::state::ChatSendBehavior;
 use crate::app::ui::chat;
 use crate::app::{App, Message, QueueItem, models};
-use crate::app::message::chat::scroll_chat_to_bottom_task;
 use iced::Task;
 use tracing::info;
 use vw_shared::message::types as message;
@@ -111,11 +111,7 @@ fn continuation_label_from_history(history: &[models::ChatMessage]) -> String {
 
 /// 模块内可见函数，执行 handle_agent_stream_delta 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
-pub(super) fn handle_agent_stream_delta(
-    app: &mut App,
-    id: u64,
-    delta: String,
-) -> Task<Message> {
+pub(super) fn handle_agent_stream_delta(app: &mut App, id: u64, delta: String) -> Task<Message> {
     let Some(session_id) = app.find_session_by_request_id(id) else {
         return Task::none();
     };
@@ -167,11 +163,13 @@ pub(super) fn handle_agent_stream_delta(
     let save_task = save_session_task(session, session_directory_for_save(app, &session_id));
 
     if !is_active {
+        app.sync_task_pet_from_runtime();
         return save_task;
     }
 
     app.chat = live_chat;
     app.chat_message_ids = live_ids;
+    app.sync_task_pet_from_runtime();
     app.sync_chat_message_estimated_heights_len();
     let mut tail_prewarm_task = Task::none();
     let mut should_snap_to_bottom = false;
@@ -184,10 +182,7 @@ pub(super) fn handle_agent_stream_delta(
         };
         should_snap_to_bottom = app.chat_auto_scroll && !tail_is_visible;
         if (app.chat_auto_scroll || tail_is_visible)
-            && !app
-                .active_session_view_state
-                .preparing_chat_ui_chunks
-                .contains(&tail_chunk_start)
+            && !app.active_session_view_state.preparing_chat_ui_chunks.contains(&tail_chunk_start)
         {
             app.mark_chat_ui_chunks_preparing(&[tail_chunk_start]);
             tail_prewarm_task = crate::app::message::project::prepare_session_ui_task(
@@ -201,11 +196,7 @@ pub(super) fn handle_agent_stream_delta(
     app.active_session_view_state.updated_ms = now;
     app.rebuild_active_session_message_meta();
     if should_snap_to_bottom {
-        Task::batch(vec![
-            scroll_chat_to_bottom_task(app),
-            tail_prewarm_task,
-            save_task,
-        ])
+        Task::batch(vec![scroll_chat_to_bottom_task(app), tail_prewarm_task, save_task])
     } else {
         Task::batch(vec![tail_prewarm_task, save_task])
     }
@@ -299,6 +290,7 @@ pub(super) fn handle_agent_stream_done(
         runtime.has_unseen_success = !is_active_session;
         runtime.active_agent_request = None;
     }
+    app.sync_task_pet_from_runtime();
     app.show_send_mode_popover = false;
 
     if is_active_session {
@@ -420,6 +412,7 @@ pub(super) fn handle_agent_post_tool_round(
         runtime.queue.remove(0)
     };
 
+    app.sync_task_pet_from_runtime();
     app.show_send_mode_popover = false;
     app.sync_active_session_from_chat();
     info!(
@@ -436,11 +429,7 @@ pub(super) fn handle_agent_post_tool_round(
 
 /// 模块内可见函数，执行 handle_agent_stream_error 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
-pub(super) fn handle_agent_stream_error(
-    app: &mut App,
-    id: u64,
-    err: String,
-) -> Task<Message> {
+pub(super) fn handle_agent_stream_error(app: &mut App, id: u64, err: String) -> Task<Message> {
     let Some(session_id) = app.find_session_by_request_id(id) else {
         return Task::none();
     };
@@ -452,6 +441,7 @@ pub(super) fn handle_agent_stream_error(
         runtime.has_unseen_success = false;
         runtime.active_agent_request = None;
     }
+    app.sync_task_pet_from_runtime();
     app.show_send_mode_popover = false;
 
     if app.active_session_id.as_ref() == Some(&session_id) {
@@ -466,8 +456,7 @@ pub(super) fn handle_agent_stream_error(
             crate::app::session::shared_chat_messages(app.chat.clone()),
             app.chat_message_ids.clone(),
         );
-        app.session_chat_message_id_cache
-            .insert(session_id.clone(), app.chat_message_ids.clone());
+        app.session_chat_message_id_cache.insert(session_id.clone(), app.chat_message_ids.clone());
         app.sync_active_session_from_chat();
     }
 

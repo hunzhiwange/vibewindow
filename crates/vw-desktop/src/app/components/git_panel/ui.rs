@@ -19,8 +19,4 @@ mod shared_tests;
 
 pub use disabled_buttons::{disabled_square_content_button_tiny, disabled_square_icon_button_tiny};
 pub use glyph_buttons::header_plain_glyph_button;
-pub use icon_buttons::{
-    small_plain_icon_button,
-    square_icon_button_micro,
-    square_icon_button_tiny,
-};
+pub use icon_buttons::{small_plain_icon_button, square_icon_button_tiny};

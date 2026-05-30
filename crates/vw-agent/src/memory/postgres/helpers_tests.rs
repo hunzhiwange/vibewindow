@@ -14,4 +14,3 @@ fn identifier_validation_rejects_injection_shapes() {
     assert!(validate_identifier("", "field").is_err());
     assert!(validate_identifier("name;drop", "field").is_err());
 }
-

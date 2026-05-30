@@ -23,10 +23,13 @@ fn trusted_domain_matches_exact_and_subdomains_only() {
 #[test]
 fn source_urls_for_trust_check_expands_skills_sh_source() {
     let urls = source_urls_for_trust_check("https://skills.sh/acme/tools/review");
-    assert_eq!(urls, vec![
-        "https://skills.sh/acme/tools/review".to_string(),
-        "https://github.com/acme/tools.git".to_string(),
-    ]);
+    assert_eq!(
+        urls,
+        vec![
+            "https://skills.sh/acme/tools/review".to_string(),
+            "https://github.com/acme/tools.git".to_string(),
+        ]
+    );
 }
 
 #[test]

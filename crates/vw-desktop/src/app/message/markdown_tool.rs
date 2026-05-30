@@ -851,4 +851,3 @@ fn clear_notification_task() -> Task<Message> {
         Message::MarkdownTool(MarkdownToolMessage::ClearNotification),
     )
 }
-

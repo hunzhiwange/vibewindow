@@ -20,13 +20,19 @@
 
 use iced::widget::scrollable::{Direction, Scrollbar};
 use iced::widget::svg;
-use iced::widget::{Space, column, container, mouse_area, row, scrollable, text};
+use iced::widget::{Space, button, column, container, mouse_area, row, scrollable, text};
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
 use crate::app::assets::Icon;
 use crate::app::components::input_panel::icons::icon_svg;
-use crate::app::{App, Message, message};
+use crate::app::{App, Message, TodoPanelPlacement, message};
 use vw_shared::todo::Todo;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TodoPanelSurface {
+    InputBottom,
+    ChatTopRight,
+}
 
 /// 待办面板数据结构
 ///
@@ -134,6 +140,146 @@ pub fn todo_id_display(raw: &str) -> String {
     s.to_string()
 }
 
+fn placement_button(placement: TodoPanelPlacement, selected: bool) -> Element<'static, Message> {
+    button(text(placement.label()).size(11))
+        .padding([3, 8])
+        .style(move |theme: &Theme, status| {
+            let is_dark = theme.palette().background.r
+                + theme.palette().background.g
+                + theme.palette().background.b
+                < 1.5;
+            let selected_bg = if is_dark {
+                Color::from_rgba8(70, 74, 83, 0.92)
+            } else {
+                Color::from_rgba8(223, 229, 238, 1.0)
+            };
+            let idle_bg = if is_dark {
+                Color::from_rgba8(35, 37, 42, 0.72)
+            } else {
+                Color::from_rgba8(244, 246, 249, 1.0)
+            };
+            let hover_bg = if selected {
+                selected_bg
+            } else if is_dark {
+                Color::from_rgba8(44, 47, 54, 0.86)
+            } else {
+                Color::from_rgba8(235, 239, 245, 1.0)
+            };
+            let background = match status {
+                iced::widget::button::Status::Hovered | iced::widget::button::Status::Pressed => {
+                    hover_bg
+                }
+                _ if selected => selected_bg,
+                _ => idle_bg,
+            };
+
+            iced::widget::button::Style {
+                background: Some(Background::Color(background)),
+                border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 999.0.into() },
+                text_color: if selected {
+                    theme.palette().text
+                } else {
+                    theme.palette().text.scale_alpha(0.72)
+                },
+                ..Default::default()
+            }
+        })
+        .on_press(Message::Chat(message::ChatMessage::SetTodoPanelPlacement(placement)))
+        .into()
+}
+
+fn open_git_panel_button(changed_files: usize) -> Element<'static, Message> {
+    let git_icon: Element<'_, Message> = icon_svg(Icon::GitBranch, 13.0)
+        .style(|theme: &Theme, _| svg::Style { color: Some(theme.palette().text) })
+        .into();
+    let label = if changed_files > 0 {
+        format!("打开 Git 面板 · {changed_files}")
+    } else {
+        "打开 Git 面板".to_string()
+    };
+
+    button(row![git_icon, text(label).size(12)].spacing(7).align_y(Alignment::Center))
+        .padding([5, 9])
+        .width(Length::Fill)
+        .style(|theme: &Theme, status| {
+            let is_dark = theme.palette().background.r
+                + theme.palette().background.g
+                + theme.palette().background.b
+                < 1.5;
+            let background = match status {
+                iced::widget::button::Status::Hovered | iced::widget::button::Status::Pressed => {
+                    if is_dark {
+                        Color::from_rgba8(70, 70, 70, 0.88)
+                    } else {
+                        Color::from_rgba8(231, 235, 241, 1.0)
+                    }
+                }
+                _ => {
+                    if is_dark {
+                        Color::from_rgba8(58, 58, 58, 0.76)
+                    } else {
+                        Color::from_rgba8(242, 244, 247, 1.0)
+                    }
+                }
+            };
+            iced::widget::button::Style {
+                background: Some(Background::Color(background)),
+                border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 8.0.into() },
+                text_color: theme.palette().text,
+                ..Default::default()
+            }
+        })
+        .on_press(Message::Batch(vec![
+            Message::Project(message::ProjectMessage::FileManagerShowChanges(true)),
+            Message::Git(message::GitMessage::RefreshGitPanelData),
+        ]))
+        .into()
+}
+
+fn floating_collapsed_badge(total: usize) -> Element<'static, Message> {
+    let count = total.min(99).to_string();
+    let badge = container(text(count).size(14))
+        .width(Length::Fixed(38.0))
+        .height(Length::Fixed(38.0))
+        .align_x(iced::alignment::Horizontal::Center)
+        .align_y(iced::alignment::Vertical::Center)
+        .style(|theme: &Theme| {
+            let is_dark = theme.palette().background.r
+                + theme.palette().background.g
+                + theme.palette().background.b
+                < 1.5;
+            let bg = if is_dark {
+                Color::from_rgba8(34, 36, 41, 0.96)
+            } else {
+                Color::from_rgba8(252, 252, 253, 1.0)
+            };
+            let border = if is_dark {
+                Color::from_rgba8(72, 76, 84, 0.95)
+            } else {
+                Color::from_rgba8(214, 220, 229, 1.0)
+            };
+            iced::widget::container::Style {
+                background: Some(Background::Color(bg)),
+                border: Border { width: 1.0, color: border, radius: 999.0.into() },
+                text_color: Some(theme.palette().text),
+                shadow: iced::Shadow {
+                    color: Color::BLACK.scale_alpha(if is_dark { 0.22 } else { 0.10 }),
+                    offset: iced::Vector::new(0.0, 8.0),
+                    blur_radius: 18.0,
+                },
+                ..Default::default()
+            }
+        });
+
+    button(badge)
+        .padding(0)
+        .width(Length::Fixed(38.0))
+        .height(Length::Fixed(38.0))
+        .style(iced::widget::button::text)
+        .on_press(Message::Chat(message::ChatMessage::ToggleTodoPanel))
+        .into()
+}
+
 /// 渲染待办事项面板
 ///
 /// 根据应用状态和待办事项列表创建当前唯一的 Todo 面板 UI。
@@ -182,9 +328,18 @@ pub fn todo_id_display(raw: &str) -> String {
 /// let panel = todo_panel(&app, &todo_items, anim_frame);
 /// // 将 panel 添加到 UI 布局中
 /// ```
-pub fn todo_panel(app: &App, todo_items: &[Todo], submit_anim: u8) -> Element<'static, Message> {
+pub fn todo_panel(
+    app: &App,
+    todo_items: &[Todo],
+    submit_anim: u8,
+    surface: TodoPanelSurface,
+) -> Element<'static, Message> {
     // 计算面板所需的数据
     let data = compute_todo_data(app, todo_items);
+
+    if surface == TodoPanelSurface::ChatTopRight && !app.chat_todo_expanded {
+        return floating_collapsed_badge(data.total);
+    }
 
     // 构建摘要文本：显示已完成数量和总数
     let summary_text = format!("已完成 {} / {} 项待办", data.completed, data.total);
@@ -197,13 +352,23 @@ pub fn todo_panel(app: &App, todo_items: &[Todo], submit_anim: u8) -> Element<'s
         .style(|theme: &Theme, _| svg::Style { color: Some(theme.palette().text) });
 
     // 构建头部行：包含摘要文本和箭头图标
-    let header_row = row![
-        text(summary_text).size(12),
-        container(Space::new()).width(Length::Fill), // 占位符，将箭头推到右侧
-        header_chevron
-    ]
-    .spacing(8)
-    .align_y(Alignment::Center);
+    let header_title: Element<'static, Message> = if surface == TodoPanelSurface::ChatTopRight {
+        column![
+            text("进度").size(13),
+            text(summary_text).size(11).style(|theme: &Theme| iced::widget::text::Style {
+                color: Some(theme.palette().text.scale_alpha(0.66)),
+            })
+        ]
+        .spacing(1)
+        .into()
+    } else {
+        text(summary_text).size(12).into()
+    };
+
+    let header_row =
+        row![header_title, container(Space::new()).width(Length::Fill), header_chevron]
+            .spacing(8)
+            .align_y(Alignment::Center);
 
     // 将头部包装在可点击区域内，点击时切换展开/折叠状态
     let header = mouse_area(container(header_row).width(Length::Fill))
@@ -395,18 +560,76 @@ pub fn todo_panel(app: &App, todo_items: &[Todo], submit_anim: u8) -> Element<'s
             .width(Length::Fill)
             .height(Length::Fixed(list_height));
 
-        // 组合最终的面板：头部 + 任务列表
-        container(column![header, task_list].spacing(6))
-            .width(Length::Fill)
-            .padding([6, 10])
-            .style(|theme: &Theme| {
+        let placement_controls = row![
+            placement_button(
+                TodoPanelPlacement::ChatTopRight,
+                app.chat_todo_placement == TodoPanelPlacement::ChatTopRight,
+            ),
+            placement_button(
+                TodoPanelPlacement::InputBottom,
+                app.chat_todo_placement == TodoPanelPlacement::InputBottom,
+            ),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center);
+
+        // 组合最终的面板：头部 + 位置设置 + Git 操作 + 任务列表
+        let body = column![
+            header,
+            placement_controls,
+            open_git_panel_button(app.git_changed_files.len()),
+            task_list
+        ]
+        .spacing(6);
+
+        let width = if surface == TodoPanelSurface::ChatTopRight {
+            Length::Fixed(340.0)
+        } else {
+            Length::Fill
+        };
+        let radius = if surface == TodoPanelSurface::ChatTopRight { 18.0 } else { 0.0 };
+        let border_width = if surface == TodoPanelSurface::ChatTopRight { 1.0 } else { 0.0 };
+        let padding = if surface == TodoPanelSurface::ChatTopRight { [12, 14] } else { [6, 10] };
+
+        container(body)
+            .width(width)
+            .padding(padding)
+            .style(move |theme: &Theme| {
                 let ext = theme.extended_palette();
+                let is_dark = theme.palette().background.r
+                    + theme.palette().background.g
+                    + theme.palette().background.b
+                    < 1.5;
+                let background = if surface == TodoPanelSurface::ChatTopRight {
+                    if is_dark {
+                        Color::from_rgba8(37, 38, 41, 0.96)
+                    } else {
+                        Color::from_rgba8(252, 252, 253, 0.98)
+                    }
+                } else {
+                    ext.background.base.color.scale_alpha(0.50)
+                };
+                let border_color = if is_dark {
+                    Color::from_rgba8(78, 80, 86, 0.86)
+                } else {
+                    Color::from_rgba8(220, 225, 233, 1.0)
+                };
                 iced::widget::container::Style {
-                    // 保持轻背景，但不再覆盖输入区外层边框观感
-                    background: Some(Background::Color(
-                        ext.background.base.color.scale_alpha(0.50),
-                    )),
-                    border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 0.0.into() },
+                    background: Some(Background::Color(background)),
+                    border: Border {
+                        width: border_width,
+                        color: border_color,
+                        radius: radius.into(),
+                    },
+                    shadow: if surface == TodoPanelSurface::ChatTopRight {
+                        iced::Shadow {
+                            color: Color::BLACK.scale_alpha(if is_dark { 0.22 } else { 0.10 }),
+                            offset: iced::Vector::new(0.0, 10.0),
+                            blur_radius: 24.0,
+                        }
+                    } else {
+                        iced::Shadow::default()
+                    },
                     ..Default::default()
                 }
             })

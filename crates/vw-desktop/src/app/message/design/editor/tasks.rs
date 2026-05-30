@@ -1,5 +1,6 @@
 //! 设计生成任务调度与画布草图构建。
 
+use super::DesignModuleExecutionResult;
 use super::logging::{append_design_project_log, collect_design_log_lines};
 use super::parser::parse_design_generation_module_doc;
 use super::prompts::{
@@ -7,15 +8,14 @@ use super::prompts::{
     design_plan_page_width, design_reference_tokens_and_theme,
     execute_design_generation_with_streaming, resolve_design_acp_agent,
 };
-use super::DesignModuleExecutionResult;
+use crate::app::Message;
 use crate::app::message::DesignMessage;
 use crate::app::task::{TaskExecutorBackend, TaskLogStream};
 use crate::app::views::design::models::DesignDoc;
 use crate::app::views::design::state::{
-    DesignGenerationDevice, DesignGenerationPage, DesignGenerationStatus,
-    DesignGenerationTheme, DesignStyle, sanitize_design_generation_parallel_pages,
+    DesignGenerationDevice, DesignGenerationPage, DesignGenerationStatus, DesignGenerationTheme,
+    DesignStyle, sanitize_design_generation_parallel_pages,
 };
-use crate::app::Message;
 use iced::Task;
 use std::sync::mpsc;
 
@@ -217,8 +217,12 @@ pub(super) fn spawn_design_module_generation_task(
             let route = if design_executor_uses_gateway(executor) {
                 format!("gateway agent={}", acp_agent.as_deref().unwrap_or("default"))
             } else {
-                let command =
-                    crate::app::task::build_executor_command(executor, &project_path, &model, &prompt);
+                let command = crate::app::task::build_executor_command(
+                    executor,
+                    &project_path,
+                    &model,
+                    &prompt,
+                );
                 format!("cli command={}", compact_multiline(&format!("{:?}", command)))
             };
             append_design_project_log(
@@ -547,4 +551,3 @@ pub(super) fn build_design_plan_canvas(
         ..Default::default()
     }
 }
-

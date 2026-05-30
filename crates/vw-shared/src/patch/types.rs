@@ -8,18 +8,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Hunk {
-    Add {
-        path: String,
-        contents: String,
-    },
-    Delete {
-        path: String,
-    },
-    Update {
-        path: String,
-        move_path: Option<String>,
-        chunks: Vec<UpdateFileChunk>,
-    },
+    Add { path: String, contents: String },
+    Delete { path: String },
+    Update { path: String, move_path: Option<String>, chunks: Vec<UpdateFileChunk> },
 }
 
 /// UpdateFileChunk 数据结构承载该模块对外传递的 UpdateFileChunk 状态。

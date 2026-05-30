@@ -10,21 +10,13 @@ use iced::Task;
 pub async fn load_app_config_async() -> Result<serde_json::Value, String> {
     let client = gateway_client()?;
     let value = client.desktop_preferences_get().await?;
-    Ok(if value.is_object() {
-        value
-    } else {
-        serde_json::json!({})
-    })
+    Ok(if value.is_object() { value } else { serde_json::json!({}) })
 }
 
 /// 公开函数，执行 save_app_config_async 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
 pub async fn save_app_config_async(v: serde_json::Value) -> Result<(), String> {
-    let patch = if v.is_object() {
-        v
-    } else {
-        serde_json::json!({})
-    };
+    let patch = if v.is_object() { v } else { serde_json::json!({}) };
     let client = gateway_client()?;
     client.desktop_preferences_patch(&patch).await.map(|_| ())
 }
@@ -43,9 +35,7 @@ pub async fn update_agents_compat_registry_result_async(
         return Err("desktop preferences root is not an object".to_string());
     };
 
-    let agent_value = root
-        .entry("agent".to_string())
-        .or_insert_with(|| serde_json::json!({}));
+    let agent_value = root.entry("agent".to_string()).or_insert_with(|| serde_json::json!({}));
     if !agent_value.is_object() {
         *agent_value = serde_json::json!({});
     }
@@ -171,9 +161,7 @@ pub fn save_project_chat_preferences(
 ) {
     if let Err(err) = run_gateway_call(async {
         let client = gateway_client()?;
-        client
-            .desktop_project_preferences_put(project_path, model, auto_model, acp_agent)
-            .await
+        client.desktop_project_preferences_put(project_path, model, auto_model, acp_agent).await
     }) {
         tracing::warn!(target: "vw_desktop", error = %err, project_path, "failed to save project chat preferences via gateway");
     }
@@ -188,9 +176,7 @@ pub async fn save_project_chat_preferences_async(
     acp_agent: Option<&str>,
 ) -> Result<(), String> {
     let client = gateway_client()?;
-    client
-        .desktop_project_preferences_put(project_path, model, auto_model, acp_agent)
-        .await
+    client.desktop_project_preferences_put(project_path, model, auto_model, acp_agent).await
 }
 
 /// 公开函数，执行 load_json_tool_content 对应的应用流程。

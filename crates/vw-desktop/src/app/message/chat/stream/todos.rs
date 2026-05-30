@@ -36,10 +36,7 @@ fn maybe_auto_collapse_todo_panel(app: &mut App) -> Task<Message> {
         app.chat_todo_anim = 0.0;
         Task::none()
     } else {
-        after(
-            Duration::from_millis(16),
-            Message::Chat(ChatMessage::TodoAnimTick),
-        )
+        after(Duration::from_millis(16), Message::Chat(ChatMessage::TodoAnimTick))
     }
 }
 
@@ -52,10 +49,19 @@ fn apply_loaded_session_todos(
         return Task::none();
     }
 
+    let session_changed = app.chat_todo_session_id.as_deref() != Some(session_id.as_str());
+
     match res {
         Ok(todos) => {
             app.chat_todo_session_id = Some(session_id);
             app.chat_todo_items = todos;
+            if session_changed
+                && !app.chat_todo_items.is_empty()
+                && app.chat_todo_items.iter().any(|todo| todo.status != "completed")
+            {
+                app.chat_todo_expanded = true;
+                app.chat_todo_anim = 1.0;
+            }
         }
         Err(err) => {
             tracing::warn!(target: "vw_desktop", error = %err, session_id = %session_id, "failed to load todo list via gateway");

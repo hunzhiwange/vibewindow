@@ -100,7 +100,8 @@ mod tests {
         for _ in 0..50 {
             let list_result = tool.execute(json!({"action": "list"})).await.unwrap();
             assert!(list_result.success);
-            let entries: Vec<serde_json::Value> = serde_json::from_str(&list_result.output).unwrap();
+            let entries: Vec<serde_json::Value> =
+                serde_json::from_str(&list_result.output).unwrap();
             if let Some(entry) = entries
                 .into_iter()
                 .find(|entry| entry["command"].as_str() == Some(command))
@@ -347,12 +348,13 @@ mod tests {
     #[tokio::test]
     async fn process_metadata_update_changes_snapshot() {
         let tool = make_tool();
-        let spawn_result = tool.execute(json!({
-            "action": "spawn",
-            "command": "echo metadata_test"
-        }))
-        .await
-        .unwrap();
+        let spawn_result = tool
+            .execute(json!({
+                "action": "spawn",
+                "command": "echo metadata_test"
+            }))
+            .await
+            .unwrap();
         assert!(spawn_result.success);
         let output: serde_json::Value = serde_json::from_str(&spawn_result.output).unwrap();
         let id = output["id"].as_u64().unwrap() as usize;
@@ -658,8 +660,7 @@ mod tests {
         let id = spawn_output["id"].as_u64().expect("process id should exist");
 
         // 第一次获取输出：应触发异常检测
-        let first_output =
-            wait_for_output(&tool, id, "seccomp denied syscall=openat").await;
+        let first_output = wait_for_output(&tool, id, "seccomp denied syscall=openat").await;
         assert!(first_output.success);
 
         // 验证异常日志被创建并包含未知系统调用记录

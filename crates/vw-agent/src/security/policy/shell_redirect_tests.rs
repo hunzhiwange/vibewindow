@@ -10,4 +10,3 @@ fn parses_attached_short_option_values_and_redirect_targets() {
     assert_eq!(attached_short_option_value("-ofile"), Some("file"));
     assert_eq!(redirection_target(">out.log"), Some("out.log"));
 }
-

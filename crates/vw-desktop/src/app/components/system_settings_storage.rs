@@ -75,9 +75,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let provider_pick = pick_list(
         STORAGE_PROVIDER_OPTIONS,
-        STORAGE_PROVIDER_OPTIONS
-            .into_iter()
-            .find(|option| *option == s.provider.as_str()),
+        STORAGE_PROVIDER_OPTIONS.into_iter().find(|option| *option == s.provider.as_str()),
         |value| {
             Message::Settings(message::SettingsMessage::Storage(StorageMessage::ProviderChanged(
                 value.to_string(),
@@ -90,11 +88,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .menu_style(settings_pick_list_menu_style)
     .width(Length::Fixed(280.0));
 
-    let provider_row = field_row(
-        "存储类型",
-        "选择后端数据库类型。",
-        provider_pick,
-    );
+    let provider_row = field_row("存储类型", "选择后端数据库类型。", provider_pick);
 
     let db_url_row = text_row(
         "数据库地址",
@@ -102,10 +96,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "postgres://user:pass@host:5432/db",
         &s.db_url_input,
         |value| {
-                Message::Settings(message::SettingsMessage::Storage(StorageMessage::DbUrlChanged(
-                    value,
-                )))
-            },
+            Message::Settings(message::SettingsMessage::Storage(StorageMessage::DbUrlChanged(
+                value,
+            )))
+        },
     );
 
     let db_url_hint = row![
@@ -117,17 +111,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .spacing(16)
     .align_y(Alignment::Center);
 
-    let schema_row = text_row(
-        "Schema 名称",
-        "数据库 schema 名称。",
-        "public",
-        &s.schema,
-        |value| {
-                Message::Settings(message::SettingsMessage::Storage(StorageMessage::SchemaChanged(
-                    value,
-                )))
-            },
-    );
+    let schema_row =
+        text_row("Schema 名称", "数据库 schema 名称。", "public", &s.schema, |value| {
+            Message::Settings(message::SettingsMessage::Storage(StorageMessage::SchemaChanged(
+                value,
+            )))
+        });
 
     let table_row = text_row(
         "数据表",
@@ -135,10 +124,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "memories",
         &s.table,
         |value| {
-                Message::Settings(message::SettingsMessage::Storage(StorageMessage::TableChanged(
-                    value,
-                )))
-            },
+            Message::Settings(message::SettingsMessage::Storage(StorageMessage::TableChanged(
+                value,
+            )))
+        },
     );
 
     let timeout_row = text_row(
@@ -147,10 +136,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "秒；留空表示使用默认",
         &s.connect_timeout_secs_input,
         |value| {
-                Message::Settings(message::SettingsMessage::Storage(
-                    StorageMessage::ConnectTimeoutSecsChanged(value),
-                ))
-            },
+            Message::Settings(message::SettingsMessage::Storage(
+                StorageMessage::ConnectTimeoutSecsChanged(value),
+            ))
+        },
     );
 
     let timeout_hint = row![
@@ -163,9 +152,14 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let tls_row = field_row(
         "TLS 加密",
         "控制远程存储连接是否启用 TLS。",
-        checkbox(s.tls).label("启用存储连接 TLS").on_toggle(|value| {
-            Message::Settings(message::SettingsMessage::Storage(StorageMessage::TlsToggled(value)))
-        }).style(settings_checkbox_style),
+        checkbox(s.tls)
+            .label("启用存储连接 TLS")
+            .on_toggle(|value| {
+                Message::Settings(message::SettingsMessage::Storage(StorageMessage::TlsToggled(
+                    value,
+                )))
+            })
+            .style(settings_checkbox_style),
     );
 
     let mut content = column![

@@ -14,9 +14,18 @@ use crate::app::message::DesignMessage;
 use crate::app::views::design::models::{ColorPickerTarget, VariableDef};
 use crate::app::views::design::state::DesignState;
 
-use super::menus::{render_delete_confirm, render_move_targets_menu, render_variable_menu, render_variant_menu};
-use super::styles::{ACTION_COL_WIDTH, NAME_COL_WIDTH, TABLE_GAP, VARIANT_COL_WIDTH, variable_value_input_style, variables_palette};
-use super::utils::{color_alpha_input_value, color_hex_input_value, direct_variable_value, parse_hex_color, swatch_border_color, update_color_alpha_value, update_color_hex_value, variable_belongs_to_collection};
+use super::menus::{
+    render_delete_confirm, render_move_targets_menu, render_variable_menu, render_variant_menu,
+};
+use super::styles::{
+    ACTION_COL_WIDTH, NAME_COL_WIDTH, TABLE_GAP, VARIANT_COL_WIDTH, variable_value_input_style,
+    variables_palette,
+};
+use super::utils::{
+    color_alpha_input_value, color_hex_input_value, direct_variable_value, parse_hex_color,
+    swatch_border_color, update_color_alpha_value, update_color_hex_value,
+    variable_belongs_to_collection,
+};
 
 /// 渲染对应界面。
 ///
@@ -62,15 +71,16 @@ pub(super) fn render_variable_table<'a>(
         names.sort();
         for name in names {
             if let Some(def) = state.doc.variables.get(name)
-                && variable_belongs_to_collection(def, current_collection) {
-                    table_content = table_content.push(render_variable_row(
-                        state,
-                        name.as_str(),
-                        def,
-                        theme_modes,
-                        label_font,
-                    ));
-                }
+                && variable_belongs_to_collection(def, current_collection)
+            {
+                table_content = table_content.push(render_variable_row(
+                    state,
+                    name.as_str(),
+                    def,
+                    theme_modes,
+                    label_font,
+                ));
+            }
         }
     }
 

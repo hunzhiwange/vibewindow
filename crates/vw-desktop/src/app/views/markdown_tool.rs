@@ -121,11 +121,7 @@ fn editor_surface_style(theme: &Theme) -> iced::widget::container::Style {
 
     iced::widget::container::Style {
         background: Some(palette.background.base.color.into()),
-        border: Border {
-            width: 1.0,
-            color: palette.background.strong.color,
-            radius: 10.0.into(),
-        },
+        border: Border { width: 1.0, color: palette.background.strong.color, radius: 10.0.into() },
         ..Default::default()
     }
 }
@@ -183,7 +179,10 @@ fn build_metric_badge<'a>(label: impl Into<String>) -> Element<'a, Message> {
         .into()
 }
 
-fn build_status_badge<'a>(label: impl Into<String>, tone: MarkdownBadgeTone) -> Element<'a, Message> {
+fn build_status_badge<'a>(
+    label: impl Into<String>,
+    tone: MarkdownBadgeTone,
+) -> Element<'a, Message> {
     let label = label.into();
 
     container(text(label).size(12).style(move |theme: &Theme| {
@@ -206,7 +205,9 @@ fn build_status_badge<'a>(label: impl Into<String>, tone: MarkdownBadgeTone) -> 
             background: Some(Background::Color(match tone {
                 MarkdownBadgeTone::Loading => Color::from_rgba8(37, 99, 235, 0.92),
                 MarkdownBadgeTone::Success => Color::from_rgba8(22, 163, 74, 0.92),
-                MarkdownBadgeTone::Idle if is_dark => palette.background.strong.color.scale_alpha(0.82),
+                MarkdownBadgeTone::Idle if is_dark => {
+                    palette.background.strong.color.scale_alpha(0.82)
+                }
                 MarkdownBadgeTone::Idle => Color::from_rgba8(241, 245, 249, 0.96),
             })),
             border: Border {
@@ -254,13 +255,25 @@ fn toolbar_button_style(
 
     let alpha = match status {
         button::Status::Hovered => {
-            if is_dark { 0.18 } else { 0.10 }
+            if is_dark {
+                0.18
+            } else {
+                0.10
+            }
         }
         button::Status::Pressed => {
-            if is_dark { 0.24 } else { 0.14 }
+            if is_dark {
+                0.24
+            } else {
+                0.14
+            }
         }
         _ => {
-            if is_dark { 0.12 } else { 0.06 }
+            if is_dark {
+                0.12
+            } else {
+                0.06
+            }
         }
     };
 
@@ -369,10 +382,12 @@ impl<'a> markdown::Viewer<'a, Message> for App {
 
             // 检查图片是否正在加载中
             if self.markdown_tool_remote_images_loading.contains(&src) {
-                return container(text("远程图片加载中...").size(12).style(settings_muted_text_style))
-                    .padding([8, 10])
-                    .style(editor_surface_style)
-                    .into();
+                return container(
+                    text("远程图片加载中...").size(12).style(settings_muted_text_style),
+                )
+                .padding([8, 10])
+                .style(editor_surface_style)
+                .into();
             }
 
             // 显示加载按钮，让用户主动触发图片加载
@@ -485,11 +500,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 MarkdownActionTone::Default,
             ),
             build_toolbar_button(
-            crate::app::assets::Icon::TypeStrikethrough,
-            "删除线",
-            MarkdownToolMessage::InsertStrike,
-            MarkdownActionTone::Default,
-        ),
+                crate::app::assets::Icon::TypeStrikethrough,
+                "删除线",
+                MarkdownToolMessage::InsertStrike,
+                MarkdownActionTone::Default,
+            ),
             build_toolbar_button(
                 crate::app::assets::Icon::Markdown,
                 "标题",
@@ -573,9 +588,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             container(mode_switch(app.markdown_tool_view_mode, on_mode_change))
                 .padding([8, 10])
                 .style(chrome_chip_style),
-            container(stream_toggle)
-                .padding([8, 10])
-                .style(chrome_chip_style),
+            container(stream_toggle).padding([8, 10]).style(chrome_chip_style),
             status_badge,
         ]
         .width(Length::Fill)
@@ -791,10 +804,9 @@ fn build_body<'a>(
     match app.markdown_tool_view_mode {
         MarkdownViewMode::Edit => editor_card,
         MarkdownViewMode::Preview => preview_card,
-        MarkdownViewMode::Split => row![editor_card, preview_card]
-            .spacing(16)
-            .height(Length::Fill)
-            .into(),
+        MarkdownViewMode::Split => {
+            row![editor_card, preview_card].spacing(16).height(Length::Fill).into()
+        }
     }
 }
 
@@ -857,10 +869,16 @@ fn build_editor_panel<'a>(
             scroll_top_line: app.markdown_tool_scroll_top_line,
         },
         |delta, viewport_height| {
-            Message::MarkdownTool(MarkdownToolMessage::EditorWheelScrolled { delta, viewport_height })
+            Message::MarkdownTool(MarkdownToolMessage::EditorWheelScrolled {
+                delta,
+                viewport_height,
+            })
         },
         |top_line, viewport_height| {
-            Message::MarkdownTool(MarkdownToolMessage::ScrollbarChanged { top_line, viewport_height })
+            Message::MarkdownTool(MarkdownToolMessage::ScrollbarChanged {
+                top_line,
+                viewport_height,
+            })
         },
     )
 }

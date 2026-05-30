@@ -1,4 +1,6 @@
-use super::apply_patch_view::{apply_patch_change_totals, apply_patch_header_summary, diff_utils_looks_like_unified_diff};
+use super::apply_patch_view::{
+    apply_patch_change_totals, apply_patch_header_summary, diff_utils_looks_like_unified_diff,
+};
 
 #[test]
 fn apply_patch_header_summary_splits_first_path() {

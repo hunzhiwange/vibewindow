@@ -1,4 +1,8 @@
-use super::explore_summary_view::{right_aligned_slot_char, split_summary_segments, summary_animation_key};
+use super::explore_summary_view::{
+    explore_summary_expanded, right_aligned_slot_char, split_summary_segments,
+    summary_animation_key,
+};
+use std::collections::HashSet;
 
 #[test]
 fn right_aligned_slot_char_pads_left_slots() {
@@ -18,4 +22,15 @@ fn split_summary_segments_keeps_plain_text_and_numbers() {
     let segments = split_summary_segments("Read 12 files");
 
     assert!(segments.len() >= 2);
+}
+
+#[test]
+fn explore_summary_expanded_ignores_running_until_user_expands() {
+    let key = 42;
+    let mut expanded = HashSet::new();
+
+    assert!(!explore_summary_expanded(true, key, &expanded));
+
+    expanded.insert(key);
+    assert!(explore_summary_expanded(true, key, &expanded));
 }

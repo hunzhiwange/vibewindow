@@ -71,9 +71,8 @@ error_strategy: default-value
 
     let generated_default_value = parse_code_default_value_yaml(&default_value_editor.text())
         .expect("default value editor should contain generated yaml");
-    let generated_items = generated_default_value
-        .as_sequence()
-        .expect("default value should be a sequence");
+    let generated_items =
+        generated_default_value.as_sequence().expect("default value should be a sequence");
     assert_eq!(generated_items.len(), 2);
     assert_eq!(
         mapping_value(
@@ -96,19 +95,14 @@ error_strategy: default-value
 #[test]
 fn code_default_value_generation_uses_native_yaml_for_object_and_array() {
     let generated = default_code_default_value_value(&[
-        WorkflowCodeOutputDraft {
-            key: "payload".to_string(),
-            value_type: "object".to_string(),
-        },
+        WorkflowCodeOutputDraft { key: "payload".to_string(), value_type: "object".to_string() },
         WorkflowCodeOutputDraft {
             key: "items".to_string(),
             value_type: "array[string]".to_string(),
         },
     ]);
 
-    let items = generated
-        .as_sequence()
-        .expect("generated default value should be a sequence");
+    let items = generated.as_sequence().expect("generated default value should be a sequence");
     assert!(
         mapping_value(items[0].as_mapping().expect("payload item should be a map"), "value")
             .is_mapping()
@@ -150,8 +144,8 @@ error_strategy: default-value
         .expect("code node should have a visual draft");
     let merged_yaml = apply_visual_draft_to_yaml("code", yaml, Some(&visual_draft))
         .expect("code visual draft should serialize back to yaml");
-    let merged_value = serde_yaml::from_str::<Value>(&merged_yaml)
-        .expect("merged yaml should parse");
+    let merged_value =
+        serde_yaml::from_str::<Value>(&merged_yaml).expect("merged yaml should parse");
     let merged_map = merged_value.as_mapping().expect("merged yaml should be a map");
 
     let variables = mapping_value(merged_map, "variables")
@@ -168,15 +162,12 @@ error_strategy: default-value
         2
     );
 
-    let outputs = mapping_value(merged_map, "outputs")
-        .as_mapping()
-        .expect("outputs should be a map");
-    let result_output = mapping_value(outputs, "result")
-        .as_mapping()
-        .expect("result output should be a map");
-    let total_output = mapping_value(outputs, "total")
-        .as_mapping()
-        .expect("total output should be a map");
+    let outputs =
+        mapping_value(merged_map, "outputs").as_mapping().expect("outputs should be a map");
+    let result_output =
+        mapping_value(outputs, "result").as_mapping().expect("result output should be a map");
+    let total_output =
+        mapping_value(outputs, "total").as_mapping().expect("total output should be a map");
     assert_eq!(mapping_value(result_output, "type").as_str(), Some("string"));
     assert_eq!(mapping_value(total_output, "type").as_str(), Some("number"));
 

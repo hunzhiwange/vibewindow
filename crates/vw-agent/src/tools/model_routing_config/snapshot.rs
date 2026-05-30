@@ -73,6 +73,7 @@ impl ModelRoutingConfigTool {
                     "max_depth": agent.max_depth,
                     "agentic": agent.agentic,
                     "allowed_tools": agent.allowed_tools,
+                    "allowed_skills": agent.allowed_skills,
                     "max_iterations": agent.max_iterations,
                 }),
             );

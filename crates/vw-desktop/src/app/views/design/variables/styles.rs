@@ -68,7 +68,10 @@ pub(super) const PANEL_HEIGHT: f32 = 600.0;
 ///
 /// # 错误
 /// 此函数不返回 `Result`；不可用状态会通过空视图、禁用控件或回退文案表达。
-pub(super) fn variable_text_input_style(theme: &Theme, status: text_input::Status) -> text_input::Style {
+pub(super) fn variable_text_input_style(
+    theme: &Theme,
+    status: text_input::Status,
+) -> text_input::Style {
     let palette = theme.palette();
     let extended = theme.extended_palette();
     let focused = matches!(status, text_input::Status::Focused { .. });
@@ -97,7 +100,10 @@ pub(super) fn variable_text_input_style(theme: &Theme, status: text_input::Statu
 ///
 /// # 错误
 /// 此函数不返回 `Result`；不可用状态会通过空视图、禁用控件或回退文案表达。
-pub(super) fn variable_value_input_style(theme: &Theme, status: text_input::Status) -> text_input::Style {
+pub(super) fn variable_value_input_style(
+    theme: &Theme,
+    status: text_input::Status,
+) -> text_input::Style {
     let palette = variables_palette(theme);
     let focused = matches!(status, text_input::Status::Focused { .. });
     text_input::Style {
@@ -191,7 +197,9 @@ pub(super) fn menu_surface_style(theme: &Theme) -> container::Style {
 ///
 /// # 错误
 /// 此函数不返回 `Result`；不可用状态会通过空视图、禁用控件或回退文案表达。
-pub(super) fn menu_button_style(destructive: bool) -> impl Fn(&Theme, button::Status) -> button::Style + Copy {
+pub(super) fn menu_button_style(
+    destructive: bool,
+) -> impl Fn(&Theme, button::Status) -> button::Style + Copy {
     move |theme: &Theme, status| {
         let palette = variables_palette(theme);
         let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);

@@ -6,25 +6,17 @@
 
 use super::super::*;
 use super::approval_commands::{
-    handle_approve_pending_request,
-    handle_approve_tool,
-    handle_confirm_tool_approval,
-    handle_deny_tool_approval,
-    handle_list_approvals,
-    handle_list_pending_approvals,
-    handle_request_all_tools_once,
-    handle_request_tool_approval,
-    handle_unapprove_tool,
+    handle_approve_pending_request, handle_approve_tool, handle_confirm_tool_approval,
+    handle_deny_tool_approval, handle_list_approvals, handle_list_pending_approvals,
+    handle_request_all_tools_once, handle_request_tool_approval, handle_unapprove_tool,
 };
-use super::command::{is_approval_management_command, parse_runtime_command, ChannelRuntimeCommand};
+use super::command::{
+    ChannelRuntimeCommand, is_approval_management_command, parse_runtime_command,
+};
 use super::non_cli_natural_language_mode_label;
 use super::session_commands::{
-    handle_new_session,
-    handle_set_model,
-    handle_set_provider,
-    handle_show_model,
-    handle_show_providers,
-    handle_task_mode,
+    handle_new_session, handle_set_model, handle_set_provider, handle_show_model,
+    handle_show_providers, handle_task_mode,
 };
 use super::task_mode::handle_task_mode_message_if_needed;
 
@@ -162,7 +154,9 @@ pub(crate) async fn handle_runtime_command_if_needed(
         ChannelRuntimeCommand::SetProvider(raw_provider) => {
             handle_set_provider(ctx, &sender_key, &mut current, raw_provider).await
         }
-        ChannelRuntimeCommand::ShowModel => handle_show_model(&current, ctx.workspace_dir.as_path()),
+        ChannelRuntimeCommand::ShowModel => {
+            handle_show_model(&current, ctx.workspace_dir.as_path())
+        }
         ChannelRuntimeCommand::SetModel(raw_model) => {
             handle_set_model(ctx, &sender_key, &mut current, raw_model)
         }
@@ -175,7 +169,13 @@ pub(crate) async fn handle_runtime_command_if_needed(
             handle_request_tool_approval(ctx, sender, source_channel, reply_target, raw_tool_name)
         }
         ChannelRuntimeCommand::ApprovePendingRequest(raw_request_id) => {
-            handle_approve_pending_request(ctx, sender, source_channel, reply_target, raw_request_id)
+            handle_approve_pending_request(
+                ctx,
+                sender,
+                source_channel,
+                reply_target,
+                raw_request_id,
+            )
         }
         ChannelRuntimeCommand::ConfirmToolApproval(raw_request_id) => {
             handle_confirm_tool_approval(ctx, sender, source_channel, reply_target, raw_request_id)

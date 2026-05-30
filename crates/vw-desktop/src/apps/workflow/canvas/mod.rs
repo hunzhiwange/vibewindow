@@ -14,7 +14,6 @@ use crate::apps::workflow::state::WorkflowCanvasContextMenuTarget;
 use iced::widget::canvas::{self, Action, Event, Frame, Geometry, Image, Path, Stroke, Text};
 use iced::{Color, Pixels, Point, Rectangle, Renderer, Size, Theme, Vector, alignment, mouse};
 use std::collections::{HashMap, HashSet};
-use std::fmt::Write as _;
 use unicode_width::UnicodeWidthChar;
 
 mod handles;
@@ -103,9 +102,9 @@ impl<'a> canvas::Program<Message> for WorkflowCanvas<'a> {
 
                 if let Some(edge_id) = self.hit_test_edge(cursor_pos, &handle_slots) {
                     state.drag_mode = DragMode::None;
-                    return Some(Action::publish(Message::WorkflowTool(WorkflowMessage::SelectEdge(
-                        edge_id,
-                    ))));
+                    return Some(Action::publish(Message::WorkflowTool(
+                        WorkflowMessage::SelectEdge(edge_id),
+                    )));
                 }
 
                 state.drag_mode = DragMode::Pan;
@@ -119,20 +118,11 @@ impl<'a> canvas::Program<Message> for WorkflowCanvas<'a> {
                 state.last_cursor = Some(cursor_pos);
 
                 let (target, menu_size) = if let Some(node_id) = self.hit_test_node(cursor_pos) {
-                    (
-                        WorkflowCanvasContextMenuTarget::Node(node_id),
-                        Size::new(228.0, 208.0),
-                    )
+                    (WorkflowCanvasContextMenuTarget::Node(node_id), Size::new(228.0, 208.0))
                 } else if let Some(edge_id) = self.hit_test_edge(cursor_pos, &handle_slots) {
-                    (
-                        WorkflowCanvasContextMenuTarget::Edge(edge_id),
-                        Size::new(228.0, 84.0),
-                    )
+                    (WorkflowCanvasContextMenuTarget::Edge(edge_id), Size::new(228.0, 84.0))
                 } else {
-                    (
-                        WorkflowCanvasContextMenuTarget::Canvas,
-                        Size::new(228.0, 332.0),
-                    )
+                    (WorkflowCanvasContextMenuTarget::Canvas, Size::new(228.0, 332.0))
                 };
 
                 let anchor = Point::new(
@@ -148,8 +138,11 @@ impl<'a> canvas::Program<Message> for WorkflowCanvas<'a> {
                 let action = match state.drag_mode.clone() {
                     DragMode::Connection(origin) => {
                         if let Some(cursor_pos) = cursor_pos {
-                            if let Some(endpoint) = self.hit_test_handle(cursor_pos, &handle_slots) {
-                                if endpoint.node_id != origin.node_id || endpoint.handle_id != origin.handle_id {
+                            if let Some(endpoint) = self.hit_test_handle(cursor_pos, &handle_slots)
+                            {
+                                if endpoint.node_id != origin.node_id
+                                    || endpoint.handle_id != origin.handle_id
+                                {
                                     Some(Action::publish(Message::WorkflowTool(
                                         WorkflowMessage::FinishConnection(endpoint),
                                     )))
@@ -185,20 +178,21 @@ impl<'a> canvas::Program<Message> for WorkflowCanvas<'a> {
                 let delta = Vector::new(cursor_pos.x - last.x, cursor_pos.y - last.y);
 
                 match &state.drag_mode {
-                    DragMode::Pan => Some(Action::publish(Message::WorkflowTool(
-                        WorkflowMessage::PanBy(delta),
-                    ))),
-                    DragMode::Node(node_id) => Some(Action::publish(Message::WorkflowTool(
-                        WorkflowMessage::NodeDragged(
+                    DragMode::Pan => {
+                        Some(Action::publish(Message::WorkflowTool(WorkflowMessage::PanBy(delta))))
+                    }
+                    DragMode::Node(node_id) => {
+                        Some(Action::publish(Message::WorkflowTool(WorkflowMessage::NodeDragged(
                             node_id.clone(),
-                            Vector::new(delta.x / self.zoom.max(0.0001), delta.y / self.zoom.max(0.0001)),
-                        ),
-                    ))),
+                            Vector::new(
+                                delta.x / self.zoom.max(0.0001),
+                                delta.y / self.zoom.max(0.0001),
+                            ),
+                        ))))
+                    }
                     DragMode::Connection(_) => Some(Action::publish(Message::WorkflowTool(
                         WorkflowMessage::UpdateConnectionCursor(world_from_screen(
-                            cursor_pos,
-                            self.pan,
-                            self.zoom,
+                            cursor_pos, self.pan, self.zoom,
                         )),
                     ))),
                     DragMode::None => {
@@ -229,9 +223,9 @@ impl<'a> canvas::Program<Message> for WorkflowCanvas<'a> {
                     return None;
                 }
 
-                Some(Action::publish(Message::WorkflowTool(WorkflowMessage::PanBy(
-                    Vector::new(dx, dy),
-                ))))
+                Some(Action::publish(Message::WorkflowTool(WorkflowMessage::PanBy(Vector::new(
+                    dx, dy,
+                )))))
             }
             _ => None,
         }
@@ -252,11 +246,13 @@ impl<'a> canvas::Program<Message> for WorkflowCanvas<'a> {
                 };
                 if self
                     .hit_test_handle(point, &build_handle_slots(self.document))
-                    .or_else(|| self.hit_test_node(point).map(|node_id| WorkflowConnectionEndpoint {
-                        node_id,
-                        handle_id: String::new(),
-                        kind: WorkflowHandleKind::Source,
-                    }))
+                    .or_else(|| {
+                        self.hit_test_node(point).map(|node_id| WorkflowConnectionEndpoint {
+                            node_id,
+                            handle_id: String::new(),
+                            kind: WorkflowHandleKind::Source,
+                        })
+                    })
                     .is_some()
                     || self.hit_test_edge(point, &build_handle_slots(self.document)).is_some()
                 {
@@ -347,14 +343,8 @@ impl WorkflowCanvas<'_> {
 
         for node in nodes.into_iter().rev() {
             for handle in &node.source_handles {
-                if handle_bounds(
-                    node,
-                    handle,
-                    handle_slots,
-                    self.pan,
-                    self.zoom,
-                )
-                .contains(cursor_pos)
+                if handle_bounds(node, handle, handle_slots, self.pan, self.zoom)
+                    .contains(cursor_pos)
                 {
                     return Some(WorkflowConnectionEndpoint {
                         node_id: node.id.clone(),
@@ -365,14 +355,8 @@ impl WorkflowCanvas<'_> {
             }
 
             for handle in &node.target_handles {
-                if handle_bounds(
-                    node,
-                    handle,
-                    handle_slots,
-                    self.pan,
-                    self.zoom,
-                )
-                .contains(cursor_pos)
+                if handle_bounds(node, handle, handle_slots, self.pan, self.zoom)
+                    .contains(cursor_pos)
                 {
                     return Some(WorkflowConnectionEndpoint {
                         node_id: node.id.clone(),

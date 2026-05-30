@@ -6,14 +6,15 @@ mod help;
 
 use crate::app::components::system_settings_common::{
     SETTINGS_LABEL_WIDTH, settings_checkbox_style, settings_error_banner, settings_help_button,
-    settings_muted_text_style, settings_page_intro, settings_panel,
-    settings_section_card, settings_segment_button_style, settings_text_input_style,
+    settings_muted_text_style, settings_page_intro, settings_panel, settings_pick_list_menu_style,
+    settings_pick_list_style, settings_section_card, settings_segment_button_style,
+    settings_text_input_style,
 };
 use crate::app::state::SkillsSettingsTab;
 use crate::app::{App, Message, message};
-use iced::widget::{button, checkbox, column, container, row, text, text_input};
+use iced::widget::{button, checkbox, column, container, pick_list, row, text, text_input};
 use iced::{Alignment, Element, Length};
-use vw_config_types::skills::SkillsPromptInjectionMode;
+use vw_config_types::skills::{SkillsDirectoryProvider, SkillsPromptInjectionMode};
 
 fn field_row<'a>(
     label: &'static str,
@@ -60,9 +61,7 @@ fn plugins_placeholder() -> Element<'static, Message> {
         settings_panel(
             column![
                 text("插件内容暂未开放。"),
-                text("当前仅保留占位，不展示具体内容。")
-                    .size(12)
-                    .style(settings_muted_text_style),
+                text("当前仅保留占位，不展示具体内容。").size(12).style(settings_muted_text_style),
             ]
             .spacing(6)
         ),
@@ -75,21 +74,29 @@ fn plugins_placeholder() -> Element<'static, Message> {
 fn system_config_view(app: &App) -> Element<'_, Message> {
     let s = &app.skills_settings;
 
-    let discovery_row = field_row(
-        "Discovery",
-        "读取顺序参考 Claude Code，并保持当前项目优先覆盖。",
-        text("当前项目 .vibewindow/skills -> 当前项目 skills -> 父级 .vibewindow/skills -> ~/.vibewindow/skills")
-            .size(12)
-            .style(settings_muted_text_style),
+    let provider_pick =
+        pick_list(SkillsDirectoryProvider::ALL, Some(s.directory_provider), |provider| {
+            Message::Settings(message::SettingsMessage::SkillsDirectoryProviderChanged(provider))
+        })
+        .placeholder("VibeWindow")
+        .padding([10, 12])
+        .style(settings_pick_list_style)
+        .menu_style(settings_pick_list_menu_style)
+        .width(Length::Fill);
+
+    let provider_row = field_row(
+        "Directory provider",
+        "切换技能目录兼容模式；配置缺失时使用 VibeWindow。",
+        provider_pick,
     );
 
     let open_enabled_row = field_row(
         "Community sync",
         "控制是否启用 open-skills 仓库同步。",
-        checkbox(s.open_skills_enabled).label("启用 open-skills 仓库同步").on_toggle(|v| {
-            Message::Settings(message::SettingsMessage::SkillsOpenEnabledToggled(v))
-        })
-        .style(settings_checkbox_style),
+        checkbox(s.open_skills_enabled)
+            .label("启用 open-skills 仓库同步")
+            .on_toggle(|v| Message::Settings(message::SettingsMessage::SkillsOpenEnabledToggled(v)))
+            .style(settings_checkbox_style),
     );
 
     let open_dir_row = field_row(
@@ -107,24 +114,26 @@ fn system_config_view(app: &App) -> Element<'_, Message> {
     let mode_row = field_row(
         "Injection mode",
         "compact 更省上下文，full 会注入完整技能内容。",
-        checkbox(mode_full).label("使用 full（关闭时为 compact）").on_toggle(
-            |v| Message::Settings(message::SettingsMessage::SkillsPromptInjectionModeChanged(
-                if v {
-                    SkillsPromptInjectionMode::Full
-                } else {
-                    SkillsPromptInjectionMode::Compact
-                }
-            ))
-        )
-        .style(settings_checkbox_style),
+        checkbox(mode_full)
+            .label("使用 full（关闭时为 compact）")
+            .on_toggle(|v| {
+                Message::Settings(message::SettingsMessage::SkillsPromptInjectionModeChanged(
+                    if v {
+                        SkillsPromptInjectionMode::Full
+                    } else {
+                        SkillsPromptInjectionMode::Compact
+                    },
+                ))
+            })
+            .style(settings_checkbox_style),
     );
 
     let mut config_card = column![
         settings_section_card(
             "系统配置",
-            "目录读取按项目、父级和全局技能目录分层发现；这里保留社区同步与 prompt injection 配置。",
+            "这里保留社区同步与 prompt injection 配置，目录发现顺序单独放在顺序页。",
         ),
-        settings_panel(column![discovery_row, open_enabled_row, open_dir_row, mode_row].spacing(0)),
+        settings_panel(column![provider_row, open_enabled_row, open_dir_row, mode_row].spacing(0)),
     ]
     .spacing(16)
     .width(Length::Fill);
@@ -143,6 +152,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let content = match s.active_tab {
         SkillsSettingsTab::Skills => browser::view(app),
+        SkillsSettingsTab::DiscoveryOrder => browser::discovery_order_view(app),
         SkillsSettingsTab::Plugins => plugins_placeholder(),
         SkillsSettingsTab::SystemConfig => system_config_view(app),
     };
@@ -151,7 +161,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         row![
             container(settings_page_intro(
                 "技能配置",
-                "技能、插件与系统配置分开展示；技能页支持项目目录与全部目录切换。",
+                "技能、发现顺序、插件与系统配置分开展示；技能页只保留浏览和搜索。",
             ))
             .width(Length::Fill),
             help_btn,
@@ -159,6 +169,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .align_y(Alignment::Start),
         row![
             settings_tab_button("技能", SkillsSettingsTab::Skills, s.active_tab),
+            settings_tab_button("顺序", SkillsSettingsTab::DiscoveryOrder, s.active_tab),
             settings_tab_button("插件", SkillsSettingsTab::Plugins, s.active_tab),
             settings_tab_button("系统配置", SkillsSettingsTab::SystemConfig, s.active_tab),
         ]

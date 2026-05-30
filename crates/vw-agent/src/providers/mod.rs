@@ -478,7 +478,9 @@ fn validate_custom_provider_url(label: &str, url: &str) -> anyhow::Result<()> {
     }
     match reqwest::Url::parse(url) {
         Ok(parsed) if matches!(parsed.scheme(), "http" | "https") => Ok(()),
-        Ok(parsed) => anyhow::bail!("custom provider URL must use http/https, got '{}'", parsed.scheme()),
+        Ok(parsed) => {
+            anyhow::bail!("custom provider URL must use http/https, got '{}'", parsed.scheme())
+        }
         Err(error) => anyhow::bail!("invalid custom provider URL: {error}"),
     }
 }

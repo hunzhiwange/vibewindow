@@ -63,7 +63,9 @@ pub(super) fn build_key_tree_panel<'a>(app: &'a App, is_busy: bool) -> Element<'
         .align_y(Alignment::Center),
         row![
             text_input("键模式，例如 * 或 order:*", &app.redis_tool.key_browser_pattern)
-                .on_input(|value| Message::RedisTool(RedisToolMessage::KeyBrowserPatternChanged(value)))
+                .on_input(|value| Message::RedisTool(RedisToolMessage::KeyBrowserPatternChanged(
+                    value
+                )))
                 .on_submit(Message::RedisTool(RedisToolMessage::ReloadSelectedKeys))
                 .padding([8, 10])
                 .size(12)
@@ -89,9 +91,11 @@ pub(super) fn build_key_tree_panel<'a>(app: &'a App, is_busy: bool) -> Element<'
 
     if app.redis_tool.key_browser_items.is_empty() {
         content = content.push(
-            text("当前还没有已加载的键。选择连接后可直接重载键树，认证失败时会在顶部显示网关错误。")
-                .size(12)
-                .style(settings_muted_text_style),
+            text(
+                "当前还没有已加载的键。选择连接后可直接重载键树，认证失败时会在顶部显示网关错误。",
+            )
+            .size(12)
+            .style(settings_muted_text_style),
         );
     } else {
         let tree = build_key_tree_root(&app.redis_tool.key_browser_items);
@@ -112,8 +116,8 @@ pub(super) fn build_key_tree_panel<'a>(app: &'a App, is_busy: bool) -> Element<'
                     .direction(redis_scroll_direction())
                     .height(Length::Fixed(KEY_TREE_SCROLL_HEIGHT)),
             )
-                .padding([4, 0])
-                .width(Length::Fill),
+            .padding([4, 0])
+            .width(Length::Fill),
         );
     }
 
@@ -146,14 +150,11 @@ fn build_key_tree_root(keys: &[String]) -> RedisKeyTreeNode {
 fn insert_key_tree(root: &mut RedisKeyTreeNode, key: &str) {
     let mut node = root;
     for segment in key.split(':').filter(|segment| !segment.trim().is_empty()) {
-        node = node
-            .children
-            .entry(segment.to_string())
-            .or_insert_with(|| RedisKeyTreeNode {
-                label: segment.to_string(),
-                full_key: None,
-                children: BTreeMap::new(),
-            });
+        node = node.children.entry(segment.to_string()).or_insert_with(|| RedisKeyTreeNode {
+            label: segment.to_string(),
+            full_key: None,
+            children: BTreeMap::new(),
+        });
     }
     node.full_key = Some(key.to_string());
 }
@@ -211,11 +212,7 @@ fn build_key_tree_branch_row(
     item_count: usize,
 ) -> Element<'static, Message> {
     let indent = depth as f32 * 18.0;
-    let icon = if is_expanded {
-        Icon::ChevronDown
-    } else {
-        Icon::ChevronRight
-    };
+    let icon = if is_expanded { Icon::ChevronDown } else { Icon::ChevronRight };
 
     button(
         container(
@@ -235,7 +232,9 @@ fn build_key_tree_branch_row(
         .style(|theme: &Theme| {
             let palette = theme.extended_palette();
             iced::widget::container::Style {
-                background: Some(Background::Color(palette.background.base.color.scale_alpha(0.42))),
+                background: Some(Background::Color(
+                    palette.background.base.color.scale_alpha(0.42),
+                )),
                 border: Border {
                     width: 1.0,
                     color: palette.background.strong.color.scale_alpha(0.18),
@@ -263,14 +262,16 @@ fn build_key_tree_leaf_row(
             row![
                 Space::new().width(Length::Fixed(indent)),
                 icon_svg(Icon::FileText, 12.0),
-                text(label.clone()).size(11).style(move |theme: &Theme| iced::widget::text::Style {
-                    color: Some(if selected {
-                        theme.palette().primary
-                    } else if exact_key_child {
-                        theme.palette().text.scale_alpha(0.96)
-                    } else {
-                        theme.palette().text.scale_alpha(0.88)
-                    }),
+                text(label.clone()).size(11).style(move |theme: &Theme| {
+                    iced::widget::text::Style {
+                        color: Some(if selected {
+                            theme.palette().primary
+                        } else if exact_key_child {
+                            theme.palette().text.scale_alpha(0.96)
+                        } else {
+                            theme.palette().text.scale_alpha(0.88)
+                        }),
+                    }
                 }),
                 Space::new().width(Length::Fill),
                 if selected {
@@ -313,11 +314,7 @@ fn build_key_tree_leaf_row(
 
 fn count_terminal_keys(node: &RedisKeyTreeNode) -> usize {
     usize::from(node.full_key.is_some())
-        + node
-            .children
-            .values()
-            .map(count_terminal_keys)
-            .sum::<usize>()
+        + node.children.values().map(count_terminal_keys).sum::<usize>()
 }
 
 fn truncate_key_label(key: &str) -> String {

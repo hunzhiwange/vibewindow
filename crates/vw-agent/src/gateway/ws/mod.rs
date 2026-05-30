@@ -25,8 +25,7 @@
 
 use super::AppState;
 use crate::app::agent::agent::loop_::{
-    DRAFT_CLEAR_SENTINEL, DRAFT_PROGRESS_SENTINEL, DRAFT_WS_EVENT_SENTINEL,
-    run_tool_call_loop,
+    DRAFT_CLEAR_SENTINEL, DRAFT_PROGRESS_SENTINEL, DRAFT_WS_EVENT_SENTINEL, run_tool_call_loop,
 };
 use crate::app::agent::approval::ApprovalManager;
 use crate::app::agent::providers::ChatMessage;
@@ -118,12 +117,7 @@ fn parse_ws_private_event(progress: &str) -> Option<WsDeltaEvent> {
     let tool_call_id = result
         .as_ref()
         .and_then(|dto| dto.tool_use_id.clone())
-        .or_else(|| {
-            value
-                .get("tool_call_id")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned)
-        });
+        .or_else(|| value.get("tool_call_id").and_then(Value::as_str).map(ToOwned::to_owned));
 
     Some(WsDeltaEvent::ToolResult { name, success, duration_secs, tool_call_id, result })
 }
@@ -316,13 +310,7 @@ async fn emit_ws_delta_event(socket: &mut WebSocket, event: WsDeltaEvent) {
                 "hint": hint,
             },
         }),
-        WsDeltaEvent::ToolResult {
-            name,
-            success,
-            duration_secs,
-            tool_call_id,
-            result,
-        } => {
+        WsDeltaEvent::ToolResult { name, success, duration_secs, tool_call_id, result } => {
             let status = if success { "ok" } else { "error" };
             let output = match duration_secs {
                 Some(secs) => format!("{status} ({secs}s)"),
@@ -526,7 +514,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                 Some(delta_tx), // delta streaming - 增量流式传输
                 None,           // hooks - 钩子
                 Some(security.clone()),
-                &[],            // excluded tools - 排除的工具
+                &[], // excluded tools - 排除的工具
             ));
 
             // 同时运行代理循环和处理增量事件

@@ -49,15 +49,11 @@ pub fn drag_badge_layer(app: &App) -> Element<'_, Message> {
                 text(display_path).size(12).style(|theme: &Theme| iced::widget::text::Style {
                     color: Some(theme.palette().text),
                 }),
-                text(if extra_count > 0 {
-                    format!("+{}", extra_count)
-                } else {
-                    String::new()
-                })
-                .size(12)
-                .style(|theme: &Theme| iced::widget::text::Style {
-                    color: Some(theme.extended_palette().secondary.base.color),
-                })
+                text(if extra_count > 0 { format!("+{}", extra_count) } else { String::new() })
+                    .size(12)
+                    .style(|theme: &Theme| iced::widget::text::Style {
+                        color: Some(theme.extended_palette().secondary.base.color),
+                    })
             ]
             .spacing(6)
             .align_y(iced::Alignment::Center),

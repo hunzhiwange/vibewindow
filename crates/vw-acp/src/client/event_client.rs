@@ -109,11 +109,11 @@ impl acp::Client for AcpEventClient {
         if let Some(expected_session_id) = expected_session_id
             && session_id != expected_session_id
         {
+            *self.expected_session_id.lock() = Some(session_id.clone());
             let _ = self.event_tx.send(InternalEvent::SessionChanged {
                 expected: expected_session_id,
-                actual: session_id,
+                actual: session_id.clone(),
             });
-            return Ok(());
         }
 
         if let acp::SessionUpdate::AgentMessageChunk(acp::ContentChunk { content, .. }) =

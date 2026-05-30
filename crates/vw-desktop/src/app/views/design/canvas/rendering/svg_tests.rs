@@ -10,5 +10,8 @@ fn parser_reads_commands_numbers_and_flags() {
 #[test]
 fn empty_or_degenerate_path_does_not_build() {
     assert!(super::build_svg_path("", iced::Point::ORIGIN, 1.0).is_none());
-    assert!(super::build_svg_path_fit("M 0 0 L 0 0", iced::Point::ORIGIN, iced::Size::new(10.0, 10.0)).is_none());
+    assert!(
+        super::build_svg_path_fit("M 0 0 L 0 0", iced::Point::ORIGIN, iced::Size::new(10.0, 10.0))
+            .is_none()
+    );
 }

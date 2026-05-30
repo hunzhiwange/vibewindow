@@ -77,8 +77,7 @@ use vw_agent::cron;
 use vw_agent::integrations;
 use vw_agent::provider::provider;
 use vw_agent::{
-    channels, config, daemon, doctor, gateway, memory, observability, security, service,
-    skills,
+    channels, config, daemon, doctor, gateway, memory, observability, security, service, skills,
 };
 use vw_shared::task::{self, SubTask, Task, TaskExecutorBackend, TaskStatus};
 
@@ -100,8 +99,8 @@ pub(crate) mod session {
 pub(crate) mod app {
     pub(crate) mod agent {
         pub(crate) use vw_agent::{
-            approval, channels, config, id, memory, observability, project, providers,
-            runtime, security, shell, skills, tools,
+            approval, channels, config, id, memory, observability, project, providers, runtime,
+            security, shell, skills, tools,
         };
 
         pub(crate) mod session {
@@ -115,11 +114,9 @@ pub(crate) mod app {
 
                 pub(crate) mod cli {
                     pub(crate) use crate::cli::legacy_runtime::{
-                        theme, transcript, tui_utils,
-                    };
-                    pub(crate) use crate::cli::legacy_runtime::{
                         logo_text_lines, render_execution_indicator,
                     };
+                    pub(crate) use crate::cli::legacy_runtime::{theme, transcript, tui_utils};
                 }
             }
         }

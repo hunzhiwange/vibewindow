@@ -259,11 +259,13 @@ fn gateway_agent_stream(req: AgentRequest) -> AgentBoxStream<Message> {
                                             .and_then(serde_json::Value::as_u64)
                                             .unwrap_or_default()
                                             as u32;
-                                        Some(Message::Chat(message::ChatMessage::AgentPostToolRound(
-                                            req.id,
-                                            req.session.clone(),
-                                            step_index,
-                                        )))
+                                        Some(Message::Chat(
+                                            message::ChatMessage::AgentPostToolRound(
+                                                req.id,
+                                                req.session.clone(),
+                                                step_index,
+                                            ),
+                                        ))
                                     }
                                 }
                                 _ => None,

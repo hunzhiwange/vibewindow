@@ -804,9 +804,10 @@ where
         {
             let bounds = layout.bounds();
             if !bounds.contains(pos)
-                && let Some(on_close) = &self.on_close {
-                    shell.publish(on_close.clone());
-                }
+                && let Some(on_close) = &self.on_close
+            {
+                shell.publish(on_close.clone());
+            }
         }
         self.overlay.as_widget_mut().update(
             self.tree,

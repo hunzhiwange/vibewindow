@@ -60,11 +60,8 @@ impl WorkflowState {
             .map(|value| value.to_string())
             .or_else(|| self.selected_node_id.clone())
             .ok_or_else(|| "请先选择一个节点".to_string())?;
-        let node = self
-            .document
-            .node(&target_id)
-            .cloned()
-            .ok_or_else(|| "目标节点不存在".to_string())?;
+        let node =
+            self.document.node(&target_id).cloned().ok_or_else(|| "目标节点不存在".to_string())?;
         let yaml = node_data_yaml(&node)?;
         let visual_draft = build_node_visual_draft(&node.block_type, &yaml)?;
         let raw_data_editor = text_editor::Content::with_text(&yaml);
@@ -147,16 +144,15 @@ impl WorkflowState {
                     self.selected_node_id = Some(node_id);
                     self.selected_edge_id = None;
                     self.sync_selection_flags();
-                    self.status_message = Some(format!("已新增下游 {} 节点并自动关联", target_title));
+                    self.status_message =
+                        Some(format!("已新增下游 {} 节点并自动关联", target_title));
                 }
                 Err(error) => {
                     self.selected_node_id = Some(node_id);
                     self.selected_edge_id = None;
                     self.sync_selection_flags();
-                    self.status_message = Some(format!(
-                        "已新增 {} 节点，但自动关联失败：{}",
-                        target_title, error
-                    ));
+                    self.status_message =
+                        Some(format!("已新增 {} 节点，但自动关联失败：{}", target_title, error));
                 }
             }
         }
@@ -165,31 +161,22 @@ impl WorkflowState {
     }
 
     pub fn duplicate_selected_node(&mut self) -> Result<(), String> {
-        let source_id = self
-            .selected_node_id
-            .clone()
-            .ok_or_else(|| "请先选择一个节点".to_string())?;
-        let source_node = self
-            .document
-            .node(&source_id)
-            .cloned()
-            .ok_or_else(|| "目标节点不存在".to_string())?;
+        let source_id =
+            self.selected_node_id.clone().ok_or_else(|| "请先选择一个节点".to_string())?;
+        let source_node =
+            self.document.node(&source_id).cloned().ok_or_else(|| "目标节点不存在".to_string())?;
 
         if source_node.block_type == "start" {
             return Err("开始节点只能有一个，不能复制开始节点".to_string());
         }
 
-        let next_z = self
-            .document
-            .nodes
-            .iter()
-            .map(|node| node.z_index)
-            .fold(0.0_f32, f32::max)
-            + 1.0;
+        let next_z =
+            self.document.nodes.iter().map(|node| node.z_index).fold(0.0_f32, f32::max) + 1.0;
         let node_id = generate_node_id(&source_node.block_type);
         let mut duplicated = source_node.clone();
         duplicated.id = node_id.clone();
-        duplicated.position = Point::new(source_node.position.x + 36.0, source_node.position.y + 36.0);
+        duplicated.position =
+            Point::new(source_node.position.x + 36.0, source_node.position.y + 36.0);
         duplicated.selected = true;
         duplicated.z_index = next_z;
 
@@ -214,10 +201,7 @@ impl WorkflowState {
             .as_ref()
             .map(|menu| menu.anchor)
             .ok_or_else(|| "右键菜单已关闭".to_string())?;
-        let node = self
-            .document
-            .node(node_id)
-            .ok_or_else(|| "目标节点不存在".to_string())?;
+        let node = self.document.node(node_id).ok_or_else(|| "目标节点不存在".to_string())?;
         let world = Point::new(node.position.x + node.size.width + 120.0, node.position.y + 18.0);
 
         self.selected_node_id = Some(node_id.to_string());
@@ -266,13 +250,8 @@ impl WorkflowState {
         );
 
         let node_id = generate_node_id(block_type);
-        let next_z = self
-            .document
-            .nodes
-            .iter()
-            .map(|node| node.z_index)
-            .fold(0.0_f32, f32::max)
-            + 1.0;
+        let next_z =
+            self.document.nodes.iter().map(|node| node.z_index).fold(0.0_f32, f32::max) + 1.0;
         let title = pretty_block_type(block_type);
         let raw_data_yaml = default_node_data_yaml(block_type)?;
         let base_node = create_node_from_type(block_type, node_id.clone(), position, next_z)?;
@@ -281,14 +260,12 @@ impl WorkflowState {
         self.push_undo_snapshot();
         self.document.nodes.push(new_node);
 
-        let status_message = match self.connect_nodes_with_source_handle(
-            source_node_id,
-            source_handle_id,
-            &node_id,
-        ) {
-            Ok(()) => format!("已在 {} 后新增 {} 节点", source_node.title, title),
-            Err(error) => format!("已新增 {} 节点，但自动关联失败：{}", title, error),
-        };
+        let status_message =
+            match self.connect_nodes_with_source_handle(source_node_id, source_handle_id, &node_id)
+            {
+                Ok(()) => format!("已在 {} 后新增 {} 节点", source_node.title, title),
+                Err(error) => format!("已新增 {} 节点，但自动关联失败：{}", title, error),
+            };
 
         self.selected_node_id = Some(source_node_id.to_string());
         self.selected_edge_id = None;
@@ -310,13 +287,8 @@ impl WorkflowState {
     ) -> Result<String, String> {
         self.ensure_start_node_available(block_type)?;
         let node_id = generate_node_id(block_type);
-        let next_z = self
-            .document
-            .nodes
-            .iter()
-            .map(|node| node.z_index)
-            .fold(0.0_f32, f32::max)
-            + 1.0;
+        let next_z =
+            self.document.nodes.iter().map(|node| node.z_index).fold(0.0_f32, f32::max) + 1.0;
         let title = pretty_block_type(block_type);
         let raw_data_yaml = default_node_data_yaml(block_type)?;
         let base_node = create_node_from_type(block_type, node_id.clone(), position, next_z)?;
@@ -413,13 +385,8 @@ impl WorkflowState {
             kind: WorkflowHandleKind::Target,
         };
         let edge_id = generate_edge_id(&source, &target);
-        let next_z = self
-            .document
-            .edges
-            .iter()
-            .map(|edge| edge.z_index)
-            .fold(0.0_f32, f32::max)
-            + 1.0;
+        let next_z =
+            self.document.edges.iter().map(|edge| edge.z_index).fold(0.0_f32, f32::max) + 1.0;
 
         self.push_undo_snapshot();
         self.document.edges.push(WorkflowEdge {
@@ -505,11 +472,9 @@ impl WorkflowState {
             return 0;
         }
 
-        if self
-            .selected_edge_id
-            .as_ref()
-            .is_some_and(|selected_id| removed_edge_ids.iter().any(|edge_id| edge_id == selected_id))
-        {
+        if self.selected_edge_id.as_ref().is_some_and(|selected_id| {
+            removed_edge_ids.iter().any(|edge_id| edge_id == selected_id)
+        }) {
             self.selected_edge_id = None;
         }
 
@@ -525,8 +490,6 @@ impl WorkflowState {
 
         removed_edge_ids.len()
     }
-
-
 }
 
 #[cfg(test)]

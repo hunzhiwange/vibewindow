@@ -29,8 +29,8 @@ use vw_config_types::{
 };
 
 use super::gateway::{
-    apply_main_agent_overrides, gateway_client, run_gateway_call, set_config_value_at_path,
-    spawn_gateway_task,
+    apply_main_agent_overrides, gateway_client, load_config_value_at_path, run_gateway_call,
+    set_config_value_at_path, spawn_gateway_task,
 };
 
 async fn fetch_agent_config_via_gateway() -> Result<Config, String> {
@@ -66,6 +66,10 @@ fn load_agent_config_via_gateway() -> Config {
         Ok(config) => config,
         Err(err) => {
             tracing::warn!(target: "vw_desktop", error = %err, "failed to load agent config via gateway");
+            if let Some(mut config) = load_config_value_at_path::<Config>(&[]) {
+                apply_main_agent_overrides(&mut config);
+                return config;
+            }
             Config::default()
         }
     }
@@ -131,7 +135,8 @@ pub async fn load_browser_config_async() -> Result<BrowserConfig, String> {
 ///
 /// 当底层配置、文件或运行时调用失败时，错误会通过 `Result` 返回给上层统一处理。
 pub fn load_gateway_config_result() -> Result<GatewayConfig, String> {
-    run_gateway_call(async { fetch_global_agent_config_via_gateway().await }).map(|config| config.gateway)
+    run_gateway_call(async { fetch_global_agent_config_via_gateway().await })
+        .map(|config| config.gateway)
 }
 
 /// 读取、保存或转换 `load_global_acp_config_result` 对应的配置数据与运行时状态。
@@ -1635,11 +1640,8 @@ pub fn update_main_agent_overrides_from_delegate_agents() {
         patch_agent_config(&["default_temperature"], serde_json::Value::Number(number));
     }
 
-    let identity = IdentityConfig {
-        format: "openclaw".to_string(),
-        aieos_path: None,
-        aieos_inline: None,
-    };
+    let identity =
+        IdentityConfig { format: "openclaw".to_string(), aieos_path: None, aieos_inline: None };
     if let Ok(value) = serde_json::to_value(identity) {
         patch_agent_config(&["identity"], value);
     }
@@ -1667,18 +1669,12 @@ pub async fn update_main_agent_overrides_from_delegate_agents_async() -> Result<
     let provider = main.provider.trim().to_string();
     let model = main.model.trim().to_string();
     let temperature = main.temperature;
-    let identity = IdentityConfig {
-        format: "openclaw".to_string(),
-        aieos_path: None,
-        aieos_inline: None,
-    };
+    let identity =
+        IdentityConfig { format: "openclaw".to_string(), aieos_path: None, aieos_inline: None };
 
     let mut patch = serde_json::Map::new();
     if !provider.is_empty() {
-        patch.insert(
-            "default_provider".to_string(),
-            serde_json::Value::String(provider.clone()),
-        );
+        patch.insert("default_provider".to_string(), serde_json::Value::String(provider.clone()));
     }
     if !provider.is_empty() && !model.is_empty() {
         patch.insert(
@@ -1689,10 +1685,7 @@ pub async fn update_main_agent_overrides_from_delegate_agents_async() -> Result<
     if let Some(temperature) = temperature
         && let Some(number) = serde_json::Number::from_f64(temperature)
     {
-        patch.insert(
-            "default_temperature".to_string(),
-            serde_json::Value::Number(number),
-        );
+        patch.insert("default_temperature".to_string(), serde_json::Value::Number(number));
     }
     let identity_value = serde_json::to_value(identity).map_err(|err| err.to_string())?;
     patch.insert("identity".to_string(), identity_value);

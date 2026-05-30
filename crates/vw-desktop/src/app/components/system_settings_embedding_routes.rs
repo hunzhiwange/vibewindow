@@ -9,8 +9,8 @@ use crate::app::components::system_settings_common::{
     settings_page_intro, settings_panel, settings_panel_style, settings_section_card,
     settings_success_banner, settings_text_input_style,
 };
-use crate::app::message::settings::EmbeddingRoutesMessage;
 use crate::app::message::SettingsMessage;
+use crate::app::message::settings::EmbeddingRoutesMessage;
 use crate::app::{App, Message, components::system_settings::SystemTab, message};
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Alignment, Element, Length};
@@ -67,8 +67,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .style(rounded_action_btn_style);
 
     let header = row![
-        container(settings_page_intro("嵌入路由", "配置不同语义场景使用的嵌入提供商、模型和维度。在记忆配置中用 hint:模式名 引用路由。"))
-            .width(Length::Fill),
+        container(settings_page_intro(
+            "嵌入路由",
+            "配置不同语义场景使用的嵌入提供商、模型和维度。在记忆配置中用 hint:模式名 引用路由。"
+        ))
+        .width(Length::Fill),
         goto_memory_btn,
         button(text("添加路由"))
             .on_press(Message::Settings(message::SettingsMessage::EmbeddingRoutes(
@@ -82,7 +85,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let mut content = column![
         header,
-        settings_section_card("路由规则", "每条路由定义一个匹配模式，并映射到具体的嵌入 provider/model。"),
+        settings_section_card(
+            "路由规则",
+            "每条路由定义一个匹配模式，并映射到具体的嵌入 provider/model。"
+        ),
     ]
     .spacing(16)
     .width(Length::Fill);
@@ -106,26 +112,50 @@ pub fn view(app: &App) -> Element<'_, Message> {
     }
 
     for (index, route) in s.routes.iter().enumerate() {
-        let pattern_row = field_row("匹配模式", "用于匹配业务或任务场景。", "semantic", &route.pattern, move |value| {
-            Message::Settings(message::SettingsMessage::EmbeddingRoutes(
-                EmbeddingRoutesMessage::PatternChanged(index, value),
-            ))
-        });
-        let provider_row = field_row("提供商", "嵌入请求所使用的 provider。", "openai", &route.provider, move |value| {
-            Message::Settings(message::SettingsMessage::EmbeddingRoutes(
-                EmbeddingRoutesMessage::ProviderChanged(index, value),
-            ))
-        });
-        let model_row = field_row("模型", "具体使用的 embedding 模型。", "text-embedding-3-small", &route.model, move |value| {
-            Message::Settings(message::SettingsMessage::EmbeddingRoutes(
-                EmbeddingRoutesMessage::ModelChanged(index, value),
-            ))
-        });
-        let dimensions_row = field_row("维度", "留空时按模型默认维度运行。", "1536", &route.dimensions, move |value| {
-            Message::Settings(message::SettingsMessage::EmbeddingRoutes(
-                EmbeddingRoutesMessage::DimensionsChanged(index, value),
-            ))
-        });
+        let pattern_row = field_row(
+            "匹配模式",
+            "用于匹配业务或任务场景。",
+            "semantic",
+            &route.pattern,
+            move |value| {
+                Message::Settings(message::SettingsMessage::EmbeddingRoutes(
+                    EmbeddingRoutesMessage::PatternChanged(index, value),
+                ))
+            },
+        );
+        let provider_row = field_row(
+            "提供商",
+            "嵌入请求所使用的 provider。",
+            "openai",
+            &route.provider,
+            move |value| {
+                Message::Settings(message::SettingsMessage::EmbeddingRoutes(
+                    EmbeddingRoutesMessage::ProviderChanged(index, value),
+                ))
+            },
+        );
+        let model_row = field_row(
+            "模型",
+            "具体使用的 embedding 模型。",
+            "text-embedding-3-small",
+            &route.model,
+            move |value| {
+                Message::Settings(message::SettingsMessage::EmbeddingRoutes(
+                    EmbeddingRoutesMessage::ModelChanged(index, value),
+                ))
+            },
+        );
+        let dimensions_row = field_row(
+            "维度",
+            "留空时按模型默认维度运行。",
+            "1536",
+            &route.dimensions,
+            move |value| {
+                Message::Settings(message::SettingsMessage::EmbeddingRoutes(
+                    EmbeddingRoutesMessage::DimensionsChanged(index, value),
+                ))
+            },
+        );
 
         let route_title = row![
             text(format!("路由 {}", index + 1)).size(14),
@@ -144,8 +174,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .align_y(Alignment::Center);
 
         let card = container(
-            column![route_title, settings_panel(column![pattern_row, provider_row, model_row, dimensions_row].spacing(0))]
-                .spacing(12),
+            column![
+                route_title,
+                settings_panel(
+                    column![pattern_row, provider_row, model_row, dimensions_row].spacing(0)
+                )
+            ]
+            .spacing(12),
         )
         .padding(14)
         .width(Length::Fill)

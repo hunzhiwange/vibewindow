@@ -5,11 +5,11 @@ use iced::{Background, Border, Element, Length, Theme};
 
 use crate::app::{App, Message};
 
-use super::styles::{is_dark_theme, subtle_card_shadow, MESSAGE_TEXT_SIZE};
-use super::text::message_editor_body;
 use super::super::tool_text_support::chat_text_font_name;
-use super::super::tools::{tool_text_editor, ToolTextTarget};
+use super::super::tools::{ToolTextTarget, tool_text_editor};
 use super::super::utils::bold_font;
+use super::styles::{MESSAGE_TEXT_SIZE, is_dark_theme, subtle_card_shadow};
+use super::text::message_editor_body;
 
 /// 从错误消息中提取 URL
 ///
@@ -23,21 +23,16 @@ use super::super::utils::bold_font;
 /// - `Some(url)`: 找到 URL 时返回完整的 URL 字符串
 /// - `None`: 未找到 URL
 pub(super) fn extract_url_from_error_message(message: &str) -> Option<String> {
-    let start = ["https://", "http://"]
-        .iter()
-        .filter_map(|prefix| message.find(prefix))
-        .min()?;
+    let start = ["https://", "http://"].iter().filter_map(|prefix| message.find(prefix)).min()?;
 
     let tail = &message[start..];
     let end = tail
         .char_indices()
-        .find_map(|(idx, ch)| {
-            if ch.is_whitespace() || ch == ')' || ch == '"' {
-                Some(idx)
-            } else {
-                None
-            }
-        })
+        .find_map(
+            |(idx, ch)| {
+                if ch.is_whitespace() || ch == ')' || ch == '"' { Some(idx) } else { None }
+            },
+        )
         .unwrap_or(tail.len());
 
     let url = tail[..end].trim_matches(|ch| ch == '(' || ch == ')' || ch == '"');
@@ -98,11 +93,12 @@ pub(super) fn assistant_api_error_view<'a>(
     .spacing(6);
 
     if let Some(url) = extract_url_from_error_message(&message) {
-        detail_col = detail_col.push(text(format!("接口地址: {}", url)).size(14).style(
-            |theme: &Theme| iced::widget::text::Style {
-                color: Some(theme.extended_palette().secondary.base.text.scale_alpha(0.85)),
-            },
-        ));
+        detail_col =
+            detail_col.push(text(format!("接口地址: {}", url)).size(14).style(|theme: &Theme| {
+                iced::widget::text::Style {
+                    color: Some(theme.extended_palette().secondary.base.text.scale_alpha(0.85)),
+                }
+            }));
     }
 
     detail_col = detail_col.push(text(retry_hint).size(14).style(|theme: &Theme| {
@@ -122,9 +118,11 @@ pub(super) fn assistant_api_error_view<'a>(
         ) {
             detail_col = detail_col.push(container(view).width(Length::Fill));
         }
-    } else if let Some(view) =
-        message_editor_body(app, msg_idx, app.theme().extended_palette().danger.base.color.scale_alpha(0.95))
-    {
+    } else if let Some(view) = message_editor_body(
+        app,
+        msg_idx,
+        app.theme().extended_palette().danger.base.color.scale_alpha(0.95),
+    ) {
         detail_col = detail_col.push(view);
     }
 
@@ -136,7 +134,11 @@ pub(super) fn assistant_api_error_view<'a>(
                 let ext = theme.extended_palette();
                 iced::widget::container::Style {
                     background: Some(Background::Color(
-                        ext.danger.base.color.scale_alpha(if is_dark_theme(theme) { 0.10 } else { 0.07 }),
+                        ext.danger.base.color.scale_alpha(if is_dark_theme(theme) {
+                            0.10
+                        } else {
+                            0.07
+                        }),
                     )),
                     border: Border {
                         width: 1.0,

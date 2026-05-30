@@ -1,4 +1,4 @@
-use super::{decrypt_channel_secrets, encrypt_channel_secrets, ChannelsConfig};
+use super::{ChannelsConfig, decrypt_channel_secrets, encrypt_channel_secrets};
 use crate::app::agent::security::SecretStore;
 
 #[test]

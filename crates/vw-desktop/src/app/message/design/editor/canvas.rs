@@ -420,4 +420,3 @@ pub(super) fn apply_page_doc_to_canvas(
     target.clip = Some(true);
     Ok(())
 }
-

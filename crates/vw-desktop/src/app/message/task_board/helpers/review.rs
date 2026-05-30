@@ -10,10 +10,7 @@ use super::*;
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
 pub(crate) fn to_file_url(path: &std::path::Path) -> String {
-    let normalized = path
-        .to_string_lossy()
-        .replace('\\', "/")
-        .replace(' ', "%20");
+    let normalized = path.to_string_lossy().replace('\\', "/").replace(' ', "%20");
     if normalized.starts_with('/') {
         format!("file://{}", normalized)
     } else {
@@ -218,7 +215,9 @@ pub(crate) fn parse_review_decision(output: &str) -> Result<(), String> {
                     continue;
                 }
                 depth = depth.saturating_sub(1);
-                if depth == 0 && let Some(begin) = start.take() {
+                if depth == 0
+                    && let Some(begin) = start.take()
+                {
                     objects.push(text[begin..=idx].to_string());
                 }
             }

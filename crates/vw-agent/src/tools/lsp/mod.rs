@@ -10,7 +10,9 @@ mod format;
 use self::backend::LspBackendSession;
 use self::format::{LspPayload, format_operation_result};
 use super::external_directory;
-use super::traits::{Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec};
+use super::traits::{
+    Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec,
+};
 use crate::app::agent::security::SecurityPolicy;
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -193,9 +195,9 @@ impl LspTool {
         .await
         .map_err(anyhow::Error::msg)?;
 
-        let metadata = fs::metadata(&absolute_path)
-            .await
-            .map_err(|error| anyhow::anyhow!("Cannot access file {}: {error}", absolute_path.display()))?;
+        let metadata = fs::metadata(&absolute_path).await.map_err(|error| {
+            anyhow::anyhow!("Cannot access file {}: {error}", absolute_path.display())
+        })?;
         if !metadata.is_file() {
             anyhow::bail!("Path is not a file: {}", absolute_path.display());
         }
@@ -227,19 +229,19 @@ impl LspTool {
             );
         }
 
-        let file_content = fs::read_to_string(&args.absolute_path)
-            .await
-            .map_err(|error| anyhow::anyhow!("Failed to read file {}: {error}", args.absolute_path.display()))?;
+        let file_content = fs::read_to_string(&args.absolute_path).await.map_err(|error| {
+            anyhow::anyhow!("Failed to read file {}: {error}", args.absolute_path.display())
+        })?;
 
-        let Some(session) =
-            LspBackendSession::open(&self.security.workspace_dir, &args.absolute_path, &file_content)
-                .await?
+        let Some(session) = LspBackendSession::open(
+            &self.security.workspace_dir,
+            &args.absolute_path,
+            &file_content,
+        )
+        .await?
         else {
-            let extension = args
-                .absolute_path
-                .extension()
-                .and_then(|value| value.to_str())
-                .unwrap_or("");
+            let extension =
+                args.absolute_path.extension().and_then(|value| value.to_str()).unwrap_or("");
             return Ok(self.failure_result(
                 args,
                 &format!("No LSP server available for file type: .{extension}"),
@@ -250,22 +252,20 @@ impl LspTool {
         let (method, params) = self.method_and_params(args, session.uri());
         let mut result = session.request(method, params).await?;
         if matches!(args.operation.as_str(), "incomingCalls" | "outgoingCalls") {
-            let first_item = result
-                .as_array()
-                .and_then(|items| items.first())
-                .cloned()
-                .ok_or_else(|| anyhow::anyhow!("No call hierarchy item found at this position"))?;
+            let first_item =
+                result.as_array().and_then(|items| items.first()).cloned().ok_or_else(|| {
+                    anyhow::anyhow!("No call hierarchy item found at this position")
+                })?;
             let followup_method = if args.operation == "incomingCalls" {
                 "callHierarchy/incomingCalls"
             } else {
                 "callHierarchy/outgoingCalls"
             };
-            result = session
-                .request(followup_method, json!({ "item": first_item }))
-                .await?;
+            result = session.request(followup_method, json!({ "item": first_item })).await?;
         }
 
-        let formatted = format_operation_result(&args.operation, &result, &self.security.workspace_dir);
+        let formatted =
+            format_operation_result(&args.operation, &result, &self.security.workspace_dir);
         Ok(self.success_result(args, formatted, session.server_key(), session.language_id()))
     }
 
@@ -305,9 +305,7 @@ impl LspTool {
             data: data.clone(),
             model_result: Value::String(formatted.result_text.clone()),
             content_blocks: vec![
-                ToolResultContentDto::Text {
-                    text: formatted.result_text.clone(),
-                },
+                ToolResultContentDto::Text { text: formatted.result_text.clone() },
                 ToolResultContentDto::Json { value: data.clone() },
             ],
             render_hint: Some(ToolRenderHint {
@@ -327,10 +325,7 @@ impl LspTool {
                     "payload_kind": payload_kind,
                 }),
             }),
-            telemetry: Some(ToolCallTelemetry {
-                success: true,
-                ..ToolCallTelemetry::default()
-            }),
+            telemetry: Some(ToolCallTelemetry { success: true, ..ToolCallTelemetry::default() }),
             ..ToolCallResult::default()
         }
     }
@@ -362,9 +357,7 @@ impl LspTool {
             data: data.clone(),
             model_result: Value::String(message.to_string()),
             content_blocks: vec![
-                ToolResultContentDto::Text {
-                    text: message.to_string(),
-                },
+                ToolResultContentDto::Text { text: message.to_string() },
                 ToolResultContentDto::Json { value: data.clone() },
             ],
             render_hint: Some(ToolRenderHint {
@@ -381,15 +374,16 @@ impl LspTool {
                     "server_key": server_key,
                 }),
             }),
-            telemetry: Some(ToolCallTelemetry {
-                success: false,
-                ..ToolCallTelemetry::default()
-            }),
+            telemetry: Some(ToolCallTelemetry { success: false, ..ToolCallTelemetry::default() }),
             ..ToolCallResult::default()
         }
     }
 
-    fn method_and_params<'a>(&self, args: &'a ValidatedArgs, uri: &'a str) -> (&'static str, Value) {
+    fn method_and_params<'a>(
+        &self,
+        args: &'a ValidatedArgs,
+        uri: &'a str,
+    ) -> (&'static str, Value) {
         let position = json!({
             "line": args.line.unwrap_or(1).saturating_sub(1),
             "character": args.character.unwrap_or(1).saturating_sub(1),
@@ -412,14 +406,12 @@ impl LspTool {
                 "textDocument/hover",
                 json!({ "textDocument": { "uri": uri }, "position": position }),
             ),
-            "documentSymbol" => (
-                "textDocument/documentSymbol",
-                json!({ "textDocument": { "uri": uri } }),
-            ),
-            "workspaceSymbol" => (
-                "workspace/symbol",
-                json!({ "query": args.query.clone().unwrap_or_default() }),
-            ),
+            "documentSymbol" => {
+                ("textDocument/documentSymbol", json!({ "textDocument": { "uri": uri } }))
+            }
+            "workspaceSymbol" => {
+                ("workspace/symbol", json!({ "query": args.query.clone().unwrap_or_default() }))
+            }
             "goToImplementation" => (
                 "textDocument/implementation",
                 json!({ "textDocument": { "uri": uri }, "position": position }),
@@ -428,7 +420,10 @@ impl LspTool {
                 "textDocument/prepareCallHierarchy",
                 json!({ "textDocument": { "uri": uri }, "position": position }),
             ),
-            _ => ("textDocument/hover", json!({ "textDocument": { "uri": uri }, "position": position })),
+            _ => (
+                "textDocument/hover",
+                json!({ "textDocument": { "uri": uri }, "position": position }),
+            ),
         }
     }
 }
@@ -462,10 +457,8 @@ impl Tool for LspTool {
         let args: Args = serde_json::from_value(input.clone())
             .map_err(|error| anyhow::anyhow!("Missing or invalid parameters: {error}"))?;
 
-        let operation = args
-            .operation
-            .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("Missing operation"))?;
+        let operation =
+            args.operation.as_deref().ok_or_else(|| anyhow::anyhow!("Missing operation"))?;
         if !SUPPORTED_OPERATIONS.contains(&operation) {
             anyhow::bail!("Unsupported LSP operation: {operation}");
         }

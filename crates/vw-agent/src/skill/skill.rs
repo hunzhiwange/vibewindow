@@ -28,22 +28,18 @@
 //!
 //! 技能会从以下位置加载：
 //! - 配置目录中的 skill/**/SKILL.md 和 skills/**/SKILL.md
-//! - 项目目录中的 .claude/skills/**/SKILL.md
-//! - 项目目录中的 .agents/skills/**/SKILL.md
-//! - 全局主目录中的 .claude/skills/**/SKILL.md
-//! - 全局主目录中的 .agents/skills/**/SKILL.md
+//! - 当前技能目录提供方对应的项目、父级和全局 skills 目录
 
 use crate::app::agent::config;
 use crate::app::agent::flag;
 use crate::app::agent::global;
 use crate::app::agent::project::instance;
-use crate::app::agent::util::filesystem;
 use crate::app::agent::util::log;
-use std::sync::LazyLock;
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 /// 技能模块专用日志记录器
 ///
@@ -281,6 +277,7 @@ async fn load_state() -> State {
 async fn load_state() -> State {
     let mut skills: HashMap<String, Info> = HashMap::new();
     let mut dirs: HashSet<String> = HashSet::new();
+    let cfg = config::get().await;
 
     /// 内部辅助函数：添加单个技能到技能映射
     ///
@@ -334,27 +331,16 @@ async fn load_state() -> State {
 
     // 第一步：加载外部技能（如果未禁用）
     if !*flag::VIBEWINDOW_DISABLE_EXTERNAL_SKILLS {
-        // 扫描全局主目录下的 .claude 和 .agents 目录
-        for dir in [".claude", ".agents"] {
-            let root = global::paths().home.join(dir);
-            if filesystem::is_dir(&root) {
-                for match_path in scan_external(&root, "global").await {
-                    add_skill(match_path, &mut skills, &mut dirs).await;
-                }
-            }
-        }
-
-        // 扫描项目目录树中的 .claude 和 .agents 目录
-        // 从当前工作目录向上搜索，直到项目 worktree 根目录
         let start = instance::directory();
-        let stop = instance::worktree();
-        if !start.is_empty() {
-            let roots = filesystem::up(&[".claude", ".agents"], &start, Some(&stop));
-            for root in roots {
-                for match_path in scan_external(&root, "project").await {
-                    add_skill(match_path, &mut skills, &mut dirs).await;
-                }
+        let workspace_dir = if start.is_empty() { None } else { Some(PathBuf::from(&start)) };
+        for source in crate::app::agent::skills::discover_local_skill_source_dirs_with_provider(
+            workspace_dir.as_deref(),
+            cfg.skills.directory_provider,
+        ) {
+            for match_path in glob_files(&source.path, "**/SKILL.md") {
+                add_skill(match_path, &mut skills, &mut dirs).await;
             }
+            log_external_scan(&source.path, "configured");
         }
     }
 
@@ -369,45 +355,12 @@ async fn load_state() -> State {
         }
     }
 
-    // 预留配置钩子，用于未来可能的自定义加载逻辑
-    let _cfg = config::get().await;
-
     // 构建最终状态，将 HashSet 转换为 Vec
     State { skills, dirs: dirs.into_iter().collect() }
 }
 
-/// 扫描外部技能目录
-///
-/// 在指定目录下搜索 skills/**/SKILL.md 模式的技能文件，
-/// 并记录扫描日志。
-///
-/// # 参数
-///
-/// - `root`: 要扫描的根目录路径
-/// - `scope`: 作用域标识（如 "global" 或 "project"），用于日志记录
-///
-/// # 返回值
-///
-/// 返回匹配的技能文件路径列表 `Vec<PathBuf>`。
-///
-/// # 日志
-///
-/// 会记录 INFO 级别的日志，包含作用域和扫描目录信息。
-///
-/// # 示例
-///
-/// ```ignore
-/// use std::path::Path;
-///
-/// let skills = scan_external(Path::new("/home/user/.claude"), "global").await;
-/// for skill_path in skills {
-///     println!("发现技能: {:?}", skill_path);
-/// }
-/// ```
 #[cfg(not(target_arch = "wasm32"))]
-async fn scan_external(root: &Path, scope: &str) -> Vec<PathBuf> {
-    let matches = glob_files(root, "skills/**/SKILL.md");
-
+fn log_external_scan(root: &Path, scope: &str) {
     LOGGER.info(
         "scanned external skills",
         Some({
@@ -417,8 +370,6 @@ async fn scan_external(root: &Path, scope: &str) -> Vec<PathBuf> {
             m
         }),
     );
-
-    matches
 }
 
 /// 使用 glob 模式查找匹配的文件

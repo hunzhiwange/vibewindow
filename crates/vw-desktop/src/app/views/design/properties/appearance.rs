@@ -506,19 +506,18 @@ fn render_effect_details(
 /// let (r, g, b, a) = parse_hex_to_rgba("#FF000080");    // 红色，半透明
 /// ```
 fn parse_hex_to_rgba(hex: &str) -> (f32, f32, f32, f32) {
-    if hex.len() >= 7 && hex.starts_with('#')
+    if hex.len() >= 7
+        && hex.starts_with('#')
         && let (Ok(r), Ok(g), Ok(b)) = (
             u8::from_str_radix(&hex[1..3], 16),
             u8::from_str_radix(&hex[3..5], 16),
             u8::from_str_radix(&hex[5..7], 16),
-        ) {
-            let a = if hex.len() == 9 {
-                u8::from_str_radix(&hex[7..9], 16).unwrap_or(255)
-            } else {
-                255
-            };
-            return (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0);
-        }
+        )
+    {
+        let a =
+            if hex.len() == 9 { u8::from_str_radix(&hex[7..9], 16).unwrap_or(255) } else { 255 };
+        return (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0);
+    }
     (0.0, 0.0, 0.0, 1.0)
 }
 

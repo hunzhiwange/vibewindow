@@ -1,6 +1,9 @@
 //! 通过网关同步 Redis 工具的连接、历史和运行状态。
 //! 本模块只做桌面状态与网关 DTO 的转换，避免 UI 直接依赖传输层结构。
 
+use super::gateway::gateway_client;
+#[cfg(not(target_arch = "wasm32"))]
+use super::gateway::run_gateway_call;
 use crate::app::state::{
     RedisCommandOutputEntry, RedisConnectionConfig, RedisHistoryRecord, RedisInfoEntry,
     RedisKeyAnalysis, RedisKeyPage, RedisKeyspaceStat, RedisRuntimeOverview,
@@ -13,13 +16,9 @@ use vw_gateway_client::vw_api_types::tool::{
     GatewayRedisHistoryPage, GatewayRedisHistoryRecord, GatewayRedisImportResponse,
     GatewayRedisInfoEntry, GatewayRedisKeyAnalysis as GatewayRedisKeyAnalysisDto,
     GatewayRedisKeyAnalysisRequest, GatewayRedisKeyCreateRequest, GatewayRedisKeyListQuery,
-    GatewayRedisKeyPage,
-    GatewayRedisKeyspaceStat, GatewayRedisRuntimeOverview, GatewayRedisSettings,
-    GatewayRedisSettingsUpdateBody,
+    GatewayRedisKeyPage, GatewayRedisKeyspaceStat, GatewayRedisRuntimeOverview,
+    GatewayRedisSettings, GatewayRedisSettingsUpdateBody,
 };
-use super::gateway::gateway_client;
-#[cfg(not(target_arch = "wasm32"))]
-use super::gateway::run_gateway_call;
 
 pub(crate) const REDIS_HISTORY_PAGE_SIZE: usize = 50;
 
@@ -60,9 +59,7 @@ pub fn load_redis_tool_state() -> RedisToolPersistedState {
 /// 公开函数，执行 load_redis_tool_state_async 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
 pub async fn load_redis_tool_state_async() -> Result<RedisToolPersistedState, String> {
-    Ok(load_redis_tool_snapshot_async(default_redis_history_query())
-        .await?
-        .persisted_state)
+    Ok(load_redis_tool_snapshot_async(default_redis_history_query()).await?.persisted_state)
 }
 
 /// 公开函数，执行 load_redis_tool_snapshot_async 对应的应用流程。
@@ -180,9 +177,7 @@ pub async fn redis_connection_key_analyze_async(
     let analysis = client
         .redis_connection_key_analyze(
             connection_id,
-            &GatewayRedisKeyAnalysisRequest {
-                key: key.trim().to_string(),
-            },
+            &GatewayRedisKeyAnalysisRequest { key: key.trim().to_string() },
         )
         .await?;
     Ok(redis_key_analysis_from_gateway(analysis))
@@ -218,9 +213,7 @@ pub async fn redis_command_execute_async(
     let response = client
         .redis_command_execute(
             connection_id,
-            &GatewayRedisCommandRequest {
-                command: command.to_string(),
-            },
+            &GatewayRedisCommandRequest { command: command.to_string() },
         )
         .await?;
     Ok(redis_command_output_from_gateway(response))
@@ -261,15 +254,8 @@ fn redis_snapshot_from_gateway(
         persisted_state: RedisToolPersistedState {
             schema_version: settings.schema_version,
             default_load_count: settings.default_load_count,
-            connections: connections
-                .into_iter()
-                .map(redis_connection_from_gateway)
-                .collect(),
-            history: history_page
-                .items
-                .into_iter()
-                .map(redis_history_from_gateway)
-                .collect(),
+            connections: connections.into_iter().map(redis_connection_from_gateway).collect(),
+            history: history_page.items.into_iter().map(redis_history_from_gateway).collect(),
             selected_connection_id: settings.selected_connection_id,
         },
         history_offset: history_page.offset,
@@ -279,7 +265,9 @@ fn redis_snapshot_from_gateway(
     }
 }
 
-fn redis_connection_from_gateway(connection: GatewayRedisConnectionConfig) -> RedisConnectionConfig {
+fn redis_connection_from_gateway(
+    connection: GatewayRedisConnectionConfig,
+) -> RedisConnectionConfig {
     RedisConnectionConfig {
         id: connection.id,
         name: connection.name,
@@ -329,7 +317,9 @@ fn redis_history_from_gateway(record: GatewayRedisHistoryRecord) -> RedisHistory
     }
 }
 
-fn redis_runtime_overview_from_gateway(overview: GatewayRedisRuntimeOverview) -> RedisRuntimeOverview {
+fn redis_runtime_overview_from_gateway(
+    overview: GatewayRedisRuntimeOverview,
+) -> RedisRuntimeOverview {
     RedisRuntimeOverview {
         connection_id: overview.connection_id,
         connection_label: overview.connection_label,
@@ -342,11 +332,7 @@ fn redis_runtime_overview_from_gateway(overview: GatewayRedisRuntimeOverview) ->
         connected_clients: overview.connected_clients,
         total_connections_received: overview.total_connections_received,
         total_commands_processed: overview.total_commands_processed,
-        keyspace: overview
-            .keyspace
-            .into_iter()
-            .map(redis_keyspace_stat_from_gateway)
-            .collect(),
+        keyspace: overview.keyspace.into_iter().map(redis_keyspace_stat_from_gateway).collect(),
         info_entries: overview
             .info_entries
             .into_iter()
@@ -356,19 +342,11 @@ fn redis_runtime_overview_from_gateway(overview: GatewayRedisRuntimeOverview) ->
 }
 
 fn redis_keyspace_stat_from_gateway(stat: GatewayRedisKeyspaceStat) -> RedisKeyspaceStat {
-    RedisKeyspaceStat {
-        db: stat.db,
-        keys: stat.keys,
-        expires: stat.expires,
-        avg_ttl: stat.avg_ttl,
-    }
+    RedisKeyspaceStat { db: stat.db, keys: stat.keys, expires: stat.expires, avg_ttl: stat.avg_ttl }
 }
 
 fn redis_info_entry_from_gateway(entry: GatewayRedisInfoEntry) -> RedisInfoEntry {
-    RedisInfoEntry {
-        key: entry.key,
-        value: entry.value,
-    }
+    RedisInfoEntry { key: entry.key, value: entry.value }
 }
 
 fn redis_key_page_from_gateway(page: GatewayRedisKeyPage) -> RedisKeyPage {
@@ -393,7 +371,9 @@ fn redis_key_analysis_from_gateway(analysis: GatewayRedisKeyAnalysisDto) -> Redi
     }
 }
 
-fn redis_command_output_from_gateway(response: GatewayRedisCommandResponse) -> RedisCommandOutputEntry {
+fn redis_command_output_from_gateway(
+    response: GatewayRedisCommandResponse,
+) -> RedisCommandOutputEntry {
     RedisCommandOutputEntry {
         command: response.command,
         output: response.output,

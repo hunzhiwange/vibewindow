@@ -30,7 +30,10 @@ pub use desktop::*;
 /// 重新导出 `gateway::{gateway_client, gateway_client_endpoint, load_tools_list_via_gateway, server_config_unreachable_error, spawn_gateway_task}`，作为本模块对外暴露的稳定入口。
 ///
 /// 调用方通过该入口使用配置或组件能力，无需依赖内部文件布局。
-pub use gateway::{gateway_client, gateway_client_endpoint, load_tools_list_via_gateway, server_config_unreachable_error, spawn_gateway_task};
+pub use gateway::{
+    gateway_client, gateway_client_endpoint, load_tools_list_via_gateway,
+    server_config_unreachable_error, spawn_gateway_task,
+};
 /// 重新导出 `redis::*`，作为本模块对外暴露的稳定入口。
 ///
 /// 调用方通过该入口使用配置或组件能力，无需依赖内部文件布局。

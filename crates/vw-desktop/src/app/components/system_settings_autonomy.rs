@@ -36,12 +36,9 @@ fn tab_button<'a>(
     is_active: bool,
     message: Message,
 ) -> iced::widget::Button<'a, Message> {
-    button(text(label))
-        .on_press(message)
-        .padding([8, 14])
-        .style(move |theme: &iced::Theme, status| {
-            settings_segment_button_style(theme, status, is_active)
-        })
+    button(text(label)).on_press(message).padding([8, 14]).style(
+        move |theme: &iced::Theme, status| settings_segment_button_style(theme, status, is_active),
+    )
 }
 
 fn field_row<'a>(
@@ -96,10 +93,7 @@ fn bool_row<'a>(
     field_row(
         label,
         description,
-        checkbox(checked)
-            .label(checkbox_label)
-            .on_toggle(on_toggle)
-            .style(settings_checkbox_style),
+        checkbox(checked).label(checkbox_label).on_toggle(on_toggle).style(settings_checkbox_style),
     )
 }
 
@@ -245,20 +239,16 @@ pub fn view(app: &App) -> Element<'_, Message> {
             tab_button(
                 "阻断",
                 s.shell_redirect_policy == ShellRedirectPolicy::Block,
-                Message::Settings(
-                    message::SettingsMessage::AutonomyShellRedirectPolicyChanged(
-                        ShellRedirectPolicy::Block,
-                    ),
-                ),
+                Message::Settings(message::SettingsMessage::AutonomyShellRedirectPolicyChanged(
+                    ShellRedirectPolicy::Block,
+                ),),
             ),
             tab_button(
                 "移除",
                 s.shell_redirect_policy == ShellRedirectPolicy::Strip,
-                Message::Settings(
-                    message::SettingsMessage::AutonomyShellRedirectPolicyChanged(
-                        ShellRedirectPolicy::Strip,
-                    ),
-                ),
+                Message::Settings(message::SettingsMessage::AutonomyShellRedirectPolicyChanged(
+                    ShellRedirectPolicy::Strip,
+                ),),
             ),
         ]
         .spacing(8)
@@ -368,15 +358,18 @@ pub fn view(app: &App) -> Element<'_, Message> {
         |v| Message::Settings(message::SettingsMessage::AutonomyNonCliApprovalApproversChanged(v)),
     );
 
-    let mode_by_channel_row = text_row(
-        "按通道模式",
-        "格式为 channel:mode；列表字段支持逗号或换行分隔。",
-        "telegram:direct, discord:request_confirm",
-        &s.non_cli_natural_language_approval_mode_by_channel_input,
-        |v| Message::Settings(
+    let mode_by_channel_row =
+        text_row(
+            "按通道模式",
+            "格式为 channel:mode；列表字段支持逗号或换行分隔。",
+            "telegram:direct, discord:request_confirm",
+            &s.non_cli_natural_language_approval_mode_by_channel_input,
+            |v| {
+                Message::Settings(
             message::SettingsMessage::AutonomyNonCliNaturalLanguageApprovalModeByChannelChanged(v),
-        ),
-    );
+        )
+            },
+        );
 
     let mut col = column![
         row![

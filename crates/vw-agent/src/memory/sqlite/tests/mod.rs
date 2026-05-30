@@ -44,9 +44,9 @@ fn temp_sqlite() -> (TempDir, SqliteMemory) {
     (tmp, mem)
 }
 
-mod storage;
-mod search;
-mod schema;
-mod lifecycle;
-mod sessions;
 mod concurrency;
+mod lifecycle;
+mod schema;
+mod search;
+mod sessions;
+mod storage;

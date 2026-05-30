@@ -46,7 +46,9 @@ pub(super) fn render_transcript_item_lines(
 
 fn render_message_lines(message: &UiMessage, theme: TuiTheme) -> Vec<Line<'static>> {
     match message {
-        UiMessage::User(message) => render_text_block("你", theme.accent, message.text.as_str(), theme),
+        UiMessage::User(message) => {
+            render_text_block("你", theme.accent, message.text.as_str(), theme)
+        }
         UiMessage::Assistant(message) => render_assistant_lines(message, theme),
         UiMessage::Step(step) => vec![Line::from(vec![
             label_span("步骤", theme.warning),
@@ -58,16 +60,21 @@ fn render_message_lines(message: &UiMessage, theme: TuiTheme) -> Vec<Line<'stati
                 step.finish_reason.as_deref().unwrap_or("进行中")
             )),
         ])],
-        UiMessage::System(message) => {
-            render_text_block("系统", system_level_color(message.level, theme), message.text.as_str(), theme)
-        }
+        UiMessage::System(message) => render_text_block(
+            "系统",
+            system_level_color(message.level, theme),
+            message.text.as_str(),
+            theme,
+        ),
         UiMessage::ToolCall(message) => {
             let mut lines = vec![Line::from(vec![
                 label_span("工具", theme.warning),
                 Span::raw(" "),
                 Span::raw(format!("{} · {:?}", message.tool_name, message.state)),
             ])];
-            if let Some(summary) = message.summary.as_ref().filter(|summary| !summary.trim().is_empty()) {
+            if let Some(summary) =
+                message.summary.as_ref().filter(|summary| !summary.trim().is_empty())
+            {
                 lines.push(Line::from(vec![
                     Span::styled("   ", theme.muted_style()),
                     Span::styled(summary.clone(), theme.muted_style()),
@@ -84,10 +91,7 @@ fn render_message_lines(message: &UiMessage, theme: TuiTheme) -> Vec<Line<'stati
         UiMessage::Thinking(message) => render_text_block(
             "思考",
             theme.muted,
-            message
-                .summary
-                .as_deref()
-                .unwrap_or(message.content.as_str()),
+            message.summary.as_deref().unwrap_or(message.content.as_str()),
             theme,
         ),
         UiMessage::Error(message) => {
@@ -107,10 +111,7 @@ fn render_assistant_lines(message: &UiAssistantMessage, theme: TuiTheme) -> Vec<
     ];
 
     if message.step_count > 0 {
-        detail.push(Span::styled(
-            format!(" · {} 步", message.step_count),
-            theme.muted_style(),
-        ));
+        detail.push(Span::styled(format!(" · {} 步", message.step_count), theme.muted_style()));
     }
 
     lines.push(Line::from(detail));
@@ -121,7 +122,6 @@ fn render_assistant_turn_entry_lines(
     entry: &TuiAssistantTurnEntry<'_>,
     theme: TuiTheme,
     is_preface: bool,
-
 ) -> Vec<Line<'static>> {
     let phase = if is_preface { "前置" } else { "子项" };
 
@@ -129,10 +129,7 @@ fn render_assistant_turn_entry_lines(
         TuiAssistantTurnEntry::Thinking(message) => render_text_block(
             format!("{phase}思考"),
             theme.muted,
-            message
-                .summary
-                .as_deref()
-                .unwrap_or(message.content.as_str()),
+            message.summary.as_deref().unwrap_or(message.content.as_str()),
             theme,
         ),
         TuiAssistantTurnEntry::Step(step) => vec![Line::from(vec![
@@ -201,10 +198,7 @@ fn render_text_block(
 }
 
 fn label_span(label: impl Into<String>, color: ratatui::style::Color) -> Span<'static> {
-    Span::styled(
-        label.into(),
-        theme_label_style(color),
-    )
+    Span::styled(label.into(), theme_label_style(color))
 }
 
 fn theme_label_style(color: ratatui::style::Color) -> Style {

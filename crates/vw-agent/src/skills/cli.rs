@@ -20,8 +20,11 @@
 //! - 审计集成：安装时自动执行安全审计
 
 use crate::app::agent::skills::installer::{InstallResult, install_skill_from_source};
-use crate::app::agent::skills::types::SkillLoadMode;
-use crate::app::agent::skills::{init_skills_dir, load_skills_with_open_skills_config, skills_dir};
+#[cfg(test)]
+use crate::app::agent::skills::skills_dir;
+use crate::app::agent::skills::{
+    init_skills_dir, load_skills_full_with_config, workspace_skills_dir,
+};
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -81,12 +84,7 @@ pub fn handle_command(
         // 处理 list 命令：列出所有已安装的技能
         crate::app::agent::skill::SkillCommands::List => {
             // 加载所有技能，包括开放技能（如果启用）
-            let skills = load_skills_with_open_skills_config(
-                workspace_dir,
-                Some(config.skills.open_skills_enabled),
-                config.skills.open_skills_dir.as_deref(),
-                SkillLoadMode::Full, // 加载完整信息，包括工具定义
-            );
+            let skills = load_skills_full_with_config(workspace_dir, config);
 
             // 如果没有安装任何技能，显示帮助信息
             if skills.is_empty() {
@@ -145,7 +143,7 @@ pub fn handle_command(
             let target = if source_path.exists() {
                 source_path
             } else {
-                skills_dir(workspace_dir).join(&source)
+                workspace_skills_dir(workspace_dir, config.skills.directory_provider).join(&source)
             };
 
             // 验证目标是否存在
@@ -185,7 +183,10 @@ pub fn handle_command(
 
             // 初始化技能目录（如果不存在则创建）
             init_skills_dir(workspace_dir)?;
-            let skills_path = skills_dir(workspace_dir);
+            let skills_path = workspace_skills_dir(workspace_dir, config.skills.directory_provider);
+            std::fs::create_dir_all(&skills_path).map_err(|err| {
+                anyhow::anyhow!("failed to create {}: {err}", skills_path.display())
+            })?;
 
             // 执行技能安装，支持多种来源（本地、Git、skills.sh）
             let install_result = install_skill_from_source(&source, &skills_path)?;
@@ -234,13 +235,13 @@ pub fn handle_command(
             }
 
             // 构建技能的完整路径
-            let skill_path = skills_dir(workspace_dir).join(&name);
+            let skills_path = workspace_skills_dir(workspace_dir, config.skills.directory_provider);
+            let skill_path = skills_path.join(&name);
 
             // 安全校验：确保解析后的路径实际位于技能目录内部
             // 通过规范化路径来检测潜在的路径逃逸攻击
-            let canonical_skills = skills_dir(workspace_dir)
-                .canonicalize()
-                .unwrap_or_else(|_| skills_dir(workspace_dir));
+            let canonical_skills =
+                skills_path.canonicalize().unwrap_or_else(|_| skills_path.clone());
             if let Ok(canonical_skill) = skill_path.canonicalize() {
                 // 验证技能路径是否以技能目录为前缀
                 if !canonical_skill.starts_with(&canonical_skills) {

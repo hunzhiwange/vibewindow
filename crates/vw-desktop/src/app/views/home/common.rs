@@ -7,11 +7,11 @@ use iced::widget::svg::Svg;
 use iced::widget::{Image, button, container, text};
 use iced::{Background, Border, Color, ContentFit, Element, Length, Theme, Vector};
 
+use crate::app::Message;
 use crate::app::assets::{self, Icon};
 use crate::app::components::system_settings_common::{
     primary_action_btn_style, rounded_action_btn_style,
 };
-use crate::app::Message;
 
 /// 执行本模块的界面辅助逻辑。
 ///
@@ -264,23 +264,22 @@ pub(super) fn project_avatar<'a>(
         iced::Font::with_name("Noto Sans CJK SC")
     };
 
-    let badge_content: Element<'a, Message> = match image_handle {
-        Some(handle) => Image::new(handle)
-            .content_fit(ContentFit::Fill)
+    let badge_content: Element<'a, Message> =
+        match image_handle {
+            Some(handle) => Image::new(handle)
+                .content_fit(ContentFit::Fill)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into(),
+            None => container(text(label).size((size * 0.36).round()).font(badge_font).style(
+                move |_theme: &Theme| iced::widget::text::Style { color: Some(badge_text) },
+            ))
             .width(Length::Fill)
             .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
             .into(),
-        None => container(
-            text(label).size((size * 0.36).round()).font(badge_font).style(
-                move |_theme: &Theme| iced::widget::text::Style { color: Some(badge_text) },
-            ),
-        )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x(Length::Fill)
-        .center_y(Length::Fill)
-        .into(),
-    };
+        };
 
     container(badge_content)
         .width(Length::Fixed(size))
@@ -295,11 +294,7 @@ pub(super) fn project_avatar<'a>(
 
             iced::widget::container::Style {
                 background: (!has_image_icon).then_some(Background::Color(badge_bg)),
-                border: Border {
-                    width: 1.5,
-                    color: border_color,
-                    radius: (size * 0.34).into(),
-                },
+                border: Border { width: 1.5, color: border_color, radius: (size * 0.34).into() },
                 shadow: iced::Shadow {
                     color: Color::BLACK.scale_alpha(if has_image_icon { 0.12 } else { 0.08 }),
                     offset: Vector::new(0.0, 10.0),

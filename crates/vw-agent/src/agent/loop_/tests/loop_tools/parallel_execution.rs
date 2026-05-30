@@ -38,12 +38,8 @@ fn scheduler_groups_read_only_concurrency_safe_calls_into_parallel_batch() {
 fn scheduler_keeps_non_read_only_calls_serial() {
     let active = Arc::new(AtomicUsize::new(0));
     let max_active = Arc::new(AtomicUsize::new(0));
-    let tools_registry: Vec<Box<dyn Tool>> = vec![Box::new(DelayTool::new(
-        "shell",
-        50,
-        Arc::clone(&active),
-        Arc::clone(&max_active),
-    ))];
+    let tools_registry: Vec<Box<dyn Tool>> =
+        vec![Box::new(DelayTool::new("shell", 50, Arc::clone(&active), Arc::clone(&max_active)))];
     let calls = vec![PendingToolCall {
         name: "shell".to_string(),
         arguments: serde_json::json!({"command": "pwd"}),

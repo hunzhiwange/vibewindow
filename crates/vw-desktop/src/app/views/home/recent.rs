@@ -171,15 +171,14 @@ fn render_recent_projects_body(app: &App) -> Element<'_, Message> {
         hero,
         row![
             column![
-                text("最近项目").size(15).font(iced::Font {
-                    weight: iced::font::Weight::Bold,
-                    ..Default::default()
-                }),
-                text("继续最近的工作区入口，并直接处理常用操作。")
-                    .size(12)
-                    .style(|theme: &Theme| iced::widget::text::Style {
+                text("最近项目")
+                    .size(15)
+                    .font(iced::Font { weight: iced::font::Weight::Bold, ..Default::default() }),
+                text("继续最近的工作区入口，并直接处理常用操作。").size(12).style(
+                    |theme: &Theme| iced::widget::text::Style {
                         color: Some(theme.palette().text.scale_alpha(0.62)),
-                    }),
+                    }
+                ),
             ]
             .spacing(4)
             .width(Length::Fill),
@@ -192,9 +191,7 @@ fn render_recent_projects_body(app: &App) -> Element<'_, Message> {
     .spacing(14)
     .width(Length::Fill);
 
-    scrollable(container(section).padding([18, 16]).width(Length::Fill))
-        .height(Length::Fill)
-        .into()
+    scrollable(container(section).padding([18, 16]).width(Length::Fill)).height(Length::Fill).into()
 }
 
 fn recent_project_row<'a>(app: &App, index: usize, path: &str) -> Element<'a, Message> {
@@ -225,10 +222,9 @@ fn recent_project_row<'a>(app: &App, index: usize, path: &str) -> Element<'a, Me
 
     let meta = column![
         row![
-            text(name.clone()).size(14).font(iced::Font {
-                weight: iced::font::Weight::Bold,
-                ..Default::default()
-            }),
+            text(name.clone())
+                .size(14)
+                .font(iced::Font { weight: iced::font::Weight::Bold, ..Default::default() }),
             status_badge,
         ]
         .spacing(8)

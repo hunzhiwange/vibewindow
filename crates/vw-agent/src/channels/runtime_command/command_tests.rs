@@ -2,9 +2,15 @@ use super::*;
 
 #[test]
 fn parse_runtime_command_respects_channel_model_support() {
-    assert_eq!(parse_runtime_command("telegram", "/model gpt-5"), Some(ChannelRuntimeCommand::SetModel("gpt-5".to_string())));
+    assert_eq!(
+        parse_runtime_command("telegram", "/model gpt-5"),
+        Some(ChannelRuntimeCommand::SetModel("gpt-5".to_string()))
+    );
     assert_eq!(parse_runtime_command("qq", "/model gpt-5"), None);
-    assert_eq!(parse_runtime_command("discord", "/models"), Some(ChannelRuntimeCommand::ShowProviders));
+    assert_eq!(
+        parse_runtime_command("discord", "/models"),
+        Some(ChannelRuntimeCommand::ShowProviders)
+    );
 }
 
 #[test]
@@ -12,7 +18,10 @@ fn runtime_token_parser_rejects_free_text_and_unsafe_chars() {
     assert!(is_runtime_token("tool:name-1"));
     assert!(!is_runtime_token("tool name"));
     assert!(!is_runtime_token("tool/name"));
-    assert_eq!(extract_runtime_tail_token("approve tool:name-1", &["approve "]), Some("tool:name-1".to_string()));
+    assert_eq!(
+        extract_runtime_tail_token("approve tool:name-1", &["approve "]),
+        Some("tool:name-1".to_string())
+    );
 }
 
 #[test]

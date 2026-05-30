@@ -1,4 +1,7 @@
-use super::plan_mode_view::{bool_field, derived_summary, is_plan_mode_tool, metadata_text, string_field, string_list_field, u64_field};
+use super::plan_mode_view::{
+    bool_field, derived_summary, is_plan_mode_tool, metadata_text, string_field, string_list_field,
+    u64_field,
+};
 use serde_json::json;
 
 #[test]

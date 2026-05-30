@@ -1,6 +1,6 @@
 use super::*;
-use crate::memory::embeddings;
 use crate::memory::MemoryCategory;
+use crate::memory::embeddings;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 打开超时测试

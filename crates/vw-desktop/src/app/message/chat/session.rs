@@ -7,8 +7,8 @@ use crate::app::config::{save_project_chat_preferences, set_config_field};
 use crate::app::message::TaskBoardMessage;
 use crate::app::message::chat::stream;
 use crate::app::message::project::ProjectMessage;
+use crate::app::state::{ChatSendBehavior, MAIN_AGENT_KEY, SessionToolSelectorTab};
 use crate::app::{AgentRequest, App, Message, QueueItem, message, models};
-use crate::app::state::{ChatSendBehavior, MAIN_AGENT_KEY, SessionRuntimeState};
 use iced::Task;
 use std::path::Path;
 use std::time::Duration;
@@ -76,20 +76,92 @@ fn request_delegate_agent(selected: Option<String>) -> Option<String> {
     normalize_delegate_agent(selected).or_else(|| Some(MAIN_AGENT_KEY.to_string()))
 }
 
-fn selected_delegate_allowed_tools(
-    app: &App,
-    runtime: &SessionRuntimeState,
-) -> Option<Vec<String>> {
-    let tool_inventory = app.session_tool_inventory(runtime);
-    if tool_inventory.effective_tools.is_empty() {
-        None
-    } else if tool_inventory.static_filtered
-        || !runtime.tool_selector.is_all_enabled()
-        || tool_inventory.effective_tools.len() != tool_inventory.base_tools.len()
-    {
-        Some(tool_inventory.effective_tools)
-    } else {
-        None
+fn base_tools_without_delegate_agent(app: &App) -> Vec<String> {
+    let mut runtime = app.current_session_runtime();
+    runtime.agent = None;
+    app.session_tool_inventory(&runtime).base_tools
+}
+
+fn compose_query_with_session_context(
+    query: &str,
+    selected_tools: &[String],
+    selected_skills: &[String],
+) -> String {
+    let trimmed = query.trim();
+    if selected_tools.is_empty() && selected_skills.is_empty() {
+        return trimmed.to_string();
+    }
+
+    let mut lines = vec![
+        "<session_control_selection>".to_string(),
+        "用户在会话控制中选中了以下上下文。选中不代表已经执行；请在本轮需要时再主动使用。"
+            .to_string(),
+    ];
+
+    if !selected_tools.is_empty() {
+        lines.push(format!("工具：{}", selected_tools.join(", ")));
+    }
+    if !selected_skills.is_empty() {
+        lines.push(format!("技能：{}", selected_skills.join(", ")));
+    }
+    lines.push("</session_control_selection>".to_string());
+
+    let context = lines.join("\n");
+    if trimmed.is_empty() { context } else { format!("{trimmed}\n\n{context}") }
+}
+
+fn dispatch_queue_item(app: &mut App, item: QueueItem) -> Task<Message> {
+    let is_requesting = app.current_session_is_requesting();
+    match item.send_behavior {
+        ChatSendBehavior::StopAndSend => {
+            if let Some(session_id) = app.active_session_id.clone() {
+                let runtime = app.get_session_runtime_mut(&session_id);
+                if let Some(request_id) =
+                    runtime.active_agent_request.as_ref().map(|request| request.id)
+                {
+                    crate::app::state::clear_pending_guide_handoff(request_id);
+                }
+                runtime.is_requesting = false;
+                runtime.submit_anim = 0;
+                runtime.active_agent_request = None;
+            }
+            app.sync_task_pet_from_runtime();
+            app.show_send_mode_popover = false;
+            start(app, item, false)
+        }
+        ChatSendBehavior::Guide if is_requesting => {
+            debug!(
+                target: "vw_desktop",
+                active_session_id = ?app.active_session_id,
+                queue_len = app.current_session_runtime().queue.len() + 1,
+                "desktop chat request guided ahead of queued requests"
+            );
+            if let Some(request_id) = app
+                .current_session_runtime()
+                .active_agent_request
+                .as_ref()
+                .map(|request| request.id)
+            {
+                crate::app::state::mark_pending_guide_handoff(request_id);
+            }
+            let runtime = app.current_session_runtime_mut();
+            runtime.queue.insert(0, item);
+            runtime.input_editor = iced::widget::text_editor::Content::new();
+            Task::none()
+        }
+        ChatSendBehavior::Queue if is_requesting => {
+            debug!(
+                target: "vw_desktop",
+                active_session_id = ?app.active_session_id,
+                queue_len = app.current_session_runtime().queue.len() + 1,
+                "desktop chat request queued while another request is active"
+            );
+            let runtime = app.current_session_runtime_mut();
+            runtime.queue.push(item);
+            runtime.input_editor = iced::widget::text_editor::Content::new();
+            Task::none()
+        }
+        ChatSendBehavior::Guide | ChatSendBehavior::Queue => start(app, item, false),
     }
 }
 
@@ -309,137 +381,169 @@ fn save_agent_session_scoped_task(info: session::Info, scope: Option<String>) ->
     Task::none()
 }
 
+fn restore_cached_chat_for_session(app: &mut App, session_id: &str) {
+    if let Some(cached) = app.cached_chat_messages(session_id) {
+        app.chat = cached.iter().cloned().collect();
+        app.chat_message_ids = app
+            .cached_chat_message_ids(session_id)
+            .filter(|ids| ids.len() == app.chat.len())
+            .unwrap_or_else(|| vec![None; app.chat.len()]);
+    } else {
+        app.chat.clear();
+        app.chat_message_ids.clear();
+    }
+}
+
+fn send_to_existing_session(app: &mut App, session_id: String, input: String) -> Task<Message> {
+    let input = input.trim().to_string();
+    if input.is_empty() {
+        return Task::none();
+    }
+
+    if app.active_session_id.as_deref() == Some(session_id.as_str()) {
+        let runtime = app.get_session_runtime_mut(&session_id);
+        runtime.input_editor = iced::widget::text_editor::Content::with_text(&input);
+        return send_current_session_text_only(app);
+    }
+
+    let previous_session_id = app.active_session_id.clone();
+    let previous_chat = app.chat.clone();
+    let previous_message_ids = app.chat_message_ids.clone();
+    if let Some(previous_id) = previous_session_id.clone() {
+        app.store_session_chat_snapshot(
+            previous_id,
+            crate::app::session::shared_chat_messages(previous_chat.clone()),
+            previous_message_ids.clone(),
+        );
+    }
+
+    app.active_session_id = Some(session_id.clone());
+    restore_cached_chat_for_session(app, &session_id);
+    app.invalidate_chat_ui_state();
+    let runtime = app.get_session_runtime_mut(&session_id);
+    runtime.input_editor = iced::widget::text_editor::Content::with_text(&input);
+
+    let task = send_current_session_text_only(app);
+    app.store_session_chat_snapshot(
+        session_id,
+        crate::app::session::shared_chat_messages(app.chat.clone()),
+        app.chat_message_ids.clone(),
+    );
+
+    app.active_session_id = previous_session_id;
+    app.chat = previous_chat;
+    app.chat_message_ids = previous_message_ids;
+    if let Some(previous_id) = app.active_session_id.clone() {
+        app.store_session_chat_snapshot(
+            previous_id,
+            crate::app::session::shared_chat_messages(app.chat.clone()),
+            app.chat_message_ids.clone(),
+        );
+    }
+    app.invalidate_chat_ui_state();
+    app.sync_active_session_from_chat();
+
+    task
+}
+
+fn send_current_session_text_only(app: &mut App) -> Task<Message> {
+    let previous_files = std::mem::take(&mut app.files);
+    let task = send_current_session_input(app);
+    app.files = previous_files;
+    task
+}
+
+fn send_current_session_input(app: &mut App) -> Task<Message> {
+    let runtime = app.current_session_runtime();
+    let query = runtime.input_editor.text().to_string();
+    let selected_tools = runtime.tool_selector.selected_manual_tools();
+    let selected_skills = runtime.tool_selector.selected_manual_skills();
+    if query.trim().is_empty()
+        && app.files.is_empty()
+        && selected_tools.is_empty()
+        && selected_skills.is_empty()
+    {
+        return Task::none();
+    }
+    let task_mode_enabled = runtime.task_mode_enabled;
+    let task_mode_priority = runtime.task_mode_priority.clone();
+    let task_mode_model = runtime.task_mode_model.clone();
+    let task_mode_subtasks = runtime.task_mode_subtasks.clone();
+    if let Some(command) = parse_inline_mode_command(&query) {
+        return apply_inline_mode_command(app, command);
+    }
+    let attachments = std::mem::take(&mut app.files);
+    let query = compose_query_with_session_context(&query, &selected_tools, &selected_skills);
+    if task_mode_enabled {
+        return Task::done(Message::TaskBoard(TaskBoardMessage::AddTaskFromInputWithOptions {
+            content: compose_query_with_attachments(&query, &attachments),
+            priority: task_mode_priority,
+            model: task_mode_model,
+            subtasks: task_mode_subtasks,
+        }));
+    }
+    let runtime = app.current_session_runtime();
+    let root = app
+        .active_session_id
+        .as_ref()
+        .and_then(|id| app.sessions.iter().find(|s| &s.id == id).map(|s| s.directory.clone()))
+        .or_else(|| app.project_path.clone());
+    let model = if runtime.auto_model { None } else { Some(runtime.model.clone()) };
+    let acp_agent = resolve_acp_agent(app, runtime.acp_agent.clone());
+    let allowed_tools: Option<Vec<String>> = None;
+    let agent = request_delegate_agent(runtime.agent.clone());
+    let acp_test = acp_agent.is_some();
+    let acp_history_mode = runtime.acp_history_mode;
+    let acp_recent_count = runtime.acp_recent_count.clamp(1, 20);
+    let full_access_enabled = runtime.full_access_enabled;
+    let acp_force_new_session = acp_agent.is_some()
+        && (runtime.acp_rebuild_required
+            || runtime.last_effective_acp_agent.as_ref() != acp_agent.as_ref());
+    let created_ms = crate::app::time::now_ms();
+    debug!(
+        target: "vw_desktop",
+        active_session_id = ?app.active_session_id,
+        acp_test,
+        acp_agent = ?acp_agent,
+        acp_force_new_session,
+        acp_history_mode = %acp_history_mode.as_str(),
+        acp_recent_count,
+        model = ?model,
+        agent = ?agent,
+        allowed_tools = ?allowed_tools,
+        has_root = root.is_some(),
+        query_len = query.len(),
+        "desktop chat request prepared"
+    );
+    let item = QueueItem {
+        created_ms,
+        query,
+        attachments,
+        root,
+        model,
+        acp_test,
+        acp_agent,
+        agent,
+        allowed_tools,
+        acp_force_new_session,
+        acp_history_mode,
+        acp_recent_count,
+        full_access_enabled,
+        send_behavior: app.chat_send_behavior,
+        request_history_override: None,
+        resume_history_only: false,
+    };
+
+    dispatch_queue_item(app, item)
+}
+
 /// 公开函数，执行 update 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
 pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
     match message {
-        ChatMessage::SendPressed => {
-            let runtime = app.current_session_runtime();
-            let query = runtime.input_editor.text().to_string();
-            if query.trim().is_empty() && app.files.is_empty() {
-                return Task::none();
-            }
-            let task_mode_enabled = runtime.task_mode_enabled;
-            let task_mode_priority = runtime.task_mode_priority.clone();
-            let task_mode_model = runtime.task_mode_model.clone();
-            let task_mode_subtasks = runtime.task_mode_subtasks.clone();
-            if let Some(command) = parse_inline_mode_command(&query) {
-                return apply_inline_mode_command(app, command);
-            }
-            let attachments = std::mem::take(&mut app.files);
-            if task_mode_enabled {
-                return Task::done(Message::TaskBoard(
-                    TaskBoardMessage::AddTaskFromInputWithOptions {
-                        content: compose_query_with_attachments(&query, &attachments),
-                        priority: task_mode_priority,
-                        model: task_mode_model,
-                        subtasks: task_mode_subtasks,
-                    },
-                ));
-            }
-            let runtime = app.current_session_runtime();
-            let root = app
-                .active_session_id
-                .as_ref()
-                .and_then(|id| {
-                    app.sessions.iter().find(|s| &s.id == id).map(|s| s.directory.clone())
-                })
-                .or_else(|| app.project_path.clone());
-            let model = if runtime.auto_model { None } else { Some(runtime.model.clone()) };
-            let acp_agent = resolve_acp_agent(app, runtime.acp_agent.clone());
-            let agent = request_delegate_agent(runtime.agent.clone());
-            let allowed_tools = selected_delegate_allowed_tools(app, &runtime);
-            let acp_test = acp_agent.is_some();
-            let acp_history_mode = runtime.acp_history_mode;
-            let acp_recent_count = runtime.acp_recent_count.clamp(1, 20);
-            let full_access_enabled = runtime.full_access_enabled;
-            let acp_force_new_session = acp_agent.is_some()
-                && (runtime.acp_rebuild_required
-                    || runtime.last_effective_acp_agent.as_ref() != acp_agent.as_ref());
-            let created_ms = crate::app::time::now_ms();
-            debug!(
-                target: "vw_desktop",
-                active_session_id = ?app.active_session_id,
-                acp_test,
-                acp_agent = ?acp_agent,
-                acp_force_new_session,
-                acp_history_mode = %acp_history_mode.as_str(),
-                acp_recent_count,
-                model = ?model,
-                agent = ?agent,
-                allowed_tools = ?allowed_tools,
-                has_root = root.is_some(),
-                query_len = query.len(),
-                "desktop chat request prepared"
-            );
-            let item = QueueItem {
-                created_ms,
-                query,
-                attachments,
-                root,
-                model,
-                acp_test,
-                acp_agent,
-                agent,
-                allowed_tools,
-                acp_force_new_session,
-                acp_history_mode,
-                acp_recent_count,
-                full_access_enabled,
-                send_behavior: app.chat_send_behavior,
-                request_history_override: None,
-                resume_history_only: false,
-            };
-
-            let is_requesting = app.current_session_is_requesting();
-            match app.chat_send_behavior {
-                ChatSendBehavior::StopAndSend => {
-                    if let Some(session_id) = app.active_session_id.clone() {
-                        let runtime = app.get_session_runtime_mut(&session_id);
-                        if let Some(request_id) = runtime.active_agent_request.as_ref().map(|request| request.id) {
-                            crate::app::state::clear_pending_guide_handoff(request_id);
-                        }
-                        runtime.is_requesting = false;
-                        runtime.submit_anim = 0;
-                        runtime.active_agent_request = None;
-                    }
-                    app.show_send_mode_popover = false;
-                    start(app, item, false)
-                }
-                ChatSendBehavior::Guide if is_requesting => {
-                    debug!(
-                        target: "vw_desktop",
-                        active_session_id = ?app.active_session_id,
-                        queue_len = app.current_session_runtime().queue.len() + 1,
-                        "desktop chat request guided ahead of queued requests"
-                    );
-                    if let Some(request_id) = app
-                        .current_session_runtime()
-                        .active_agent_request
-                        .as_ref()
-                        .map(|request| request.id)
-                    {
-                        crate::app::state::mark_pending_guide_handoff(request_id);
-                    }
-                    let runtime = app.current_session_runtime_mut();
-                    runtime.queue.insert(0, item);
-                    runtime.input_editor = iced::widget::text_editor::Content::new();
-                    Task::none()
-                }
-                ChatSendBehavior::Queue if is_requesting => {
-                    debug!(
-                        target: "vw_desktop",
-                        active_session_id = ?app.active_session_id,
-                        queue_len = app.current_session_runtime().queue.len() + 1,
-                        "desktop chat request queued while another request is active"
-                    );
-                    let runtime = app.current_session_runtime_mut();
-                    runtime.queue.push(item);
-                    runtime.input_editor = iced::widget::text_editor::Content::new();
-                    Task::none()
-                }
-                ChatSendBehavior::Guide | ChatSendBehavior::Queue => start(app, item, false),
-            }
+        ChatMessage::SendPressed => send_current_session_input(app),
+        ChatMessage::SendToSession { session_id, input } => {
+            send_to_existing_session(app, session_id, input)
         }
         ChatMessage::CancelPressed => {
             let session_id = match &app.active_session_id {
@@ -454,13 +558,16 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
 
             {
                 let runtime = app.get_session_runtime_mut(&session_id);
-                if let Some(request_id) = runtime.active_agent_request.as_ref().map(|request| request.id) {
+                if let Some(request_id) =
+                    runtime.active_agent_request.as_ref().map(|request| request.id)
+                {
                     crate::app::state::clear_pending_guide_handoff(request_id);
                 }
                 runtime.is_requesting = false;
                 runtime.submit_anim = 0;
                 runtime.active_agent_request = None;
             }
+            app.sync_task_pet_from_runtime();
             app.show_send_mode_popover = false;
             app.sync_active_session_from_chat();
 
@@ -504,20 +611,10 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         }
         ChatMessage::SessionAgentSelected(agent) => {
             let normalized_agent = normalize_delegate_agent(agent);
-            let base_tools = {
-                let mut next_runtime = app.current_session_runtime();
-                next_runtime.agent = normalized_agent.clone();
-                app.session_tool_inventory(&next_runtime).base_tools
-            };
-            let switch_to_tools_tab = app.show_session_tool_selector_popover;
             let runtime = app.current_session_runtime_mut();
             runtime.agent = normalized_agent.clone();
-            runtime.tool_selector.reconcile_tools(&base_tools);
-            if switch_to_tools_tab {
-                runtime
-                    .tool_selector
-                    .select_tab(crate::app::state::SessionToolSelectorTab::Tools);
-            }
+            runtime.tool_selector.reset();
+            runtime.tool_selector.select_tab(SessionToolSelectorTab::Agent);
             info!(
                 target: "vw_desktop",
                 selected_agent = ?normalized_agent,
@@ -573,15 +670,38 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
             persist_chat_preferences(app, &model, auto_model, app.acp_agent.as_deref())
         }
         ChatMessage::SessionToolBucketToggled(bucket) => {
+            let base_tools = base_tools_without_delegate_agent(app);
             let runtime = app.current_session_runtime_mut();
+            runtime.agent = None;
             if !runtime.tool_selector.toggle_bucket(bucket) {
                 app.push_notification("至少保留一个工具分桶".to_string());
+            } else {
+                runtime.tool_selector.reconcile_tools(&base_tools);
             }
             Task::none()
         }
         ChatMessage::SessionToolSelectorTabSelected(tab) => {
+            {
+                let runtime = app.current_session_runtime_mut();
+                runtime.tool_selector.select_tab(tab);
+            }
+            if tab == SessionToolSelectorTab::Skills
+                && app.skills_settings.catalog.is_empty()
+                && !app.skills_settings.loading
+            {
+                Task::done(Message::Settings(message::SettingsMessage::SkillsRefresh))
+            } else {
+                Task::none()
+            }
+        }
+        ChatMessage::SessionToolSelectorSearchChanged(query) => {
             let runtime = app.current_session_runtime_mut();
-            runtime.tool_selector.select_tab(tab);
+            runtime.tool_selector.set_query(query);
+            Task::none()
+        }
+        ChatMessage::SessionToolSelectorSkillDirectoryScopeChanged(scope) => {
+            let runtime = app.current_session_runtime_mut();
+            runtime.tool_selector.select_skill_directory_scope(scope);
             Task::none()
         }
         ChatMessage::SessionToolGroupCollapsedToggled(group) => {
@@ -590,38 +710,63 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
             Task::none()
         }
         ChatMessage::SessionToolGroupToolsToggled(group) => {
-            let base_tools = app.current_session_tool_inventory().base_tools;
+            let base_tools = base_tools_without_delegate_agent(app);
             let runtime = app.current_session_runtime_mut();
+            runtime.agent = None;
             if !runtime.tool_selector.toggle_group_tools(&base_tools, group) {
                 app.push_notification("至少保留一个会话工具".to_string());
             }
             Task::none()
         }
         ChatMessage::SessionToolSelectorSelectAll => {
-            let base_tools = app.current_session_tool_inventory().base_tools;
+            let base_tools = base_tools_without_delegate_agent(app);
             let runtime = app.current_session_runtime_mut();
+            runtime.agent = None;
             runtime.tool_selector.select_all_tools(&base_tools);
             Task::none()
         }
         ChatMessage::SessionToolSelectorInvert => {
-            let base_tools = app.current_session_tool_inventory().base_tools;
+            let base_tools = base_tools_without_delegate_agent(app);
             let runtime = app.current_session_runtime_mut();
+            runtime.agent = None;
             if !runtime.tool_selector.invert_tools(&base_tools) {
                 app.push_notification("当前工具范围无法直接反选".to_string());
             }
             Task::none()
         }
         ChatMessage::SessionToolToggled(tool_id) => {
-            let base_tools = app.current_session_tool_inventory().base_tools;
+            let base_tools = base_tools_without_delegate_agent(app);
             let runtime = app.current_session_runtime_mut();
+            runtime.agent = None;
             if !runtime.tool_selector.toggle_tool(&base_tools, &tool_id) {
                 app.push_notification("至少保留一个会话工具".to_string());
             }
             Task::none()
         }
-        ChatMessage::SessionToolSelectorReset => {
+        ChatMessage::SessionManualToolSelected(tool_id) => {
+            let tool_id = tool_id.trim().to_string();
+            if tool_id.is_empty() {
+                return Task::none();
+            }
             let runtime = app.current_session_runtime_mut();
+            runtime.tool_selector.toggle_manual_tool(&tool_id);
+            Task::none()
+        }
+        ChatMessage::SessionSkillSelected(skill_id) => {
+            let skill_id = skill_id.trim().to_string();
+            if skill_id.is_empty() {
+                return Task::none();
+            }
+            let runtime = app.current_session_runtime_mut();
+            runtime.tool_selector.toggle_manual_skill(&skill_id);
+            Task::none()
+        }
+        ChatMessage::SessionToolSelectorReset => {
+            let base_tools = base_tools_without_delegate_agent(app);
+            let runtime = app.current_session_runtime_mut();
+            runtime.agent = None;
             runtime.tool_selector.reset();
+            runtime.tool_selector.reconcile_tools(&base_tools);
             Task::none()
         }
         ChatMessage::QueueRemove(i) => {
@@ -732,10 +877,9 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
                     );
                     let created_ms = crate::app::time::now_ms();
                     let current_runtime = app.current_session_runtime();
-                    let acp_agent =
-                        resolve_acp_agent(app, current_runtime.acp_agent.clone());
+                    let acp_agent = resolve_acp_agent(app, current_runtime.acp_agent.clone());
+                    let allowed_tools: Option<Vec<String>> = None;
                     let agent = request_delegate_agent(current_runtime.agent.clone());
-                    let allowed_tools = selected_delegate_allowed_tools(app, &current_runtime);
                     let acp_test = acp_agent.is_some();
                     start(
                         app,
@@ -1006,6 +1150,7 @@ pub(super) fn start(app: &mut App, item: QueueItem, keep: bool) -> Task<Message>
         }
         runtime.last_effective_acp_agent =
             runtime.active_agent_request.as_ref().and_then(|request| request.acp_agent.clone());
+        app.sync_task_pet_from_runtime();
 
         let now = crate::app::time::now_ms();
         let title = app

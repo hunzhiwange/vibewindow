@@ -23,8 +23,8 @@ pub mod empty;
 pub mod header;
 pub mod height_index;
 pub mod message_view;
-pub mod tool_selector;
 mod tool_names;
+pub mod tool_selector;
 pub mod tool_text_support;
 pub mod tools;
 pub mod utils;
@@ -62,14 +62,15 @@ mod tool_text_support_tests;
 
 use iced::widget::svg;
 use iced::widget::tooltip::{Position as TooltipPosition, Tooltip};
-use iced::widget::{Space, button, column, container, mouse_area, row, scrollable, stack, text};
+use iced::widget::{Space, button, column, container, row, scrollable, stack, text};
 use iced::{Background, Border, Color, Element, Length, Theme};
 use once_cell::sync::Lazy;
 use std::borrow::Cow;
 
 use crate::app::assets::Icon;
+use crate::app::components::input_panel::todo_panel::{self, TodoPanelSurface};
 use crate::app::models::{ChatMessage, ChatRenderCacheEntry, ChatRole};
-use crate::app::{App, Message, message};
+use crate::app::{App, Message, TodoPanelPlacement, message};
 
 use self::empty::{empty_session_placeholder, session_loading_placeholder};
 use self::header::chat_header_view;
@@ -139,11 +140,7 @@ pub(crate) fn is_chat_message_idx_visible(
 fn user_question_preview(content: &str) -> String {
     let flattened = content.replace(['\n', '\r'], " ");
     let trimmed = flattened.split_whitespace().collect::<Vec<_>>().join(" ");
-    if trimmed.is_empty() {
-        "空提问".to_string()
-    } else {
-        truncate_chars(trimmed.trim(), 100)
-    }
+    if trimmed.is_empty() { "空提问".to_string() } else { truncate_chars(trimmed.trim(), 100) }
 }
 
 fn user_question_tooltip_content(label: String) -> Element<'static, Message> {
@@ -280,10 +277,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     // 创建可滚动容器，包含消息列
     let scroll_content = scrollable(
-        container(col)
-            .width(Length::Fill)
-            .center_x(Length::Fill)
-            .padding(iced::Padding { top: 16.0, right: 28.0, bottom: 20.0, left: 28.0 }),
+        container(col).width(Length::Fill).center_x(Length::Fill).padding(iced::Padding {
+            top: 16.0,
+            right: 28.0,
+            bottom: 20.0,
+            left: 28.0,
+        }),
     )
     .direction(chat_scroll_direction())
     .id(app.chat_scroll_id.clone())
@@ -310,24 +309,50 @@ pub fn view(app: &App) -> Element<'_, Message> {
             question_visible_end_idx,
         );
         let jump_button = jump_to_bottom_button(app);
-        let body_base = stack![scroll_content, question_jump_button, jump_button]
+        let todo_overlay = chat_todo_overlay(app);
+        let body_base = stack![scroll_content, question_jump_button, jump_button, todo_overlay]
             .width(Length::Fill)
             .height(Length::Fill);
-        let panel_base = stack![column![header, body_base].spacing(10), fullscreen_button_overlay(app)]
-            .width(Length::Fill)
-            .height(Length::Fill);
+        let panel_base =
+            column![header, body_base].spacing(6).width(Length::Fill).height(Length::Fill);
         panel_base.into()
     } else if is_loading_session_ui {
-        stack![session_loading_placeholder(app), fullscreen_button_overlay(app)]
+        stack![session_loading_placeholder(app), empty_fullscreen_controls(app)]
             .width(Length::Fill)
             .height(Length::Fill)
             .into()
     } else {
-        stack![empty_session_placeholder(app), fullscreen_button_overlay(app)]
+        stack![empty_session_placeholder(app), empty_fullscreen_controls(app)]
             .width(Length::Fill)
             .height(Length::Fill)
             .into()
     }
+}
+
+fn chat_todo_overlay<'a>(app: &'a App) -> Element<'a, Message> {
+    if app.chat_todo_placement != TodoPanelPlacement::ChatTopRight
+        || app.chat_todo_session_id != app.active_session_id
+        || app.chat_todo_items.is_empty()
+    {
+        return Space::new().height(Length::Fixed(0.0)).into();
+    }
+
+    let submit_anim =
+        app.current_session_runtime_ref().map(|runtime| runtime.submit_anim).unwrap_or(0);
+    let panel = todo_panel::todo_panel(
+        app,
+        app.chat_todo_items.as_slice(),
+        submit_anim,
+        TodoPanelSurface::ChatTopRight,
+    );
+
+    container(panel)
+        .padding(iced::Padding { top: 14.0, right: 22.0, bottom: 0.0, left: 0.0 })
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .align_x(iced::alignment::Horizontal::Right)
+        .align_y(iced::alignment::Vertical::Top)
+        .into()
 }
 
 pub fn tool_dialog_overlay(app: &App) -> Option<Element<'_, Message>> {
@@ -343,95 +368,32 @@ pub(crate) fn rough_message_heights(chat: &[ChatMessage]) -> Vec<f32> {
     chat.iter().map(|message| estimate_message_height_rough(&message.content)).collect()
 }
 
-fn fullscreen_button_overlay<'a>(app: &'a App) -> Element<'a, Message> {
-    let overlay_controls: Element<'a, Message> = if app.show_chat_fullscreen_overlay {
-        let bg = app.theme().palette().background;
-        let is_dark = bg.r + bg.g + bg.b < 1.5;
-        let icon_color = if is_dark {
-            Color::from_rgba(0.04, 0.04, 0.05, 1.0)
-        } else {
-            Color::from_rgba(1.0, 1.0, 1.0, 0.92)
-        };
+fn empty_fullscreen_controls<'a>(app: &'a App) -> Element<'a, Message> {
+    let fullscreen_icon =
+        if app.chat_panel_fullscreen { Icon::FullscreenExit } else { Icon::Fullscreen };
+    let fullscreen_label = if app.chat_panel_fullscreen { "退出全屏" } else { "全屏" };
 
-        let half_button: Element<'a, Message> = button(
-            icon_svg(Icon::LayoutTextWindow)
-                .width(Length::Fixed(11.0))
-                .height(Length::Fixed(11.0))
-                .style(move |_theme: &Theme, _status| svg::Style { color: Some(icon_color) }),
+    let controls = row![
+        header::header_icon_button(
+            Icon::LayoutTextWindow,
+            "半屏",
+            Message::Chat(message::ChatMessage::ToggleHalfFullscreen),
+        ),
+        header::header_icon_button(
+            fullscreen_icon,
+            fullscreen_label,
+            Message::Chat(message::ChatMessage::ToggleFullscreen),
         )
-        .padding(4)
-        .width(Length::Fixed(21.0))
-        .height(Length::Fixed(21.0))
-        .style(|theme: &Theme, status| self::utils::icon_button_style(theme, status))
-        .on_press(Message::Chat(message::ChatMessage::ToggleHalfFullscreen))
-        .into();
+    ]
+    .spacing(6)
+    .align_y(iced::Alignment::Center);
 
-        let fullscreen_icon =
-            if app.chat_panel_fullscreen { Icon::FullscreenExit } else { Icon::Fullscreen };
-
-        let fullscreen_button: Element<'a, Message> = button(
-            icon_svg(fullscreen_icon)
-                .width(Length::Fixed(11.0))
-                .height(Length::Fixed(11.0))
-                .style(move |_theme: &Theme, _status| svg::Style { color: Some(icon_color) }),
-        )
-        .padding(4)
-        .width(Length::Fixed(21.0))
-        .height(Length::Fixed(21.0))
-        .style(|theme: &Theme, status| self::utils::icon_button_style(theme, status))
-        .on_press(Message::Chat(message::ChatMessage::ToggleFullscreen))
-        .into();
-
-        container(row![half_button, fullscreen_button].spacing(6).align_y(iced::Alignment::Center))
-            .padding([5, 8])
-            .style(|theme: &Theme| {
-                let palette = theme.extended_palette();
-                let bg = theme.palette().background;
-                let is_dark = bg.r + bg.g + bg.b < 1.5;
-                iced::widget::container::Style {
-                    text_color: Some(theme.palette().text),
-                    background: Some(Background::Color(if is_dark {
-                        Color::from_rgba(1.0, 1.0, 1.0, 0.92)
-                    } else {
-                        Color::from_rgba(0.04, 0.04, 0.05, 0.88)
-                    })),
-                    border: Border {
-                        width: 1.0,
-                        color: if is_dark {
-                            Color::from_rgba(1.0, 1.0, 1.0, 0.36)
-                        } else {
-                            palette.background.strong.color.scale_alpha(0.40)
-                        },
-                        radius: 999.0.into(),
-                    },
-                    shadow: iced::Shadow {
-                        color: if is_dark {
-                            Color::from_rgba(1.0, 1.0, 1.0, 0.12)
-                        } else {
-                            Color::from_rgba(0.0, 0.0, 0.0, 0.28)
-                        },
-                        offset: iced::Vector::new(0.0, 6.0),
-                        blur_radius: 18.0,
-                    },
-                    snap: false,
-                }
-            })
-            .into()
-    } else {
-        Space::new().width(Length::Fixed(21.0)).height(Length::Fixed(21.0)).into()
-    };
-
-    container(
-        mouse_area(overlay_controls)
-            .on_enter(Message::Chat(message::ChatMessage::FullscreenOverlayEntered))
-            .on_exit(Message::Chat(message::ChatMessage::FullscreenOverlayExited)),
-    )
-    .width(Length::Fill)
-    .height(Length::Fill)
-    .align_x(iced::alignment::Horizontal::Center)
-    .align_y(iced::alignment::Vertical::Top)
-    .padding(iced::Padding { top: 0.0, right: 0.0, bottom: 0.0, left: 0.0 })
-    .into()
+    container(controls)
+        .width(Length::Fill)
+        .height(Length::Shrink)
+        .align_x(iced::alignment::Horizontal::Right)
+        .padding(iced::Padding { top: 16.0, right: 22.0, bottom: 0.0, left: 0.0 })
+        .into()
 }
 
 /// 创建"跳转到底部"按钮
@@ -606,35 +568,33 @@ fn user_question_nav_overlay<'a>(
         dots = dots.push(button_with_tooltip);
     }
 
-    let rail = container(dots)
-        .padding([8, 4])
-        .style(|theme: &Theme| {
-            let is_dark = theme.palette().background.r
-                + theme.palette().background.g
-                + theme.palette().background.b
-                < 1.5;
-            let bg = if is_dark {
-                Color::from_rgba8(20, 22, 27, 0.84)
-            } else {
-                Color::from_rgba8(244, 246, 249, 0.92)
-            };
-            let border = if is_dark {
-                Color::from_rgba8(42, 45, 52, 0.92)
-            } else {
-                Color::from_rgba8(225, 230, 237, 1.0)
-            };
+    let rail = container(dots).padding([8, 4]).style(|theme: &Theme| {
+        let is_dark = theme.palette().background.r
+            + theme.palette().background.g
+            + theme.palette().background.b
+            < 1.5;
+        let bg = if is_dark {
+            Color::from_rgba8(20, 22, 27, 0.84)
+        } else {
+            Color::from_rgba8(244, 246, 249, 0.92)
+        };
+        let border = if is_dark {
+            Color::from_rgba8(42, 45, 52, 0.92)
+        } else {
+            Color::from_rgba8(225, 230, 237, 1.0)
+        };
 
-            iced::widget::container::Style {
-                background: Some(Background::Color(bg)),
-                border: Border { width: 1.0, color: border, radius: 14.0.into() },
-                shadow: iced::Shadow {
-                    color: Color::BLACK.scale_alpha(if is_dark { 0.18 } else { 0.08 }),
-                    offset: iced::Vector::new(0.0, 8.0),
-                    blur_radius: 18.0,
-                },
-                ..Default::default()
-            }
-        });
+        iced::widget::container::Style {
+            background: Some(Background::Color(bg)),
+            border: Border { width: 1.0, color: border, radius: 14.0.into() },
+            shadow: iced::Shadow {
+                color: Color::BLACK.scale_alpha(if is_dark { 0.18 } else { 0.08 }),
+                offset: iced::Vector::new(0.0, 8.0),
+                blur_radius: 18.0,
+            },
+            ..Default::default()
+        }
+    });
 
     container(rail)
         .padding(iced::Padding { top: 0.0, right: 7.0, bottom: 0.0, left: 0.0 })

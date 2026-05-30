@@ -1,7 +1,7 @@
 //! 处理系统设置页面中对应功能区的消息、校验和配置持久化。
 
-use super::{bundled_workspace_identity_content, bundled_workspace_identity_path};
 use super::summarize_models;
+use super::{bundled_workspace_identity_content, bundled_workspace_identity_path};
 use std::collections::HashMap;
 use vw_shared::provider::types::{
     ApiInfo, Capabilities, CapabilityIO, Info, InterleavedCapability, Model, ModelCost,

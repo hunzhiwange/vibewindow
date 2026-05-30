@@ -1,7 +1,7 @@
 //! 处理渠道设置子模块的状态变更、字段转换和持久化。
 
 use crate::app::config::update_channels_config_async;
-use crate::app::{state::ChannelsSettingsState, App, Message};
+use crate::app::{App, Message, state::ChannelsSettingsState};
 use iced::Task;
 
 fn enabled_channels(settings: &ChannelsSettingsState) -> Vec<&'static str> {

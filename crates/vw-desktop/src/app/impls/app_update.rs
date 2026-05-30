@@ -446,9 +446,10 @@ impl App {
             }
             Message::ProjectChatPreferencesLoaded(project_path, preferences) => {
                 if self.project_path.as_deref() == Some(project_path.as_str())
-                    && let Some((model, auto_model, acp_agent)) = preferences {
-                        self.apply_project_chat_preferences(model, auto_model, acp_agent);
-                    }
+                    && let Some((model, auto_model, acp_agent)) = preferences
+                {
+                    self.apply_project_chat_preferences(model, auto_model, acp_agent);
+                }
                 Task::none()
             }
             // 项目管理相关消息，委托给 project 模块处理

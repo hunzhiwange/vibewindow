@@ -1,4 +1,4 @@
-use super::command::{hints, Info, Source, State};
+use super::command::{Info, Source, State, hints};
 
 #[test]
 fn hints_extracts_unique_template_placeholders_in_order() {

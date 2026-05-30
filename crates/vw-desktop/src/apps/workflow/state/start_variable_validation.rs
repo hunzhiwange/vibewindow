@@ -8,7 +8,9 @@ const START_VARIABLE_FILE_LIST_MIN_UPLOAD_COUNT: u8 = 1;
 const START_VARIABLE_FILE_LIST_MAX_UPLOAD_COUNT: u8 = 10;
 const START_VARIABLE_FILE_LIST_DEFAULT_UPLOAD_COUNT: u8 = 5;
 
-pub(in crate::apps::workflow) fn is_valid_start_variable_number_default_value(default_value: &str) -> bool {
+pub(in crate::apps::workflow) fn is_valid_start_variable_number_default_value(
+    default_value: &str,
+) -> bool {
     let trimmed = default_value.trim();
     trimmed.is_empty() || trimmed.parse::<i64>().is_ok() || trimmed.parse::<f64>().is_ok()
 }
@@ -72,11 +74,8 @@ fn sync_start_variable_file_defaults(variable: &mut WorkflowStartVariableDraft) 
     match variable.input_type.as_str() {
         "file" => {
             let first = values.into_iter().next().unwrap_or_default();
-            variable.default_file_values = if first.is_empty() {
-                Vec::new()
-            } else {
-                vec![first.clone()]
-            };
+            variable.default_file_values =
+                if first.is_empty() { Vec::new() } else { vec![first.clone()] };
             variable.default_value = first;
         }
         "file-list" => {
@@ -100,11 +99,7 @@ fn sync_start_variable_file_defaults(variable: &mut WorkflowStartVariableDraft) 
 }
 
 pub(super) fn normalize_start_variable_draft(variable: &mut WorkflowStartVariableDraft) {
-    variable.options = variable
-        .options
-        .iter()
-        .map(|item| item.trim().to_string())
-        .collect();
+    variable.options = variable.options.iter().map(|item| item.trim().to_string()).collect();
     variable.allowed_file_types = variable
         .allowed_file_types
         .iter()
@@ -113,11 +108,10 @@ pub(super) fn normalize_start_variable_draft(variable: &mut WorkflowStartVariabl
         .collect();
     variable.allowed_file_types.sort();
     variable.allowed_file_types.dedup();
-    variable.allowed_file_upload_methods = normalize_file_upload_methods(
-        variable.allowed_file_upload_methods.clone(),
-    );
-    variable.allowed_file_extensions = normalize_file_extensions(
-        if variable.allowed_file_extensions_input.trim().is_empty() {
+    variable.allowed_file_upload_methods =
+        normalize_file_upload_methods(variable.allowed_file_upload_methods.clone());
+    variable.allowed_file_extensions =
+        normalize_file_extensions(if variable.allowed_file_extensions_input.trim().is_empty() {
             variable.allowed_file_extensions.clone()
         } else {
             variable
@@ -127,8 +121,7 @@ pub(super) fn normalize_start_variable_draft(variable: &mut WorkflowStartVariabl
                 .filter(|item| !item.is_empty())
                 .map(|item| item.to_string())
                 .collect()
-        },
-    );
+        });
     variable.allowed_file_extensions_input = variable.allowed_file_extensions.join(", ");
 
     if variable.hidden {
@@ -152,14 +145,16 @@ pub(super) fn normalize_start_variable_draft(variable: &mut WorkflowStartVariabl
                 variable.allowed_file_types = default_start_variable_allowed_file_types();
             }
             if variable.allowed_file_upload_methods.is_empty() {
-                variable.allowed_file_upload_methods = default_start_variable_allowed_upload_methods();
+                variable.allowed_file_upload_methods =
+                    default_start_variable_allowed_upload_methods();
             }
             if !variable.allowed_file_types.iter().any(|item| item == "custom") {
                 variable.allowed_file_extensions.clear();
                 variable.allowed_file_extensions_input.clear();
             }
             variable.max_length_input =
-                normalized_start_variable_file_list_max_length(&variable.max_length_input).to_string();
+                normalized_start_variable_file_list_max_length(&variable.max_length_input)
+                    .to_string();
             sync_start_variable_file_defaults(variable);
         }
         "file" => {
@@ -168,7 +163,8 @@ pub(super) fn normalize_start_variable_draft(variable: &mut WorkflowStartVariabl
                 variable.allowed_file_types = default_start_variable_allowed_file_types();
             }
             if variable.allowed_file_upload_methods.is_empty() {
-                variable.allowed_file_upload_methods = default_start_variable_allowed_upload_methods();
+                variable.allowed_file_upload_methods =
+                    default_start_variable_allowed_upload_methods();
             }
             if !variable.allowed_file_types.iter().any(|item| item == "custom") {
                 variable.allowed_file_extensions.clear();
@@ -190,10 +186,7 @@ pub(super) fn normalize_start_variable_draft(variable: &mut WorkflowStartVariabl
             variable.allowed_file_extensions_input.clear();
             variable.allowed_file_upload_methods.clear();
             variable.default_file_values.clear();
-            if !options
-                .iter()
-                .any(|item| *item == variable.default_value.trim())
-            {
+            if !options.iter().any(|item| *item == variable.default_value.trim()) {
                 variable.default_value.clear();
             }
         }
@@ -308,10 +301,7 @@ pub(super) fn validate_start_variable_editor_draft(
         if variable.allowed_file_types.is_empty() {
             return Err("至少选择一种支持的文件类型".to_string());
         }
-        if variable
-            .allowed_file_types
-            .iter()
-            .any(|item| item == "custom")
+        if variable.allowed_file_types.iter().any(|item| item == "custom")
             && variable.allowed_file_extensions.is_empty()
         {
             return Err("选择自定义文件类型时，必须填写扩展名".to_string());
@@ -321,7 +311,9 @@ pub(super) fn validate_start_variable_editor_draft(
         }
         if variable.input_type == "file-list"
             && variable.default_file_values.len()
-                > usize::from(normalized_start_variable_file_list_max_length(&variable.max_length_input))
+                > usize::from(normalized_start_variable_file_list_max_length(
+                    &variable.max_length_input,
+                ))
         {
             return Err("默认文件数量不能超过最大上传数".to_string());
         }

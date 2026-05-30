@@ -62,10 +62,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_tool_description(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Tool {
-                tool_description, ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Tool { tool_description, .. } = draft {
                 *tool_description = value;
                 true
             } else {
@@ -87,11 +84,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_tool_plugin_unique_identifier(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Tool {
-                plugin_unique_identifier,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Tool { plugin_unique_identifier, .. } = draft {
                 *plugin_unique_identifier = value;
                 true
             } else {
@@ -102,11 +95,7 @@ impl WorkflowState {
 
     pub fn node_editor_tool_parameters_action(&mut self, action: text_editor::Action) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Tool {
-                tool_parameters_editor,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Tool { tool_parameters_editor, .. } = draft {
                 tool_parameters_editor.perform(action);
                 true
             } else {
@@ -117,11 +106,7 @@ impl WorkflowState {
 
     pub fn node_editor_tool_configurations_action(&mut self, action: text_editor::Action) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Tool {
-                tool_configurations_editor,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Tool { tool_configurations_editor, .. } = draft {
                 tool_configurations_editor.perform(action);
                 true
             } else {
@@ -132,11 +117,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_agent_strategy_provider(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Agent {
-                strategy_provider_name,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Agent { strategy_provider_name, .. } = draft {
                 *strategy_provider_name = value;
                 true
             } else {
@@ -147,11 +128,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_agent_strategy_name(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Agent {
-                strategy_name,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Agent { strategy_name, .. } = draft {
                 *strategy_name = value;
                 true
             } else {
@@ -162,11 +139,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_agent_strategy_label(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Agent {
-                strategy_label,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Agent { strategy_label, .. } = draft {
                 *strategy_label = value;
                 true
             } else {
@@ -177,11 +150,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_agent_plugin_unique_identifier(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Agent {
-                plugin_unique_identifier,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Agent { plugin_unique_identifier, .. } = draft {
                 *plugin_unique_identifier = value;
                 true
             } else {
@@ -192,11 +161,7 @@ impl WorkflowState {
 
     pub fn node_editor_agent_output_schema_action(&mut self, action: text_editor::Action) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Agent {
-                output_schema_editor,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Agent { output_schema_editor, .. } = draft {
                 output_schema_editor.perform(action);
                 true
             } else {
@@ -207,11 +172,7 @@ impl WorkflowState {
 
     pub fn node_editor_agent_parameters_action(&mut self, action: text_editor::Action) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Agent {
-                parameters_editor,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Agent { parameters_editor, .. } = draft {
                 parameters_editor.perform(action);
                 true
             } else {
@@ -222,11 +183,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_agent_memory_enabled(&mut self, value: bool) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Agent {
-                memory_enabled,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Agent { memory_enabled, .. } = draft {
                 *memory_enabled = value;
                 true
             } else {
@@ -237,11 +194,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_agent_memory_window_size(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Agent {
-                memory_window_size_input,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Agent { memory_window_size_input, .. } = draft {
                 *memory_window_size_input = value;
                 true
             } else {
@@ -252,11 +205,7 @@ impl WorkflowState {
 
     pub fn node_editor_agent_memory_prompt_action(&mut self, action: text_editor::Action) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Agent {
-                memory_prompt_editor,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Agent { memory_prompt_editor, .. } = draft {
                 memory_prompt_editor.perform(action);
                 true
             } else {
@@ -267,11 +216,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_llm_provider(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Llm {
-                provider,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Llm { provider, .. } = draft {
                 *provider = value;
                 true
             } else {
@@ -282,11 +227,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_llm_model_name(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Llm {
-                model_name,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Llm { model_name, .. } = draft {
                 *model_name = value;
                 true
             } else {
@@ -297,11 +238,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_llm_model_mode(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Llm {
-                model_mode,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Llm { model_mode, .. } = draft {
                 *model_mode = value;
                 true
             } else {
@@ -312,11 +249,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_llm_enable_thinking(&mut self, value: bool) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Llm {
-                enable_thinking,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Llm { enable_thinking, .. } = draft {
                 *enable_thinking = value;
                 true
             } else {
@@ -327,11 +260,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_llm_context_enabled(&mut self, value: bool) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Llm {
-                context_enabled,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Llm { context_enabled, .. } = draft {
                 *context_enabled = value;
                 true
             } else {
@@ -342,11 +271,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_llm_context_selector_input(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Llm {
-                context_selector_input,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Llm { context_selector_input, .. } = draft {
                 *context_selector_input = value;
                 true
             } else {
@@ -379,11 +304,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_llm_vision_enabled(&mut self, value: bool) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Llm {
-                vision_enabled,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Llm { vision_enabled, .. } = draft {
                 *vision_enabled = value;
                 true
             } else {
@@ -405,17 +326,13 @@ impl WorkflowState {
 
     pub fn set_node_editor_code_language(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Code {
-                language,
-                code_editor,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Code { language, code_editor, .. } = draft {
                 let normalized = normalize_code_language(&value);
                 let previous_template = default_code_template(language);
                 let current_code = code_editor.text();
                 if current_code.trim().is_empty() || current_code == previous_template {
-                    *code_editor = text_editor::Content::with_text(default_code_template(&normalized));
+                    *code_editor =
+                        text_editor::Content::with_text(default_code_template(&normalized));
                 }
                 *language = normalized;
                 true
@@ -476,11 +393,7 @@ impl WorkflowState {
                     input.selector = parse_code_selector_key(&selector_key);
                     input.value_type = value_type;
                     if input.variable.trim().is_empty() {
-                        input.variable = input
-                            .selector
-                            .last()
-                            .cloned()
-                            .unwrap_or_default();
+                        input.variable = input.selector.last().cloned().unwrap_or_default();
                     }
                     return true;
                 }
@@ -669,11 +582,7 @@ impl WorkflowState {
 
     pub fn node_editor_code_default_value_action(&mut self, action: text_editor::Action) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::Code {
-                default_value_editor,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::Code { default_value_editor, .. } = draft {
                 default_value_editor.perform(action);
                 true
             } else {
@@ -704,7 +613,11 @@ impl WorkflowState {
         let description = editor.description.trim().to_string();
         let position = editor.position;
         let raw_data_yaml = if editor.visual_draft.is_some() {
-            apply_visual_draft_to_yaml(&editor.block_type, &editor.raw_data_editor.text(), editor.visual_draft.as_ref())?
+            apply_visual_draft_to_yaml(
+                &editor.block_type,
+                &editor.raw_data_editor.text(),
+                editor.visual_draft.as_ref(),
+            )?
         } else {
             editor.raw_data_editor.text()
         };
@@ -713,14 +626,11 @@ impl WorkflowState {
             WorkflowNodeEditorMode::Create => {
                 self.ensure_start_node_available(&block_type)?;
                 let node_id = generate_node_id(&block_type);
-                let next_z = self
-                    .document
-                    .nodes
-                    .iter()
-                    .map(|node| node.z_index)
-                    .fold(0.0_f32, f32::max)
-                    + 1.0;
-                let base_node = create_node_from_type(&block_type, node_id.clone(), position, next_z)?;
+                let next_z =
+                    self.document.nodes.iter().map(|node| node.z_index).fold(0.0_f32, f32::max)
+                        + 1.0;
+                let base_node =
+                    create_node_from_type(&block_type, node_id.clone(), position, next_z)?;
                 let new_node =
                     rebuild_node_from_parts(&base_node, &title, &description, &raw_data_yaml)?;
 
@@ -730,7 +640,8 @@ impl WorkflowState {
                 self.selected_edge_id = None;
                 self.node_editor = None;
                 self.refresh_dirty_state();
-                self.status_message = Some(format!("已新增 {} 节点", pretty_block_type(&block_type)));
+                self.status_message =
+                    Some(format!("已新增 {} 节点", pretty_block_type(&block_type)));
                 self.sync_selection_flags();
             }
             WorkflowNodeEditorMode::Edit(node_id) => {
@@ -741,7 +652,8 @@ impl WorkflowState {
                     .position(|node| node.id == node_id)
                     .ok_or_else(|| "目标节点不存在".to_string())?;
                 let existing = self.document.nodes[index].clone();
-                let updated = rebuild_node_from_parts(&existing, &title, &description, &raw_data_yaml)?;
+                let updated =
+                    rebuild_node_from_parts(&existing, &title, &description, &raw_data_yaml)?;
 
                 self.push_undo_snapshot();
                 self.document.nodes[index] = updated;
@@ -755,7 +667,8 @@ impl WorkflowState {
                         removed_edges,
                     ));
                 } else {
-                    self.status_message = Some(format!("已更新 {} 节点", pretty_block_type(&block_type)));
+                    self.status_message =
+                        Some(format!("已更新 {} 节点", pretty_block_type(&block_type)));
                 }
                 self.node_editor = None;
                 self.refresh_dirty_state();
@@ -765,8 +678,6 @@ impl WorkflowState {
 
         Ok(())
     }
-
-
 }
 
 fn normalize_code_language(value: &str) -> String {
@@ -804,11 +715,7 @@ fn parse_code_selector_key(selector_key: &str) -> Vec<String> {
 fn next_code_output_name(outputs: &[WorkflowCodeOutputDraft]) -> String {
     let mut index = 1_usize;
     loop {
-        let candidate = if index == 1 {
-            "result".to_string()
-        } else {
-            format!("result_{index}")
-        };
+        let candidate = if index == 1 { "result".to_string() } else { format!("result_{index}") };
         if !outputs.iter().any(|output| output.key == candidate) {
             return candidate;
         }
@@ -828,9 +735,11 @@ fn maybe_sync_code_default_value_editor(
     }
 
     let current_text = default_value_editor.text();
-    let previous_generated = value_yaml_for_editor(&default_code_default_value_value(previous_outputs));
+    let previous_generated =
+        value_yaml_for_editor(&default_code_default_value_value(previous_outputs));
     if force || current_text.trim().is_empty() || current_text.trim() == previous_generated.trim() {
-        *default_value_editor =
-            text_editor::Content::with_text(&value_yaml_for_editor(&default_code_default_value_value(outputs)));
+        *default_value_editor = text_editor::Content::with_text(&value_yaml_for_editor(
+            &default_code_default_value_value(outputs),
+        ));
     }
 }

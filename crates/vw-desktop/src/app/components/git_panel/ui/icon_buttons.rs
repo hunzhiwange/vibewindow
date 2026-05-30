@@ -124,6 +124,7 @@ pub fn square_icon_button_tiny(icon: Icon, tip: String, on: Message) -> Element<
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
+#[allow(dead_code)]
 pub fn square_icon_button_micro(icon: Icon, tip: String, on: Message) -> Element<'static, Message> {
     let button = button(themed_icon_svg(icon, 10.0))
         .on_press(on)

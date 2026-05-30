@@ -143,9 +143,7 @@ pub fn build_file_tree_list(app: &App) -> Element<'_, Message> {
 
             // 检查是否需要显示右键菜单（当前路径与菜单路径匹配）
             let item = if app.file_tree_menu_path.as_deref()
-                == Some(
-                    std::path::Path::new(project_root).join(&full).to_string_lossy().as_ref(),
-                )
+                == Some(std::path::Path::new(project_root).join(&full).to_string_lossy().as_ref())
                 && app.file_tree_menu_source.as_deref() == Some("tree-dir")
             {
                 // 显示右键菜单覆盖层

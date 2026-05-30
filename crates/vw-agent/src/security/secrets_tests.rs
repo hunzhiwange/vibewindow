@@ -12,4 +12,3 @@ fn encrypted_prefix_checks_are_distinct() {
     assert!(SecretStore::is_secure_encrypted("encrypted:v2:data"));
     assert!(!SecretStore::is_secure_encrypted("encrypted:v1:data"));
 }
-

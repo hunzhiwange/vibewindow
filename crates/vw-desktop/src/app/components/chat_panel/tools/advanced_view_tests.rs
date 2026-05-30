@@ -1,4 +1,6 @@
-use super::advanced_view::{format_tool_search_body, is_advanced_surface_tool, nested_string, result_data_message};
+use super::advanced_view::{
+    format_tool_search_body, is_advanced_surface_tool, nested_string, result_data_message,
+};
 use serde_json::json;
 
 #[test]
@@ -20,7 +22,10 @@ fn result_data_message_reads_nested_message() {
         result_data_message(&json!({"result":{"data":{"message":"ok"}}})),
         Some("ok".to_string())
     );
-    assert!(format_tool_search_body(&json!({
-        "result": {"data": {"items": [{"display_name": "alpha"}]}}
-    })).is_some());
+    assert!(
+        format_tool_search_body(&json!({
+            "result": {"data": {"items": [{"display_name": "alpha"}]}}
+        }))
+        .is_some()
+    );
 }

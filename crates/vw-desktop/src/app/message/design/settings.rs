@@ -153,4 +153,3 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
         _ => Task::none(),
     }
 }
-

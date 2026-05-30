@@ -30,11 +30,7 @@ pub(crate) fn extend_llm_messages_from_session_range(
     start_index: usize,
 ) {
     llm_messages.extend(
-        session
-            .messages
-            .iter()
-            .skip(start_index)
-            .filter_map(session_message_to_llm_message),
+        session.messages.iter().skip(start_index).filter_map(session_message_to_llm_message),
     )
 }
 

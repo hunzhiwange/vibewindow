@@ -2,6 +2,7 @@
 //!
 //! 注释聚焦模块职责、消息边界和失败处理方式，帮助维护者在不改变逻辑的前提下理解代码。
 
+use super::super::DesignPlanExecutionResult;
 use super::super::canvas::{build_target_frame_options, sync_module_placeholder_status};
 use super::super::logging::{
     append_design_project_log, create_design_generation_log_file, executor_step_label,
@@ -17,7 +18,6 @@ use super::super::prompts::{
 use super::super::tasks::{
     build_design_plan_canvas, design_page_parallel_limit, next_queued_generation_pages,
 };
-use super::super::DesignPlanExecutionResult;
 use crate::app::message::DesignMessage;
 use crate::app::task::{
     TASK_MODEL_AUTO, TaskExecutorBackend, TaskLogStream, build_executor_command,
@@ -35,9 +35,10 @@ use std::sync::mpsc;
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 失败会被转换为界面可展示的状态或消息，避免在处理链路中静默丢失。
 pub(super) fn design_generation_submit(app: &mut App) -> Task<Message> {
-    let project_path = app.project_path.clone().unwrap_or_else(|| {
-        std::env::current_dir().unwrap_or_default().display().to_string()
-    });
+    let project_path = app
+        .project_path
+        .clone()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default().display().to_string());
     let selected_acp_agent = app.acp_agent.clone();
     let Some(state) = app.active_design_state_mut() else {
         return Task::none();
@@ -52,9 +53,8 @@ pub(super) fn design_generation_submit(app: &mut App) -> Task<Message> {
     let current_log_filename = current_log_file.as_deref();
     state.design_generation_loading = true;
     state.design_generation_brief = prompt.clone();
-    state.design_generation_summary = Some(
-        "正在生成站点整体结构与首模块，随后按同页顺序串行生成剩余模块...".to_string(),
-    );
+    state.design_generation_summary =
+        Some("正在生成站点整体结构与首模块，随后按同页顺序串行生成剩余模块...".to_string());
     let executor = TaskExecutorBackend::Internal;
     let model = if state.design_generation_model.trim().is_empty() {
         TASK_MODEL_AUTO.to_string()
@@ -77,10 +77,9 @@ pub(super) fn design_generation_submit(app: &mut App) -> Task<Message> {
             model
         ),
     );
-    state.design_chat_messages.push(DesignChatMessage {
-        role: DesignChatRole::User,
-        content: prompt.clone(),
-    });
+    state
+        .design_chat_messages
+        .push(DesignChatMessage { role: DesignChatRole::User, content: prompt.clone() });
     state.design_chat_messages.push(DesignChatMessage {
         role: DesignChatRole::Assistant,
         content: executor_step_label(executor),
@@ -219,9 +218,10 @@ pub(super) fn design_generation_completed(
     app: &mut App,
     result: Result<DesignPlanExecutionResult, String>,
 ) -> Task<Message> {
-    let project_path = app.project_path.clone().unwrap_or_else(|| {
-        std::env::current_dir().unwrap_or_default().display().to_string()
-    });
+    let project_path = app
+        .project_path
+        .clone()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default().display().to_string());
     if let Some(state) = app.active_design_state_mut() {
         let current_log_file = state.design_generation_current_log_file.clone();
         if !state.design_generation_loading {
@@ -263,7 +263,9 @@ pub(super) fn design_generation_completed(
                         "整体结构已生成：{} 个页面、{} 个模块。{}",
                         page_count, module_count, summary
                     ),
-                    _ => format!("整体结构已生成：{} 个页面、{} 个模块。", page_count, module_count),
+                    _ => {
+                        format!("整体结构已生成：{} 个页面、{} 个模块。", page_count, module_count)
+                    }
                 });
                 state.design_chat_messages.push(DesignChatMessage {
                     role: DesignChatRole::Assistant,
@@ -282,7 +284,8 @@ pub(super) fn design_generation_completed(
                 state.canvas_cache.clear();
                 let mut queued_count = 0usize;
                 for page_index in 0..state.design_generation_pages.len() {
-                    state.design_generation_pages[page_index].status = DesignGenerationStatus::Queued;
+                    state.design_generation_pages[page_index].status =
+                        DesignGenerationStatus::Queued;
                     for module_index in 0..state.design_generation_pages[page_index].modules.len() {
                         let target_frame_id = state.design_generation_pages[page_index].modules
                             [module_index]
@@ -323,12 +326,14 @@ pub(super) fn design_generation_completed(
                         queued_count
                     ));
                     let mut tasks = vec![Task::done(Message::Design(DesignMessage::Snapshot))];
-                    tasks.extend(queued_batch.into_iter().map(|(next_page_frame_id, next_module_id)| {
-                        Task::done(Message::Design(DesignMessage::GenerateDesignPage(
-                            next_page_frame_id,
-                            next_module_id,
-                        )))
-                    }));
+                    tasks.extend(queued_batch.into_iter().map(
+                        |(next_page_frame_id, next_module_id)| {
+                            Task::done(Message::Design(DesignMessage::GenerateDesignPage(
+                                next_page_frame_id,
+                                next_module_id,
+                            )))
+                        },
+                    ));
                     return Task::batch(tasks);
                 }
                 state.design_generation_loading = false;
@@ -359,4 +364,3 @@ pub(super) fn design_generation_completed(
     }
     Task::done(Message::Design(DesignMessage::Snapshot))
 }
-

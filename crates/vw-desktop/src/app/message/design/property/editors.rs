@@ -28,9 +28,7 @@ pub(super) fn context_editor_action(app: &mut App, action: Action) -> Task<Messa
         state.context_editor.perform(action);
         let content = state.context_editor.text().to_string();
         if let Some(id) = &state.selected_element_id.clone() {
-            state
-                .doc
-                .update_property(id, "context", serde_json::Value::String(content));
+            state.doc.update_property(id, "context", serde_json::Value::String(content));
             state.canvas_cache.clear();
         }
     }
@@ -57,9 +55,7 @@ pub(super) fn content_editor_action(app: &mut App, action: Action) -> Task<Messa
         state.content_editor.perform(action);
         let content = state.content_editor.text().to_string();
         if let Some(id) = &state.selected_element_id.clone() {
-            state
-                .doc
-                .update_property(id, "content", serde_json::Value::String(content));
+            state.doc.update_property(id, "content", serde_json::Value::String(content));
             state.canvas_cache.clear();
         }
     }
@@ -78,9 +74,7 @@ pub(super) fn tailwind_html_editor_action(app: &mut App, action: Action) -> Task
             && let Some(el) = state.doc.find_element(id)
             && el.kind.eq_ignore_ascii_case("tailwind")
         {
-            state
-                .doc
-                .update_property(id, "content", serde_json::Value::String(html));
+            state.doc.update_property(id, "content", serde_json::Value::String(html));
             state.canvas_cache.clear();
         }
     }
@@ -110,7 +104,8 @@ pub(super) fn tailwind_node_text_editor_action(app: &mut App, action: Action) ->
             if let Some(el) = find_mut(&mut state.doc.children, &id)
                 && let Some(content) = &el.content
             {
-                let mut nodes = crate::app::views::design::canvas::tailwind::dom::parse_html(content);
+                let mut nodes =
+                    crate::app::views::design::canvas::tailwind::dom::parse_html(content);
                 if !path.is_empty()
                     && let Some(root_idx) = path.first()
                     && let Some(curr_node) = nodes.get_mut(*root_idx)
@@ -132,9 +127,8 @@ pub(super) fn tailwind_node_text_editor_action(app: &mut App, action: Action) ->
                     update_node(curr_node, &path[1..], &text);
                 }
 
-                el.content = Some(
-                    crate::app::views::design::canvas::tailwind::dom::nodes_to_html(&nodes),
-                );
+                el.content =
+                    Some(crate::app::views::design::canvas::tailwind::dom::nodes_to_html(&nodes));
                 if state.selected_element_id.as_deref() == Some(id.as_str())
                     && let Some(html) = el.content.as_deref()
                 {
@@ -147,4 +141,3 @@ pub(super) fn tailwind_node_text_editor_action(app: &mut App, action: Action) ->
     }
     Task::none()
 }
-

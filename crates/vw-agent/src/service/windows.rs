@@ -66,7 +66,8 @@ pub(super) fn stop_windows() -> Result<()> {
 
 pub(super) fn status_windows() -> Result<()> {
     let task_name = windows_task_name();
-    let out = run_capture(Command::new("schtasks").args(["/Query", "/TN", task_name, "/FO", "LIST"]));
+    let out =
+        run_capture(Command::new("schtasks").args(["/Query", "/TN", task_name, "/FO", "LIST"]));
     match out {
         Ok(text) => {
             let running = text.contains("Running");
@@ -81,7 +82,8 @@ pub(super) fn status_windows() -> Result<()> {
 }
 
 pub(super) fn uninstall_windows(config: &Config) -> Result<()> {
-    let _ = run_checked(Command::new("schtasks").args(["/Delete", "/TN", windows_task_name(), "/F"]));
+    let _ =
+        run_checked(Command::new("schtasks").args(["/Delete", "/TN", windows_task_name(), "/F"]));
     let wrapper = config
         .config_path
         .parent()

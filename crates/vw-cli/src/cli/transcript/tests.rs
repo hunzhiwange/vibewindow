@@ -8,10 +8,7 @@ use super::{
 use std::collections::BTreeSet;
 
 fn first_think_meta(think_map: &[Option<ThinkBlockMeta>]) -> ThinkBlockMeta {
-    think_map
-        .iter()
-        .find_map(|meta| *meta)
-        .expect("expected at least one think block")
+    think_map.iter().find_map(|meta| *meta).expect("expected at least one think block")
 }
 
 #[test]
@@ -30,10 +27,8 @@ fn open_think_block_defaults_expanded_and_can_collapse() {
 
 #[test]
 fn closed_think_block_defaults_collapsed_and_can_expand() {
-    let transcript = vec![TranscriptEntry::new(
-        TranscriptRole::Assistant,
-        "<think>\nalpha\n</think>",
-    )];
+    let transcript =
+        vec![TranscriptEntry::new(TranscriptRole::Assistant, "<think>\nalpha\n</think>")];
 
     let (collapsed_lines, think_map) =
         transcript_to_lines(&transcript, false, false, &BTreeSet::new(), "");

@@ -483,9 +483,10 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
         }
         DesignMessage::FileSaved(path) => {
             if let Some(p) = path
-                && let Some(state) = app.active_design_state_mut() {
-                    state.file_path = Some(p);
-                }
+                && let Some(state) = app.active_design_state_mut()
+            {
+                state.file_path = Some(p);
+            }
             Task::none()
         }
         _ => Task::none(),
@@ -642,4 +643,3 @@ fn render_svg_to_png(svg_data: &str) -> Option<Vec<u8>> {
 
     pixmap.encode_png().ok()
 }
-

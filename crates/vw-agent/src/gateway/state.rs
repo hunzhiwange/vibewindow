@@ -15,11 +15,11 @@
 //! - 使用 `Arc` 实现线程安全的共享访问
 //! - 通过 `Clone` trait 支持在多个处理器间传递状态
 
+use crate::app::agent::agent::loop_::query_engine::QueryEngine;
 use crate::app::agent::channels::{
     LinqChannel, NextcloudTalkChannel, QQChannel, WatiChannel, WhatsAppChannel,
 };
 use crate::app::agent::config::Config;
-use crate::app::agent::agent::loop_::query_engine::QueryEngine;
 use crate::app::agent::memory::Memory;
 use crate::app::agent::observability::Observer;
 use crate::app::agent::providers::Provider;

@@ -183,13 +183,15 @@ pub fn clone_with_overrides(
             new_node.visible = Some(*v);
         }
         if let Some(Value::Number(n)) = ov.get("x")
-            && let Some(v) = n.as_f64() {
-                new_node.x = v as f32;
-            }
+            && let Some(v) = n.as_f64()
+        {
+            new_node.x = v as f32;
+        }
         if let Some(Value::Number(n)) = ov.get("y")
-            && let Some(v) = n.as_f64() {
-                new_node.y = v as f32;
-            }
+            && let Some(v) = n.as_f64()
+        {
+            new_node.y = v as f32;
+        }
         if let Some(Value::String(s)) = ov.get("name") {
             new_node.name = Some(s.clone());
         }
@@ -227,9 +229,10 @@ pub fn clone_with_overrides(
             new_node.corner_radius = Some(v.clone());
         }
         if let Some(v) = ov.get("stroke")
-            && let Ok(stroke) = serde_json::from_value::<Stroke>(v.clone()) {
-                new_node.stroke = Some(stroke);
-            }
+            && let Ok(stroke) = serde_json::from_value::<Stroke>(v.clone())
+        {
+            new_node.stroke = Some(stroke);
+        }
         if let Some(v) = ov.get("effect") {
             new_node.effect = Some(v.clone());
         }
@@ -237,13 +240,15 @@ pub fn clone_with_overrides(
             new_node.class = Some(s.clone());
         }
         if let Some(Value::Number(n)) = ov.get("rotation")
-            && let Some(v) = n.as_f64() {
-                new_node.rotation = Some(v as f32);
-            }
+            && let Some(v) = n.as_f64()
+        {
+            new_node.rotation = Some(v as f32);
+        }
         if let Some(Value::Number(n)) = ov.get("opacity")
-            && let Some(v) = n.as_f64() {
-                new_node.opacity = Some(v as f32);
-            }
+            && let Some(v) = n.as_f64()
+        {
+            new_node.opacity = Some(v as f32);
+        }
         if let Some(Value::Bool(v)) = ov.get("clip") {
             new_node.clip = Some(*v);
         }
@@ -308,10 +313,11 @@ pub fn clone_with_overrides(
             new_node.icon_font_family = Some(s.clone());
         }
         if let Some(children_val) = ov.get("children")
-            && let Ok(children) = serde_json::from_value(children_val.clone()) {
-                new_node.children = children;
-                children_overridden = true;
-            }
+            && let Ok(children) = serde_json::from_value(children_val.clone())
+        {
+            new_node.children = children;
+            children_overridden = true;
+        }
     }
     if !children_overridden {
         new_node.children =

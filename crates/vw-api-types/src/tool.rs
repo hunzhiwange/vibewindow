@@ -5,8 +5,8 @@
 //! - 在 UI 中展示工具名称与说明
 //! - 与网关兼容层交换工具 schema
 
-use serde::{Deserialize, Serialize};
 pub use crate::tools::{ListToolSpecsResponse, ToolSpecDto};
+use serde::{Deserialize, Serialize};
 
 fn default_redis_tool_schema_version() -> u32 {
     1

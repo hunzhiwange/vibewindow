@@ -20,17 +20,11 @@ fn sorted_unique_tools(mut tools: Vec<String>) -> Vec<String> {
 }
 
 fn intersect_tools(left: &[String], right: &[String]) -> Vec<String> {
-    left.iter()
-        .filter(|tool| right.iter().any(|candidate| candidate == *tool))
-        .cloned()
-        .collect()
+    left.iter().filter(|tool| right.iter().any(|candidate| candidate == *tool)).cloned().collect()
 }
 
 impl App {
-    fn selected_static_allowed_tools(
-        &self,
-        runtime: &SessionRuntimeState,
-    ) -> Option<Vec<String>> {
+    fn selected_static_allowed_tools(&self, runtime: &SessionRuntimeState) -> Option<Vec<String>> {
         let selected_key = runtime.agent.as_deref().unwrap_or(MAIN_AGENT_KEY);
         let entry = self.agents_settings.entries.iter().find(|entry| entry.key == selected_key)?;
         let allowed_tools = sorted_unique_tools(entry.allowed_tools.clone());
@@ -86,10 +80,10 @@ impl App {
         let acp_agent = self.acp_agent.clone();
         let acp_history_mode = self.acp_history_mode;
         let acp_recent_count = self.acp_recent_count;
-        let runtime = self
-            .session_runtime_states
-            .entry(session_id.to_string())
-            .or_insert_with(|| crate::app::state::SessionRuntimeState::with_defaults(model, auto_model));
+        let runtime =
+            self.session_runtime_states.entry(session_id.to_string()).or_insert_with(|| {
+                crate::app::state::SessionRuntimeState::with_defaults(model, auto_model)
+            });
         if runtime.acp_agent.is_none() {
             runtime.acp_agent = acp_agent;
         }
@@ -127,7 +121,9 @@ impl App {
     ///
     /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
     /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-    pub(crate) fn current_session_runtime_mut(&mut self) -> &mut crate::app::state::SessionRuntimeState {
+    pub(crate) fn current_session_runtime_mut(
+        &mut self,
+    ) -> &mut crate::app::state::SessionRuntimeState {
         if let Some(id) = self.active_session_id.clone() {
             self.get_session_runtime_mut(&id)
         } else {
@@ -154,37 +150,18 @@ impl App {
     ) -> SessionToolInventory {
         let available_tools = sorted_unique_tools(self.agents_settings.available_tools.clone());
         let static_tools = self.selected_static_allowed_tools(runtime);
-        let static_filtered = static_tools.as_ref().is_some_and(|tools| !tools.is_empty());
         let base_tools = if let Some(static_tools) = static_tools {
             if available_tools.is_empty() {
                 static_tools
             } else {
                 let merged = intersect_tools(&available_tools, &static_tools);
-                if merged.is_empty() {
-                    static_tools
-                } else {
-                    merged
-                }
+                if merged.is_empty() { static_tools } else { merged }
             }
         } else {
             available_tools.clone()
         };
-        let effective_tools = runtime.tool_selector.filter_tools(&base_tools);
 
-        SessionToolInventory {
-            base_tools,
-            effective_tools,
-            static_filtered,
-        }
-    }
-
-    /// 执行 current_session_tool_inventory 对应的领域操作。
-    ///
-    /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
-    /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-    pub(crate) fn current_session_tool_inventory(&self) -> SessionToolInventory {
-        let runtime = self.current_session_runtime();
-        self.session_tool_inventory(&runtime)
+        SessionToolInventory { base_tools }
     }
 
     /// 执行 mark_active_session_viewed 对应的领域操作。

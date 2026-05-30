@@ -5,6 +5,7 @@
 
 use super::SqliteMemory;
 use crate::app::agent::memory::embeddings::{EmbeddingProvider, NoopEmbedding};
+use crate::app::agent::memory::paths;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -13,20 +14,13 @@ impl SqliteMemory {
     ///
     /// # 参数
     ///
-    /// - `workspace_dir`: 工作区根目录，数据库会写入其 `memory/brain.db`。
+    /// - `workspace_dir`: 工作区根目录，仅用于派生用户态数据目录。
     ///
     /// # 错误
     ///
     /// 当数据库目录创建、连接打开或 schema 初始化失败时返回错误。
     pub fn new(workspace_dir: &Path) -> anyhow::Result<Self> {
-        Self::with_embedder(
-            workspace_dir,
-            Arc::new(NoopEmbedding),
-            0.7,
-            0.3,
-            10_000,
-            None,
-        )
+        Self::with_embedder(workspace_dir, Arc::new(NoopEmbedding), 0.7, 0.3, 10_000, None)
     }
 
     /// 使用指定嵌入器和检索权重创建 SQLite 记忆后端。
@@ -51,12 +45,12 @@ impl SqliteMemory {
         cache_max: usize,
         open_timeout_secs: Option<u64>,
     ) -> anyhow::Result<Self> {
-        let db_path = workspace_dir.join("memory").join("brain.db");
+        let storage_dir = paths::project_data_dir(workspace_dir)?;
+        let db_path = storage_dir.join("memory").join("brain.db");
 
         #[cfg(not(target_arch = "wasm32"))]
         {
             if let Some(parent) = db_path.parent() {
-                // 数据库放在工作区内部的固定子目录，便于清理和避免写到进程当前目录。
                 std::fs::create_dir_all(parent)?;
             }
 

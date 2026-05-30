@@ -653,13 +653,12 @@ pub(crate) fn parse_structured_tool_calls(tool_calls: &[ToolCall]) -> Vec<Parsed
             let name = call.name.clone();
             // 尝试解析参数字符串为 JSON，失败时使用空对象
             let parsed_result = serde_json::from_str::<serde_json::Value>(&call.arguments);
-            let raw_string_hint = if parsed_result.is_err()
-                && call.arguments.chars().any(char::is_whitespace)
-            {
-                Some(call.arguments.as_str())
-            } else {
-                None
-            };
+            let raw_string_hint =
+                if parsed_result.is_err() && call.arguments.chars().any(char::is_whitespace) {
+                    Some(call.arguments.as_str())
+                } else {
+                    None
+                };
             let parsed =
                 parsed_result.unwrap_or_else(|_| serde_json::Value::Object(serde_json::Map::new()));
             ParsedToolCall {

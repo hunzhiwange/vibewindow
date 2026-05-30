@@ -293,6 +293,18 @@ pub enum GitMessage {
     /// 提交描述编辑器操作
     CommitDescriptionEditorAction(text_editor::Action),
 
+    /// 打开约定式提交帮助弹窗
+    CommitHelpOpen,
+
+    /// 关闭约定式提交帮助弹窗
+    CommitHelpClose,
+
+    /// 打开过滤选项帮助弹窗
+    FilterHelpOpen,
+
+    /// 关闭过滤选项帮助弹窗
+    FilterHelpClose,
+
     /// 切换过滤选项面板
     ToggleFilterOptions(bool),
 
@@ -445,6 +457,10 @@ pub fn update(app: &mut App, message: GitMessage) -> Task<Message> {
         | GitMessage::CommitScopeChanged(_)
         | GitMessage::CommitDescriptionChanged(_)
         | GitMessage::CommitDescriptionEditorAction(_)
+        | GitMessage::CommitHelpOpen
+        | GitMessage::CommitHelpClose
+        | GitMessage::FilterHelpOpen
+        | GitMessage::FilterHelpClose
         | GitMessage::ToggleFilterOptions(_)
         | GitMessage::FilterQueryChanged(_)
         | GitMessage::FilterToggleIncluded(_)

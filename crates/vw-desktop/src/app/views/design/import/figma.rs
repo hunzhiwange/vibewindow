@@ -8,8 +8,8 @@ use std::path::Path;
 use super::figma_node::{
     FigmaImportContext, figma_node_to_element_with_parent, match_raw_child, read_transform_value,
 };
-use super::figma_support::read_node_type;
 use super::figma_style::color_from_value;
+use super::figma_support::read_node_type;
 use super::shared::{generate_id, numeric_value};
 
 #[derive(Debug, Clone)]
@@ -203,10 +203,7 @@ pub fn count_figma_pages(json: &Value) -> usize {
 /// 执行 Figma 数据到设计文档的转换。
 ///
 /// 转换失败时返回错误，调用方据此中止导入而不是生成半成品。
-pub fn figma_json_to_design_doc_with_progress<F>(
-    json: Value,
-    on_progress: F,
-) -> Result<DesignDoc>
+pub fn figma_json_to_design_doc_with_progress<F>(json: Value, on_progress: F) -> Result<DesignDoc>
 where
     F: FnMut(FigmaImportProgress),
 {

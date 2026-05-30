@@ -41,10 +41,7 @@ pub(super) fn build_handle_slots(document: &WorkflowDocument) -> HandleSlots {
             .push(edge.target_handle.clone().unwrap_or_else(|| "target".to_string()));
     }
 
-    HandleSlots {
-        sources: build_slot_map(sources),
-        targets: build_slot_map(targets),
-    }
+    HandleSlots { sources: build_slot_map(sources), targets: build_slot_map(targets) }
 }
 
 fn build_slot_map(source: HashMap<String, Vec<String>>) -> HashMap<String, HashMap<String, Slot>> {
@@ -222,7 +219,9 @@ fn draw_single_handle(
     let element_scale = canvas_element_scale(zoom);
     let connected = connected_handles.is_some_and(|set| set.contains(handle.id.as_str()));
     let hovered = hovered_handle.is_some_and(|endpoint| {
-        endpoint.node_id == node.id && endpoint.handle_id == handle.id && endpoint.kind == handle.kind
+        endpoint.node_id == node.id
+            && endpoint.handle_id == handle.id
+            && endpoint.kind == handle.kind
     });
     let visible = emphasize || hovered || connected;
 
@@ -236,12 +235,33 @@ fn draw_single_handle(
     let outer_path = Path::circle(anchor, outer_radius);
     frame.fill(
         &outer_path,
-        blend(background, accent, if hovered { 0.28 } else if connected { 0.20 } else { 0.10 }),
+        blend(
+            background,
+            accent,
+            if hovered {
+                0.28
+            } else if connected {
+                0.20
+            } else {
+                0.10
+            },
+        ),
     );
     frame.stroke(
         &outer_path,
         Stroke::default()
-            .with_color(with_alpha(accent, if hovered { 0.92 } else if connected { 0.64 } else if visible { 0.34 } else { 0.18 }))
+            .with_color(with_alpha(
+                accent,
+                if hovered {
+                    0.92
+                } else if connected {
+                    0.64
+                } else if visible {
+                    0.34
+                } else {
+                    0.18
+                },
+            ))
             .with_width((1.2 * element_scale).max(0.4)),
     );
 
@@ -252,11 +272,17 @@ fn draw_single_handle(
         let chip_font_size = (11.0 * element_scale).max(4.0);
         let chip_padding_x = 8.0 * element_scale;
         let chip_height = (20.0 * element_scale).max(8.0);
-        let chip_width = (display_width(&handle.label) as f32 * chip_font_size * 0.74 + chip_padding_x * 2.0)
+        let chip_width = (display_width(&handle.label) as f32 * chip_font_size * 0.74
+            + chip_padding_x * 2.0)
             .clamp(34.0 * element_scale, 76.0 * element_scale);
         let chip_origin = match handle.kind {
-            WorkflowHandleKind::Source => Point::new(anchor.x - chip_width - 10.0 * element_scale, anchor.y - chip_height / 2.0),
-            WorkflowHandleKind::Target => Point::new(anchor.x + 10.0 * element_scale, anchor.y - chip_height / 2.0),
+            WorkflowHandleKind::Source => Point::new(
+                anchor.x - chip_width - 10.0 * element_scale,
+                anchor.y - chip_height / 2.0,
+            ),
+            WorkflowHandleKind::Target => {
+                Point::new(anchor.x + 10.0 * element_scale, anchor.y - chip_height / 2.0)
+            }
         };
         let chip_rect = Rectangle::new(chip_origin, Size::new(chip_width, chip_height));
         let chip_path = Path::rounded_rectangle(
@@ -273,7 +299,10 @@ fn draw_single_handle(
         );
         frame.fill_text(Text {
             content: handle.label.clone(),
-            position: Point::new(chip_rect.x + chip_rect.width / 2.0, chip_rect.y + chip_rect.height / 2.0),
+            position: Point::new(
+                chip_rect.x + chip_rect.width / 2.0,
+                chip_rect.y + chip_rect.height / 2.0,
+            ),
             color: accent,
             size: Pixels(chip_font_size),
             align_x: iced::widget::text::Alignment::Center,
@@ -321,4 +350,3 @@ pub(super) fn bezier_hit_test(
     }
     false
 }
-

@@ -138,6 +138,8 @@ pub struct GitCommitRequest {
     pub worktree_id: Option<WorktreeId>,
     pub message: String,
     #[serde(default)]
+    pub stage_all: bool,
+    #[serde(default)]
     pub selected_files: Vec<String>,
     #[serde(default)]
     pub selected_hunks: Vec<GitHunkSelectionDto>,
@@ -173,4 +175,43 @@ pub struct GitCommitDto {
 pub struct GitCommitResponse {
     pub ok: bool,
     pub commit: GitCommitDto,
+}
+
+/// 受限 Git 命令请求。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitCommandRequest {
+    pub directory: String,
+    pub args: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_secs: Option<u64>,
+}
+
+/// 受限 Git 命令响应。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitCommandResponse {
+    pub success: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+/// 合并分支请求。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitMergeRequest {
+    pub project_id: ProjectId,
+    pub source_branch: String,
+    pub target_branch: String,
+}
+
+/// 合并分支响应。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitMergeResponse {
+    pub ok: bool,
+    pub source_branch: String,
+    pub target_branch: String,
+    pub workspace: String,
+    #[serde(default)]
+    pub already_merged: bool,
+    pub message: String,
 }

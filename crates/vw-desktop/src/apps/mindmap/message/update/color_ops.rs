@@ -69,9 +69,10 @@ pub(super) fn color_picker_changed(app: &mut App, color: Color) -> Task<Message>
             }
             MindMapColorTarget::EdgeStroke => {
                 if let Some(path) = tab.selected_path.clone()
-                    && !path.is_empty() {
-                        tab.edge_colors.insert(path, rgba);
-                    }
+                    && !path.is_empty()
+                {
+                    tab.edge_colors.insert(path, rgba);
+                }
             }
             MindMapColorTarget::Background => {
                 tab.background = Some(rgba);
@@ -88,9 +89,10 @@ pub(super) fn color_picker_changed(app: &mut App, color: Color) -> Task<Message>
 /// 参数由调用方提供，返回值直接交给上层视图或状态处理；本函数不执行额外错误恢复。
 pub(super) fn color_picker_format_changed(app: &mut App, format: ColorFormat) -> Task<Message> {
     if let Some(tab) = app.active_mindmap_tab_mut()
-        && let Some(active) = tab.active_color_picker.clone() {
-            tab.active_color_picker = Some(MindMapColorPicker { format, ..active });
-        }
+        && let Some(active) = tab.active_color_picker.clone()
+    {
+        tab.active_color_picker = Some(MindMapColorPicker { format, ..active });
+    }
     Task::none()
 }
 
@@ -126,9 +128,10 @@ pub(super) fn reset_color_target(app: &mut App, target: MindMapColorTarget) -> T
             }
             MindMapColorTarget::EdgeStroke => {
                 if let Some(path) = tab.selected_path.clone()
-                    && !path.is_empty() {
-                        tab.edge_colors.remove(&path);
-                    }
+                    && !path.is_empty()
+                {
+                    tab.edge_colors.remove(&path);
+                }
             }
             MindMapColorTarget::Background => {
                 tab.background = None;

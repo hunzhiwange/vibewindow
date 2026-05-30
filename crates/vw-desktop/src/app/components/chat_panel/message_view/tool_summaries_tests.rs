@@ -1,4 +1,7 @@
-use super::tool_summaries::{count_code_blocks, normalized_visible_text, should_hide_explore_link_box, should_hide_post_explore_tool_block, special_text_blocks, tool_card_text_blocks};
+use super::tool_summaries::{
+    count_code_blocks, normalized_visible_text, should_hide_explore_link_box,
+    should_hide_post_explore_tool_block, special_text_blocks, tool_card_text_blocks,
+};
 
 #[test]
 fn count_code_blocks_counts_fenced_pairs() {

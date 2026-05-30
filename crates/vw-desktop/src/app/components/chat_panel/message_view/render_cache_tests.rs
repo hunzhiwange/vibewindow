@@ -1,5 +1,7 @@
-use super::render_cache::{assistant_render_blocks, build_render_cache_entry, effective_assistant_render_cache};
 use super::parse::hash_chat_content;
+use super::render_cache::{
+    assistant_render_blocks, build_render_cache_entry, effective_assistant_render_cache,
+};
 use crate::app::models::ParsedChatBlock;
 
 #[test]
@@ -33,5 +35,7 @@ fn assistant_render_blocks_uses_cache_when_fresh() {
     let (blocks, has_special) = assistant_render_blocks(raw, &entry, false);
 
     assert!(!has_special);
-    assert!(matches!(blocks.first(), Some(ParsedChatBlock::Text { content }) if content == "plain text"));
+    assert!(
+        matches!(blocks.first(), Some(ParsedChatBlock::Text { content }) if content == "plain text")
+    );
 }

@@ -14,8 +14,8 @@ use super::{
     reduce_tui_state,
 };
 use crate::cli::tui_v2::model::{
-    UiErrorMessage, UiMessage, UiMessageBase, UiMessageId, UiSystemMessage,
-    UiSystemMessageLevel, UiTokenUsage, UiToolCallState, UiTurnTerminal,
+    UiErrorMessage, UiMessage, UiMessageBase, UiMessageId, UiSystemMessage, UiSystemMessageLevel,
+    UiTokenUsage, UiToolCallState, UiTurnTerminal,
 };
 use crate::cli::tui_v2::runtime::stream_adapter::{UiRuntimeEvent, UiRuntimeTerminalEvent};
 
@@ -28,27 +28,13 @@ pub(crate) fn apply_runtime_event(state: &mut TuiState, event: UiRuntimeEvent) {
         UiRuntimeEvent::Delta(delta) => {
             apply_runtime_delta(state, delta);
         }
-        UiRuntimeEvent::StepStart {
-            step_index,
-            created_ms,
-            model,
-        } => {
+        UiRuntimeEvent::StepStart { step_index, created_ms, model } => {
             reduce_tui_state(
                 state,
-                TuiAction::StepStarted {
-                    step_index,
-                    started_ms: created_ms,
-                    model,
-                },
+                TuiAction::StepStarted { step_index, started_ms: created_ms, model },
             );
         }
-        UiRuntimeEvent::StepFinish {
-            step_index,
-            finished_ms,
-            usage,
-            finish_reason,
-            model,
-        } => {
+        UiRuntimeEvent::StepFinish { step_index, finished_ms, usage, finish_reason, model } => {
             reduce_tui_state(
                 state,
                 TuiAction::StepFinished {
@@ -179,13 +165,7 @@ fn parse_tool_delta(delta: &str) -> Option<TuiToolCallUpdate> {
         _ => return None,
     };
 
-    Some(TuiToolCallUpdate {
-        tool_name: tool_name.to_string(),
-        summary,
-        arguments,
-        state,
-        result,
-    })
+    Some(TuiToolCallUpdate { tool_name: tool_name.to_string(), summary, arguments, state, result })
 }
 
 fn runtime_text_value(value: Option<&Value>) -> Option<String> {
@@ -215,11 +195,13 @@ fn apply_runtime_terminal(state: &mut TuiState, terminal: UiRuntimeTerminalEvent
 
 fn terminal_side_message(state: &TuiState, terminal: &UiRuntimeTerminalEvent) -> Option<UiMessage> {
     match terminal {
-        UiRuntimeTerminalEvent::TimedOut { message, .. } => Some(UiMessage::Error(UiErrorMessage {
-            base: next_ui_message_base(state, "runtime-timeout"),
-            message: message.clone(),
-            recoverable: true,
-        })),
+        UiRuntimeTerminalEvent::TimedOut { message, .. } => {
+            Some(UiMessage::Error(UiErrorMessage {
+                base: next_ui_message_base(state, "runtime-timeout"),
+                message: message.clone(),
+                recoverable: true,
+            }))
+        }
         UiRuntimeTerminalEvent::Error(message) => Some(UiMessage::Error(UiErrorMessage {
             base: next_ui_message_base(state, "runtime-error"),
             message: message.clone(),
@@ -231,18 +213,18 @@ fn terminal_side_message(state: &TuiState, terminal: &UiRuntimeTerminalEvent) ->
 
 fn ui_turn_terminal_from_runtime(terminal: &UiRuntimeTerminalEvent) -> UiTurnTerminal {
     match terminal {
-        UiRuntimeTerminalEvent::Done { finish_reason, .. } => UiTurnTerminal::Done {
-            finish_reason: finish_reason.clone(),
-        },
-        UiRuntimeTerminalEvent::Cancelled { reason, .. } => UiTurnTerminal::Cancelled {
-            reason: reason.clone(),
-        },
-        UiRuntimeTerminalEvent::TimedOut { message, .. } => UiTurnTerminal::TimedOut {
-            message: message.clone(),
-        },
-        UiRuntimeTerminalEvent::Error(message) => UiTurnTerminal::Error {
-            message: message.clone(),
-        },
+        UiRuntimeTerminalEvent::Done { finish_reason, .. } => {
+            UiTurnTerminal::Done { finish_reason: finish_reason.clone() }
+        }
+        UiRuntimeTerminalEvent::Cancelled { reason, .. } => {
+            UiTurnTerminal::Cancelled { reason: reason.clone() }
+        }
+        UiRuntimeTerminalEvent::TimedOut { message, .. } => {
+            UiTurnTerminal::TimedOut { message: message.clone() }
+        }
+        UiRuntimeTerminalEvent::Error(message) => {
+            UiTurnTerminal::Error { message: message.clone() }
+        }
     }
 }
 
@@ -268,15 +250,9 @@ fn terminal_message_id(terminal: &UiRuntimeTerminalEvent) -> Option<String> {
 
 fn terminal_parent_message_id(terminal: &UiRuntimeTerminalEvent) -> Option<String> {
     match terminal {
-        UiRuntimeTerminalEvent::Done {
-            parent_message_id, ..
-        }
-        | UiRuntimeTerminalEvent::Cancelled {
-            parent_message_id, ..
-        }
-        | UiRuntimeTerminalEvent::TimedOut {
-            parent_message_id, ..
-        } => parent_message_id.clone(),
+        UiRuntimeTerminalEvent::Done { parent_message_id, .. }
+        | UiRuntimeTerminalEvent::Cancelled { parent_message_id, .. }
+        | UiRuntimeTerminalEvent::TimedOut { parent_message_id, .. } => parent_message_id.clone(),
         UiRuntimeTerminalEvent::Error(_) => None,
     }
 }
@@ -291,10 +267,8 @@ fn token_usage_from_gateway(usage: &GatewayChatUsage) -> UiTokenUsage {
 }
 
 fn next_ui_message_base(state: &TuiState, seed: &str) -> UiMessageBase {
-    let mut base = UiMessageBase::new(UiMessageId::local(format!(
-        "ui-{seed}-{}",
-        state.messages.len()
-    )));
+    let mut base =
+        UiMessageBase::new(UiMessageId::local(format!("ui-{seed}-{}", state.messages.len())));
     if let Some(session_id) = state.session.session_id.as_deref() {
         base = base.with_session_id(session_id);
     }

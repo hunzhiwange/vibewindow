@@ -1,4 +1,4 @@
-use super::{deduplicate_plugins, merge_json_value, plugin_name, Error, State};
+use super::{Error, State, deduplicate_plugins, merge_json_value, plugin_name};
 use serde_json::json;
 
 #[test]

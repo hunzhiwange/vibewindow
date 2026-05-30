@@ -514,11 +514,7 @@ pub async fn reset_all_managed_worktrees_async_with_logs(
     }
     #[cfg(target_arch = "wasm32")]
     {
-        reset_all_managed_worktrees_with_logs(
-            &project_path,
-            clean_untracked,
-            log_sender.as_ref(),
-        )
+        reset_all_managed_worktrees_with_logs(&project_path, clean_untracked, log_sender.as_ref())
     }
 }
 

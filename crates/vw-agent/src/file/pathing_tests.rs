@@ -1,4 +1,6 @@
-use super::pathing::{contains_path, image_mime_type, is_binary_by_extension, is_image_by_extension};
+use super::pathing::{
+    contains_path, image_mime_type, is_binary_by_extension, is_image_by_extension,
+};
 
 #[test]
 fn extension_helpers_are_case_insensitive() {

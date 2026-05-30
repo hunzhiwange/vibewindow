@@ -184,14 +184,8 @@ fn build_design_generation_prompt_includes_mobile_width_hint() {
 
 #[test]
 fn format_design_stream_line_for_chat_only_keeps_failures() {
-    assert_eq!(
-        format_design_stream_line_for_chat("[plan] [EXEC_EXIT] success code=Some(0)"),
-        None
-    );
-    assert_eq!(
-        format_design_stream_line_for_chat("[plan] [EXEC_STDIN] full prompt body"),
-        None
-    );
+    assert_eq!(format_design_stream_line_for_chat("[plan] [EXEC_EXIT] success code=Some(0)"), None);
+    assert_eq!(format_design_stream_line_for_chat("[plan] [EXEC_STDIN] full prompt body"), None);
     assert_eq!(
         format_design_stream_line_for_chat("[plan] stderr: failed to execute"),
         Some("Step failed: stderr: failed to execute".to_string())
@@ -330,8 +324,7 @@ fn parse_design_generation_module_doc_supports_markdown_fenced_part_text() {
 
 #[test]
 fn parse_design_generation_module_doc_patches_missing_ids_and_kind() {
-    let raw =
-        r#"{"children":[{"kind":"frame","children":[{"type":"text","content":"标题"}]}]}"#;
+    let raw = r#"{"children":[{"kind":"frame","children":[{"type":"text","content":"标题"}]}]}"#;
     let doc = parse_design_generation_module_doc(raw, &[], DesignGenerationTheme::Shadcn)
         .expect("should patch missing ids");
     assert_eq!(doc.children[0].kind, "frame");

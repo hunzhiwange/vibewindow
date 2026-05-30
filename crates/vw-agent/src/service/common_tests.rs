@@ -2,10 +2,7 @@ use super::common::{build_launchd_env_vars, build_systemd_env_vars, xml_escape};
 
 #[test]
 fn xml_escape_replaces_reserved_xml_characters() {
-    assert_eq!(
-        xml_escape("a&b<c>d\"e'f"),
-        "a&amp;b&lt;c&gt;d&quot;e&apos;f"
-    );
+    assert_eq!(xml_escape("a&b<c>d\"e'f"), "a&amp;b&lt;c&gt;d&quot;e&apos;f");
 }
 
 #[test]

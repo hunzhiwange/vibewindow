@@ -1,7 +1,9 @@
 //! 设计导出模块，负责把内部设计文档转换为 HTML、SVG 或共享的 CSS/尺寸表示。
 
-use super::util::{parse_fills_to_css, parse_size_to_css, parse_size_val_opt, process_color_value,
-    resolve_variable_value};
+use super::util::{
+    parse_fills_to_css, parse_size_to_css, parse_size_val_opt, process_color_value,
+    resolve_variable_value,
+};
 use crate::app::views::design::models::{DesignDoc, DesignElement};
 
 /// 根据设计文档或元素生成外部表示。
@@ -186,9 +188,10 @@ fn generate_style(
             style.push_str(&format!("font-family: '{}'; ", family));
         }
         if let Some(weight) = &element.font_weight
-            && let Some(w) = weight.as_str() {
-                style.push_str(&format!("font-weight: {}; ", w));
-            }
+            && let Some(w) = weight.as_str()
+        {
+            style.push_str(&format!("font-weight: {}; ", w));
+        }
         if let Some(s) = &element.font_style {
             style.push_str(&format!("font-style: {}; ", s));
         }

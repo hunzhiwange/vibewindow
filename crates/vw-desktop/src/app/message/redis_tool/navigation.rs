@@ -1,11 +1,10 @@
 //! 处理 Redis 工具页面导航、选中连接、键浏览和加载结果回写。
 
-use super::{App, Message, RedisDetailTab, RedisToolMessage, Task};
 use super::gateway::{
-    start_key_analysis_reload, start_key_page_reload, start_runtime_reload,
-    start_snapshot_reload,
+    start_key_analysis_reload, start_key_page_reload, start_runtime_reload, start_snapshot_reload,
 };
 use super::helpers::{clear_notification_task, current_history_query, notify_success};
+use super::{App, Message, RedisDetailTab, RedisToolMessage, Task};
 use super::{
     load_redis_tool_snapshot_async, redis_connection_activate_async, redis_connection_keys_async,
     redis_connection_overview_async,
@@ -17,6 +16,8 @@ use super::{
 /// 返回的 `Task` 用于继续执行异步保存、加载或通知清理；没有后续动作时返回空任务。
 pub(super) fn open_settings_modal(app: &mut App) -> Task<Message> {
     app.redis_tool.show_history_modal = false;
+    app.redis_tool.close_connection_modal();
+    app.redis_tool.close_create_key_modal();
     app.redis_tool.show_settings_modal = true;
     Task::none()
 }
@@ -40,6 +41,8 @@ pub(super) fn close_settings_modal(app: &mut App) -> Task<Message> {
 /// 返回的 `Task` 用于继续执行异步保存、加载或通知清理；没有后续动作时返回空任务。
 pub(super) fn open_history_modal(app: &mut App) -> Task<Message> {
     app.redis_tool.show_settings_modal = false;
+    app.redis_tool.close_connection_modal();
+    app.redis_tool.close_create_key_modal();
     app.redis_tool.show_history_modal = true;
     if app.redis_tool.is_gateway_loading() {
         return Task::none();
@@ -56,6 +59,27 @@ pub(super) fn close_history_modal(app: &mut App) -> Task<Message> {
     Task::none()
 }
 
+/// 处理 `open_connection_modal` 对应的用户输入、异步结果或状态转换。
+///
+/// 参数来自已匹配的消息载荷或当前设置状态，函数只在当前消息边界内产生状态变更。
+/// 返回的 `Task` 用于继续执行异步保存、加载或通知清理；没有后续动作时返回空任务。
+pub(super) fn open_connection_modal(app: &mut App) -> Task<Message> {
+    app.redis_tool.show_settings_modal = false;
+    app.redis_tool.show_history_modal = false;
+    app.redis_tool.close_create_key_modal();
+    app.redis_tool.open_connection_modal();
+    Task::none()
+}
+
+/// 处理 `close_connection_modal` 对应的用户输入、异步结果或状态转换。
+///
+/// 参数来自已匹配的消息载荷或当前设置状态，函数只在当前消息边界内产生状态变更。
+/// 返回的 `Task` 用于继续执行异步保存、加载或通知清理；没有后续动作时返回空任务。
+pub(super) fn close_connection_modal(app: &mut App) -> Task<Message> {
+    app.redis_tool.close_connection_modal();
+    Task::none()
+}
+
 /// 处理 `open_create_key_modal` 对应的用户输入、异步结果或状态转换。
 ///
 /// 参数来自已匹配的消息载荷或当前设置状态，函数只在当前消息边界内产生状态变更。
@@ -68,6 +92,7 @@ pub(super) fn open_create_key_modal(app: &mut App) -> Task<Message> {
 
     app.redis_tool.show_settings_modal = false;
     app.redis_tool.show_history_modal = false;
+    app.redis_tool.close_connection_modal();
     app.redis_tool.open_create_key_modal();
     Task::none()
 }
@@ -89,7 +114,12 @@ pub(super) fn new_connection(app: &mut App) -> Task<Message> {
     app.redis_tool.selected_connection_id = None;
     app.redis_tool.reset_draft();
     app.redis_tool.clear_runtime_state();
-    notify_success(app, "已切换到新建连接");
+    app.redis_tool.connection_search_query.clear();
+    app.redis_tool.show_settings_modal = false;
+    app.redis_tool.show_history_modal = false;
+    app.redis_tool.close_create_key_modal();
+    app.redis_tool.open_connection_modal();
+    notify_success(app, "已打开新建连接");
     Task::batch(vec![clear_notification_task()])
 }
 
@@ -132,7 +162,10 @@ pub(super) fn select_connection(app: &mut App, connection_id: String) -> Task<Me
                 None
             };
             let keys = if active_detail_tab.requires_keys() {
-                Some(redis_connection_keys_async(&connection_id, &pattern, 0, default_load_count).await)
+                Some(
+                    redis_connection_keys_async(&connection_id, &pattern, 0, default_load_count)
+                        .await,
+                )
             } else {
                 None
             };
@@ -255,12 +288,7 @@ pub(super) fn refresh_selected_runtime(app: &mut App) -> Task<Message> {
         return Task::none();
     };
 
-    start_runtime_reload(
-        app,
-        selected_id,
-        "加载 Redis 信息",
-        Some("Redis 信息已刷新".to_string()),
-    )
+    start_runtime_reload(app, selected_id, "加载 Redis 信息", Some("Redis 信息已刷新".to_string()))
 }
 
 /// 处理 `reload_selected_keys` 对应的用户输入、异步结果或状态转换。
@@ -455,10 +483,8 @@ pub(super) fn history_previous_page(app: &mut App) -> Task<Message> {
         return Task::none();
     }
 
-    let offset = app
-        .redis_tool
-        .history_page_offset
-        .saturating_sub(app.redis_tool.history_page_limit.max(1));
+    let offset =
+        app.redis_tool.history_page_offset.saturating_sub(app.redis_tool.history_page_limit.max(1));
     start_snapshot_reload(app, offset, "加载历史", None)
 }
 
@@ -471,10 +497,8 @@ pub(super) fn history_next_page(app: &mut App) -> Task<Message> {
         return Task::none();
     }
 
-    let offset = app
-        .redis_tool
-        .history_page_offset
-        .saturating_add(app.redis_tool.history_page_limit.max(1));
+    let offset =
+        app.redis_tool.history_page_offset.saturating_add(app.redis_tool.history_page_limit.max(1));
     start_snapshot_reload(app, offset, "加载历史", None)
 }
 

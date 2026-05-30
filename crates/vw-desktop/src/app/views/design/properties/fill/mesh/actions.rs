@@ -92,19 +92,22 @@ pub(super) fn update_mesh_grid_cells(
 
                 // 复制颜色数据
                 if let Some(src) = m.colors.get(old_idx).cloned()
-                    && let Some(dst) = new_colors.get_mut(new_idx) {
-                        *dst = src;
-                    }
+                    && let Some(dst) = new_colors.get_mut(new_idx)
+                {
+                    *dst = src;
+                }
                 // 复制点位置数据
                 if let Some(src) = m.points.get(old_idx).cloned()
-                    && let Some(dst) = new_points.get_mut(new_idx) {
-                        *dst = src;
-                    }
+                    && let Some(dst) = new_points.get_mut(new_idx)
+                {
+                    *dst = src;
+                }
                 // 复制控制柄数据
                 if let Some(src) = m.handles.get(old_idx).cloned()
-                    && let Some(dst) = new_handles.get_mut(new_idx) {
-                        *dst = src;
-                    }
+                    && let Some(dst) = new_handles.get_mut(new_idx)
+                {
+                    *dst = src;
+                }
             }
         }
 
@@ -355,11 +358,12 @@ pub(super) fn update_mesh_selected_color(
     let mut new_fills = fills;
 
     if let Some(FillItem::Object(FillObject::Mesh(m))) = new_fills.get_mut(index)
-        && let Some(dst) = m.colors.get_mut(point_index) {
-            // 生成一个随机颜色，失败时使用白色作为默认值
-            let next = MeshFill::random_colors(1).pop().unwrap_or_else(|| "#ffffff".to_string());
-            *dst = next;
-        }
+        && let Some(dst) = m.colors.get_mut(point_index)
+    {
+        // 生成一个随机颜色，失败时使用白色作为默认值
+        let next = MeshFill::random_colors(1).pop().unwrap_or_else(|| "#ffffff".to_string());
+        *dst = next;
+    }
 
     Message::Design(DesignMessage::PropertyUpdate(id, "fill".to_string(), json!(new_fills)))
 }

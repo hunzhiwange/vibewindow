@@ -380,4 +380,3 @@ pub fn update(app: &mut App, message: EditorMessage) -> Task<Message> {
         }
     }
 }
-

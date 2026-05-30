@@ -6,4 +6,3 @@ fn size_and_status_debug_are_stable() {
     assert_eq!(size.cols, 80);
     assert!(format!("{:?}", Status::Running).contains("Running"));
 }
-

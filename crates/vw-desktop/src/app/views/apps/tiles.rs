@@ -454,9 +454,8 @@ pub(super) fn render_header(app: &App, blocked: bool) -> Element<'static, Messag
         .into();
 
     // 搜索框组合：输入框 + 清除按钮覆盖层
-    let search_box: Element<'static, Message> = stack(vec![search_input.into(), clear_overlay])
-        .width(Length::Fixed(280.0))
-        .into();
+    let search_box: Element<'static, Message> =
+        stack(vec![search_input.into(), clear_overlay]).width(Length::Fixed(280.0)).into();
 
     // 关闭按钮：带有提示文本
     let close_btn = Tooltip::new(
@@ -481,11 +480,9 @@ pub(super) fn render_header(app: &App, blocked: bool) -> Element<'static, Messag
             text("应用中心")
                 .size(20)
                 .font(iced::Font { weight: iced::font::Weight::Bold, ..Default::default() }),
-            text("统一浏览内置工具、网址书签与常用动作入口。")
-                .size(12)
-                .style(|theme: &Theme| iced::widget::text::Style {
-                    color: Some(theme.palette().text.scale_alpha(0.66)),
-                }),
+            text("统一浏览内置工具、网址书签与常用动作入口。").size(12).style(|theme: &Theme| {
+                iced::widget::text::Style { color: Some(theme.palette().text.scale_alpha(0.66)) }
+            }),
         ]
         .spacing(4),
         Space::new().width(Length::Fill),
@@ -493,8 +490,8 @@ pub(super) fn render_header(app: &App, blocked: bool) -> Element<'static, Messag
         Space::new().width(Length::Fixed(10.0)),
         close_btn
     ]
-        .align_y(iced::Alignment::Center)
-        .into()
+    .align_y(iced::Alignment::Center)
+    .into()
 }
 
 #[cfg(test)]

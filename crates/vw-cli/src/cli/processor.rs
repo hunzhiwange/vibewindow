@@ -78,11 +78,9 @@ impl SessionProcessorComparableResult {
         let SessionProcessorComparableResult { output, usage, step_finishes, terminal } = self;
 
         match terminal {
-            SessionProcessorComparableTerminal::Done { .. } => Ok(SessionProcessorCliResult {
-                output,
-                usage,
-                step_finishes,
-            }),
+            SessionProcessorComparableTerminal::Done { .. } => {
+                Ok(SessionProcessorCliResult { output, usage, step_finishes })
+            }
             SessionProcessorComparableTerminal::Cancelled { reason, .. } => Err(anyhow::anyhow!(
                 reason.unwrap_or_else(|| "session processor cancelled".to_string())
             )),
@@ -99,8 +97,7 @@ pub(crate) async fn run_session_processor_comparable_for_cli(
     req: legacy_processor::Request,
     delta_tx: Option<mpsc::Sender<String>>,
 ) -> anyhow::Result<SessionProcessorComparableResult> {
-    let (event_tx, mut event_rx) =
-        mpsc::unbounded_channel::<legacy_processor::StreamEvent>();
+    let (event_tx, mut event_rx) = mpsc::unbounded_channel::<legacy_processor::StreamEvent>();
 
     tokio::task::spawn_blocking(move || {
         legacy_processor::run(req, move |ev| event_tx.send(ev).is_ok());
@@ -153,9 +150,7 @@ pub(crate) async fn run_session_processor_for_cli(
     req: legacy_processor::Request,
     delta_tx: Option<mpsc::Sender<String>>,
 ) -> anyhow::Result<SessionProcessorCliResult> {
-    run_session_processor_comparable_for_cli(req, delta_tx)
-        .await?
-        .into_cli_result()
+    run_session_processor_comparable_for_cli(req, delta_tx).await?.into_cli_result()
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -200,8 +195,7 @@ pub(crate) async fn run_gateway_runtime_for_cli(
 
     drop(bridge_tx);
     if let Some(task) = forward_task {
-        task.await
-            .map_err(|err| anyhow::anyhow!("gateway delta forwarder failed: {err}"))?;
+        task.await.map_err(|err| anyhow::anyhow!("gateway delta forwarder failed: {err}"))?;
     }
 
     Ok(SessionProcessorComparableResult {
@@ -244,10 +238,7 @@ fn ensure_runtime_directory_matches_request(
     runtime: &GatewayUiRuntime,
     req: &legacy_processor::Request,
 ) -> anyhow::Result<()> {
-    let Some(root) = req
-        .root
-        .as_deref()
-        .and_then(|value| normalize_optional_str_ref(Some(value)))
+    let Some(root) = req.root.as_deref().and_then(|value| normalize_optional_str_ref(Some(value)))
     else {
         return Ok(());
     };
@@ -301,37 +292,22 @@ fn comparable_terminal_from_runtime_terminal(
     terminal: UiRuntimeTerminalEvent,
 ) -> SessionProcessorComparableTerminal {
     match terminal {
-        UiRuntimeTerminalEvent::Done {
-            finish_reason,
-            message_id,
-            parent_message_id,
-            ..
-        } => SessionProcessorComparableTerminal::Done {
-            finish_reason,
-            message_id,
-            parent_message_id,
-        },
-        UiRuntimeTerminalEvent::Cancelled {
-            reason,
-            message_id,
-            parent_message_id,
-            ..
-        } => SessionProcessorComparableTerminal::Cancelled {
-            reason,
-            message_id,
-            parent_message_id,
-        },
-        UiRuntimeTerminalEvent::TimedOut {
-            message,
-            message_id,
-            parent_message_id,
-            ..
-        } => SessionProcessorComparableTerminal::TimedOut {
-            message,
-            message_id,
-            parent_message_id,
-        },
-        UiRuntimeTerminalEvent::Error(message) => SessionProcessorComparableTerminal::Error(message),
+        UiRuntimeTerminalEvent::Done { finish_reason, message_id, parent_message_id, .. } => {
+            SessionProcessorComparableTerminal::Done {
+                finish_reason,
+                message_id,
+                parent_message_id,
+            }
+        }
+        UiRuntimeTerminalEvent::Cancelled { reason, message_id, parent_message_id, .. } => {
+            SessionProcessorComparableTerminal::Cancelled { reason, message_id, parent_message_id }
+        }
+        UiRuntimeTerminalEvent::TimedOut { message, message_id, parent_message_id, .. } => {
+            SessionProcessorComparableTerminal::TimedOut { message, message_id, parent_message_id }
+        }
+        UiRuntimeTerminalEvent::Error(message) => {
+            SessionProcessorComparableTerminal::Error(message)
+        }
     }
 }
 
@@ -370,9 +346,5 @@ fn gateway_role(role: models::ChatRole) -> &'static str {
 
 /// 仅在 legacy request options 不是 null 时透传给 gateway。
 fn gateway_request_options(options: &Value) -> Option<Value> {
-    if options.is_null() {
-        None
-    } else {
-        Some(options.clone())
-    }
+    if options.is_null() { None } else { Some(options.clone()) }
 }

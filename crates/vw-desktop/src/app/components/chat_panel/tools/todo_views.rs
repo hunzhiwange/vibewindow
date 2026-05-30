@@ -25,6 +25,10 @@ pub(super) fn tool_expanded(app: &App, key: u64, _is_running: bool) -> bool {
     _is_running || app.chat_tool_expanded.contains(&key)
 }
 
+pub(super) fn todo_tool_card_padding() -> iced::Padding {
+    iced::Padding { top: 10.0, right: 12.0, bottom: 10.0, left: 12.0 }
+}
+
 fn todo_tool_header<'a>(
     app: &'a App,
     msg_idx: usize,
@@ -212,7 +216,7 @@ pub fn tool_todowrite_compact_view<'a>(
     if !expanded {
         return Some(
             container(head_with_hover)
-                .padding([0, 0])
+                .padding(todo_tool_card_padding())
                 .width(Length::Fill)
                 .style(simplified_block_style)
                 .into(),
@@ -328,7 +332,11 @@ pub fn tool_todowrite_compact_view<'a>(
     }
 
     Some(
-        container(content).padding([0, 0]).width(Length::Fill).style(simplified_block_style).into(),
+        container(content)
+            .padding(todo_tool_card_padding())
+            .width(Length::Fill)
+            .style(simplified_block_style)
+            .into(),
     )
 }
 
@@ -385,7 +393,7 @@ pub fn tool_todos_view<'a>(
     if !expanded {
         return Some(
             container(header)
-                .padding([0, 0])
+                .padding(todo_tool_card_padding())
                 .width(Length::Fill)
                 .style(simplified_block_style)
                 .into(),
@@ -448,7 +456,7 @@ pub fn tool_todos_view<'a>(
 
     Some(
         container(column![header, list].spacing(8))
-            .padding([0, 0])
+            .padding(todo_tool_card_padding())
             .width(Length::Fill)
             .style(simplified_block_style)
             .into(),

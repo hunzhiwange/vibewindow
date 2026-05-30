@@ -96,10 +96,7 @@ pub(crate) fn query_has_any_tool_calls_with_allowed(
     allowed_tools: &HashSet<String>,
 ) -> bool {
     let lines: Vec<&str> = query.lines().collect();
-    lines
-        .iter()
-        .enumerate()
-        .any(|(i, _)| parse_tool_at(&lines, i, allowed_tools).is_some())
+    lines.iter().enumerate().any(|(i, _)| parse_tool_at(&lines, i, allowed_tools).is_some())
 }
 
 /// 执行 query_has_any_tool_calls 操作，并返回调用方需要的结果。

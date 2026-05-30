@@ -102,6 +102,7 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
     match message {
         SettingsMessage::TabSelected(_)
         | SettingsMessage::SystemTabSelected(_)
+        | SettingsMessage::SystemTabQueryChanged(_)
         | SettingsMessage::SystemHelpOpen(_)
         | SettingsMessage::SystemHelpClose
         | SettingsMessage::ToggleSettingsSidebar => tabs::update(app, message),
@@ -193,6 +194,7 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         | SettingsMessage::SkillsSetEnabledCompleted { .. }
         | SettingsMessage::SkillsDeleteRequested(_)
         | SettingsMessage::SkillsDeleteCompleted { .. }
+        | SettingsMessage::SkillsDirectoryProviderChanged(_)
         | SettingsMessage::SkillsOpenEnabledToggled(_)
         | SettingsMessage::SkillsOpenDirChanged(_)
         | SettingsMessage::SkillsPromptInjectionModeChanged(_)

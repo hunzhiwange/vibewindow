@@ -21,13 +21,7 @@ pub(super) fn parse_mapping_yaml(text: &str, label: &str) -> Result<Value, Strin
 pub(super) fn string_list_input_from_value(value: Option<&Value>) -> String {
     value
         .and_then(Value::as_sequence)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(Value::as_str)
-                .collect::<Vec<_>>()
-                .join(", ")
-        })
+        .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "))
         .unwrap_or_default()
 }
 
@@ -35,11 +29,7 @@ pub(super) fn string_list_from_value(value: &Value) -> Vec<String> {
     value
         .as_sequence()
         .map(|items| {
-            items
-                .iter()
-                .filter_map(Value::as_str)
-                .map(|item| item.to_string())
-                .collect::<Vec<_>>()
+            items.iter().filter_map(Value::as_str).map(|item| item.to_string()).collect::<Vec<_>>()
         })
         .unwrap_or_default()
 }
@@ -62,9 +52,7 @@ pub(super) fn prompt_text_by_role(prompt_template: Option<&Vec<Value>>, role: &s
                 let map = item.as_mapping()?;
                 let item_role = mapping_value(map, "role")?.as_str()?;
                 if item_role == role {
-                    mapping_value(map, "text")
-                        .and_then(Value::as_str)
-                        .map(|text| text.to_string())
+                    mapping_value(map, "text").and_then(Value::as_str).map(|text| text.to_string())
                 } else {
                     None
                 }
@@ -73,7 +61,11 @@ pub(super) fn prompt_text_by_role(prompt_template: Option<&Vec<Value>>, role: &s
         .unwrap_or_default()
 }
 
-pub(super) fn merge_prompt_template_value(existing: Value, system_text: String, user_text: String) -> Value {
+pub(super) fn merge_prompt_template_value(
+    existing: Value,
+    system_text: String,
+    user_text: String,
+) -> Value {
     let mut items = existing.as_sequence().cloned().unwrap_or_default();
     upsert_prompt_template_item(&mut items, "system", &system_text, true);
     upsert_prompt_template_item(&mut items, "user", &user_text, false);
@@ -90,9 +82,7 @@ fn upsert_prompt_template_item(
     create_if_missing: bool,
 ) {
     if let Some(item) = items.iter_mut().find(|item| {
-        item.as_mapping()
-            .and_then(|map| mapping_value(map, "role"))
-            .and_then(Value::as_str)
+        item.as_mapping().and_then(|map| mapping_value(map, "role")).and_then(Value::as_str)
             == Some(role)
     }) {
         if let Some(map) = item.as_mapping_mut() {
@@ -117,9 +107,7 @@ fn upsert_prompt_template_item(
 }
 
 pub(super) fn ensure_mapping_entry<'a>(map: &'a mut Mapping, key: &str) -> &'a mut Mapping {
-    let value = map
-        .entry(yaml_key(key))
-        .or_insert_with(|| Value::Mapping(Mapping::new()));
+    let value = map.entry(yaml_key(key)).or_insert_with(|| Value::Mapping(Mapping::new()));
     if !value.is_mapping() {
         *value = Value::Mapping(Mapping::new());
     }
@@ -192,9 +180,7 @@ pub(super) fn ensure_unique_variable_name<T>(
 where
     T: WorkflowVariableNameAccess,
 {
-    if variables
-        .iter()
-        .any(|variable| variable.name() == name && Some(variable.id()) != current_id)
+    if variables.iter().any(|variable| variable.name() == name && Some(variable.id()) != current_id)
     {
         Err(format!("{}名称不能重复", label))
     } else {

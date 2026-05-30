@@ -17,15 +17,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let body_content = recent::render_body(app);
 
     container(column![header, body_content].width(Length::Fill).height(Length::Fill))
-        .style(|theme| {
-            iced::widget::container::Style {
-                background: Some(Background::Color(if common::is_dark_theme(theme) {
-                    theme.extended_palette().background.base.color.scale_alpha(0.96)
-                } else {
-                    Color::from_rgba8(246, 248, 252, 0.98)
-                })),
-                ..Default::default()
-            }
+        .style(|theme| iced::widget::container::Style {
+            background: Some(Background::Color(if common::is_dark_theme(theme) {
+                theme.extended_palette().background.base.color.scale_alpha(0.96)
+            } else {
+                Color::from_rgba8(246, 248, 252, 0.98)
+            })),
+            ..Default::default()
         })
         .into()
 }

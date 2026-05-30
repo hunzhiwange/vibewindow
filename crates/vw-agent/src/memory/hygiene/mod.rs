@@ -13,6 +13,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 mod imp {
     use crate::app::agent::config::MemoryConfig;
+    use crate::app::agent::memory::paths;
     use anyhow::Result;
     use chrono::{DateTime, Duration, Local, NaiveDate, Utc};
     use rusqlite::{Connection, params};
@@ -113,23 +114,19 @@ mod imp {
             return Ok(());
         }
 
+        let storage_dir = paths::project_data_dir(workspace_dir)?;
+
         // 执行各项清理任务并收集报告
         let report = HygieneReport {
             archived_memory_files: archive_daily_memory_files(
-                workspace_dir,
+                &storage_dir,
                 config.archive_after_days,
             )?,
-            archived_session_files: archive_session_files(
-                workspace_dir,
-                config.archive_after_days,
-            )?,
-            purged_memory_archives: purge_memory_archives(workspace_dir, config.purge_after_days)?,
-            purged_session_archives: purge_session_archives(
-                workspace_dir,
-                config.purge_after_days,
-            )?,
+            archived_session_files: archive_session_files(&storage_dir, config.archive_after_days)?,
+            purged_memory_archives: purge_memory_archives(&storage_dir, config.purge_after_days)?,
+            purged_session_archives: purge_session_archives(&storage_dir, config.purge_after_days)?,
             pruned_conversation_rows: prune_conversation_rows(
-                workspace_dir,
+                &storage_dir,
                 config.conversation_retention_days,
             )?,
         };
@@ -173,7 +170,7 @@ mod imp {
     /// - 时间戳解析失败（格式错误）
     /// - 缺少上次执行时间记录
     fn should_run_now(workspace_dir: &Path) -> Result<bool> {
-        let path = state_path(workspace_dir);
+        let path = state_path(workspace_dir)?;
         // 状态文件不存在，首次运行，应该执行清理
         if !path.exists() {
             return Ok(true);
@@ -214,7 +211,7 @@ mod imp {
     ///
     /// 返回 `Ok(())` 表示写入成功
     fn write_state(workspace_dir: &Path, report: &HygieneReport) -> Result<()> {
-        let path = state_path(workspace_dir);
+        let path = state_path(workspace_dir)?;
         // 确保父目录存在
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
@@ -238,9 +235,9 @@ mod imp {
     ///
     /// # 返回值
     ///
-    /// 返回状态文件路径：`<workspace_dir>/state/memory_hygiene_state.json`
-    fn state_path(workspace_dir: &Path) -> PathBuf {
-        workspace_dir.join("state").join(STATE_FILE)
+    /// 返回状态文件路径：`~/.vibewindow/worktree/workspaces/<workspace-id>/state/memory_hygiene_state.json`
+    fn state_path(workspace_dir: &Path) -> Result<PathBuf> {
+        Ok(paths::workspace_data_dir(workspace_dir)?.join("state").join(STATE_FILE))
     }
 
     /// 归档过期的每日内存文件
@@ -721,6 +718,11 @@ mod imp {
             Some((stem, ext)) => (stem, ext),
             None => (filename, ""),
         }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        include!("tests.rs");
     }
 }
 

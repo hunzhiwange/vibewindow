@@ -28,8 +28,5 @@ async fn send_user_file_returns_attachment_marker() {
 
     assert!(result.is_success());
     let expected = format!("[DOCUMENT:{}]", file_path.display());
-    assert_eq!(
-        result.model_result.as_str(),
-        Some(expected.as_str())
-    );
+    assert_eq!(result.model_result.as_str(), Some(expected.as_str()));
 }

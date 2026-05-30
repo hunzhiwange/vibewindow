@@ -27,13 +27,14 @@ pub fn execute_task_command(cmd: &ExecutorCommand) -> Result<String, String> {
     if let Some(stdin) = child.stdin.as_mut() {
         use std::io::Write;
         if let Some(content) = &cmd.stdin_content
-            && let Err(err) = stdin.write_all(content.as_bytes()) {
-                if err.kind() == std::io::ErrorKind::BrokenPipe {
-                    stdin_broken_pipe = true;
-                } else {
-                    return Err(format!("Failed to write stdin: {}", err));
-                }
+            && let Err(err) = stdin.write_all(content.as_bytes())
+        {
+            if err.kind() == std::io::ErrorKind::BrokenPipe {
+                stdin_broken_pipe = true;
+            } else {
+                return Err(format!("Failed to write stdin: {}", err));
             }
+        }
     }
     drop(child.stdin.take());
 
@@ -44,9 +45,10 @@ pub fn execute_task_command(cmd: &ExecutorCommand) -> Result<String, String> {
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
     if is_opencode_program(&cmd.program)
-        && let Some(message) = extract_opencode_terminal_error(&stdout, &stderr) {
-            return Err(format!("opencode 执行失败: {}", message));
-        }
+        && let Some(message) = extract_opencode_terminal_error(&stdout, &stderr)
+    {
+        return Err(format!("opencode 执行失败: {}", message));
+    }
     if is_claude_program(&cmd.program)
         && let Some(message) = extract_claude_terminal_error(&stdout, &stderr)
     {
@@ -123,13 +125,14 @@ pub(super) fn execute_task_with_streaming(
     if let Some(stdin) = child.stdin.as_mut() {
         use std::io::Write;
         if let Some(content) = &cmd.stdin_content
-            && let Err(err) = stdin.write_all(content.as_bytes()) {
-                if err.kind() == std::io::ErrorKind::BrokenPipe {
-                    stdin_broken_pipe = true;
-                } else {
-                    return Err(format!("Failed to write stdin: {}", err));
-                }
+            && let Err(err) = stdin.write_all(content.as_bytes())
+        {
+            if err.kind() == std::io::ErrorKind::BrokenPipe {
+                stdin_broken_pipe = true;
+            } else {
+                return Err(format!("Failed to write stdin: {}", err));
             }
+        }
     }
     drop(child.stdin.take());
     if stdin_broken_pipe {

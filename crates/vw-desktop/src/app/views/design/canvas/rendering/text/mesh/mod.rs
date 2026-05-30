@@ -24,9 +24,10 @@ pub(super) fn extract_mesh_fill(
         Some(serde_json::Value::Array(arr)) => {
             for item in arr {
                 if let serde_json::Value::Object(map) = item
-                    && let Some(mesh) = parse_mesh_object(map, variables, theme_mode) {
-                        return Some(mesh);
-                    }
+                    && let Some(mesh) = parse_mesh_object(map, variables, theme_mode)
+                {
+                    return Some(mesh);
+                }
             }
             None
         }

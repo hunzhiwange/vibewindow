@@ -12,9 +12,9 @@ use super::GatewayClient;
 use vw_api_types::tool::{
     GatewayRedisCommandRequest, GatewayRedisCommandResponse, GatewayRedisConfigBundle,
     GatewayRedisConnectionConfig, GatewayRedisConnectionTestResponse,
-    GatewayRedisKeyAnalysis, GatewayRedisKeyAnalysisRequest, GatewayRedisKeyCreateRequest,
     GatewayRedisConnectionUpsertBody, GatewayRedisDeleteResponse, GatewayRedisHistoryListQuery,
-    GatewayRedisHistoryPage, GatewayRedisImportResponse, GatewayRedisKeyListQuery,
+    GatewayRedisHistoryPage, GatewayRedisImportResponse, GatewayRedisKeyAnalysis,
+    GatewayRedisKeyAnalysisRequest, GatewayRedisKeyCreateRequest, GatewayRedisKeyListQuery,
     GatewayRedisKeyPage, GatewayRedisRuntimeOverview, GatewayRedisSettings,
     GatewayRedisSettingsUpdateBody,
 };
@@ -34,7 +34,9 @@ impl GatewayClient {
     }
 
     /// 列出全部 Redis 连接。
-    pub async fn redis_connections_list(&self) -> Result<Vec<GatewayRedisConnectionConfig>, String> {
+    pub async fn redis_connections_list(
+        &self,
+    ) -> Result<Vec<GatewayRedisConnectionConfig>, String> {
         self.get_json("/v1/redis/connections", &[]).await
     }
 
@@ -107,11 +109,7 @@ impl GatewayClient {
         &self,
         connection_id: &str,
     ) -> Result<GatewayRedisRuntimeOverview, String> {
-        self.get_json(
-            &format!("/v1/redis/connections/{connection_id}/overview"),
-            &[],
-        )
-        .await
+        self.get_json(&format!("/v1/redis/connections/{connection_id}/overview"), &[]).await
     }
 
     /// 读取指定 Redis 连接的键分页。
@@ -132,11 +130,7 @@ impl GatewayClient {
         {
             params.push(("pattern".to_string(), pattern.clone()));
         }
-        self.get_json(
-            &format!("/v1/redis/connections/{connection_id}/keys"),
-            &params,
-        )
-        .await
+        self.get_json(&format!("/v1/redis/connections/{connection_id}/keys"), &params).await
     }
 
     /// 分析指定 Redis Key 的类型、TTL、内存占用与值预览。
@@ -145,12 +139,8 @@ impl GatewayClient {
         connection_id: &str,
         body: &GatewayRedisKeyAnalysisRequest,
     ) -> Result<GatewayRedisKeyAnalysis, String> {
-        self.post_json(
-            &format!("/v1/redis/connections/{connection_id}/keys/analyze"),
-            &[],
-            body,
-        )
-        .await
+        self.post_json(&format!("/v1/redis/connections/{connection_id}/keys/analyze"), &[], body)
+            .await
     }
 
     /// 以默认值初始化方式创建指定 Redis Key，并返回分析结果。
@@ -159,12 +149,7 @@ impl GatewayClient {
         connection_id: &str,
         body: &GatewayRedisKeyCreateRequest,
     ) -> Result<GatewayRedisKeyAnalysis, String> {
-        self.post_json(
-            &format!("/v1/redis/connections/{connection_id}/keys"),
-            &[],
-            body,
-        )
-        .await
+        self.post_json(&format!("/v1/redis/connections/{connection_id}/keys"), &[], body).await
     }
 
     /// 在指定 Redis 连接上执行命令。
@@ -173,12 +158,7 @@ impl GatewayClient {
         connection_id: &str,
         body: &GatewayRedisCommandRequest,
     ) -> Result<GatewayRedisCommandResponse, String> {
-        self.post_json(
-            &format!("/v1/redis/connections/{connection_id}/command"),
-            &[],
-            body,
-        )
-        .await
+        self.post_json(&format!("/v1/redis/connections/{connection_id}/command"), &[], body).await
     }
 
     /// 读取 Redis 历史分页。

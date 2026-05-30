@@ -7,13 +7,13 @@
 //! 状态栏会根据当前激活的预览标签页动态显示相关的 LSP 信息，
 //! 包括语言服务器的工作进度、完成状态以及通用状态信息。
 
+use iced::Element;
+#[cfg(not(target_arch = "wasm32"))]
+use iced::Theme;
 #[cfg(not(target_arch = "wasm32"))]
 use iced::widget::button;
 #[cfg(not(target_arch = "wasm32"))]
 use iced::{Background, Color};
-use iced::Element;
-#[cfg(not(target_arch = "wasm32"))]
-use iced::Theme;
 
 use super::{App, Message};
 
@@ -64,7 +64,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                             iced::widget::text("✓").size(14).style(move |theme: &iced::Theme| {
                                 let palette = theme.extended_palette();
                                 iced::widget::text::Style {
-                                    color: Some(palette.success.base.color)
+                                    color: Some(palette.success.base.color),
                                 }
                             }),
                             iced::widget::text(format!("LSP: {} (即将完成...)", key))
@@ -76,7 +76,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                                             palette.background.base.text.scale_alpha(0.84)
                                         } else {
                                             theme.palette().text.scale_alpha(0.74)
-                                        })
+                                        }),
                                     }
                                 })
                         ]
@@ -100,7 +100,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                                 .style(move |theme: &iced::Theme| {
                                     let palette = theme.extended_palette();
                                     iced::widget::text::Style {
-                                        color: Some(palette.primary.base.color)
+                                        color: Some(palette.primary.base.color),
                                     }
                                 }),
                             iced::widget::text(format!(
@@ -115,7 +115,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                                         palette.background.base.text.scale_alpha(0.84)
                                     } else {
                                         theme.palette().text.scale_alpha(0.74)
-                                    })
+                                    }),
                                 }
                             })
                         ]
@@ -133,7 +133,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                                     palette.background.base.text.scale_alpha(0.82)
                                 } else {
                                     theme.palette().text.scale_alpha(0.72)
-                                })
+                                }),
                             }
                         })
                         .into()
@@ -148,7 +148,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                                 palette.background.base.text.scale_alpha(0.82)
                             } else {
                                 theme.palette().text.scale_alpha(0.72)
-                            })
+                            }),
                         }
                     })
                     .into()
@@ -162,7 +162,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                                 palette.background.base.text.scale_alpha(0.82)
                             } else {
                                 theme.palette().text.scale_alpha(0.72)
-                            })
+                            }),
                         }
                     })
                     .into()
@@ -177,7 +177,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                             palette.background.base.text.scale_alpha(0.82)
                         } else {
                             theme.palette().text.scale_alpha(0.72)
-                        })
+                        }),
                     }
                 })
                 .into()
@@ -191,7 +191,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                             palette.background.base.text.scale_alpha(0.82)
                         } else {
                             theme.palette().text.scale_alpha(0.72)
-                        })
+                        }),
                     }
                 })
                 .into()
@@ -206,7 +206,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                         palette.background.base.text.scale_alpha(0.82)
                     } else {
                         theme.palette().text.scale_alpha(0.72)
-                    })
+                    }),
                 }
             })
             .into()
@@ -221,9 +221,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                 .size(14)
                 .style(move |theme: &iced::Theme| {
                     let p = theme.extended_palette();
-                    iced::widget::text::Style {
-                        color: Some(p.warning.base.color)
-                    }
+                    iced::widget::text::Style { color: Some(p.warning.base.color) }
                 })
                 .into()
         } else {
@@ -236,7 +234,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                             p.background.base.text.scale_alpha(0.72)
                         } else {
                             theme.palette().text.scale_alpha(0.64)
-                        })
+                        }),
                     }
                 })
                 .into()
@@ -247,9 +245,7 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
                 .size(12)
                 .style(move |theme: &iced::Theme| {
                     let p = theme.extended_palette();
-                    iced::widget::text::Style {
-                        color: Some(p.warning.base.color)
-                    }
+                    iced::widget::text::Style { color: Some(p.warning.base.color) }
                 })
                 .into()
         } else {
@@ -260,25 +256,27 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
         };
 
         button(iced::widget::row![icon, count_el].spacing(4).align_y(iced::Alignment::Center))
-            .on_press(Message::Notification(crate::app::message::NotificationMessage::ToggleExpanded))
+            .on_press(Message::Notification(
+                crate::app::message::NotificationMessage::ToggleExpanded,
+            ))
             .style(|theme: &iced::Theme, status| {
                 let p = theme.extended_palette();
                 iced::widget::button::Style {
                     background: match status {
-                        iced::widget::button::Status::Hovered => Some(Background::Color(
-                            if is_dark_theme(theme) {
+                        iced::widget::button::Status::Hovered => {
+                            Some(Background::Color(if is_dark_theme(theme) {
                                 p.background.weak.color.scale_alpha(0.42)
                             } else {
                                 Color::WHITE.scale_alpha(0.52)
-                            },
-                        )),
-                        iced::widget::button::Status::Pressed => Some(Background::Color(
-                            if is_dark_theme(theme) {
+                            }))
+                        }
+                        iced::widget::button::Status::Pressed => {
+                            Some(Background::Color(if is_dark_theme(theme) {
                                 p.background.strong.color.scale_alpha(0.54)
                             } else {
                                 p.background.weak.color.scale_alpha(0.76)
-                            },
-                        )),
+                            }))
+                        }
                         _ => None,
                     },
                     text_color: if is_dark_theme(theme) {
@@ -306,13 +304,11 @@ pub(super) fn status_bar(app: &App) -> Element<'_, Message> {
         .style(|theme: &iced::Theme| {
             let p = theme.extended_palette();
             iced::widget::container::Style {
-                background: Some(
-                    Background::Color(if is_dark_theme(theme) {
-                        p.background.weak.color.scale_alpha(0.78)
-                    } else {
-                        Color::from_rgba8(248, 250, 253, 0.96)
-                    }),
-                ),
+                background: Some(Background::Color(if is_dark_theme(theme) {
+                    p.background.weak.color.scale_alpha(0.78)
+                } else {
+                    Color::from_rgba8(248, 250, 253, 0.96)
+                })),
                 text_color: Some(if is_dark_theme(theme) {
                     p.background.base.text.scale_alpha(0.82)
                 } else {

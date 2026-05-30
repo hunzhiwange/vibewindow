@@ -13,6 +13,7 @@ use crate::app::components::system_settings_common::theme::is_dark_theme;
 use crate::app::{App, Message};
 use iced::widget::{Space, button, column, container, row, scrollable, svg, text};
 use iced::{Alignment, Border, Color, Element, Length};
+use std::hash::{Hash, Hasher};
 
 /// 构建或处理 `settings_close_button` 对应的界面片段与交互数据。
 ///
@@ -96,14 +97,21 @@ pub fn settings_help_button(on_press: Message) -> Element<'static, Message> {
 ///
 /// 本函数不直接返回错误；无法交互或缺省状态会在控件状态中显式表达。
 pub fn with_settings_help_modal<'a>(
-    _app: &App,
+    app: &App,
     base: Element<'a, Message>,
     title: &'a str,
     help_text: &'a str,
     close_message: Message,
 ) -> Element<'a, Message> {
     let close_btn = settings_close_button(close_message.clone());
-    let header = row![text(title).size(16), Space::new().width(Length::Fill), close_btn,]
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    help_text.hash(&mut hasher);
+    let help_text_hash = hasher.finish();
+    let help_copied = app.last_copied_code_hash == Some(help_text_hash);
+    let copy_icon = if help_copied { Icon::Check } else { Icon::Copy };
+    let copy_tip = if help_copied { "已复制" } else { "复制帮助" };
+    let copy_btn = icon_btn(copy_icon, copy_tip, Some(Message::CopyCode(help_text.to_string())));
+    let header = row![text(title).size(16), Space::new().width(Length::Fill), copy_btn, close_btn,]
         .spacing(10)
         .align_y(Alignment::Center);
 

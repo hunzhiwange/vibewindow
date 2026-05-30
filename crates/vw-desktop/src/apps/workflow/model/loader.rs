@@ -8,8 +8,8 @@ pub fn load_document_from_value(
     source_path: Option<String>,
     raw_root: Value,
 ) -> Result<LoadedWorkflow, String> {
-    let parsed: DifyWorkflowFile =
-        serde_yaml::from_value(raw_root.clone()).map_err(|error| format!("解析 Dify DSL 失败: {error}"))?;
+    let parsed: DifyWorkflowFile = serde_yaml::from_value(raw_root.clone())
+        .map_err(|error| format!("解析 Dify DSL 失败: {error}"))?;
 
     let app_meta = workflow_app_meta_from_dify(parsed.app.as_ref());
 
@@ -56,7 +56,9 @@ pub fn load_document_from_value(
         .nodes
         .iter()
         .enumerate()
-        .map(|(index, node)| workflow_node_from_dify(node, raw_nodes.get(index).cloned().unwrap_or(Value::Null)))
+        .map(|(index, node)| {
+            workflow_node_from_dify(node, raw_nodes.get(index).cloned().unwrap_or(Value::Null))
+        })
         .collect::<Vec<_>>();
 
     let node_types = nodes
@@ -77,11 +79,7 @@ pub fn load_document_from_value(
         })
         .collect::<Vec<_>>();
 
-    let viewport = graph
-        .viewport
-        .as_ref()
-        .map(workflow_viewport_from_dify)
-        .unwrap_or_default();
+    let viewport = graph.viewport.as_ref().map(workflow_viewport_from_dify).unwrap_or_default();
 
     let environment_variables = parsed
         .workflow
@@ -169,18 +167,11 @@ pub fn suggested_workflow_file_name(title: &str) -> String {
 }
 
 fn file_stem_string(path: &str) -> Option<String> {
-    Path::new(path)
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .map(|stem| stem.to_string())
+    Path::new(path).file_stem().and_then(|stem| stem.to_str()).map(|stem| stem.to_string())
 }
 
 fn workflow_viewport_from_dify(viewport: &DifyViewport) -> WorkflowViewport {
-    WorkflowViewport {
-        x: viewport.x,
-        y: viewport.y,
-        zoom: viewport.zoom.max(0.1),
-    }
+    WorkflowViewport { x: viewport.x, y: viewport.y, zoom: viewport.zoom.max(0.1) }
 }
 
 pub(super) fn workflow_node_from_dify(node: &DifyNode, raw_node: Value) -> WorkflowNode {
@@ -211,15 +202,16 @@ pub(super) fn workflow_node_from_dify(node: &DifyNode, raw_node: Value) -> Workf
         title,
         description: node.data.desc.trim().to_string(),
         position: Point::new(position.x, position.y),
-        size: Size::new(
-            node.width.unwrap_or(default_size.width).max(120.0),
-            height,
-        ),
+        size: Size::new(node.width.unwrap_or(default_size.width).max(120.0), height),
         parent_id: node.parent_id.clone(),
         selected: node.selected.or(node.data.selected).unwrap_or(false),
         source_side: parse_handle_side(node.source_position.as_deref(), WorkflowHandleSide::Right),
         target_side: parse_handle_side(node.target_position.as_deref(), WorkflowHandleSide::Left),
-        source_handles: build_source_handles(&node.data, &node.renderer_type, &node.data.block_type),
+        source_handles: build_source_handles(
+            &node.data,
+            &node.renderer_type,
+            &node.data.block_type,
+        ),
         target_handles: build_target_handles(&node.renderer_type, &node.data.block_type),
         z_index: node.z_index.unwrap_or(0.0),
         raw_node,
@@ -242,13 +234,17 @@ fn workflow_edge_from_dify(
             .as_ref()
             .map(|data| data.source_type.clone())
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| node_types.get(edge.source.as_str()).copied().unwrap_or("custom").to_string()),
+            .unwrap_or_else(|| {
+                node_types.get(edge.source.as_str()).copied().unwrap_or("custom").to_string()
+            }),
         target_type: edge
             .data
             .as_ref()
             .map(|data| data.target_type.clone())
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| node_types.get(edge.target.as_str()).copied().unwrap_or("custom").to_string()),
+            .unwrap_or_else(|| {
+                node_types.get(edge.target.as_str()).copied().unwrap_or("custom").to_string()
+            }),
         selected: edge.selected.unwrap_or(false),
         z_index: edge.z_index.unwrap_or(0.0),
         raw_edge,
@@ -334,7 +330,12 @@ fn build_target_handles(renderer_type: &Option<String>, block_type: &str) -> Vec
 
     if matches!(
         effective_type.as_str(),
-        "start" | "trigger-webhook" | "trigger-schedule" | "trigger-plugin" | "iteration-start" | "loop-start"
+        "start"
+            | "trigger-webhook"
+            | "trigger-schedule"
+            | "trigger-plugin"
+            | "iteration-start"
+            | "loop-start"
     ) {
         Vec::new()
     } else {
@@ -374,10 +375,7 @@ fn workflow_app_meta_from_dify(app: Option<&DifyApp>) -> WorkflowAppMeta {
         name: app.name.clone().unwrap_or_else(|| "未命名应用".to_string()),
         description: app.description.clone().unwrap_or_default(),
         icon: app.icon.clone().unwrap_or_else(|| "🤖".to_string()),
-        icon_background: app
-            .icon_background
-            .clone()
-            .unwrap_or_else(|| "#FFEAD5".to_string()),
+        icon_background: app.icon_background.clone().unwrap_or_else(|| "#FFEAD5".to_string()),
         mode: app.mode.clone().unwrap_or_else(|| "advanced-chat".to_string()),
         use_icon_as_answer_icon: app.use_icon_as_answer_icon.unwrap_or(false),
         max_active_requests: app.max_active_requests.unwrap_or(0).max(0) as u32,
@@ -437,4 +435,3 @@ fn workflow_conversation_variable_from_dify(
         raw_variable,
     }
 }
-

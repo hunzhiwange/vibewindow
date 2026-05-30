@@ -2,8 +2,9 @@
 //! 本模块将编辑器操作、文件检索和工具细节限制在输入面板边界内。
 
 use super::super::{ChatMessage, ClipboardPastePayload};
-use crate::app::message::project::helpers::persist_clipboard_image_attachment;
 use crate::app::Message;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::app::message::project::helpers::persist_clipboard_image_attachment;
 use iced::Task;
 
 /// 模块内可见函数，执行 read_clipboard_for_input 对应的应用流程。

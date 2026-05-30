@@ -20,10 +20,126 @@
 //! let search_ui = search_panel::view(&app);
 //! ```
 
-use iced::widget::{button, column, container, scrollable, text};
-use iced::{Background, Color, Element, Length};
+use iced::widget::{Space, button, column, container, mouse_area, opaque, row, scrollable, stack};
+use iced::widget::{text, text_input};
+use iced::{Background, Color, Element, Length, Theme};
 
 use crate::app::{App, Message, message};
+
+fn result_button_style(
+    theme: &Theme,
+    status: iced::widget::button::Status,
+) -> iced::widget::button::Style {
+    let palette = theme.extended_palette();
+    let background = match status {
+        iced::widget::button::Status::Hovered => Some(palette.background.weak.color),
+        iced::widget::button::Status::Pressed => Some(palette.background.strong.color),
+        _ => Some(palette.background.base.color),
+    };
+
+    iced::widget::button::Style {
+        background: background.map(Background::Color),
+        text_color: palette.background.base.text,
+        border: iced::Border { width: 0.0, color: Color::TRANSPARENT, radius: 6.0.into() },
+        ..Default::default()
+    }
+}
+
+fn search_input_style(
+    theme: &Theme,
+    status: iced::widget::text_input::Status,
+) -> iced::widget::text_input::Style {
+    let palette = theme.extended_palette();
+    let is_focused = matches!(status, iced::widget::text_input::Status::Focused { .. });
+    let is_hovered = matches!(status, iced::widget::text_input::Status::Hovered)
+        || matches!(status, iced::widget::text_input::Status::Focused { is_hovered: true });
+    let border_color = if is_focused {
+        palette.primary.base.color
+    } else if is_hovered {
+        palette.background.strong.color
+    } else {
+        palette.background.weak.color
+    };
+
+    iced::widget::text_input::Style {
+        background: Background::Color(palette.background.base.color),
+        border: iced::Border { width: 1.0, color: border_color, radius: 8.0.into() },
+        icon: palette.background.base.text.scale_alpha(0.65),
+        placeholder: palette.background.strong.text.scale_alpha(0.70),
+        value: palette.background.base.text,
+        selection: palette.primary.base.color.scale_alpha(0.30),
+    }
+}
+
+pub fn overlay(app: &App) -> Element<'_, Message> {
+    let close = Message::Search(message::SearchMessage::Toggle(false));
+    let input = text_input("搜索文件 / 项目 / 历史会话", &app.search_text)
+        .on_input(|value| Message::Search(message::SearchMessage::InputChanged(value)))
+        .padding([8, 10])
+        .size(14)
+        .style(search_input_style);
+
+    let close_btn = button(text("关闭").size(12)).on_press(close.clone()).padding([8, 12]).style(
+        |theme: &Theme, status| {
+            let palette = theme.extended_palette();
+            let background = match status {
+                iced::widget::button::Status::Hovered => palette.background.weak.color,
+                iced::widget::button::Status::Pressed => palette.background.strong.color,
+                _ => palette.background.base.color,
+            };
+            iced::widget::button::Style {
+                background: Some(Background::Color(background)),
+                text_color: palette.background.base.text,
+                border: iced::Border {
+                    width: 1.0,
+                    color: palette.background.strong.color,
+                    radius: 8.0.into(),
+                },
+                ..Default::default()
+            }
+        },
+    );
+
+    let card = container(
+        column![row![input, close_btn].spacing(8).align_y(iced::Alignment::Center), view(app)]
+            .spacing(10),
+    )
+    .width(Length::Fixed(680.0))
+    .height(Length::Fixed(460.0))
+    .padding(14)
+    .style(|theme: &Theme| {
+        let palette = theme.extended_palette();
+        container::Style {
+            background: Some(Background::Color(palette.background.base.color)),
+            text_color: Some(palette.background.base.text),
+            border: iced::Border {
+                width: 1.0,
+                color: palette.background.strong.color,
+                radius: 12.0.into(),
+            },
+            ..Default::default()
+        }
+    });
+
+    let scrim = opaque(
+        mouse_area(container(Space::new().width(Length::Fill).height(Length::Fill)).style(|_| {
+            container::Style {
+                background: Some(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.35))),
+                ..Default::default()
+            }
+        }))
+        .on_press(close),
+    );
+
+    let modal: Element<'_, Message> = container(mouse_area(card).on_press(Message::None))
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .center_x(Length::Fill)
+        .padding(iced::Padding::default().top(54).right(0).bottom(0).left(0))
+        .into();
+
+    stack![scrim, modal].into()
+}
 
 /// 构建搜索面板视图
 ///
@@ -88,28 +204,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         for f in files {
             let btn = button(text(f.clone()))
                 .on_press(Message::Search(message::SearchMessage::SelectFile(f.clone())))
-                .style(|_theme, status| {
-                    // 定义按钮的基础背景色（白色，完全不透明）
-                    let base = Background::Color(Color::from_rgba8(255, 255, 255, 1.0));
-                    // 定义悬停/按下状态的背景色（浅灰色）
-                    let hover = Background::Color(Color::from_rgba8(240, 240, 240, 1.0));
-
-                    // 根据按钮状态返回不同的样式
-                    iced::widget::button::Style {
-                        background: Some(match status {
-                            iced::widget::button::Status::Hovered => hover,
-                            iced::widget::button::Status::Pressed => hover,
-                            _ => base,
-                        }),
-                        // 设置圆角边框（半径 6.0）
-                        border: iced::Border {
-                            width: 0.0,
-                            color: Color::TRANSPARENT,
-                            radius: 6.0.into(),
-                        },
-                        ..Default::default()
-                    }
-                });
+                .style(result_button_style);
             content = content.push(btn);
         }
     }
@@ -133,24 +228,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         for p in projects {
             let btn = button(text(p.clone()))
                 .on_press(Message::Search(message::SearchMessage::SelectProject(p)))
-                .style(|_theme, status| {
-                    // 定义按钮样式（与文件按钮相同的视觉风格）
-                    let base = Background::Color(Color::from_rgba8(255, 255, 255, 1.0));
-                    let hover = Background::Color(Color::from_rgba8(240, 240, 240, 1.0));
-                    iced::widget::button::Style {
-                        background: Some(match status {
-                            iced::widget::button::Status::Hovered => hover,
-                            iced::widget::button::Status::Pressed => hover,
-                            _ => base,
-                        }),
-                        border: iced::Border {
-                            width: 0.0,
-                            color: Color::TRANSPARENT,
-                            radius: 6.0.into(),
-                        },
-                        ..Default::default()
-                    }
-                });
+                .style(result_button_style);
             content = content.push(btn);
         }
     }
@@ -174,24 +252,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         for (id, title) in sessions {
             let btn = button(text(title))
                 .on_press(Message::Search(message::SearchMessage::SelectSession(id)))
-                .style(|_theme, status| {
-                    // 定义按钮样式（与其他类别保持一致的视觉风格）
-                    let base = Background::Color(Color::from_rgba8(255, 255, 255, 1.0));
-                    let hover = Background::Color(Color::from_rgba8(240, 240, 240, 1.0));
-                    iced::widget::button::Style {
-                        background: Some(match status {
-                            iced::widget::button::Status::Hovered => hover,
-                            iced::widget::button::Status::Pressed => hover,
-                            _ => base,
-                        }),
-                        border: iced::Border {
-                            width: 0.0,
-                            color: Color::TRANSPARENT,
-                            radius: 6.0.into(),
-                        },
-                        ..Default::default()
-                    }
-                });
+                .style(result_button_style);
             content = content.push(btn);
         }
     }

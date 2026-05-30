@@ -74,25 +74,26 @@ pub(super) fn render_node_with_style(
 
         for child in &node.children {
             if child.tag == "path"
-                && let Some(d) = child.attributes.get("d") {
-                    let color = visual_style
-                        .text_color
-                        .or(inherited_text_style.text_color)
-                        .unwrap_or(Color::BLACK);
+                && let Some(d) = child.attributes.get("d")
+            {
+                let color = visual_style
+                    .text_color
+                    .or(inherited_text_style.text_color)
+                    .unwrap_or(Color::BLACK);
 
-                    let rule = if let Some(r) = child.attributes.get("fill-rule") {
-                        match r.as_str() {
-                            "evenodd" => FillRule::EvenOdd,
-                            _ => FillRule::NonZero,
-                        }
-                    } else {
-                        FillRule::NonZero
-                    };
-
-                    if let Some(path) = build_svg_path(d, origin, scale) {
-                        frame.fill(&path, Fill { style: CanvasStyle::Solid(color), rule });
+                let rule = if let Some(r) = child.attributes.get("fill-rule") {
+                    match r.as_str() {
+                        "evenodd" => FillRule::EvenOdd,
+                        _ => FillRule::NonZero,
                     }
+                } else {
+                    FillRule::NonZero
+                };
+
+                if let Some(path) = build_svg_path(d, origin, scale) {
+                    frame.fill(&path, Fill { style: CanvasStyle::Solid(color), rule });
                 }
+            }
         }
         return;
     }

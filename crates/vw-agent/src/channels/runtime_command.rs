@@ -19,23 +19,15 @@ mod task_mode_tests;
 
 #[allow(unused_imports)]
 pub(crate) use approval_config::{
-    describe_non_cli_approvals,
-    non_cli_natural_language_mode_label,
-    persist_non_cli_approval_to_config,
-    remove_non_cli_approval_from_config,
+    describe_non_cli_approvals, non_cli_natural_language_mode_label,
+    persist_non_cli_approval_to_config, remove_non_cli_approval_from_config,
 };
 #[allow(unused_imports)]
 pub(crate) use command::{
-    approval_target_label,
-    contains_any_fragment,
-    extract_runtime_tail_token,
-    is_approval_management_command,
-    is_natural_language_all_tools_once_intent,
-    is_runtime_token,
-    parse_natural_language_runtime_command,
-    parse_runtime_command,
-    supports_runtime_model_switch,
-    ChannelRuntimeCommand,
+    ChannelRuntimeCommand, approval_target_label, contains_any_fragment,
+    extract_runtime_tail_token, is_approval_management_command,
+    is_natural_language_all_tools_once_intent, is_runtime_token,
+    parse_natural_language_runtime_command, parse_runtime_command, supports_runtime_model_switch,
 };
 pub(crate) use handler::handle_runtime_command_if_needed;
 

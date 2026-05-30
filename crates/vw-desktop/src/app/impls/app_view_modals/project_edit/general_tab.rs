@@ -24,41 +24,26 @@ pub(super) fn general_tab<'a>(app: &'a App) -> Element<'a, Message> {
         .padding([10, 12])
         .size(13)
         .style(settings_text_input_style);
-    let icon_input = text_input(
-        "图标文本或图片路径（支持 file:/// 或本地绝对路径）",
-        &app.project_edit_icon,
-    )
-    .on_input(|value| {
-        Message::Project(crate::app::message::project::ProjectMessage::ProjectEditIconChanged(
-            value,
-        ))
-    })
-    .padding([10, 12])
-    .size(13)
-    .style(settings_text_input_style);
+    let icon_input =
+        text_input("图标文本或图片路径（支持 file:/// 或本地绝对路径）", &app.project_edit_icon)
+            .on_input(|value| {
+                Message::Project(
+                    crate::app::message::project::ProjectMessage::ProjectEditIconChanged(value),
+                )
+            })
+            .padding([10, 12])
+            .size(13)
+            .style(settings_text_input_style);
 
     let icon_color_presets = [
-        "#60a5fa",
-        "#34d399",
-        "#f59e0b",
-        "#f97316",
-        "#ef4444",
-        "#ec4899",
-        "#8b5cf6",
-        "#6366f1",
-        "#22d3ee",
-        "#14b8a6",
-        "#a3e635",
-        "#94a3b8",
+        "#60a5fa", "#34d399", "#f59e0b", "#f97316", "#ef4444", "#ec4899", "#8b5cf6", "#6366f1",
+        "#22d3ee", "#14b8a6", "#a3e635", "#94a3b8",
     ];
     let mut preset_grid = column![].spacing(6);
     let mut preset_row = row![].spacing(6);
     let mut row_count = 0usize;
-    let selected_preset = app
-        .project_edit_icon_color
-        .trim()
-        .trim_start_matches('#')
-        .to_ascii_lowercase();
+    let selected_preset =
+        app.project_edit_icon_color.trim().trim_start_matches('#').to_ascii_lowercase();
     for preset in icon_color_presets {
         let preset_color = parse_hex_color(preset).unwrap_or(Color::from_rgb8(96, 165, 250));
         let is_selected = selected_preset == preset.trim_start_matches('#').to_ascii_lowercase();
@@ -94,11 +79,9 @@ pub(super) fn general_tab<'a>(app: &'a App) -> Element<'a, Message> {
         preset_grid = preset_grid.push(preset_row);
     }
 
-    let icon_color_presets_row = column![
-        text("预设颜色").size(12).style(settings_muted_text_style),
-        preset_grid,
-    ]
-    .spacing(4);
+    let icon_color_presets_row =
+        column![text("预设颜色").size(12).style(settings_muted_text_style), preset_grid,]
+            .spacing(4);
     let current_icon_color = parse_color(&app.project_edit_icon_color)
         .or_else(|| parse_hex_color(&app.project_edit_icon_color))
         .unwrap_or(Color::from_rgb8(96, 165, 250));
@@ -128,13 +111,8 @@ pub(super) fn general_tab<'a>(app: &'a App) -> Element<'a, Message> {
 
     let preview_color =
         parse_hex_color(&app.project_edit_icon_color).unwrap_or(Color::from_rgb8(96, 165, 250));
-    let preview_label = app
-        .project_edit_icon
-        .trim()
-        .chars()
-        .next()
-        .map(|ch| ch.to_string())
-        .unwrap_or_else(|| {
+    let preview_label =
+        app.project_edit_icon.trim().chars().next().map(|ch| ch.to_string()).unwrap_or_else(|| {
             app.project_edit_name
                 .chars()
                 .next()
@@ -170,26 +148,26 @@ pub(super) fn general_tab<'a>(app: &'a App) -> Element<'a, Message> {
                 ..Default::default()
             }
         });
-    let icon_preview_content: Element<'_, Message> = if has_preview_image && app.project_edit_icon_hovered
-    {
-        let clear_overlay = container(text("x").size(14).color(Color::WHITE))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .align_x(iced::alignment::Horizontal::Center)
-            .align_y(iced::alignment::Vertical::Center)
-            .style(|_| iced::widget::container::Style {
-                background: Some(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.55))),
-                border: iced::Border { radius: 20.0.into(), ..Default::default() },
-                ..Default::default()
-            });
-        container(iced::widget::stack![preview_badge, clear_overlay])
-            .clip(true)
-            .width(Length::Fixed(128.0))
-            .height(Length::Fixed(128.0))
-            .into()
-    } else {
-        preview_badge.into()
-    };
+    let icon_preview_content: Element<'_, Message> =
+        if has_preview_image && app.project_edit_icon_hovered {
+            let clear_overlay = container(text("x").size(14).color(Color::WHITE))
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .align_x(iced::alignment::Horizontal::Center)
+                .align_y(iced::alignment::Vertical::Center)
+                .style(|_| iced::widget::container::Style {
+                    background: Some(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.55))),
+                    border: iced::Border { radius: 20.0.into(), ..Default::default() },
+                    ..Default::default()
+                });
+            container(iced::widget::stack![preview_badge, clear_overlay])
+                .clip(true)
+                .width(Length::Fixed(128.0))
+                .height(Length::Fixed(128.0))
+                .into()
+        } else {
+            preview_badge.into()
+        };
     let icon_preview = mouse_area(icon_preview_content)
         .on_enter(Message::Project(
             crate::app::message::project::ProjectMessage::ProjectEditIconHovered(true),
@@ -216,7 +194,10 @@ pub(super) fn general_tab<'a>(app: &'a App) -> Element<'a, Message> {
                         icon_input,
                         icon_color_presets_row,
                         row![
-                            text("图标颜色").size(13).style(settings_muted_text_style).width(Length::Fill),
+                            text("图标颜色")
+                                .size(13)
+                                .style(settings_muted_text_style)
+                                .width(Length::Fill),
                             color_preview_btn
                         ]
                         .spacing(6)

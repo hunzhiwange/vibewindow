@@ -3,7 +3,7 @@
 
 use super::message_view::{
     assistant_render_blocks, deduped_tool_last_indices, effective_assistant_render_cache,
-    hash_chat_content, should_highlight_pending_permission_tool,
+    explore_summary_text_blocks, hash_chat_content, should_highlight_pending_permission_tool,
     should_prefer_plain_think_body, should_render_think_block, summarize_explore_items,
     think_block_default_expanded, think_block_resolved_expanded, tool_card_text_blocks,
     trailing_tool_tail_text_source_block_idx,
@@ -117,9 +117,15 @@ fn assistant_render_blocks_extracts_inline_file_write_tool_after_colon() {
     let (blocks, has_special_blocks) = assistant_render_blocks(content, &render_cache, false);
 
     assert!(has_special_blocks);
-    assert!(matches!(blocks.first(), Some(ParsedChatBlock::Text { content }) if content.contains("中文翻译：")));
-    assert!(matches!(blocks.get(1), Some(ParsedChatBlock::Tool { raw }) if raw.starts_with("tool file_write\n")));
-    assert!(matches!(blocks.get(2), Some(ParsedChatBlock::Text { content }) if content.contains("翻译完成")));
+    assert!(
+        matches!(blocks.first(), Some(ParsedChatBlock::Text { content }) if content.contains("中文翻译："))
+    );
+    assert!(
+        matches!(blocks.get(1), Some(ParsedChatBlock::Tool { raw }) if raw.starts_with("tool file_write\n"))
+    );
+    assert!(
+        matches!(blocks.get(2), Some(ParsedChatBlock::Text { content }) if content.contains("翻译完成"))
+    );
 }
 
 #[test]
@@ -366,6 +372,23 @@ fn summarize_explore_items_uses_running_slot_when_forced() {
 }
 
 #[test]
+fn explore_summary_text_blocks_split_on_hidden_think_boundary() {
+    let raw = concat!(
+        "tool read\n",
+        "{\"tool_call_id\":\"call-1\",\"input\":\"{\\\"filePath\\\":\\\"/tmp/a.rs\\\"}\",\"status\":\"completed\"}\n",
+        "<think>done</think>\n",
+        "tool read\n",
+        "{\"tool_call_id\":\"call-2\",\"input\":\"{\\\"filePath\\\":\\\"/tmp/b.rs\\\"}\",\"status\":\"completed\"}\n"
+    );
+
+    let summaries = explore_summary_text_blocks(raw);
+
+    assert_eq!(summaries.len(), 2);
+    assert_eq!(summaries[0].1, "1 次读取");
+    assert_eq!(summaries[1].1, "1 次读取");
+}
+
+#[test]
 fn split_think_counts_empty_open_think_before_tool_block() {
     let raw = "<think>tool grep\n{\"status\":\"running\",\"output\":\"\"}";
 
@@ -418,7 +441,10 @@ fn tool_card_text_blocks_include_permission_request_details_in_error_body() {
 
     assert_eq!(
         blocks,
-        vec![vec!["原因：Approval required for file write\n目标：src/main.rs\nRequest blocked".to_string()]]
+        vec![vec![
+            "原因：Approval required for file write\n目标：src/main.rs\nRequest blocked"
+                .to_string()
+        ]]
     );
 }
 
@@ -428,10 +454,7 @@ fn tool_card_text_blocks_support_file_write_alias_preview() {
         "tool file_write\n{\"input\":\"{\\\"filePath\\\":\\\"src/main.rs\\\",\\\"content\\\":\\\"fn main() {}\\n\\\"}\",\"status\":\"completed\",\"render_hint\":{\"summary\":\"Created src/main.rs\",\"kind\":\"file_write\"}}",
     );
 
-    assert_eq!(
-        blocks,
-        vec![vec!["Created src/main.rs".to_string(), "fn main() {}\n".to_string()]]
-    );
+    assert_eq!(blocks, vec![vec!["Created src/main.rs".to_string(), "fn main() {}\n".to_string()]]);
 }
 
 #[test]
@@ -456,10 +479,7 @@ fn tool_card_text_blocks_use_read_summary_parts() {
 
     assert_eq!(
         blocks,
-        vec![vec![
-            "demo.txt".to_string(),
-            "offset=10 limit=5 (line 11-15)".to_string(),
-        ]]
+        vec![vec!["demo.txt".to_string(), "offset=10 limit=5 (line 11-15)".to_string(),]]
     );
 }
 
@@ -469,10 +489,7 @@ fn tool_card_text_blocks_support_file_edit_preview() {
         "tool edit\n{\"input\":\"{\\\"filePath\\\":\\\"src/lib.rs\\\",\\\"old_string\\\":\\\"old\\\",\\\"new_string\\\":\\\"fn run() {}\\n\\\"}\",\"status\":\"completed\",\"render_hint\":{\"summary\":\"Updated src/lib.rs\",\"kind\":\"file_edit\"}}",
     );
 
-    assert_eq!(
-        blocks,
-        vec![vec!["Updated src/lib.rs".to_string(), "fn run() {}\n".to_string()]]
-    );
+    assert_eq!(blocks, vec![vec!["Updated src/lib.rs".to_string(), "fn run() {}\n".to_string()]]);
 }
 
 #[test]
@@ -481,10 +498,7 @@ fn tool_card_text_blocks_support_notebook_edit_preview() {
         "tool notebook_edit\n{\"input\":\"{\\\"path\\\":\\\"demo.ipynb\\\",\\\"edit_type\\\":\\\"edit\\\",\\\"new_code\\\":[\\\"print(1)\\\",\\\"print(2)\\\"]}\",\"status\":\"completed\",\"render_hint\":{\"summary\":\"edit cell 3\",\"kind\":\"notebook_edit\"}}",
     );
 
-    assert_eq!(
-        blocks,
-        vec![vec!["edit cell 3".to_string(), "print(1)\nprint(2)".to_string()]]
-    );
+    assert_eq!(blocks, vec![vec!["edit cell 3".to_string(), "print(1)\nprint(2)".to_string()]]);
 }
 
 #[test]
@@ -618,15 +632,7 @@ fn tool_card_text_blocks_emit_planned_status_for_mcp_surface() {
 
 #[test]
 fn should_highlight_pending_permission_tool_only_for_active_request() {
-    assert!(should_highlight_pending_permission_tool(
-        Some("perm-2"),
-        Some("perm-2"),
-        false,
-    ));
+    assert!(should_highlight_pending_permission_tool(Some("perm-2"), Some("perm-2"), false,));
     assert!(should_highlight_pending_permission_tool(None, Some("perm-2"), true));
-    assert!(!should_highlight_pending_permission_tool(
-        Some("perm-1"),
-        Some("perm-2"),
-        false,
-    ));
+    assert!(!should_highlight_pending_permission_tool(Some("perm-1"), Some("perm-2"), false,));
 }

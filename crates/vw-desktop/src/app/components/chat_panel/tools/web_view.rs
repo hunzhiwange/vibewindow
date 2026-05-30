@@ -18,7 +18,9 @@ use crate::app::{App, Message, message};
 /// 重新导出 use super::tool_meta::{tool_header_label, tool_header_title, tool_inline_summary}，让上层模块通过稳定路径访问。
 use super::tool_meta::{tool_header_label, tool_header_title, tool_inline_summary};
 /// 重新导出 use super::tool_parse::{tool_error_text, tool_input, tool_output_text, tool_status, tool_summary_text}，让上层模块通过稳定路径访问。
-use super::tool_parse::{tool_error_text, tool_input, tool_output_text, tool_status, tool_summary_text};
+use super::tool_parse::{
+    tool_error_text, tool_input, tool_output_text, tool_status, tool_summary_text,
+};
 /// 重新导出 use super::{，让上层模块通过稳定路径访问。
 use super::{
     ToolPermissionState, ToolTextTarget, canonical_tool_name, selected_chat_text_for_target,
@@ -91,13 +93,8 @@ pub fn tool_web_view<'a>(
     let context_key = chat_context_target_key(msg_idx, Some(tool_idx));
     let context_menu_open = app.chat_context_menu_target == Some(context_key);
     let context_menu_anchor = app.chat_context_menu_pos.unwrap_or((12.0, 26.0));
-    let context_text = selected_chat_text_for_target(app, context_key).unwrap_or_else(|| {
-        if body_text.is_empty() {
-            summary.clone()
-        } else {
-            body_text.clone()
-        }
-    });
+    let context_text = selected_chat_text_for_target(app, context_key)
+        .unwrap_or_else(|| if body_text.is_empty() { summary.clone() } else { body_text.clone() });
 
     let detail_btn = button(
         icon_svg(Icon::Eye)
@@ -119,9 +116,8 @@ pub fn tool_web_view<'a>(
         Space::new().width(Length::Fixed(22.0)).into()
     };
 
-    let mut head_left = row![tool_header_title(tool_name, title, is_error)]
-        .spacing(10)
-        .align_y(Alignment::Center);
+    let mut head_left =
+        row![tool_header_title(tool_name, title, is_error)].spacing(10).align_y(Alignment::Center);
     if !summary.trim().is_empty() {
         head_left = head_left.push(text(summary.clone()).size(13).style(|theme: &Theme| {
             // iced 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
@@ -132,13 +128,10 @@ pub fn tool_web_view<'a>(
         }));
     }
 
-    let head_row: Element<'a, Message> = row![
-        head_left,
-        container(Space::new()).width(Length::Fill),
-        detail_slot
-    ]
-    .align_y(Alignment::Center)
-    .into();
+    let head_row: Element<'a, Message> =
+        row![head_left, container(Space::new()).width(Length::Fill), detail_slot]
+            .align_y(Alignment::Center)
+            .into();
 
     let mut content = column![container(head_row).width(Length::Fill)].spacing(8);
     if !metadata_text.is_empty() {
@@ -257,10 +250,7 @@ pub fn tool_web_view<'a>(
             false,
         )
         .unwrap_or_else(|| {
-            text(preview)
-                .size(14)
-                .font(iced::Font::with_name("JetBrains Mono"))
-                .into()
+            text(preview).size(14).font(iced::Font::with_name("JetBrains Mono")).into()
         });
         let body: Element<'a, Message> = scrollable(
             container(code)
@@ -295,11 +285,8 @@ pub fn tool_web_view<'a>(
 
     content = content.push(body);
 
-    let content: Element<'a, Message> = container(content)
-        .padding([2, 6])
-        .width(Length::Fill)
-        .style(simplified_block_style)
-        .into();
+    let content: Element<'a, Message> =
+        container(content).padding([2, 6]).width(Length::Fill).style(simplified_block_style).into();
 
     Some(if let Some(menu) = chat_context_menu(context_menu_open) {
         // PointBelowOverlay 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
@@ -465,10 +452,7 @@ pub(super) fn web_metadata_number(value: &serde_json::Value, key: &str) -> Optio
                 .and_then(serde_json::Value::as_u64)
         })
         .or_else(|| {
-            value
-                .get("data")
-                .and_then(|item| item.get(key))
-                .and_then(serde_json::Value::as_u64)
+            value.get("data").and_then(|item| item.get(key)).and_then(serde_json::Value::as_u64)
         })
 }
 
@@ -499,10 +483,7 @@ pub(super) fn web_metadata_bool(value: &serde_json::Value, key: &str) -> bool {
                 .and_then(serde_json::Value::as_bool)
         })
         .or_else(|| {
-            value
-                .get("data")
-                .and_then(|item| item.get(key))
-                .and_then(serde_json::Value::as_bool)
+            value.get("data").and_then(|item| item.get(key)).and_then(serde_json::Value::as_bool)
         })
         .unwrap_or(false)
 }
@@ -547,13 +528,12 @@ pub(super) fn web_string_field(value: &serde_json::Value, keys: &[&str]) -> Opti
     }
 
     // 同类 Web 工具的字段名并不完全一致，按候选 key 查找能兼容旧输出。
-    keys.iter()
-        .find_map(|key| {
-            // serde_json 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-            serde_json::from_str::<serde_json::Value>(tool_input(value).trim())
-                .ok()
-                .and_then(|input| input.get(*key).cloned())
-                .and_then(|item| item.as_str().map(str::trim).map(ToString::to_string))
-                .filter(|text| !text.is_empty())
-        })
+    keys.iter().find_map(|key| {
+        // serde_json 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+        serde_json::from_str::<serde_json::Value>(tool_input(value).trim())
+            .ok()
+            .and_then(|input| input.get(*key).cloned())
+            .and_then(|item| item.as_str().map(str::trim).map(ToString::to_string))
+            .filter(|text| !text.is_empty())
+    })
 }

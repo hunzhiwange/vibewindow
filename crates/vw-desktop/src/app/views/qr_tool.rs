@@ -3,11 +3,10 @@
 //! 本模块只负责视图组合与样式适配，不持有业务状态，也不扩大外部能力边界。
 
 use crate::app::components::system_settings_common::{
-    primary_action_btn_style, rounded_action_btn_style, settings_divider,
-    settings_close_button, settings_modal_backdrop_style, settings_modal_card_style,
-    settings_muted_text_style, settings_page_intro, settings_panel, settings_panel_style,
-    settings_pick_list_menu_style, settings_pick_list_style, settings_section_card,
-    settings_text_input_style,
+    primary_action_btn_style, rounded_action_btn_style, settings_close_button, settings_divider,
+    settings_modal_backdrop_style, settings_modal_card_style, settings_muted_text_style,
+    settings_page_intro, settings_panel, settings_panel_style, settings_pick_list_menu_style,
+    settings_pick_list_style, settings_section_card, settings_text_input_style,
 };
 use crate::app::components::text_editor_scroll_panel::{
     TextEditorScrollPanelMetrics, text_editor_scroll_panel,
@@ -18,8 +17,8 @@ use crate::app::views::design::properties::color_picker::{
 };
 use crate::app::{App, Message};
 use iced::widget::{
-    Image, Space, button, column, container, mouse_area, opaque, pick_list, responsive, row,
-    stack, text, text_editor, text_input,
+    Image, Space, button, column, container, mouse_area, opaque, pick_list, responsive, row, stack,
+    text, text_editor, text_input,
 };
 use iced::{Alignment, Background, Border, Color, ContentFit, Element, Length, Size, Theme};
 
@@ -81,7 +80,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
 fn build_color_picker_drawer<'a>(app: &'a App) -> Element<'a, Message> {
     let color = parse_color(&app.qr_color_hex).unwrap_or(Color::from_rgb8(0, 0, 0));
     let color_hex = format_rgba_to_hex(color.r, color.g, color.b, color.a);
-    let panel_width = (app.window_size.0 * 0.36).clamp(COLOR_DRAWER_MIN_WIDTH, COLOR_DRAWER_MAX_WIDTH);
+    let panel_width =
+        (app.window_size.0 * 0.36).clamp(COLOR_DRAWER_MIN_WIDTH, COLOR_DRAWER_MAX_WIDTH);
     let close_message = Message::QrTool(QrToolMessage::ToggleColorPicker);
 
     let overlay = opaque(
@@ -108,19 +108,17 @@ fn build_color_picker_drawer<'a>(app: &'a App) -> Element<'a, Message> {
             ]
             .spacing(12)
             .align_y(Alignment::Center),
-            container(
-                render_color_picker(
-                    color,
-                    app.qr_color_format,
-                    false,
-                    |picked| {
-                        let hex = format_rgba_to_hex(picked.r, picked.g, picked.b, picked.a);
-                        Message::QrTool(QrToolMessage::ColorChanged(hex))
-                    },
-                    |format| Message::QrTool(QrToolMessage::ColorFormatChanged(format)),
-                    || Message::None,
-                ),
-            )
+            container(render_color_picker(
+                color,
+                app.qr_color_format,
+                false,
+                |picked| {
+                    let hex = format_rgba_to_hex(picked.r, picked.g, picked.b, picked.a);
+                    Message::QrTool(QrToolMessage::ColorChanged(hex))
+                },
+                |format| Message::QrTool(QrToolMessage::ColorFormatChanged(format)),
+                || Message::None,
+            ),)
             .padding([18, 18])
             .width(Length::Fill)
             .style(settings_panel_style),
@@ -168,21 +166,26 @@ fn build_workspace<'a>(app: &'a App, size: Size) -> Element<'a, Message> {
 
 fn build_controls_panel<'a>(app: &'a App) -> Element<'a, Message> {
     let color = parse_color(&app.qr_color_hex).unwrap_or(Color::from_rgb8(0, 0, 0));
-    let icon_mode_selector = pick_list(Vec::from(QrIconMode::all()), Some(app.qr_icon_mode), |mode| {
-        Message::QrTool(QrToolMessage::IconModeSelected(mode))
-    })
-    .padding([10, 14])
-    .text_size(13)
-    .style(settings_pick_list_style)
-    .menu_style(settings_pick_list_menu_style)
-    .width(Length::Fill);
+    let icon_mode_selector =
+        pick_list(Vec::from(QrIconMode::all()), Some(app.qr_icon_mode), |mode| {
+            Message::QrTool(QrToolMessage::IconModeSelected(mode))
+        })
+        .padding([10, 14])
+        .text_size(13)
+        .style(settings_pick_list_style)
+        .menu_style(settings_pick_list_menu_style)
+        .width(Length::Fill);
 
     let upload_row: Element<'a, Message> = if app.qr_icon_mode == QrIconMode::Upload {
         row![
-            text(if app.qr_icon_bytes.is_some() { "已选择自定义图标" } else { "未选择图标" })
-                .size(12)
-                .style(settings_muted_text_style)
-                .width(Length::Fill),
+            text(if app.qr_icon_bytes.is_some() {
+                "已选择自定义图标"
+            } else {
+                "未选择图标"
+            })
+            .size(12)
+            .style(settings_muted_text_style)
+            .width(Length::Fill),
             build_action_button(app, "选择图片", QrToolMessage::PickUploadedIcon, false),
         ]
         .spacing(10)
@@ -193,7 +196,10 @@ fn build_controls_panel<'a>(app: &'a App) -> Element<'a, Message> {
     };
 
     column![
-        settings_page_intro("生成设置", "表单样式对齐系统设置常规页，统一管理尺寸、容错、颜色与中心图标。"),
+        settings_page_intro(
+            "生成设置",
+            "表单样式对齐系统设置常规页，统一管理尺寸、容错、颜色与中心图标。"
+        ),
         settings_section_card("生成操作", "先填写内容，再选择样式参数并生成二维码。"),
         settings_panel(
             column![
@@ -275,8 +281,8 @@ fn build_controls_panel<'a>(app: &'a App) -> Element<'a, Message> {
                         icon_mode_selector,
                         upload_row,
                         text(qr_icon_mode_description(app.qr_icon_mode))
-                        .size(12)
-                        .style(settings_muted_text_style),
+                            .size(12)
+                            .style(settings_muted_text_style),
                     ]
                     .spacing(10),
                 ),
@@ -294,7 +300,10 @@ fn build_editor_card<'a>(app: &'a App, size: Size) -> Element<'a, Message> {
     let editor_panel = build_editor_panel(app, size);
 
     column![
-        settings_page_intro("内容输入", "输入网址、文本或任意字符串；表单参数会直接影响右侧预览与导出 PNG。"),
+        settings_page_intro(
+            "内容输入",
+            "输入网址、文本或任意字符串；表单参数会直接影响右侧预览与导出 PNG。"
+        ),
         settings_panel(
             column![
                 row![
@@ -320,9 +329,7 @@ fn build_preview_card<'a>(app: &'a App) -> Element<'a, Message> {
         container(
             column![
                 text("正在生成预览").size(16),
-                text("完成后会在这里显示最新二维码。")
-                    .size(12)
-                    .style(settings_muted_text_style),
+                text("完成后会在这里显示最新二维码。").size(12).style(settings_muted_text_style),
             ]
             .spacing(8)
             .align_x(Alignment::Center),
@@ -368,7 +375,10 @@ fn build_preview_card<'a>(app: &'a App) -> Element<'a, Message> {
     };
 
     column![
-        settings_page_intro("预览输出", "生成结果会在这里实时显示，可直接导出 PNG 供扫码、分享或落地页使用。"),
+        settings_page_intro(
+            "预览输出",
+            "生成结果会在这里实时显示，可直接导出 PNG 供扫码、分享或落地页使用。"
+        ),
         settings_panel(
             column![
                 row![
@@ -438,11 +448,7 @@ fn build_action_button<'a>(
     is_primary: bool,
 ) -> Element<'a, Message> {
     let button = button(text(label).size(13)).padding([10, 12]).width(Length::Fill);
-    let button = if app.qr_loading {
-        button
-    } else {
-        button.on_press(Message::QrTool(message))
-    };
+    let button = if app.qr_loading { button } else { button.on_press(Message::QrTool(message)) };
 
     if is_primary {
         button.style(primary_action_btn_style).into()
@@ -465,11 +471,7 @@ fn build_status_badge<'a>(app: &'a App) -> Element<'a, Message> {
     } else if let Some(message) = &app.qr_notification {
         (
             message.as_str().to_owned(),
-            if app.qr_notification_is_error {
-                StatusTone::Error
-            } else {
-                StatusTone::Success
-            },
+            if app.qr_notification_is_error { StatusTone::Error } else { StatusTone::Success },
         )
     } else {
         ("已就绪".to_string(), StatusTone::Idle)
@@ -583,19 +585,17 @@ fn qr_icon_mode_description(mode: QrIconMode) -> &'static str {
 }
 
 fn build_color_swatch_button<'a>(color: Color) -> Element<'a, Message> {
-    button(
-        container(Space::new().width(Length::Fixed(22.0)).height(Length::Fixed(22.0))).style(
-            move |_theme: &Theme| iced::widget::container::Style {
-                background: Some(color.into()),
-                border: Border {
-                    width: 1.0,
-                    color: Color::from_rgba8(148, 163, 184, 0.35),
-                    radius: 7.0.into(),
-                },
-                ..Default::default()
+    button(container(Space::new().width(Length::Fixed(22.0)).height(Length::Fixed(22.0))).style(
+        move |_theme: &Theme| iced::widget::container::Style {
+            background: Some(color.into()),
+            border: Border {
+                width: 1.0,
+                color: Color::from_rgba8(148, 163, 184, 0.35),
+                radius: 7.0.into(),
             },
-        ),
-    )
+            ..Default::default()
+        },
+    ))
     .width(Length::Fixed(34.0))
     .height(Length::Fixed(34.0))
     .padding(5)
@@ -606,10 +606,9 @@ fn build_color_swatch_button<'a>(color: Color) -> Element<'a, Message> {
 
 fn preview_surface_style(theme: &Theme) -> iced::widget::container::Style {
     let palette = theme.extended_palette();
-    let is_dark = theme.palette().background.r
-        + theme.palette().background.g
-        + theme.palette().background.b
-        < 1.5;
+    let is_dark =
+        theme.palette().background.r + theme.palette().background.g + theme.palette().background.b
+            < 1.5;
 
     iced::widget::container::Style {
         background: Some(Background::Color(if is_dark {

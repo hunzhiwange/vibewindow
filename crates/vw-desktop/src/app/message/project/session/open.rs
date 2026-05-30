@@ -17,6 +17,23 @@ use crate::app::{
     },
 };
 
+fn merge_project_sessions(
+    existing: Option<Vec<vw_shared::session::info::Info>>,
+    incoming: Vec<vw_shared::session::info::Info>,
+) -> Vec<vw_shared::session::info::Info> {
+    let Some(existing) = existing else {
+        return incoming;
+    };
+
+    let mut merged = incoming;
+    for session in existing {
+        if !merged.iter().any(|item| item.id == session.id) {
+            merged.push(session);
+        }
+    }
+    merged
+}
+
 /// handle 处理当前模块对应的消息或状态转换。
 ///
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
@@ -82,6 +99,8 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
             );
 
             #[cfg(not(target_arch = "wasm32"))]
+            let mut loaded_from_ui_store_has_missing_message_ids = false;
+            #[cfg(not(target_arch = "wasm32"))]
             let loaded_from_ui_store = if app.chat.is_empty() && !app.session_is_requesting(&id) {
                 if let Some(session) = crate::app::session_gateway::gateway_load_session_any(&id) {
                     if session.messages.is_empty() {
@@ -100,7 +119,13 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
                         let shared_chat =
                             crate::app::session::shared_chat_messages(session.messages.clone());
                         app.chat = shared_chat.iter().cloned().collect();
-                        app.chat_message_ids = vec![None; app.chat.len()];
+                        app.chat_message_ids = if session.message_ids.len() == app.chat.len() {
+                            session.message_ids.clone()
+                        } else {
+                            vec![None; app.chat.len()]
+                        };
+                        loaded_from_ui_store_has_missing_message_ids =
+                            app.chat_message_ids.iter().any(Option::is_none);
                         app.store_session_chat_snapshot(
                             id.clone(),
                             shared_chat,
@@ -115,6 +140,8 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
             } else {
                 false
             };
+            #[cfg(target_arch = "wasm32")]
+            let loaded_from_ui_store_has_missing_message_ids = false;
             #[cfg(target_arch = "wasm32")]
             let loaded_from_ui_store = false;
 
@@ -134,12 +161,15 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
 
             let has_requesting_cache =
                 app.session_is_requesting(&id) && app.session_chat_cache.contains_key(&id);
-            let should_load_remote = !loaded_from_ui_store && !has_requesting_cache;
+            let should_load_remote = (!loaded_from_ui_store
+                || loaded_from_ui_store_has_missing_message_ids)
+                && !has_requesting_cache;
             tracing::info!(
                 target: "vw_desktop",
                 session_id = %id,
                 project_path = %resolved_path,
                 loaded_from_ui_store,
+                loaded_from_ui_store_has_missing_message_ids,
                 has_requesting_cache,
                 should_load_remote,
                 current_messages = app.chat.len(),
@@ -167,8 +197,7 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
                 && !app.project_sessions_loading.contains(&path)
             {
                 app.project_sessions_loading.insert(path.clone());
-                app.project_sessions_last_refresh_at
-                    .insert(path.clone(), web_time::Instant::now());
+                app.project_sessions_last_refresh_at.insert(path.clone(), web_time::Instant::now());
                 let project_path_clone = path.clone();
                 return Some(iced::Task::perform(
                     async move {
@@ -272,16 +301,7 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
             match res {
                 Ok(sessions) => {
                     let existing = app.project_sessions.get(&project_path).cloned();
-                    let updated = if let Some(mut existing) = existing {
-                        for s in &sessions {
-                            if !existing.iter().any(|e| e.id == s.id) {
-                                existing.insert(0, s.clone());
-                            }
-                        }
-                        existing
-                    } else {
-                        sessions.clone()
-                    };
+                    let updated = merge_project_sessions(existing, sessions);
                     app.project_sessions.insert(project_path.clone(), updated);
                     app.project_session_load_counts.insert(project_path.clone(), 10);
                 }
@@ -295,8 +315,7 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
             project_path,
             has_vertical_scrollbar,
         } => {
-            app.project_session_has_vertical_scrollbar
-                .insert(project_path, has_vertical_scrollbar);
+            app.project_session_has_vertical_scrollbar.insert(project_path, has_vertical_scrollbar);
             Some(iced::Task::none())
         }
         ProjectMessage::ProjectLoadMoreSessions(project_path) => {

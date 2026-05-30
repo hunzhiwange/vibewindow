@@ -73,7 +73,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
     scrollable(container(list).width(Length::Fill)).into()
 }
 
-pub(super) fn git_diff_by_file(app: &App) -> (Vec<String>, std::collections::HashMap<String, String>) {
+pub(super) fn git_diff_by_file(
+    app: &App,
+) -> (Vec<String>, std::collections::HashMap<String, String>) {
     let Some(path) = &app.project_path else {
         return (vec![], std::collections::HashMap::new());
     };

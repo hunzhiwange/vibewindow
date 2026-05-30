@@ -203,8 +203,6 @@ pub struct TelegramChannel {
 }
 
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 #[path = "attachments_incoming_tests.rs"]
 mod attachments_incoming_tests;
 #[cfg(test)]
@@ -261,6 +259,8 @@ mod sending_media_tests;
 #[cfg(test)]
 #[path = "sending_text_tests.rs"]
 mod sending_text_tests;
+#[cfg(test)]
+mod tests;
 #[cfg(test)]
 #[path = "tool_tags_tests.rs"]
 mod tool_tags_tests;

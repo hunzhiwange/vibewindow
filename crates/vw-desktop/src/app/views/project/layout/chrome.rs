@@ -25,10 +25,11 @@ pub fn right_column_chrome(
     right_column: Element<'_, Message>,
     corner_radius: f32,
 ) -> Element<'_, Message> {
-    let right_column_inner =
-        container(right_column).width(Length::Fill).height(Length::Fill).clip(true).style(
-            move |theme: &Theme| right_column_inner_style(theme, corner_radius),
-        );
+    let right_column_inner = container(right_column)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .clip(true)
+        .style(move |theme: &Theme| right_column_inner_style(theme, corner_radius));
     let right_column_base = container(right_column_inner)
         .width(Length::Fill)
         .height(Length::Fill)

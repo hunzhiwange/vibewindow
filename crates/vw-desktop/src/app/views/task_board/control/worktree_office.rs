@@ -41,7 +41,11 @@ pub(super) fn build_worktree_pixel_office<'a>(
         build_worktree_summary_strip("空闲工位", snapshot.idle_count, WorktreeState::Idle),
         build_worktree_summary_strip("执行中", snapshot.busy_count, WorktreeState::Busy),
         build_worktree_summary_strip("待处理污染", snapshot.tainted_count, WorktreeState::Tainted),
-        build_worktree_summary_strip("回收槽位", snapshot.recycling_count, WorktreeState::Recycling),
+        build_worktree_summary_strip(
+            "回收槽位",
+            snapshot.recycling_count,
+            WorktreeState::Recycling
+        ),
         build_worktree_summary_strip("停机槽位", snapshot.dead_count, WorktreeState::Dead),
     ]
     .spacing(8)
@@ -55,19 +59,36 @@ pub(super) fn build_worktree_pixel_office<'a>(
     };
 
     let task_status_summary = row![
-        build_task_status_summary_strip("任务池", task_status_count(TaskStatus::Pool), TaskStatus::Pool),
+        build_task_status_summary_strip(
+            "任务池",
+            task_status_count(TaskStatus::Pool),
+            TaskStatus::Pool
+        ),
         build_task_status_summary_strip(
             "待执行",
             task_status_count(TaskStatus::Pending),
             TaskStatus::Pending,
         ),
         build_task_status_summary_strip(
+            "拆分",
+            task_status_count(TaskStatus::Planning),
+            TaskStatus::Planning,
+        ),
+        build_task_status_summary_strip(
             "执行中",
             task_status_count(TaskStatus::Running),
             TaskStatus::Running,
         ),
-        build_task_status_summary_strip("暂停", task_status_count(TaskStatus::Paused), TaskStatus::Paused),
-        build_task_status_summary_strip("失败", task_status_count(TaskStatus::Failed), TaskStatus::Failed),
+        build_task_status_summary_strip(
+            "暂停",
+            task_status_count(TaskStatus::Paused),
+            TaskStatus::Paused
+        ),
+        build_task_status_summary_strip(
+            "失败",
+            task_status_count(TaskStatus::Failed),
+            TaskStatus::Failed
+        ),
         build_task_status_summary_strip(
             "完成",
             task_status_count(TaskStatus::CodeComplete),

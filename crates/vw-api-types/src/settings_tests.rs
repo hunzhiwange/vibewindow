@@ -6,7 +6,8 @@ use serde_json::json;
 
 #[test]
 fn settings_patches_omit_unset_fields_and_keep_policy_names() {
-    let security: SecuritySettingsPatchDto = serde_json::from_value(json!({})).expect("valid patch");
+    let security: SecuritySettingsPatchDto =
+        serde_json::from_value(json!({})).expect("valid patch");
     assert_eq!(security.autonomy_level, None);
     assert_eq!(security.network_access, None);
 

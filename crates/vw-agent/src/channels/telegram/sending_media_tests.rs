@@ -1,4 +1,4 @@
-use super::attachments::{is_http_url, TelegramAttachmentKind};
+use super::attachments::{TelegramAttachmentKind, is_http_url};
 
 #[test]
 fn media_url_detection_allows_only_http_and_https() {

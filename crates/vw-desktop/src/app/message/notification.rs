@@ -172,7 +172,8 @@ pub fn update(app: &mut App, message: NotificationMessage) -> Task<Message> {
         NotificationMessage::Copy(id) => {
             use std::time::Duration;
 
-            let Some(notification) = app.notifications.iter().find(|notification| notification.id == id)
+            let Some(notification) =
+                app.notifications.iter().find(|notification| notification.id == id)
             else {
                 return Task::none();
             };
@@ -246,4 +247,3 @@ pub fn update(app: &mut App, message: NotificationMessage) -> Task<Message> {
         }
     }
 }
-

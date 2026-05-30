@@ -4,16 +4,15 @@ mod formatting;
 mod persistence;
 mod state;
 
-
 use crate::app::components::text_editor_context_menu::{
     SelectionActionOutcome, focus_editor_task, paste_action, paste_task, selection_copy_task,
     selection_cut_task, selection_delete_task,
 };
 use crate::app::{App, Message};
+use formatting::{beautify_sql, compress_sql, purify_sql};
 use iced::Task;
 use iced::mouse;
 use iced::widget::text_editor;
-use formatting::{beautify_sql, compress_sql, purify_sql};
 use persistence::save_sql_tool_content_task;
 use state::{
     apply_scroll_lines, clear_notification_task, close_context_menu, max_scroll_top_line,

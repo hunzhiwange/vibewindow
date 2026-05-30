@@ -83,10 +83,10 @@ mod memory_impl;
 mod tls;
 
 use anyhow::Result;
+use helpers::{quote_identifier, validate_identifier};
 use parking_lot::Mutex;
 use postgres::Client;
 use std::sync::Arc;
-use helpers::{quote_identifier, validate_identifier};
 
 /// 基于 PostgreSQL 的持久化内存存储
 ///

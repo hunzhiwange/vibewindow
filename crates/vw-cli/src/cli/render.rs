@@ -144,13 +144,8 @@ pub(crate) fn render_execution_indicator(
 
     // 定义颜色方案
     let bg = SURFACE_BASE;
-    let dot_style = Style::default()
-        .fg(EXECUTION_DOT)
-        .bg(bg);
-    let block_style = Style::default()
-        .fg(ACCENT_CYAN)
-        .bg(bg)
-        .add_modifier(Modifier::BOLD); // 加粗效果
+    let dot_style = Style::default().fg(EXECUTION_DOT).bg(bg);
+    let block_style = Style::default().fg(ACCENT_CYAN).bg(bg).add_modifier(Modifier::BOLD); // 加粗效果
 
     let width = line_area.width as usize;
 

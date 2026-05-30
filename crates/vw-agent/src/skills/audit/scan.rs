@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use super::MAX_TEXT_FILE_BYTES;
 use super::manifest::audit_manifest_file;
-use super::markdown::audit_markdown_file;
+use super::markdown::{audit_markdown_file, audit_markdown_resource_file};
 use super::report::SkillAuditReport;
 use super::support::{
     is_markdown_file, is_toml_file, is_unsupported_script_file, relative_display,
@@ -106,13 +106,21 @@ pub(super) fn audit_path(root: &Path, path: &Path, report: &mut SkillAuditReport
         return Ok(());
     }
 
-    if is_markdown_file(path) {
+    if is_skill_entry_markdown(path) {
         audit_markdown_file(root, path, report)?;
+    } else if is_markdown_file(path) {
+        audit_markdown_resource_file(root, path, report)?;
     } else if is_toml_file(path) {
         audit_manifest_file(root, path, report)?;
     }
 
     Ok(())
+}
+
+fn is_skill_entry_markdown(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.eq_ignore_ascii_case("SKILL.md"))
 }
 #[cfg(test)]
 #[path = "scan_tests.rs"]

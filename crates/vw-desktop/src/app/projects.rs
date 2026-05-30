@@ -491,12 +491,11 @@ impl App {
         }
         #[cfg(not(target_arch = "wasm32"))]
         if !self.lsp_disabled
-            && let Some(active_preview_path) = self.active_preview_path.clone() {
-                let _ = crate::app::message::preview::lsp::sync_lsp_for_path(
-                    self,
-                    &active_preview_path,
-                );
-            }
+            && let Some(active_preview_path) = self.active_preview_path.clone()
+        {
+            let _ =
+                crate::app::message::preview::lsp::sync_lsp_for_path(self, &active_preview_path);
+        }
 
         // 加载项目特定的聊天模型偏好
         #[cfg(not(target_arch = "wasm32"))]

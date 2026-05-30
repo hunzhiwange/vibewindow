@@ -33,8 +33,9 @@ fn server_helpers_preserve_transport_details() {
         })
     );
 
-    let stdio =
-        McpServer::Stdio(McpServerStdio::new("local", PathBuf::from("npx")).args(vec!["mcp".into()]));
+    let stdio = McpServer::Stdio(
+        McpServerStdio::new("local", PathBuf::from("npx")).args(vec!["mcp".into()]),
+    );
     assert_eq!(server_name(&stdio), "local");
     assert_eq!(
         server_summary(&stdio),
@@ -49,10 +50,8 @@ fn server_helpers_preserve_transport_details() {
 
 #[tokio::test]
 async fn with_server_peer_stdio_surfaces_spawn_errors() {
-    let server = McpServer::Stdio(McpServerStdio::new(
-        "broken",
-        PathBuf::from("vw-missing-mcp-command"),
-    ));
+    let server =
+        McpServer::Stdio(McpServerStdio::new("broken", PathBuf::from("vw-missing-mcp-command")));
 
     let error = with_server_peer(&server, |_peer| Box::pin(async move { Ok(()) }))
         .await

@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-use super::{ripgrep, SearchInput};
+use super::{SearchInput, ripgrep};
 
 static LOG: LazyLock<log::Logger> = LazyLock::new(|| {
     log::create(Some({

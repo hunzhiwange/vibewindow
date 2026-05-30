@@ -273,73 +273,73 @@ pub async fn gateway_external_reveal_async(path: &str) -> Result<(), String> {
     client.desktop_external_path_reveal(path).await
 }
 
-/// 执行 gateway_desktop_skills_async 对应的领域操作。
+/// 执行 gateway_skills_async 对应的领域操作。
 ///
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-pub async fn gateway_desktop_skills_async(
+pub async fn gateway_skills_async(
     project_path: Option<&str>,
 ) -> Result<Vec<DesktopSkillCatalogEntryDto>, String> {
     let client = gateway_client()?;
-    client.desktop_skills_get(project_path).await
+    client.skills_get(project_path).await
 }
 
-/// 执行 gateway_desktop_skill_detail_async 对应的领域操作。
+/// 执行 gateway_skill_detail_async 对应的领域操作。
 ///
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-pub async fn gateway_desktop_skill_detail_async(
+pub async fn gateway_skill_detail_async(
     project_path: Option<&str>,
     skill_id: &str,
 ) -> Result<DesktopSkillDetailDto, String> {
     let client = gateway_client()?;
-    client.desktop_skill_detail_get(project_path, skill_id).await
+    client.skill_detail_get(project_path, skill_id).await
 }
 
-/// 执行 gateway_desktop_skill_create_async 对应的领域操作。
+/// 执行 gateway_skill_create_async 对应的领域操作。
 ///
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-pub async fn gateway_desktop_skill_create_async(project_path: &str) -> Result<String, String> {
+pub async fn gateway_skill_create_async(project_path: &str) -> Result<String, String> {
     let client = gateway_client()?;
-    client.desktop_skill_create(project_path).await
+    client.skill_create(project_path).await
 }
 
-/// 执行 gateway_desktop_skill_install_builtin_async 对应的领域操作。
+/// 执行 gateway_skill_install_builtin_async 对应的领域操作。
 ///
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-pub async fn gateway_desktop_skill_install_builtin_async(
+pub async fn gateway_skill_install_builtin_async(
     project_path: &str,
     skill_id: &str,
 ) -> Result<String, String> {
     let client = gateway_client()?;
-    client.desktop_skill_install_builtin(project_path, skill_id).await
+    client.skill_install_builtin(project_path, skill_id).await
 }
 
-/// 执行 gateway_desktop_skill_set_enabled_async 对应的领域操作。
+/// 执行 gateway_skill_set_enabled_async 对应的领域操作。
 ///
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-pub async fn gateway_desktop_skill_set_enabled_async(
+pub async fn gateway_skill_set_enabled_async(
     project_path: Option<&str>,
     skill_id: &str,
     enabled: bool,
 ) -> Result<String, String> {
     let client = gateway_client()?;
-    client.desktop_skill_set_enabled(project_path, skill_id, enabled).await
+    client.skill_set_enabled(project_path, skill_id, enabled).await
 }
 
-/// 执行 gateway_desktop_skill_delete_async 对应的领域操作。
+/// 执行 gateway_skill_delete_async 对应的领域操作。
 ///
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
-pub async fn gateway_desktop_skill_delete_async(
+pub async fn gateway_skill_delete_async(
     project_path: Option<&str>,
     skill_id: &str,
 ) -> Result<String, String> {
     let client = gateway_client()?;
-    client.desktop_skill_delete(project_path, skill_id).await
+    client.skill_delete(project_path, skill_id).await
 }
 
 /// 执行 gateway_project_change_records_async 对应的领域操作。

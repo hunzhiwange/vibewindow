@@ -182,8 +182,7 @@ pub(crate) fn handle_key_press(
     show_menu: &mut bool,
     exit_confirm_armed: &mut bool,
 ) -> Option<String> {
-    if key.modifiers.contains(KeyModifiers::CONTROL)
-        && matches!(key.code, KeyCode::Char('c' | 'd'))
+    if key.modifiers.contains(KeyModifiers::CONTROL) && matches!(key.code, KeyCode::Char('c' | 'd'))
     {
         if *exit_confirm_armed {
             return Some("/exit".to_string());

@@ -44,12 +44,16 @@ impl WorkflowState {
         };
 
         match &menu.target {
-            WorkflowCanvasContextMenuTarget::Canvas | WorkflowCanvasContextMenuTarget::Edge(_) => menu.world,
+            WorkflowCanvasContextMenuTarget::Canvas | WorkflowCanvasContextMenuTarget::Edge(_) => {
+                menu.world
+            }
             WorkflowCanvasContextMenuTarget::Node(node_id)
             | WorkflowCanvasContextMenuTarget::NodeInsert(node_id) => self
                 .document
                 .node(node_id)
-                .map(|node| Point::new(node.position.x + node.size.width + 120.0, node.position.y + 18.0))
+                .map(|node| {
+                    Point::new(node.position.x + node.size.width + 120.0, node.position.y + 18.0)
+                })
                 .unwrap_or(menu.world),
         }
     }
@@ -91,7 +95,11 @@ impl WorkflowState {
         }
     }
 
-    pub fn submit_editor(&mut self, window_size: (f32, f32), loaded: LoadedWorkflow) -> Result<(), String> {
+    pub fn submit_editor(
+        &mut self,
+        window_size: (f32, f32),
+        loaded: LoadedWorkflow,
+    ) -> Result<(), String> {
         let Some(editor) = self.app_editor.clone() else {
             return Ok(());
         };
@@ -188,6 +196,4 @@ impl WorkflowState {
         let active_id = self.active_app_id.as_deref()?;
         self.apps.iter().find(|app| app.id == active_id).cloned()
     }
-
-
 }

@@ -363,11 +363,8 @@ mod tests {
     fn provider_convert_tools_default() {
         let provider = MockProvider { supports_native: false };
 
-        let tools = vec![ToolSpec::new(
-            "test_tool",
-            "A test tool",
-            serde_json::json!({"type": "object"}),
-        )];
+        let tools =
+            vec![ToolSpec::new("test_tool", "A test tool", serde_json::json!({"type": "object"}))];
 
         let payload = provider.convert_tools(&tools);
 
@@ -388,11 +385,8 @@ mod tests {
     async fn provider_chat_prompt_guided_fallback() {
         let provider = MockProvider { supports_native: false };
 
-        let tools = vec![ToolSpec::new(
-            "shell",
-            "Run commands",
-            serde_json::json!({"type": "object"}),
-        )];
+        let tools =
+            vec![ToolSpec::new("shell", "Run commands", serde_json::json!({"type": "object"}))];
 
         let request = ChatRequest { messages: &[ChatMessage::user("Hello")], tools: Some(&tools) };
 
@@ -544,11 +538,8 @@ mod tests {
     async fn provider_chat_prompt_guided_preserves_existing_system_not_first() {
         let provider = EchoSystemProvider { supports_native: false };
 
-        let tools = vec![ToolSpec::new(
-            "shell",
-            "Run commands",
-            serde_json::json!({"type": "object"}),
-        )];
+        let tools =
+            vec![ToolSpec::new("shell", "Run commands", serde_json::json!({"type": "object"}))];
 
         // 系统提示词位于用户消息之后（非标准顺序）
         let request = ChatRequest {
@@ -573,11 +564,8 @@ mod tests {
     async fn provider_chat_prompt_guided_uses_convert_tools_override() {
         let provider = CustomConvertProvider;
 
-        let tools = vec![ToolSpec::new(
-            "shell",
-            "Run commands",
-            serde_json::json!({"type": "object"}),
-        )];
+        let tools =
+            vec![ToolSpec::new("shell", "Run commands", serde_json::json!({"type": "object"}))];
 
         let request = ChatRequest {
             messages: &[ChatMessage::system("BASE"), ChatMessage::user("Hello")],
@@ -601,11 +589,8 @@ mod tests {
     async fn provider_chat_prompt_guided_rejects_non_prompt_payload() {
         let provider = InvalidConvertProvider;
 
-        let tools = vec![ToolSpec::new(
-            "shell",
-            "Run commands",
-            serde_json::json!({"type": "object"}),
-        )];
+        let tools =
+            vec![ToolSpec::new("shell", "Run commands", serde_json::json!({"type": "object"}))];
 
         let request = ChatRequest { messages: &[ChatMessage::user("Hello")], tools: Some(&tools) };
 

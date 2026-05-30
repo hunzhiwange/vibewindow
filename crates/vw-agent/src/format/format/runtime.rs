@@ -4,7 +4,7 @@
 //! runtime 中执行格式化命令。命令失败只记录日志，不阻断文件编辑流程。
 
 use super::detect::is_enabled;
-use super::state::{instance_state, FormatterStatus, LOGGER};
+use super::state::{FormatterStatus, LOGGER, instance_state};
 use crate::app::agent::bus;
 use crate::app::agent::file;
 use crate::app::agent::project::instance;

@@ -69,10 +69,7 @@ impl GatewayUiRuntime {
         let session_id = self.resolve_session_id(session_id)?;
         let directory = self.directory_value();
         let body = todo_put_body(todos)?;
-        self.client()
-            .session_todo_update(session_id, directory.as_deref(), &body)
-            .await
-            .map(|_| ())
+        self.client().session_todo_update(session_id, directory.as_deref(), &body).await.map(|_| ())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -135,10 +132,7 @@ pub(crate) fn filter_questions_for_session(
         return requests;
     };
 
-    requests
-        .into_iter()
-        .filter(|request| request.session_id.trim() == session_id)
-        .collect()
+    requests.into_iter().filter(|request| request.session_id.trim() == session_id).collect()
 }
 
 /// 将共享 `Todo` 列表转换为 gateway 覆盖写入请求体。

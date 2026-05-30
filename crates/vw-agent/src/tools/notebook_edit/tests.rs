@@ -129,9 +129,7 @@ mod tests {
         assert!(written["cells"][2]["id"].as_str().is_some_and(|value| !value.is_empty()));
 
         let mut snapshot = context.read_state_snapshot();
-        let entry = snapshot
-            .get(Some(dir.as_path()), "demo.ipynb")
-            .expect("read state missing");
+        let entry = snapshot.get(Some(dir.as_path()), "demo.ipynb").expect("read state missing");
         assert_eq!(
             entry.snapshot,
             Some(FileSnapshot::from_text(

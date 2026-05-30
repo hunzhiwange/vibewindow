@@ -30,15 +30,15 @@
 use crate::app::agent::config::schema::load_or_init_config;
 use crate::app::agent::storage;
 use crate::app::agent::util::log;
-use std::sync::LazyLock;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 pub mod schema;
-pub mod traits;
 #[cfg(test)]
 mod tests;
+pub mod traits;
 #[cfg(test)]
 #[path = "traits_tests.rs"]
 mod traits_tests;

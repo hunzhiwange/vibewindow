@@ -1,7 +1,8 @@
 use super::MatrixChannel;
 use crate::app::agent::channels::traits::ChannelMessage;
 use matrix_sdk::{
-    Client as MatrixSdkClient, Room, config::SyncSettings,
+    Client as MatrixSdkClient, Room,
+    config::SyncSettings,
     media::{MediaFormat, MediaRequestParameters},
     ruma::{
         OwnedRoomId, OwnedUserId,

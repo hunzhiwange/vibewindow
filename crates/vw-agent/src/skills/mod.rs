@@ -31,6 +31,7 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use vw_config_types::skills::SkillsDirectoryProvider;
 
 mod audit;
 mod cli;
@@ -73,6 +74,16 @@ pub(crate) fn is_local_skill_disabled(skill_dir: &Path) -> bool {
 pub(crate) fn discover_local_skill_source_dirs(
     workspace_dir: Option<&Path>,
 ) -> Vec<LocalSkillSourceDir> {
+    discover_local_skill_source_dirs_with_provider(
+        workspace_dir,
+        SkillsDirectoryProvider::Vibewindow,
+    )
+}
+
+pub(crate) fn discover_local_skill_source_dirs_with_provider(
+    workspace_dir: Option<&Path>,
+    directory_provider: SkillsDirectoryProvider,
+) -> Vec<LocalSkillSourceDir> {
     let mut dirs = Vec::new();
     let mut seen = HashSet::new();
     let home_dir = std::env::var_os("HOME").map(PathBuf::from);
@@ -81,18 +92,14 @@ pub(crate) fn discover_local_skill_source_dirs(
         let workspace_dir =
             workspace_dir.canonicalize().unwrap_or_else(|_| workspace_dir.to_path_buf());
 
-        push_skill_source_dir(
-            &mut dirs,
-            &mut seen,
-            LocalSkillSourceKind::Workspace,
-            workspace_dir.join(".vibewindow").join("skills"),
-        );
-        push_skill_source_dir(
-            &mut dirs,
-            &mut seen,
-            LocalSkillSourceKind::Workspace,
-            workspace_dir.join("skills"),
-        );
+        for relative_path in workspace_skill_source_paths(directory_provider) {
+            push_skill_source_dir(
+                &mut dirs,
+                &mut seen,
+                LocalSkillSourceKind::Workspace,
+                workspace_dir.join(relative_path),
+            );
+        }
 
         let stop_dir = discover_ancestor_scan_stop(&workspace_dir, home_dir.as_deref());
         if stop_dir.as_ref() != Some(&workspace_dir) {
@@ -102,12 +109,14 @@ pub(crate) fn discover_local_skill_source_dirs(
                     break;
                 }
 
-                push_skill_source_dir(
-                    &mut dirs,
-                    &mut seen,
-                    LocalSkillSourceKind::Ancestor,
-                    dir.join(".vibewindow").join("skills"),
-                );
+                for relative_path in ancestor_skill_source_paths(directory_provider) {
+                    push_skill_source_dir(
+                        &mut dirs,
+                        &mut seen,
+                        LocalSkillSourceKind::Ancestor,
+                        dir.join(relative_path),
+                    );
+                }
 
                 if stop_dir.as_ref().is_some_and(|stop| dir == stop.as_path()) {
                     break;
@@ -119,15 +128,63 @@ pub(crate) fn discover_local_skill_source_dirs(
     }
 
     if let Some(home_dir) = home_dir {
-        push_skill_source_dir(
-            &mut dirs,
-            &mut seen,
-            LocalSkillSourceKind::Global,
-            home_dir.join(".vibewindow").join("skills"),
-        );
+        for relative_path in global_skill_source_paths(directory_provider) {
+            push_skill_source_dir(
+                &mut dirs,
+                &mut seen,
+                LocalSkillSourceKind::Global,
+                home_dir.join(relative_path),
+            );
+        }
     }
 
     dirs
+}
+
+pub(crate) fn workspace_skills_dir(
+    workspace_dir: &Path,
+    directory_provider: SkillsDirectoryProvider,
+) -> PathBuf {
+    workspace_dir.join(primary_workspace_skill_source_path(directory_provider))
+}
+
+fn workspace_skill_source_paths(directory_provider: SkillsDirectoryProvider) -> Vec<&'static str> {
+    match directory_provider {
+        SkillsDirectoryProvider::Vibewindow => vec![".vibewindow/skills", "skills"],
+        SkillsDirectoryProvider::Codex => vec![".codex/skills", ".agents/skills"],
+        SkillsDirectoryProvider::Claude => vec![".claude/skills"],
+        SkillsDirectoryProvider::Cursor => vec![".cursor/skills"],
+    }
+}
+
+fn ancestor_skill_source_paths(directory_provider: SkillsDirectoryProvider) -> Vec<&'static str> {
+    match directory_provider {
+        SkillsDirectoryProvider::Vibewindow => vec![".vibewindow/skills"],
+        SkillsDirectoryProvider::Codex => vec![".codex/skills", ".agents/skills"],
+        SkillsDirectoryProvider::Claude => vec![".claude/skills"],
+        SkillsDirectoryProvider::Cursor => vec![".cursor/skills"],
+    }
+}
+
+fn global_skill_source_paths(directory_provider: SkillsDirectoryProvider) -> Vec<&'static str> {
+    match directory_provider {
+        // `~/.skills` 是比 VibeWindow 配置目录更通用的用户级技能目录。
+        SkillsDirectoryProvider::Vibewindow => vec![".vibewindow/skills", ".skills"],
+        SkillsDirectoryProvider::Codex => vec![".codex/skills", ".agents/skills"],
+        SkillsDirectoryProvider::Claude => vec![".claude/skills"],
+        SkillsDirectoryProvider::Cursor => vec![".cursor/skills"],
+    }
+}
+
+fn primary_workspace_skill_source_path(
+    directory_provider: SkillsDirectoryProvider,
+) -> &'static str {
+    match directory_provider {
+        SkillsDirectoryProvider::Vibewindow => ".vibewindow/skills",
+        SkillsDirectoryProvider::Codex => ".codex/skills",
+        SkillsDirectoryProvider::Claude => ".claude/skills",
+        SkillsDirectoryProvider::Cursor => ".cursor/skills",
+    }
 }
 
 fn push_skill_source_dir(
@@ -220,11 +277,28 @@ pub fn load_skills_with_config(
     workspace_dir: &Path,
     config: &crate::app::agent::config::Config,
 ) -> Vec<Skill> {
-    load_skills_with_open_skills_config(
+    load_skills_with_open_skills_config_and_provider(
         workspace_dir,
         Some(config.skills.open_skills_enabled),
         config.skills.open_skills_dir.as_deref(),
         types::SkillLoadMode::from_prompt_mode(config.skills.prompt_injection_mode),
+        config.skills.directory_provider,
+    )
+}
+
+/// 使用运行时配置加载完整技能内容。
+///
+/// skill 工具按需加载时需要完整指令；这里不受提示词注入模式影响。
+pub(crate) fn load_skills_full_with_config(
+    workspace_dir: &Path,
+    config: &crate::app::agent::config::Config,
+) -> Vec<Skill> {
+    load_skills_with_open_skills_config_and_provider(
+        workspace_dir,
+        Some(config.skills.open_skills_enabled),
+        config.skills.open_skills_dir.as_deref(),
+        types::SkillLoadMode::Full,
+        config.skills.directory_provider,
     )
 }
 
@@ -247,7 +321,7 @@ pub fn load_skills_with_config(
 /// # 加载顺序
 ///
 /// 1. 优先加载当前工作区与祖先目录中的本地技能
-/// 2. 然后补充全局 `~/.vibewindow/skills` 技能
+/// 2. 然后补充全局 `~/.vibewindow/skills` 与 `~/.skills` 技能
 /// 3. 最后在启用时追加 OpenSkills 社区仓库技能
 /// 4. 同名技能按前面的来源优先，后续来源会被去重跳过
 pub(crate) fn load_skills_with_open_skills_config(
@@ -256,10 +330,30 @@ pub(crate) fn load_skills_with_open_skills_config(
     config_open_skills_dir: Option<&str>,
     load_mode: types::SkillLoadMode,
 ) -> Vec<Skill> {
+    load_skills_with_open_skills_config_and_provider(
+        workspace_dir,
+        config_open_skills_enabled,
+        config_open_skills_dir,
+        load_mode,
+        SkillsDirectoryProvider::Vibewindow,
+    )
+}
+
+fn load_skills_with_open_skills_config_and_provider(
+    workspace_dir: &Path,
+    config_open_skills_enabled: Option<bool>,
+    config_open_skills_dir: Option<&str>,
+    load_mode: types::SkillLoadMode,
+    directory_provider: SkillsDirectoryProvider,
+) -> Vec<Skill> {
     let mut skills = Vec::new();
     let mut seen = HashSet::new();
 
-    extend_unique_skills(&mut skills, &mut seen, load_workspace_skills(workspace_dir, load_mode));
+    extend_unique_skills(
+        &mut skills,
+        &mut seen,
+        load_workspace_skills(workspace_dir, load_mode, directory_provider),
+    );
 
     if let Some(open_skills_dir) =
         open_skills::ensure_open_skills_repo(config_open_skills_enabled, config_open_skills_dir)
@@ -286,8 +380,12 @@ pub(crate) fn load_skills_with_open_skills_config(
 /// # 返回值
 ///
 /// 返回工作空间中的技能列表（`Vec<Skill>`）
-fn load_workspace_skills(workspace_dir: &Path, load_mode: types::SkillLoadMode) -> Vec<Skill> {
-    discover_local_skill_source_dirs(Some(workspace_dir))
+fn load_workspace_skills(
+    workspace_dir: &Path,
+    load_mode: types::SkillLoadMode,
+    directory_provider: SkillsDirectoryProvider,
+) -> Vec<Skill> {
+    discover_local_skill_source_dirs_with_provider(Some(workspace_dir), directory_provider)
         .into_iter()
         .flat_map(|source| loader::load_skills_from_directory(&source.path, load_mode))
         .collect()

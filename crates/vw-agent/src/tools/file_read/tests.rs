@@ -32,7 +32,9 @@ use super::*;
 mod tests {
     use super::*;
     use crate::app::agent::security::{AutonomyLevel, SecurityPolicy};
-    use crate::app::agent::tools::{FileReadStateEntry, ToolUseContext, execute_tool_from_registry};
+    use crate::app::agent::tools::{
+        FileReadStateEntry, ToolUseContext, execute_tool_from_registry,
+    };
     use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
 
     /// 创建基础测试安全策略
@@ -525,7 +527,8 @@ mod tests {
         tokio::fs::create_dir_all(&dir).await.unwrap();
         tokio::fs::write(dir.join("repeat.txt"), "same content").await.unwrap();
 
-        let tools: Vec<Box<dyn Tool>> = vec![Box::new(FileReadTool::new(test_security(dir.clone())))];
+        let tools: Vec<Box<dyn Tool>> =
+            vec![Box::new(FileReadTool::new(test_security(dir.clone())))];
         let context = Arc::new(ToolUseContext::new(
             "file-read-unchanged",
             Some(dir.to_string_lossy().to_string()),
@@ -568,7 +571,8 @@ mod tests {
         let content = (1..=2105).map(|line| format!("line-{line}")).collect::<Vec<_>>().join("\n");
         tokio::fs::write(dir.join("large.txt"), content).await.unwrap();
 
-        let tools: Vec<Box<dyn Tool>> = vec![Box::new(FileReadTool::new(test_security(dir.clone())))];
+        let tools: Vec<Box<dyn Tool>> =
+            vec![Box::new(FileReadTool::new(test_security(dir.clone())))];
         let context = Arc::new(ToolUseContext::new(
             "file-read-partial-default-limit",
             Some(dir.to_string_lossy().to_string()),
@@ -586,7 +590,8 @@ mod tests {
         assert_eq!(first.result.data["kind"], json!("text"));
         assert_eq!(first.result.data["has_more"], json!(true));
 
-        let entry = read_state_entry(&context, dir.as_path(), "large.txt").expect("read_state entry");
+        let entry =
+            read_state_entry(&context, dir.as_path(), "large.txt").expect("read_state entry");
         assert!(entry.partial_view, "default truncated read should be marked partial");
         assert_eq!(entry.offset, None);
         assert_eq!(entry.limit, None);
@@ -613,7 +618,8 @@ mod tests {
         tokio::fs::create_dir_all(&dir).await.unwrap();
         tokio::fs::write(dir.join("short.txt"), "one\ntwo").await.unwrap();
 
-        let tools: Vec<Box<dyn Tool>> = vec![Box::new(FileReadTool::new(test_security(dir.clone())))];
+        let tools: Vec<Box<dyn Tool>> =
+            vec![Box::new(FileReadTool::new(test_security(dir.clone())))];
         let context = Arc::new(ToolUseContext::new(
             "file-read-limit-full",
             Some(dir.to_string_lossy().to_string()),
@@ -631,8 +637,12 @@ mod tests {
         assert_eq!(result.result.data["kind"], json!("text"));
         assert_eq!(result.result.data["has_more"], json!(false));
 
-        let entry = read_state_entry(&context, dir.as_path(), "short.txt").expect("read_state entry");
-        assert!(!entry.partial_view, "full read should not be marked partial just because limit was provided");
+        let entry =
+            read_state_entry(&context, dir.as_path(), "short.txt").expect("read_state entry");
+        assert!(
+            !entry.partial_view,
+            "full read should not be marked partial just because limit was provided"
+        );
         assert_eq!(entry.limit, Some(10));
 
         let _ = tokio::fs::remove_dir_all(&dir).await;

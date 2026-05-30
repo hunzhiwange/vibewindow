@@ -4,7 +4,9 @@
 //! 注释聚焦调用边界、返回值和错误传播方式，便于后续维护设置页与工具栏行为时快速定位职责。
 
 use crate::app::components::system_settings::SystemTab;
-use crate::app::components::system_settings_common::{settings_help_button, with_settings_help_modal};
+use crate::app::components::system_settings_common::{
+    settings_help_button, with_settings_help_modal,
+};
 use crate::app::message::settings::SettingsMessage;
 use crate::app::{App, Message};
 use iced::widget::{container, row, text};

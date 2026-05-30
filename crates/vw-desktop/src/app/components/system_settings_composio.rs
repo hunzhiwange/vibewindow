@@ -60,18 +60,23 @@ fn text_row<'a>(
     description: &'static str,
     placeholder: &'static str,
     value: &'a str,
+    hint: &'static str,
     secure: bool,
     on_input: impl Fn(String) -> Message + 'a,
 ) -> Element<'a, Message> {
+    let input = text_input(placeholder, value)
+        .secure(secure)
+        .on_input(on_input)
+        .padding([10, 12])
+        .size(13)
+        .style(settings_text_input_style)
+        .width(Length::Fill);
+
     field_row(
         label,
         description,
-        text_input(placeholder, value)
-            .secure(secure)
-            .on_input(on_input)
-            .padding([10, 12])
-            .size(13)
-            .style(settings_text_input_style)
+        column![input, text(hint).size(12).style(settings_muted_text_style).width(Length::Fill),]
+            .spacing(6)
             .width(Length::Fill),
     )
 }
@@ -83,9 +88,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let enabled_row = field_row(
         "启用",
         "控制是否注册 Composio OAuth 工具集成。",
-        checkbox(s.enabled).label("启用 Composio OAuth 工具集成").on_toggle(|value| {
-            Message::Settings(ComposioMessage::EnabledToggled(value).into())
-        }).style(settings_checkbox_style),
+        checkbox(s.enabled)
+            .label("启用 Composio OAuth 工具集成")
+            .on_toggle(|value| Message::Settings(ComposioMessage::EnabledToggled(value).into()))
+            .style(settings_checkbox_style),
     );
 
     let api_key_row = text_row(
@@ -93,45 +99,30 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "Composio 平台颁发的 API Key。",
         "cmp_...",
         &s.api_key_input,
+        "留空时不写入配置，运行时将不会注册 Composio 工具。",
         true,
         |value| Message::Settings(ComposioMessage::ApiKeyChanged(value).into()),
     );
-
-    let api_key_hint = row![
-        container(text(" ")).width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
-        text("留空时不写入配置，运行时将不会注册 Composio 工具。")
-            .size(12)
-            .style(settings_muted_text_style),
-    ]
-    .spacing(16)
-    .align_y(Alignment::Center);
 
     let entity_id_row = text_row(
         "实体 ID",
         "用于区分不同用户或实体的默认标识。",
         "default",
         &s.entity_id_input,
+        "为空时会自动回退为 default，用于多用户或多实体场景。",
         false,
         |value| Message::Settings(ComposioMessage::EntityIdChanged(value).into()),
     );
 
-    let entity_id_hint = row![
-        container(text(" ")).width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
-        text("为空时会自动回退为 default，用于多用户或多实体场景。")
-            .size(12)
-            .style(settings_muted_text_style),
-    ]
-    .spacing(16)
-    .align_y(Alignment::Center);
-
     let mut content = column![
-        settings_page_intro("Composio 集成配置", "配置 OAuth 工具集成开关、API Key 和默认实体 ID。"),
+        settings_page_intro(
+            "Composio 集成配置",
+            "配置 OAuth 工具集成开关、API Key 和默认实体 ID。"
+        ),
         settings_section_card("基础行为", "控制集成启用状态与认证信息。"),
         settings_panel(column![enabled_row, settings_divider(), api_key_row].spacing(0)),
-        api_key_hint,
         settings_section_card("默认实体", "配置多用户或多实体场景下的默认 entity。"),
         settings_panel(column![entity_id_row].spacing(0)),
-        entity_id_hint,
     ]
     .spacing(16)
     .width(Length::Fill);

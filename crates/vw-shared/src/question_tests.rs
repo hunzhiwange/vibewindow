@@ -31,8 +31,5 @@ fn request_serialization_uses_frontend_field_names() {
 
 #[test]
 fn rejected_error_message_is_stable() {
-    assert_eq!(
-        super::RejectedError.to_string(),
-        "The user dismissed this question"
-    );
+    assert_eq!(super::RejectedError.to_string(), "The user dismissed this question");
 }

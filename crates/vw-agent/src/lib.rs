@@ -341,17 +341,12 @@ pub mod workflow;
 // 公共类型重导出
 // ============================================================================
 
+pub use cli_commands::{
+    ChannelCommands, CronCommands, IntegrationCommands, MemoryCommands, MigrateCommands,
+    ServiceCommands, SkillCommands,
+};
 /// 重导出配置类型，作为公共 API 的一部分
 pub use config::Config;
-pub use cli_commands::{
-    ChannelCommands,
-    CronCommands,
-    IntegrationCommands,
-    MemoryCommands,
-    MigrateCommands,
-    ServiceCommands,
-    SkillCommands,
-};
 
 #[cfg(test)]
 #[path = "tests.rs"]

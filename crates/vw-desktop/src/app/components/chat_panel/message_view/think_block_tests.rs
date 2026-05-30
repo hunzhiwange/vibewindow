@@ -1,4 +1,7 @@
-use super::think_block::{should_render_think_block, think_block_default_expanded, think_block_is_running, think_block_resolved_expanded};
+use super::think_block::{
+    should_render_think_block, think_block_default_expanded, think_block_is_running,
+    think_block_resolved_expanded,
+};
 use crate::app::models::ThinkTiming;
 use std::collections::HashSet;
 

@@ -3,11 +3,11 @@
 //! 注释说明当前文件的职责边界，帮助调用方理解数据流与错误传播，
 //! 不改变任何运行时行为。
 
+use crate::app::Message;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::app::config::save_sql_tool_content;
 #[cfg(target_arch = "wasm32")]
 use crate::app::config::save_sql_tool_content_async;
-use crate::app::Message;
 use iced::Task;
 
 #[cfg(target_arch = "wasm32")]

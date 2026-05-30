@@ -13,7 +13,8 @@ pub(super) fn edit_start(app: &mut App, id: String, content: String) -> Task<Mes
     if let Some(state) = app.active_design_state_mut() {
         state.editing_id = Some(id);
         state.editing_content = content;
-        state.editing_editor = iced::widget::text_editor::Content::with_text(&state.editing_content);
+        state.editing_editor =
+            iced::widget::text_editor::Content::with_text(&state.editing_content);
         state.canvas_cache.clear();
         if let Some(edit_id) = &state.editing_id {
             state.selected_element_id = Some(edit_id.clone());
@@ -31,7 +32,8 @@ pub(super) fn edit_start(app: &mut App, id: String, content: String) -> Task<Mes
 pub(super) fn edit_content_changed(app: &mut App, content: String) -> Task<Message> {
     if let Some(state) = app.active_design_state_mut() {
         state.editing_content = content;
-        state.editing_editor = iced::widget::text_editor::Content::with_text(&state.editing_content);
+        state.editing_editor =
+            iced::widget::text_editor::Content::with_text(&state.editing_content);
     }
     Task::none()
 }
@@ -94,4 +96,3 @@ pub(super) fn edit_cancel(app: &mut App) -> Task<Message> {
     }
     Task::none()
 }
-

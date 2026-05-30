@@ -86,23 +86,16 @@ fn host_port_to_https_url(host_port: &str) -> String {
 }
 
 fn host_port_has_funnel_enabled(status: &Value, host_port: &str) -> bool {
-    status
-        .get("AllowFunnel")
-        .and_then(Value::as_object)
-        .is_some_and(|allow_funnel| {
-            allow_funnel.iter().any(|(configured_host_port, enabled)| {
-                enabled.as_bool() == Some(true)
-                    && normalize_dns_name(configured_host_port) == normalize_dns_name(host_port)
-            })
+    status.get("AllowFunnel").and_then(Value::as_object).is_some_and(|allow_funnel| {
+        allow_funnel.iter().any(|(configured_host_port, enabled)| {
+            enabled.as_bool() == Some(true)
+                && normalize_dns_name(configured_host_port) == normalize_dns_name(host_port)
         })
+    })
 }
 
 fn public_url_rank(url: &str, hostname: Option<&str>, funnel: bool) -> (u8, u16) {
-    let host_port = url
-        .trim_start_matches("https://")
-        .split('/')
-        .next()
-        .unwrap_or_default();
+    let host_port = url.trim_start_matches("https://").split('/').next().unwrap_or_default();
     let (host, port) = host_and_port(host_port);
     let host_rank = match hostname {
         Some(expected) if normalize_dns_name(host) == normalize_dns_name(expected) => 0,
@@ -181,11 +174,7 @@ fn fallback_public_url(hostname: &str, funnel: bool) -> String {
 async fn tailscale_status_json(args: &[&str]) -> Result<Value> {
     let output = tokio_command("tailscale").args(args).output().await?;
     if !output.status.success() {
-        bail!(
-            "tailscale {} failed: {}",
-            args.join(" "),
-            String::from_utf8_lossy(&output.stderr)
-        );
+        bail!("tailscale {} failed: {}", args.join(" "), String::from_utf8_lossy(&output.stderr));
     }
 
     serde_json::from_slice(&output.stdout).context("failed to parse tailscale status JSON")
@@ -336,17 +325,11 @@ impl Tunnel for TailscaleTunnel {
             .unwrap_or_else(|| fallback_public_url(&hostname, self.funnel));
 
         if !output.status.success()
-            && status
-                .as_ref()
-                .is_none_or(|status| {
-                    public_urls_from_status(status, Some(&hostname), local_port, self.funnel)
-                        .is_empty()
-                })
+            && status.as_ref().is_none_or(|status| {
+                public_urls_from_status(status, Some(&hostname), local_port, self.funnel).is_empty()
+            })
         {
-            bail!(
-                "tailscale {subcommand} failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            );
+            bail!("tailscale {subcommand} failed: {}", String::from_utf8_lossy(&output.stderr));
         }
 
         let mut guard = self.state.lock().await;
@@ -397,14 +380,11 @@ impl Tunnel for TailscaleTunnel {
         };
 
         let subcommand = if self.funnel { "funnel" } else { "serve" };
-        tailscale_status_json(&[subcommand, "status", "--json"])
-            .await
-            .ok()
-            .is_some_and(|status| {
-                public_urls_from_status(&status, None, local_port, self.funnel)
-                    .into_iter()
-                    .any(|url| url == public_url)
-            })
+        tailscale_status_json(&[subcommand, "status", "--json"]).await.ok().is_some_and(|status| {
+            public_urls_from_status(&status, None, local_port, self.funnel)
+                .into_iter()
+                .any(|url| url == public_url)
+        })
     }
 
     /// 获取当前公网 URL

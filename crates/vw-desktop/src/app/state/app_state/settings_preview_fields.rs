@@ -2,6 +2,8 @@
     pub(crate) settings_tab: SettingsTab,
     /// 系统设置标签页
     pub(crate) system_settings_tab: crate::app::components::system_settings::SystemTab,
+    /// 系统设置分类搜索词
+    pub(crate) system_settings_query: String,
     /// 当前打开的系统设置帮助标签页
     pub(crate) system_settings_help_tab: Option<crate::app::components::system_settings::SystemTab>,
     /// 提供者设置状态

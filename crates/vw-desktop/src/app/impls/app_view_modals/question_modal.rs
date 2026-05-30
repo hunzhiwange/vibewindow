@@ -28,11 +28,8 @@ pub(crate) fn with_question_modal<'a>(
         let mut content = column![text(header).size(16)].spacing(12);
         for (question_index, question) in req.questions.iter().enumerate() {
             let mut question_column = column![text(question.question.clone()).size(14)].spacing(8);
-            let selected_answers = app
-                .question_modal_answers
-                .get(question_index)
-                .cloned()
-                .unwrap_or_default();
+            let selected_answers =
+                app.question_modal_answers.get(question_index).cloned().unwrap_or_default();
 
             let mut option_column = column![].spacing(6);
             for option in &question.options {
@@ -93,11 +90,8 @@ pub(crate) fn with_question_modal<'a>(
             }
 
             if question.custom.unwrap_or(false) {
-                let value = app
-                    .question_modal_custom
-                    .get(question_index)
-                    .cloned()
-                    .unwrap_or_default();
+                let value =
+                    app.question_modal_custom.get(question_index).cloned().unwrap_or_default();
                 let input = text_input("输入你的答案", &value)
                     .on_input(move |value| {
                         Message::Chat(message::ChatMessage::QuestionCustomChanged(

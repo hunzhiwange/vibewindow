@@ -9,54 +9,25 @@ use std::collections::HashSet;
 
 #[test]
 fn shared_tool_render_kind_routes_structured_tool_cards() {
-    assert_eq!(
-        shared_tool_render_kind("tool file_write\n{}"),
-        Some(SharedToolRenderKind::Files)
-    );
-    assert_eq!(
-        shared_tool_render_kind("tool edit\n{}"),
-        Some(SharedToolRenderKind::Files)
-    );
+    assert_eq!(shared_tool_render_kind("tool file_write\n{}"), Some(SharedToolRenderKind::Files));
+    assert_eq!(shared_tool_render_kind("tool edit\n{}"), Some(SharedToolRenderKind::Files));
     assert_eq!(
         shared_tool_render_kind("tool notebook_edit\n{}"),
         Some(SharedToolRenderKind::Files)
     );
-    assert_eq!(
-        shared_tool_render_kind("tool grep\n{}"),
-        Some(SharedToolRenderKind::Files)
-    );
-    assert_eq!(
-        shared_tool_render_kind("tool glob\n{}"),
-        Some(SharedToolRenderKind::Files)
-    );
-    assert_eq!(
-        shared_tool_render_kind("tool lsp\n{}"),
-        Some(SharedToolRenderKind::Lsp)
-    );
-    assert_eq!(
-        shared_tool_render_kind("tool web_fetch\n{}"),
-        Some(SharedToolRenderKind::Web)
-    );
-    assert_eq!(
-        shared_tool_render_kind("tool web_search\n{}"),
-        Some(SharedToolRenderKind::Web)
-    );
-    assert_eq!(
-        shared_tool_render_kind("tool image_info\n{}"),
-        Some(SharedToolRenderKind::Bash)
-    );
-    assert_eq!(
-        shared_tool_render_kind("tool AgentTool\n{}"),
-        Some(SharedToolRenderKind::Advanced)
-    );
-    assert_eq!(
-        shared_tool_render_kind("tool browser\n{}"),
-        Some(SharedToolRenderKind::Advanced)
-    );
+    assert_eq!(shared_tool_render_kind("tool grep\n{}"), Some(SharedToolRenderKind::Files));
+    assert_eq!(shared_tool_render_kind("tool glob\n{}"), Some(SharedToolRenderKind::Files));
+    assert_eq!(shared_tool_render_kind("tool lsp\n{}"), Some(SharedToolRenderKind::Lsp));
+    assert_eq!(shared_tool_render_kind("tool web_fetch\n{}"), Some(SharedToolRenderKind::Web));
+    assert_eq!(shared_tool_render_kind("tool web_search\n{}"), Some(SharedToolRenderKind::Web));
+    assert_eq!(shared_tool_render_kind("tool image_info\n{}"), Some(SharedToolRenderKind::Bash));
+    assert_eq!(shared_tool_render_kind("tool AgentTool\n{}"), Some(SharedToolRenderKind::Advanced));
+    assert_eq!(shared_tool_render_kind("tool browser\n{}"), Some(SharedToolRenderKind::Advanced));
     assert_eq!(
         shared_tool_render_kind("tool browser_open\n{}"),
         Some(SharedToolRenderKind::Advanced)
     );
+    assert_eq!(shared_tool_render_kind("tool skill\n{}"), Some(SharedToolRenderKind::Skill));
     assert_eq!(
         shared_tool_render_kind(
             "tool Brief\n{\"renderHint\":{\"metadata\":{\"canonical_tool_id\":\"brief\"}}}"
@@ -67,10 +38,7 @@ fn shared_tool_render_kind_routes_structured_tool_cards() {
 
 #[test]
 fn shared_tool_render_kind_keeps_existing_specialized_routes() {
-    assert_eq!(
-        shared_tool_render_kind("tool shell\n{}"),
-        Some(SharedToolRenderKind::Bash)
-    );
+    assert_eq!(shared_tool_render_kind("tool shell\n{}"), Some(SharedToolRenderKind::Bash));
     assert_eq!(
         shared_tool_render_kind("tool AskUserQuestion\n{}"),
         Some(SharedToolRenderKind::Question)
@@ -79,10 +47,7 @@ fn shared_tool_render_kind_keeps_existing_specialized_routes() {
         shared_tool_render_kind("tool apply_patch\n{}"),
         Some(SharedToolRenderKind::ApplyPatch)
     );
-    assert_eq!(
-        shared_tool_render_kind("tool unknown_tool\n{}"),
-        Some(SharedToolRenderKind::Text)
-    );
+    assert_eq!(shared_tool_render_kind("tool unknown_tool\n{}"), Some(SharedToolRenderKind::Text));
     assert_eq!(
         shared_tool_render_kind("tool plan_enter\n{}"),
         Some(SharedToolRenderKind::PlanMode)
@@ -105,10 +70,14 @@ fn completed_explore_summary_does_not_expand_without_manual_override() {
 }
 
 #[test]
-fn running_explore_summary_stays_expanded() {
+fn running_explore_summary_requires_manual_expand() {
     let key = 99_u64;
+    let mut expanded = HashSet::new();
 
-    assert!(explore_summary_expanded(true, key, &HashSet::new()));
+    assert!(!explore_summary_expanded(true, key, &expanded));
+
+    expanded.insert(key);
+    assert!(explore_summary_expanded(true, key, &expanded));
 }
 
 #[test]

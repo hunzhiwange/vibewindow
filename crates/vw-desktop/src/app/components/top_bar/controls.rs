@@ -79,10 +79,17 @@ pub(super) fn project_view_tools(app: &App) -> Element<'_, Message> {
                 )),
             ),
             icon_button(
-                Icon::ArrowRepeat,
-                "刷新查找结果",
+                Icon::Search,
+                "搜索",
                 TooltipPosition::Bottom,
-                Message::Project(message::ProjectMessage::FileTreeFindRefreshActive),
+                Message::Search(message::SearchMessage::InputChanged("/".to_string())),
+            ),
+            icon_toggle_button(
+                Icon::Robot,
+                "切换小宠物",
+                TooltipPosition::Bottom,
+                app.task_pet_window_id.is_some(),
+                Message::View(message::ViewMessage::TaskPetToggleWindow),
             ),
         ]
         .spacing(2)

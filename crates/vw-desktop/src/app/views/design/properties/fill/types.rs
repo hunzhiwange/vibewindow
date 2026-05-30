@@ -496,10 +496,9 @@ impl MeshFill {
 
         // 检查是否有差异
         let differs = (0..8).any(|i| (cur_arr[i] - eff[i]).abs() > 1e-12);
-        if differs
-            && let Some(dst) = self.handles.get_mut(point_index) {
-                *dst = eff.to_vec();
-            }
+        if differs && let Some(dst) = self.handles.get_mut(point_index) {
+            *dst = eff.to_vec();
+        }
 
         differs
     }

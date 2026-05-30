@@ -13,10 +13,10 @@ use axum::{
 
 use crate::app::agent::gateway::state::AppState;
 
-#[path = "data_handlers.rs"]
-mod handlers;
 #[path = "data_ai_support.rs"]
 mod ai_support;
+#[path = "data_handlers.rs"]
+mod handlers;
 #[path = "data_runtime.rs"]
 mod runtime;
 #[path = "data_storage_support.rs"]
@@ -39,14 +39,8 @@ pub(crate) fn router() -> Router<AppState> {
             "/data/connections/{connection_id}/activate",
             post(handlers::data_connection_activate),
         )
-        .route(
-            "/data/connections/{connection_id}/test",
-            post(handlers::data_connection_test),
-        )
-        .route(
-            "/data/connections/{connection_id}/catalog",
-            get(handlers::data_connection_catalog),
-        )
+        .route("/data/connections/{connection_id}/test", post(handlers::data_connection_test))
+        .route("/data/connections/{connection_id}/catalog", get(handlers::data_connection_catalog))
         .route("/data/reports", get(handlers::data_reports_list).post(handlers::data_report_create))
         .route(
             "/data/reports/{report_id}",

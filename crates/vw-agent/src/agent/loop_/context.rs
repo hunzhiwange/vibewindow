@@ -35,11 +35,7 @@ mod context_tests;
 /// let context = build_context(&memory_store, "用户的问题", 0.5).await;
 /// // context 可能包含："[Memory context]\n- key1: content1\n- key2: content2\n"
 /// ```
-pub async fn build_context(
-    mem: &dyn Memory,
-    user_msg: &str,
-    min_relevance_score: f64,
-) -> String {
+pub async fn build_context(mem: &dyn Memory, user_msg: &str, min_relevance_score: f64) -> String {
     let mut context = String::new();
 
     // 从记忆系统检索与当前消息相关的记忆条目

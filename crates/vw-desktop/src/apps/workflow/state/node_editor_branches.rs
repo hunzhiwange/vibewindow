@@ -140,10 +140,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_knowledge_query_selector(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::KnowledgeRetrieval {
-                query_selector_input,
-                ..
-            } = draft
+            if let WorkflowNodeVisualDraft::KnowledgeRetrieval { query_selector_input, .. } = draft
             {
                 *query_selector_input = value;
                 true
@@ -170,10 +167,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_knowledge_dataset_ids(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::KnowledgeRetrieval {
-                dataset_ids_input, ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::KnowledgeRetrieval { dataset_ids_input, .. } = draft {
                 *dataset_ids_input = value;
                 true
             } else {
@@ -206,10 +200,8 @@ impl WorkflowState {
 
     pub fn set_node_editor_knowledge_score_threshold_enabled(&mut self, value: bool) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::KnowledgeRetrieval {
-                score_threshold_enabled,
-                ..
-            } = draft
+            if let WorkflowNodeVisualDraft::KnowledgeRetrieval { score_threshold_enabled, .. } =
+                draft
             {
                 *score_threshold_enabled = value;
                 true
@@ -221,10 +213,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_knowledge_score_threshold(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::KnowledgeRetrieval {
-                score_threshold_input,
-                ..
-            } = draft
+            if let WorkflowNodeVisualDraft::KnowledgeRetrieval { score_threshold_input, .. } = draft
             {
                 *score_threshold_input = value;
                 true
@@ -247,10 +236,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_knowledge_single_model_provider(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::KnowledgeRetrieval {
-                single_model_provider,
-                ..
-            } = draft
+            if let WorkflowNodeVisualDraft::KnowledgeRetrieval { single_model_provider, .. } = draft
             {
                 *single_model_provider = value;
                 true
@@ -262,11 +248,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_knowledge_single_model_name(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::KnowledgeRetrieval {
-                single_model_name,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::KnowledgeRetrieval { single_model_name, .. } = draft {
                 *single_model_name = value;
                 true
             } else {
@@ -277,11 +259,7 @@ impl WorkflowState {
 
     pub fn set_node_editor_knowledge_single_model_mode(&mut self, value: String) {
         self.update_node_visual_draft(|draft| {
-            if let WorkflowNodeVisualDraft::KnowledgeRetrieval {
-                single_model_mode,
-                ..
-            } = draft
-            {
+            if let WorkflowNodeVisualDraft::KnowledgeRetrieval { single_model_mode, .. } = draft {
                 *single_model_mode = value;
                 true
             } else {

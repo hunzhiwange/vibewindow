@@ -134,11 +134,9 @@ pub(super) fn validate_node_editor_draft(
 
                     if variable.input_type == "file-list"
                         && variable.default_file_values.len()
-                            > usize::from(
-                                normalized_start_variable_file_list_max_length(
-                                    &variable.max_length_input,
-                                ),
-                            )
+                            > usize::from(normalized_start_variable_file_list_max_length(
+                                &variable.max_length_input,
+                            ))
                     {
                         push_validation_error(
                             &mut field_errors,
@@ -169,21 +167,27 @@ pub(super) fn validate_node_editor_draft(
                     if condition.variable_selector_input.trim().is_empty() {
                         push_validation_error(
                             &mut field_errors,
-                            &format!("if_else.cases[{case_index}].conditions[{condition_index}].selector"),
+                            &format!(
+                                "if_else.cases[{case_index}].conditions[{condition_index}].selector"
+                            ),
                             "变量选择器不能为空",
                         );
                     }
                     if condition.comparison_operator.trim().is_empty() {
                         push_validation_error(
                             &mut field_errors,
-                            &format!("if_else.cases[{case_index}].conditions[{condition_index}].operator"),
+                            &format!(
+                                "if_else.cases[{case_index}].conditions[{condition_index}].operator"
+                            ),
                             "比较符不能为空",
                         );
                     }
                     if condition.var_type.trim().is_empty() {
                         push_validation_error(
                             &mut field_errors,
-                            &format!("if_else.cases[{case_index}].conditions[{condition_index}].var_type"),
+                            &format!(
+                                "if_else.cases[{case_index}].conditions[{condition_index}].var_type"
+                            ),
                             "变量类型不能为空",
                         );
                     }
@@ -193,7 +197,9 @@ pub(super) fn validate_node_editor_draft(
                     {
                         push_validation_error(
                             &mut field_errors,
-                            &format!("if_else.cases[{case_index}].conditions[{condition_index}].value"),
+                            &format!(
+                                "if_else.cases[{case_index}].conditions[{condition_index}].value"
+                            ),
                             "当前比较符需要填写比较值",
                         );
                     }
@@ -213,23 +219,37 @@ pub(super) fn validate_node_editor_draft(
             single_model_mode,
             ..
         }) => {
-            if dataset_ids_input
-                .split(',')
-                .map(str::trim)
-                .all(|item| item.is_empty())
-            {
-                push_validation_error(&mut field_errors, "knowledge.dataset_ids", "至少填写一个知识库 ID");
+            if dataset_ids_input.split(',').map(str::trim).all(|item| item.is_empty()) {
+                push_validation_error(
+                    &mut field_errors,
+                    "knowledge.dataset_ids",
+                    "至少填写一个知识库 ID",
+                );
             }
-            if query_selector_input.trim().is_empty() && query_attachment_selector_input.trim().is_empty() {
-                push_validation_error(&mut field_errors, "knowledge.query_selector", "查询变量和附件变量至少填写一个");
+            if query_selector_input.trim().is_empty()
+                && query_attachment_selector_input.trim().is_empty()
+            {
+                push_validation_error(
+                    &mut field_errors,
+                    "knowledge.query_selector",
+                    "查询变量和附件变量至少填写一个",
+                );
             }
             let mode = retrieval_mode.trim();
             if !matches!(mode, "single" | "multiple") {
-                push_validation_error(&mut field_errors, "knowledge.retrieval_mode", "检索模式只能是 single 或 multiple");
+                push_validation_error(
+                    &mut field_errors,
+                    "knowledge.retrieval_mode",
+                    "检索模式只能是 single 或 multiple",
+                );
             }
             if mode == "multiple" {
                 if top_k_input.trim().parse::<u64>().ok().filter(|value| *value > 0).is_none() {
-                    push_validation_error(&mut field_errors, "knowledge.multiple.top_k", "top_k 必须是正整数");
+                    push_validation_error(
+                        &mut field_errors,
+                        "knowledge.multiple.top_k",
+                        "top_k 必须是正整数",
+                    );
                 }
                 if *score_threshold_enabled {
                     match score_threshold_input.trim().parse::<f64>() {
@@ -244,13 +264,25 @@ pub(super) fn validate_node_editor_draft(
             }
             if mode == "single" {
                 if single_model_provider.trim().is_empty() {
-                    push_validation_error(&mut field_errors, "knowledge.single.provider", "单路检索模型 provider 不能为空");
+                    push_validation_error(
+                        &mut field_errors,
+                        "knowledge.single.provider",
+                        "单路检索模型 provider 不能为空",
+                    );
                 }
                 if single_model_name.trim().is_empty() {
-                    push_validation_error(&mut field_errors, "knowledge.single.model_name", "单路检索模型名称不能为空");
+                    push_validation_error(
+                        &mut field_errors,
+                        "knowledge.single.model_name",
+                        "单路检索模型名称不能为空",
+                    );
                 }
                 if single_model_mode.trim().is_empty() {
-                    push_validation_error(&mut field_errors, "knowledge.single.model_mode", "单路检索模型 mode 不能为空");
+                    push_validation_error(
+                        &mut field_errors,
+                        "knowledge.single.model_mode",
+                        "单路检索模型 mode 不能为空",
+                    );
                 }
             }
         }
@@ -264,22 +296,42 @@ pub(super) fn validate_node_editor_draft(
             ..
         }) => {
             if provider_id.trim().is_empty() {
-                push_validation_error(&mut field_errors, "tool.provider_id", "provider_id 不能为空");
+                push_validation_error(
+                    &mut field_errors,
+                    "tool.provider_id",
+                    "provider_id 不能为空",
+                );
             }
             if provider_type.trim().is_empty() {
-                push_validation_error(&mut field_errors, "tool.provider_type", "provider_type 不能为空");
+                push_validation_error(
+                    &mut field_errors,
+                    "tool.provider_type",
+                    "provider_type 不能为空",
+                );
             }
             if provider_name.trim().is_empty() {
-                push_validation_error(&mut field_errors, "tool.provider_name", "provider_name 不能为空");
+                push_validation_error(
+                    &mut field_errors,
+                    "tool.provider_name",
+                    "provider_name 不能为空",
+                );
             }
             if tool_name.trim().is_empty() {
                 push_validation_error(&mut field_errors, "tool.tool_name", "tool_name 不能为空");
             }
             if parse_mapping_yaml(&tool_parameters_editor.text(), "工具参数").is_err() {
-                push_validation_error(&mut field_errors, "tool.tool_parameters", "工具参数必须是合法 YAML map");
+                push_validation_error(
+                    &mut field_errors,
+                    "tool.tool_parameters",
+                    "工具参数必须是合法 YAML map",
+                );
             }
             if parse_mapping_yaml(&tool_configurations_editor.text(), "工具配置").is_err() {
-                push_validation_error(&mut field_errors, "tool.tool_configurations", "工具配置必须是合法 YAML map");
+                push_validation_error(
+                    &mut field_errors,
+                    "tool.tool_configurations",
+                    "工具配置必须是合法 YAML map",
+                );
             }
         }
         Some(WorkflowNodeVisualDraft::Agent {
@@ -293,24 +345,49 @@ pub(super) fn validate_node_editor_draft(
             ..
         }) => {
             if strategy_provider_name.trim().is_empty() {
-                push_validation_error(&mut field_errors, "agent.strategy_provider", "策略 provider 不能为空");
+                push_validation_error(
+                    &mut field_errors,
+                    "agent.strategy_provider",
+                    "策略 provider 不能为空",
+                );
             }
             if strategy_name.trim().is_empty() {
                 push_validation_error(&mut field_errors, "agent.strategy_name", "策略名称不能为空");
             }
             if strategy_label.trim().is_empty() {
-                push_validation_error(&mut field_errors, "agent.strategy_label", "策略显示名称不能为空");
+                push_validation_error(
+                    &mut field_errors,
+                    "agent.strategy_label",
+                    "策略显示名称不能为空",
+                );
             }
             if parse_mapping_yaml(&output_schema_editor.text(), "Agent 输出结构").is_err() {
-                push_validation_error(&mut field_errors, "agent.output_schema", "输出结构必须是合法 YAML map");
+                push_validation_error(
+                    &mut field_errors,
+                    "agent.output_schema",
+                    "输出结构必须是合法 YAML map",
+                );
             }
             if parse_mapping_yaml(&parameters_editor.text(), "Agent 参数").is_err() {
-                push_validation_error(&mut field_errors, "agent.parameters", "Agent 参数必须是合法 YAML map");
+                push_validation_error(
+                    &mut field_errors,
+                    "agent.parameters",
+                    "Agent 参数必须是合法 YAML map",
+                );
             }
             if *memory_enabled
-                && memory_window_size_input.trim().parse::<u64>().ok().filter(|value| *value > 0).is_none()
+                && memory_window_size_input
+                    .trim()
+                    .parse::<u64>()
+                    .ok()
+                    .filter(|value| *value > 0)
+                    .is_none()
             {
-                push_validation_error(&mut field_errors, "agent.memory.window_size", "memory window size 必须是正整数");
+                push_validation_error(
+                    &mut field_errors,
+                    "agent.memory.window_size",
+                    "memory window size 必须是正整数",
+                );
             }
         }
         Some(WorkflowNodeVisualDraft::Llm {
@@ -331,7 +408,11 @@ pub(super) fn validate_node_editor_draft(
                 push_validation_error(&mut field_errors, "llm.model_mode", "模型 mode 不能为空");
             }
             if *context_enabled && context_selector_input.trim().is_empty() {
-                push_validation_error(&mut field_errors, "llm.context_selector", "启用上下文后必须填写变量选择器");
+                push_validation_error(
+                    &mut field_errors,
+                    "llm.context_selector",
+                    "启用上下文后必须填写变量选择器",
+                );
             }
         }
         Some(WorkflowNodeVisualDraft::Answer { answer_editor }) => {
@@ -371,7 +452,9 @@ pub(super) fn validate_node_editor_draft(
                     );
                 }
 
-                if input.selector.is_empty() || input.selector.iter().any(|part| part.trim().is_empty()) {
+                if input.selector.is_empty()
+                    || input.selector.iter().any(|part| part.trim().is_empty())
+                {
                     push_validation_error(
                         &mut field_errors,
                         &format!("code.inputs[{index}].selector"),
@@ -463,10 +546,8 @@ fn push_validation_error(
     path: &str,
     message: impl Into<String>,
 ) {
-    field_errors.push(WorkflowNodeValidationError {
-        path: path.to_string(),
-        message: message.into(),
-    });
+    field_errors
+        .push(WorkflowNodeValidationError { path: path.to_string(), message: message.into() });
 }
 
 fn is_supported_code_output_type(value_type: &str) -> bool {

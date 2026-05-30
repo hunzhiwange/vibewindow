@@ -33,7 +33,9 @@ use crate::app::agent::config::schema::proxy::{
     normalize_service_list, parse_proxy_enabled, parse_proxy_scope, set_runtime_proxy_config,
     validate_proxy_config,
 };
-use crate::app::agent::config::schema::skills::parse_skills_prompt_injection_mode;
+use crate::app::agent::config::schema::skills::{
+    parse_skills_directory_provider, parse_skills_prompt_injection_mode,
+};
 
 pub fn apply_env_overrides(config: &mut Config) {
     // ==================== API 密钥配置 ====================
@@ -122,6 +124,20 @@ pub fn apply_env_overrides(config: &mut Config) {
             } else {
                 tracing::warn!(
                     "忽略无效的 VIBEWINDOW_SKILLS_PROMPT_MODE 值（有效值：full|compact）"
+                );
+            }
+        }
+    }
+
+    // 技能目录提供方覆盖：VIBEWINDOW_SKILLS_DIRECTORY_PROVIDER
+    // 有效值：vibewindow|codex|claude|cursor
+    if let Ok(provider) = std::env::var("VIBEWINDOW_SKILLS_DIRECTORY_PROVIDER") {
+        if !provider.trim().is_empty() {
+            if let Some(parsed) = parse_skills_directory_provider(&provider) {
+                config.skills.directory_provider = parsed;
+            } else {
+                tracing::warn!(
+                    "忽略无效的 VIBEWINDOW_SKILLS_DIRECTORY_PROVIDER 值（有效值：vibewindow|codex|claude|cursor）"
                 );
             }
         }

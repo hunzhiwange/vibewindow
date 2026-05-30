@@ -1,5 +1,5 @@
-use super::event::UPDATED;
 use super::UpdatedProperties;
+use super::event::UPDATED;
 
 #[test]
 fn watcher_event_contract_is_stable() {

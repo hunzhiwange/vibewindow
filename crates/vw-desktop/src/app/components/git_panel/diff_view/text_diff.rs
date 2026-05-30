@@ -6,9 +6,9 @@ use crate::app::{App, DiffTheme, Message, message};
 
 use super::super::utils::{lang_for_file, render_line_content};
 use super::{
-    DiffRenderCtx, DiffSplitPaneTone, diff_highlight_enabled, diff_split_divider,
-    diff_split_pane, diff_split_pane_with_background, header, markers, selection,
-    split_line_number_area, wrap_diff_row_with_context_menu,
+    DiffRenderCtx, DiffSplitPaneTone, diff_highlight_enabled, diff_split_divider, diff_split_pane,
+    diff_split_pane_with_background, header, markers, selection, split_line_number_area,
+    wrap_diff_row_with_context_menu,
 };
 
 /// 创建自定义文本差异对比视图
@@ -120,7 +120,11 @@ pub fn view_custom_text_diff(
                 (lb, wb)
             }
             ChangeTag::Equal => {
-                if hovered { (hover_tint, hover_tint) } else { (bg_default, bg_default) }
+                if hovered {
+                    (hover_tint, hover_tint)
+                } else {
+                    (bg_default, bg_default)
+                }
             }
         };
 
@@ -144,8 +148,7 @@ pub fn view_custom_text_diff(
                             },
                         )
                     })
-                })
-            {
+                }) {
                 MouseArea::new(markers::line_number_cell_with_tone((i + 1).to_string(), tone))
                     .on_press(Message::Git(message::GitMessage::DiffDragSelectStart(
                         file_key.clone(),
@@ -282,11 +285,8 @@ pub fn view_custom_text_diff(
                         container(text("")).width(Length::Fill).into()
                     };
 
-                let left_pane_padding = if matches!(tag, ChangeTag::Delete) {
-                    [0, 1]
-                } else {
-                    [0, 2]
-                };
+                let left_pane_padding =
+                    if matches!(tag, ChangeTag::Delete) { [0, 1] } else { [0, 2] };
 
                 diff_split_pane_with_background(
                     container(

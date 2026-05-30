@@ -33,7 +33,7 @@ use self::{
         resolve_visual_style,
     },
     text::{fill_text_with_spacing, resolve_text_layout},
-    tree::{build_node_layout_tree, export_node_layout, ComputedNodeLayout},
+    tree::{ComputedNodeLayout, build_node_layout_tree, export_node_layout},
 };
 #[cfg(test)]
 use self::{text::text_layout_size, tree::child_layouts};

@@ -1,5 +1,5 @@
-use super::*;
 use super::super::attachments_outgoing as discord_attachments_outgoing;
+use super::*;
 
 /// 测试解析附件标记提取支持的标记
 /// 应该正确识别 [IMAGE:...] 和 [DOCUMENT:...] 标记
@@ -10,15 +10,9 @@ fn parse_attachment_markers_extracts_supported_markers() {
 
     assert_eq!(cleaned, "Report");
     assert_eq!(attachments.len(), 2);
-    assert_eq!(
-        attachments[0].kind,
-        discord_attachments_outgoing::DiscordAttachmentKind::Image
-    );
+    assert_eq!(attachments[0].kind, discord_attachments_outgoing::DiscordAttachmentKind::Image);
     assert_eq!(attachments[0].target, "https://example.com/a.png");
-    assert_eq!(
-        attachments[1].kind,
-        discord_attachments_outgoing::DiscordAttachmentKind::Document
-    );
+    assert_eq!(attachments[1].kind, discord_attachments_outgoing::DiscordAttachmentKind::Document);
     assert_eq!(attachments[1].target, "/tmp/a.pdf");
 }
 

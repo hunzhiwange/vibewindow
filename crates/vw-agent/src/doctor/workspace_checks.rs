@@ -23,15 +23,9 @@ pub(super) fn check_workspace(config: &Config, items: &mut Vec<DiagItem>) {
     let workspace_dir = &config.workspace_dir;
 
     if workspace_dir.exists() {
-        items.push(DiagItem::ok(
-            cat,
-            format!("directory exists: {}", workspace_dir.display()),
-        ));
+        items.push(DiagItem::ok(cat, format!("directory exists: {}", workspace_dir.display())));
     } else {
-        items.push(DiagItem::error(
-            cat,
-            format!("directory missing: {}", workspace_dir.display()),
-        ));
+        items.push(DiagItem::error(cat, format!("directory missing: {}", workspace_dir.display())));
         return;
     }
 
@@ -59,10 +53,8 @@ pub(super) fn check_workspace(config: &Config, items: &mut Vec<DiagItem>) {
         if avail_mb >= 100 {
             items.push(DiagItem::ok(cat, format!("disk space: {avail_mb} MB available")));
         } else {
-            items.push(DiagItem::warn(
-                cat,
-                format!("low disk space: only {avail_mb} MB available"),
-            ));
+            items
+                .push(DiagItem::warn(cat, format!("low disk space: only {avail_mb} MB available")));
         }
     }
 

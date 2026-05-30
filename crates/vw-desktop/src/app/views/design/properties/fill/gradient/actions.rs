@@ -52,9 +52,10 @@ pub(super) fn update_gradient_rotation(
     use serde_json::json;
     let mut new_fills = fills;
     if let Some(FillItem::Object(FillObject::Gradient(g))) = new_fills.get_mut(index)
-        && let Ok(val) = rot.parse::<f64>() {
-            g.rotation = val;
-        }
+        && let Ok(val) = rot.parse::<f64>()
+    {
+        g.rotation = val;
+    }
     Message::Design(DesignMessage::PropertyUpdate(id, "fill".to_string(), json!(new_fills)))
 }
 
@@ -70,11 +71,12 @@ pub(super) fn update_gradient_center_x(
     use serde_json::json;
     let mut new_fills = fills;
     if let Some(FillItem::Object(FillObject::Gradient(g))) = new_fills.get_mut(index)
-        && let Ok(v) = val.parse::<f64>() {
-            let mut center = g.center.clone().unwrap_or(GradientCenter { x: 50.0, y: 50.0 });
-            center.x = v;
-            g.center = Some(center);
-        }
+        && let Ok(v) = val.parse::<f64>()
+    {
+        let mut center = g.center.clone().unwrap_or(GradientCenter { x: 50.0, y: 50.0 });
+        center.x = v;
+        g.center = Some(center);
+    }
     Message::Design(DesignMessage::PropertyUpdate(id, "fill".to_string(), json!(new_fills)))
 }
 
@@ -90,11 +92,12 @@ pub(super) fn update_gradient_center_y(
     use serde_json::json;
     let mut new_fills = fills;
     if let Some(FillItem::Object(FillObject::Gradient(g))) = new_fills.get_mut(index)
-        && let Ok(v) = val.parse::<f64>() {
-            let mut center = g.center.clone().unwrap_or(GradientCenter { x: 50.0, y: 50.0 });
-            center.y = v;
-            g.center = Some(center);
-        }
+        && let Ok(v) = val.parse::<f64>()
+    {
+        let mut center = g.center.clone().unwrap_or(GradientCenter { x: 50.0, y: 50.0 });
+        center.y = v;
+        g.center = Some(center);
+    }
     Message::Design(DesignMessage::PropertyUpdate(id, "fill".to_string(), json!(new_fills)))
 }
 
@@ -111,12 +114,13 @@ pub(super) fn update_gradient_size_w(
     use serde_json::json;
     let mut new_fills = fills;
     if let Some(FillItem::Object(FillObject::Gradient(g))) = new_fills.get_mut(index)
-        && let Ok(v) = val.parse::<f64>() {
-            let mut size =
-                g.size.clone().unwrap_or(GradientSize { width: Some(100.0), height: Some(100.0) });
-            size.width = Some(v);
-            g.size = Some(size);
-        }
+        && let Ok(v) = val.parse::<f64>()
+    {
+        let mut size =
+            g.size.clone().unwrap_or(GradientSize { width: Some(100.0), height: Some(100.0) });
+        size.width = Some(v);
+        g.size = Some(size);
+    }
     Message::Design(DesignMessage::PropertyUpdate(id, "fill".to_string(), json!(new_fills)))
 }
 
@@ -133,9 +137,10 @@ pub(super) fn update_gradient_size_h(
     let mut new_fills = fills;
     let cleaned = val.trim().trim_end_matches('%');
     if let Some(FillItem::Object(FillObject::Gradient(g))) = new_fills.get_mut(index)
-        && let Ok(v) = cleaned.parse::<f64>() {
-            g.size_h = Some(v.clamp(0.0, 200.0));
-        }
+        && let Ok(v) = cleaned.parse::<f64>()
+    {
+        g.size_h = Some(v.clamp(0.0, 200.0));
+    }
     Message::Design(DesignMessage::PropertyUpdate(id, "fill".to_string(), json!(new_fills)))
 }
 
@@ -151,12 +156,13 @@ pub(super) fn update_gradient_size_v(
     use serde_json::json;
     let mut new_fills = fills;
     if let Some(FillItem::Object(FillObject::Gradient(g))) = new_fills.get_mut(index)
-        && let Ok(v) = val.parse::<f64>() {
-            let mut size =
-                g.size.clone().unwrap_or(GradientSize { width: Some(100.0), height: Some(100.0) });
-            size.height = Some(v);
-            g.size = Some(size);
-        }
+        && let Ok(v) = val.parse::<f64>()
+    {
+        let mut size =
+            g.size.clone().unwrap_or(GradientSize { width: Some(100.0), height: Some(100.0) });
+        size.height = Some(v);
+        g.size = Some(size);
+    }
     Message::Design(DesignMessage::PropertyUpdate(id, "fill".to_string(), json!(new_fills)))
 }
 
@@ -173,9 +179,10 @@ pub(super) fn update_gradient_stop_color(
     use serde_json::json;
     let mut new_fills = fills;
     if let Some(FillItem::Object(FillObject::Gradient(g))) = new_fills.get_mut(index)
-        && let Some(stop) = g.colors.get_mut(stop_idx) {
-            stop.color = color;
-        }
+        && let Some(stop) = g.colors.get_mut(stop_idx)
+    {
+        stop.color = color;
+    }
     Message::Design(DesignMessage::PropertyUpdate(id, "fill".to_string(), json!(new_fills)))
 }
 
@@ -215,9 +222,10 @@ pub(super) fn remove_gradient_stop(
     use serde_json::json;
     let mut new_fills = fills;
     if let Some(FillItem::Object(FillObject::Gradient(g))) = new_fills.get_mut(index)
-        && stop_idx < g.colors.len() {
-            g.colors.remove(stop_idx);
-        }
+        && stop_idx < g.colors.len()
+    {
+        g.colors.remove(stop_idx);
+    }
     Message::Design(DesignMessage::PropertyUpdate(id, "fill".to_string(), json!(new_fills)))
 }
 

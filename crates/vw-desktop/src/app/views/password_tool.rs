@@ -5,9 +5,9 @@
 
 use crate::app::components::system_settings_common::{
     SETTINGS_LABEL_WIDTH, danger_action_btn_style, primary_action_btn_style,
-    rounded_action_btn_style, settings_checkbox_style, settings_divider,
-    settings_muted_text_style, settings_page_intro, settings_panel, settings_panel_style,
-    settings_section_card, settings_text_input_style, settings_value_badge,
+    rounded_action_btn_style, settings_checkbox_style, settings_divider, settings_muted_text_style,
+    settings_page_intro, settings_panel, settings_panel_style, settings_section_card,
+    settings_text_input_style, settings_value_badge,
 };
 use crate::app::components::text_editor_context_menu::{
     TextEditorContextMenuMessages, TextEditorContextMenuState, wrap_with_context_menu,
@@ -88,7 +88,10 @@ fn build_controls_panel<'a>(app: &'a App, size: Size) -> Element<'a, Message> {
     let (hint, hint_is_error) = password_rule_hint(app);
 
     column![
-        settings_page_intro("生成参数", "表单样式对齐系统设置常规页，统一查看字符集、长度和批量生成参数。"),
+        settings_page_intro(
+            "生成参数",
+            "表单样式对齐系统设置常规页，统一查看字符集、长度和批量生成参数。"
+        ),
         settings_section_card("概览", "快速确认当前字符池规模、目标输出与已生成结果。"),
         settings_panel(
             column![
@@ -333,11 +336,9 @@ fn build_form_row<'a>(
     control: impl Into<Element<'a, Message>>,
     compact: bool,
 ) -> Element<'a, Message> {
-    let intro = column![
-        text(label).size(13),
-        text(description).size(11).style(settings_muted_text_style),
-    ]
-    .spacing(4);
+    let intro =
+        column![text(label).size(13), text(description).size(11).style(settings_muted_text_style),]
+            .spacing(4);
 
     let layout: Element<'a, Message> = if compact {
         column![intro, control.into()].spacing(12).into()
@@ -569,11 +570,7 @@ fn normalized_count(app: &App) -> usize {
 }
 
 fn output_password_count(app: &App) -> usize {
-    app.pwd_output_editor
-        .text()
-        .lines()
-        .filter(|line: &&str| !line.trim().is_empty())
-        .count()
+    app.pwd_output_editor.text().lines().filter(|line: &&str| !line.trim().is_empty()).count()
 }
 
 fn password_rule_hint(app: &App) -> (String, bool) {

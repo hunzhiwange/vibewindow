@@ -2,14 +2,14 @@
 //!
 //! 本模块集中维护工具名称到图标、动词、标题和摘要的映射，保证聊天工具卡片文案一致。
 
+/// 重新导出 use crate::app::{Message}，让上层模块通过稳定路径访问。
+use crate::app::Message;
 use crate::app::assets::Icon;
 /// 重新导出 use crate::app::components::chat_panel::utils::{，让上层模块通过稳定路径访问。
 use crate::app::components::chat_panel::utils::{
     bold_font, chat_secondary_text_color, icon_svg, normalize_file_reference_to_path,
     truncate_chars,
 };
-/// 重新导出 use crate::app::{Message}，让上层模块通过稳定路径访问。
-use crate::app::{Message};
 /// 重新导出 use iced::widget::{container, row, text}，让上层模块通过稳定路径访问。
 use iced::widget::{container, row, text};
 /// 重新导出 use iced::{Alignment, Background, Border, Color, Element, Length, Theme}，让上层模块通过稳定路径访问。
@@ -339,13 +339,11 @@ pub fn tool_inline_summary(tool_name: &str, input: &str) -> Option<String> {
                         let display = match value {
                             // serde_json 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
                             serde_json::Value::String(text) => text.to_string(),
-                            other => serde_json::to_string(other)
-                                .unwrap_or_else(|_| other.to_string()),
+                            other => {
+                                serde_json::to_string(other).unwrap_or_else(|_| other.to_string())
+                            }
                         };
-                        Some(
-                            truncate_chars(&format!("{} = {}", setting, display), 80)
-                                .to_string(),
-                        )
+                        Some(truncate_chars(&format!("{} = {}", setting, display), 80).to_string())
                     } else {
                         Some(truncate_chars(setting, 80).to_string())
                     }
@@ -469,11 +467,8 @@ pub fn tool_inline_summary(tool_name: &str, input: &str) -> Option<String> {
                 }
             }
             "question" => {
-                let questions = v
-                    .get("questions")
-                    .and_then(|x| x.as_array())
-                    .cloned()
-                    .unwrap_or_default();
+                let questions =
+                    v.get("questions").and_then(|x| x.as_array()).cloned().unwrap_or_default();
                 let count = questions.len();
                 let first = questions.first();
                 let label = first
@@ -488,9 +483,9 @@ pub fn tool_inline_summary(tool_name: &str, input: &str) -> Option<String> {
                     (true, 1) => Some("1 个问题".to_string()),
                     (true, count) => Some(format!("{} 个问题", count)),
                     (false, 1) => Some(truncate_chars(label, 80).to_string()),
-                    (false, count) => {
-                        Some(truncate_chars(&format!("{} 等 {} 个问题", label, count), 80).to_string())
-                    }
+                    (false, count) => Some(
+                        truncate_chars(&format!("{} 等 {} 个问题", label, count), 80).to_string(),
+                    ),
                 }
             }
             "get_errors" => v

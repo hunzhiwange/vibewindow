@@ -37,7 +37,9 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
             preview::design_generation_clear_chat_selection(app)
         }
         DesignMessage::DesignGenerationShowAllLogs => preview::design_generation_show_all_logs(app),
-        DesignMessage::DesignGenerationLoadLogFiles => preview::design_generation_load_log_files(app),
+        DesignMessage::DesignGenerationLoadLogFiles => {
+            preview::design_generation_load_log_files(app)
+        }
         DesignMessage::DesignGenerationLogFilesLoaded(files) => {
             preview::design_generation_log_files_loaded(app, files)
         }
@@ -132,13 +134,16 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
             page_generation::regenerate_design_page(app, page_frame_id, module_id)
         }
         DesignMessage::SetDesignPageTargetFrame(page_frame_id, module_id, target_frame_id) => {
-            generation_controls::set_design_page_target_frame(app, page_frame_id, module_id, target_frame_id)
+            generation_controls::set_design_page_target_frame(
+                app,
+                page_frame_id,
+                module_id,
+                target_frame_id,
+            )
         }
-        DesignMessage::DesignPageGenerated {
-            page_frame_id,
-            page_task_id,
-            result,
-        } => page_generation::design_page_generated(app, page_frame_id, page_task_id, result),
+        DesignMessage::DesignPageGenerated { page_frame_id, page_task_id, result } => {
+            page_generation::design_page_generated(app, page_frame_id, page_task_id, result)
+        }
         DesignMessage::AggregateDesignPage(page_frame_id, module_id) => {
             page_generation::aggregate_design_page(app, page_frame_id, module_id)
         }
@@ -155,11 +160,9 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
         DesignMessage::ImportGeneratedPenToPage(page_frame_id, module_id) => {
             persistence::import_generated_pen_to_page(page_frame_id, module_id)
         }
-        DesignMessage::GeneratedPagePenImported {
-            page_frame_id,
-            page_task_id,
-            result,
-        } => persistence::generated_page_pen_imported(app, page_frame_id, page_task_id, result),
+        DesignMessage::GeneratedPagePenImported { page_frame_id, page_task_id, result } => {
+            persistence::generated_page_pen_imported(app, page_frame_id, page_task_id, result)
+        }
         DesignMessage::EditStart(id, content) => editing::edit_start(app, id, content),
         DesignMessage::EditContentChanged(content) => editing::edit_content_changed(app, content),
         DesignMessage::EditEditorAction(action) => editing::edit_editor_action(app, action),
@@ -169,7 +172,6 @@ pub fn update(app: &mut App, message: DesignMessage) -> Task<Message> {
         _ => Task::none(),
     }
 }
-
 
 #[cfg(test)]
 #[path = "handlers/editing_tests.rs"]

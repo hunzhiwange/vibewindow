@@ -175,7 +175,9 @@ impl Tool for SopApproveTool {
         }
 
         // 记录批准操作的指标（与审计日志独立，互不影响）
-        if let Some(ref collector) = self.collector && let Some(ref run) = run_snapshot {
+        if let Some(ref collector) = self.collector
+            && let Some(ref run) = run_snapshot
+        {
             collector.record_approval(&run.sop_name, &run.run_id);
         }
 

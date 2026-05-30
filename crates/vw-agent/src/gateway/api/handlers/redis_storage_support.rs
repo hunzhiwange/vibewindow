@@ -150,9 +150,7 @@ pub(super) fn sort_connections(connections: &mut [GatewayRedisConnectionConfig])
     connections.sort_by(|left, right| {
         let left_key = left.last_used_ms.unwrap_or(left.updated_at_ms);
         let right_key = right.last_used_ms.unwrap_or(right.updated_at_ms);
-        right_key
-            .cmp(&left_key)
-            .then_with(|| left.name.cmp(&right.name))
+        right_key.cmp(&left_key).then_with(|| left.name.cmp(&right.name))
     });
 }
 
@@ -216,11 +214,7 @@ pub(super) fn compact_connection_args(connection: &GatewayRedisConnectionConfig)
         modes.push("readonly");
     }
 
-    let mode = if modes.is_empty() {
-        "direct".to_string()
-    } else {
-        modes.join("+")
-    };
+    let mode = if modes.is_empty() { "direct".to_string() } else { modes.join("+") };
 
     format!(
         "{}:{} db={} pattern={} mode={}",

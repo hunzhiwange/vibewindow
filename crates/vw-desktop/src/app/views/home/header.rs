@@ -126,8 +126,8 @@ pub(super) fn render(app: &App) -> Element<'_, Message> {
 }
 
 fn app_chip<'a>(icon: Icon, label: &'a str, accent: Color, on: Message) -> Element<'a, Message> {
-    let icon =
-        icon_svg(icon, 14.0).style(move |_theme: &Theme, _status| svg::Style { color: Some(accent) });
+    let icon = icon_svg(icon, 14.0)
+        .style(move |_theme: &Theme, _status| svg::Style { color: Some(accent) });
 
     let button = button(
         container(icon)

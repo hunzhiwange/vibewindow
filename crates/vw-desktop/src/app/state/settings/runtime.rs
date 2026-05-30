@@ -114,6 +114,7 @@ impl Default for RuntimeSettingsState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SkillsSettingsTab {
     Skills,
+    DiscoveryOrder,
     Plugins,
     SystemConfig,
 }
@@ -121,6 +122,9 @@ pub enum SkillsSettingsTab {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SkillsDirectoryScope {
     Project,
+    Ancestor,
+    Global,
+    Bundled,
     All,
 }
 
@@ -165,6 +169,8 @@ pub(crate) struct SkillsCatalogItem {
 pub(crate) struct SkillsSettingsState {
     /// 是否启用开放技能
     pub(crate) open_skills_enabled: bool,
+    /// 技能目录提供方
+    pub(crate) directory_provider: vw_config_types::skills::SkillsDirectoryProvider,
     /// 开放技能目录路径输入
     pub(crate) open_skills_dir_input: String,
     /// 提示注入模式
@@ -201,6 +207,7 @@ impl Default for SkillsSettingsState {
     fn default() -> Self {
         Self {
             open_skills_enabled: false,
+            directory_provider: vw_config_types::skills::SkillsDirectoryProvider::Vibewindow,
             open_skills_dir_input: String::new(),
             prompt_injection_mode: vw_config_types::skills::SkillsPromptInjectionMode::Compact,
             active_tab: SkillsSettingsTab::Skills,

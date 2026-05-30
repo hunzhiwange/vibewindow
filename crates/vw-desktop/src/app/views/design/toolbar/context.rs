@@ -3,13 +3,13 @@
 use iced::widget::{Space, button, container, svg};
 use iced::{Color, Element, Length, Theme};
 
+use super::super::models::DesignTool;
+use super::super::state::{ContextPopoverType, DesignState};
 use super::context_shape::render_shape_popover;
 use super::context_style::{
     extract_hex_token, parse_hex_color, render_border_popover, render_fill_popover,
 };
 use super::context_text::render_text_context_toolbar;
-use super::super::models::DesignTool;
-use super::super::state::{ContextPopoverType, DesignState};
 use crate::app::Message;
 use crate::app::assets::{self, Icon};
 use crate::app::message::DesignMessage;
@@ -29,8 +29,12 @@ pub fn render_context_toolbar(state: &DesignState) -> Option<Element<'static, Me
 
     let current_kind = el.kind.to_ascii_lowercase();
     let fill_json = el.fill.as_ref().map(ToString::to_string).unwrap_or_default();
-    let stroke_fill =
-        el.stroke.as_ref().and_then(|stroke| stroke.fill.as_deref()).unwrap_or_default().to_string();
+    let stroke_fill = el
+        .stroke
+        .as_ref()
+        .and_then(|stroke| stroke.fill.as_deref())
+        .unwrap_or_default()
+        .to_string();
     let border_mode = if el.stroke.is_none() || stroke_fill.is_empty() {
         "none"
     } else if stroke_fill.contains("dashArray") {
@@ -114,8 +118,8 @@ pub fn render_context_toolbar(state: &DesignState) -> Option<Element<'static, Me
 
     let fill_btn = button(
         iced::widget::row![
-            container(Space::new().width(Length::Fixed(12.0)).height(Length::Fixed(12.0)))
-                .style(move |_theme: &Theme| container::Style {
+            container(Space::new().width(Length::Fixed(12.0)).height(Length::Fixed(12.0))).style(
+                move |_theme: &Theme| container::Style {
                     background: Some(latest_fill_color.into()),
                     border: iced::Border {
                         radius: 999.0.into(),
@@ -123,44 +127,45 @@ pub fn render_context_toolbar(state: &DesignState) -> Option<Element<'static, Me
                         color: Color::TRANSPARENT,
                     },
                     ..Default::default()
-                }),
-            svg(assets::get_icon(Icon::ChevronDown)).width(10).height(10).style(
-                move |_theme: &Theme, _status| svg::Style { color: Some(chevron_color) }
-            )
+                }
+            ),
+            svg(assets::get_icon(Icon::ChevronDown))
+                .width(10)
+                .height(10)
+                .style(move |_theme: &Theme, _status| svg::Style { color: Some(chevron_color) })
         ]
         .spacing(5)
         .align_y(iced::Alignment::Center),
     )
     .padding([5, 8])
     .style(button_style(fill_active))
-    .on_press(Message::Design(DesignMessage::ToggleContextPopover(Some(
-        ContextPopoverType::Fill,
-    ))));
+    .on_press(Message::Design(DesignMessage::ToggleContextPopover(Some(ContextPopoverType::Fill))));
 
-    let border_btn = button(
-        iced::widget::row![
-            container(Space::new().width(Length::Fixed(12.0)).height(Length::Fixed(12.0)))
-                .style(move |_theme: &Theme| container::Style {
-                    background: Some(latest_stroke_color.into()),
-                    border: iced::Border {
-                        radius: 999.0.into(),
-                        width: 0.0,
-                        color: Color::TRANSPARENT,
-                    },
-                    ..Default::default()
-                }),
-            svg(assets::get_icon(Icon::ChevronDown)).width(10).height(10).style(
-                move |_theme: &Theme, _status| svg::Style { color: Some(chevron_color) }
-            )
-        ]
-        .spacing(5)
-        .align_y(iced::Alignment::Center),
-    )
-    .padding([5, 8])
-    .style(button_style(border_active))
-    .on_press(Message::Design(DesignMessage::ToggleContextPopover(Some(
-        ContextPopoverType::Border,
-    ))));
+    let border_btn =
+        button(
+            iced::widget::row![
+                container(Space::new().width(Length::Fixed(12.0)).height(Length::Fixed(12.0)))
+                    .style(move |_theme: &Theme| container::Style {
+                        background: Some(latest_stroke_color.into()),
+                        border: iced::Border {
+                            radius: 999.0.into(),
+                            width: 0.0,
+                            color: Color::TRANSPARENT,
+                        },
+                        ..Default::default()
+                    }),
+                svg(assets::get_icon(Icon::ChevronDown)).width(10).height(10).style(
+                    move |_theme: &Theme, _status| svg::Style { color: Some(chevron_color) }
+                )
+            ]
+            .spacing(5)
+            .align_y(iced::Alignment::Center),
+        )
+        .padding([5, 8])
+        .style(button_style(border_active))
+        .on_press(Message::Design(DesignMessage::ToggleContextPopover(Some(
+            ContextPopoverType::Border,
+        ))));
 
     let separator = || {
         container(Space::new().width(Length::Fixed(1.0)).height(Length::Fixed(14.0))).style(
@@ -174,7 +179,8 @@ pub fn render_context_toolbar(state: &DesignState) -> Option<Element<'static, Me
     let row = iced::widget::row![shape_btn, separator(), fill_btn, separator(), border_btn]
         .spacing(1)
         .align_y(iced::Alignment::Center);
-    let toolbar_row = container(row).width(Length::Fill).align_x(iced::alignment::Horizontal::Center);
+    let toolbar_row =
+        container(row).width(Length::Fill).align_x(iced::alignment::Horizontal::Center);
 
     let mut col = iced::widget::column![].spacing(4);
     if let Some(popover) = state.context_popover {

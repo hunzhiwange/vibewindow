@@ -429,19 +429,19 @@ pub(super) fn acquire_task_worktree(
     if let Ok(mut pools) = worktree_pools().lock()
         && let Some(pool) = pools.get_mut(&repo_root)
         && let Some(slot_id) = pool.task_slots.get(task_id).cloned()
-            && let Some(slot) = pool.slots.iter_mut().find(|slot| slot.id == slot_id)
-        {
-            slot.state = WorktreeState::Busy;
-            slot.leased_task_id = Some(task_id.to_string());
-            emit_stdout_log(
-                sender,
-                format!(
-                    "[WORKTREE] 复用已分配槽位 task={} slot={} path={} base_branch={}",
-                    task_id, slot.id, slot.path, slot.base_branch
-                ),
-            );
-            return Some(slot.clone());
-        }
+        && let Some(slot) = pool.slots.iter_mut().find(|slot| slot.id == slot_id)
+    {
+        slot.state = WorktreeState::Busy;
+        slot.leased_task_id = Some(task_id.to_string());
+        emit_stdout_log(
+            sender,
+            format!(
+                "[WORKTREE] 复用已分配槽位 task={} slot={} path={} base_branch={}",
+                task_id, slot.id, slot.path, slot.base_branch
+            ),
+        );
+        return Some(slot.clone());
+    }
 
     let _ = maintain_worktree_pool(project_path, active_task_slot_count(&repo_root));
     let Ok(mut pools) = worktree_pools().lock() else {

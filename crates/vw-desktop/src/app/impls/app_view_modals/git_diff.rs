@@ -22,12 +22,7 @@ pub(crate) fn with_git_diff_comment<'a>(
                 .height(Length::Fill)
                 .center_x(Length::Fill)
                 .align_y(iced::alignment::Vertical::Top)
-                .padding(iced::Padding {
-                    top: 84.0,
-                    right: 24.0,
-                    bottom: 24.0,
-                    left: 24.0,
-                }),
+                .padding(iced::Padding { top: 84.0, right: 24.0, bottom: 24.0, left: 24.0 }),
         );
 
         root_content = stack![root_content, modal_layer].into();
@@ -53,12 +48,7 @@ pub(crate) fn with_git_diff_overlays<'a>(
                     .height(Length::Fill)
                     .center_x(Length::Fill)
                     .align_y(iced::alignment::Vertical::Top)
-                    .padding(iced::Padding {
-                        top: 84.0,
-                        right: 24.0,
-                        bottom: 24.0,
-                        left: 24.0,
-                    }),
+                    .padding(iced::Padding { top: 84.0, right: 24.0, bottom: 24.0, left: 24.0 }),
             )
         })
         .unwrap_or_else(|| container(Space::new()).into());

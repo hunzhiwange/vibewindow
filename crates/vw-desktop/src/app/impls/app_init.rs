@@ -77,16 +77,14 @@ pub(super) fn load_web_bookmarks(cfg: &serde_json::Value) -> Vec<super::WebBookm
                             configs
                                 .iter()
                                 .filter_map(|config_item: &serde_json::Value| {
-                                    let name = config_item
-                                        .get("name")
-                                        .and_then(|value| value.as_str())?;
+                                    let name =
+                                        config_item.get("name").and_then(|value| value.as_str())?;
                                     let domain = config_item
                                         .get("domain")
                                         .and_then(|value| value.as_str())
                                         .map(ToString::to_string);
-                                    let days = config_item
-                                        .get("days")
-                                        .and_then(|value| value.as_i64());
+                                    let days =
+                                        config_item.get("days").and_then(|value| value.as_i64());
                                     let url_filter = config_item
                                         .get("url_filter")
                                         .and_then(|value| value.as_str())

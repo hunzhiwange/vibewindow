@@ -54,8 +54,8 @@ data:
 
 #[test]
 fn start_node_min_height_uses_empty_baseline_without_variables() {
-    let raw_node = serde_yaml::from_str::<Value>("data: {}")
-        .expect("empty start node yaml should parse");
+    let raw_node =
+        serde_yaml::from_str::<Value>("data: {}").expect("empty start node yaml should parse");
 
     assert_eq!(workflow_start_node_min_height(&raw_node), 120.0);
 }

@@ -6,9 +6,8 @@ use crate::endpoint::GatewayEndpoint;
 use crate::http::directory_query;
 use crate::stream::{
     GatewayChatPostToolRoundEvent, GatewayChatStepFinishEvent, GatewayChatStepStartEvent,
-    GatewayChatStreamEvent,
-    GatewayChatUsage, GatewayTypedChatStreamEvent, event_name, normalize_chat_stream_event,
-    parse_stream_event, take_next_sse_event,
+    GatewayChatStreamEvent, GatewayChatUsage, GatewayTypedChatStreamEvent, event_name,
+    normalize_chat_stream_event, parse_stream_event, take_next_sse_event,
 };
 
 #[test]
@@ -157,9 +156,7 @@ fn normalize_chat_stream_event_types_step_payloads() {
 
     assert_eq!(
         post_tool_round,
-        GatewayTypedChatStreamEvent::PostToolRound(GatewayChatPostToolRoundEvent {
-            step_index: 2,
-        })
+        GatewayTypedChatStreamEvent::PostToolRound(GatewayChatPostToolRoundEvent { step_index: 2 })
     );
 }
 
@@ -202,9 +199,7 @@ fn normalize_chat_stream_event_marks_unknown_payloads() {
 
     assert_eq!(
         event,
-        GatewayTypedChatStreamEvent::Unknown {
-            event_type: Some("chat.unhandled".to_string()),
-        }
+        GatewayTypedChatStreamEvent::Unknown { event_type: Some("chat.unhandled".to_string()) }
     );
 }
 
@@ -223,9 +218,7 @@ fn normalize_chat_stream_event_types_task_and_session_payloads() {
 
     assert_eq!(
         todo_updated,
-        GatewayTypedChatStreamEvent::TodoUpdated {
-            session_id: Some("session_1".to_string()),
-        }
+        GatewayTypedChatStreamEvent::TodoUpdated { session_id: Some("session_1".to_string()) }
     );
 
     let question_raised = normalize_chat_stream_event(GatewayChatStreamEvent::Other(json!({
@@ -243,9 +236,7 @@ fn normalize_chat_stream_event_types_task_and_session_payloads() {
 
     assert_eq!(
         question_raised,
-        GatewayTypedChatStreamEvent::QuestionRaised {
-            session_id: Some("session_1".to_string()),
-        }
+        GatewayTypedChatStreamEvent::QuestionRaised { session_id: Some("session_1".to_string()) }
     );
 
     let title_updated = normalize_chat_stream_event(GatewayChatStreamEvent::Other(json!({

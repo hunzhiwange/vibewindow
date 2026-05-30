@@ -2,15 +2,17 @@
 //! 本模块将编辑器操作、文件检索和工具细节限制在输入面板边界内。
 
 use crate::app::components::chat_panel::height_index::CHAT_MESSAGE_GAP;
-use crate::app::components::chat_panel::message_view::{build_render_cache_entry, deduped_tool_last_indices};
+use crate::app::components::chat_panel::message_view::{
+    build_render_cache_entry, deduped_tool_last_indices,
+};
 use crate::app::components::chat_panel::tools::{
     is_explore_tool, pending_permission_targets_message, pending_permission_targets_tool_call,
     tool_identity_from_raw, tool_name_from_raw,
 };
 use crate::app::{App, Message, models};
 use iced::{
-    widget::{operation, scrollable},
     Task,
+    widget::{operation, scrollable},
 };
 
 /// 模块内可见函数，执行 close_input_context_menu 对应的应用流程。
@@ -53,10 +55,7 @@ pub(super) fn preferred_chat_message_index_by_id(
             first_match = Some(idx);
         }
 
-        if chat
-            .get(idx)
-            .is_some_and(|message| message.role == models::ChatRole::Tool)
-        {
+        if chat.get(idx).is_some_and(|message| message.role == models::ChatRole::Tool) {
             return Some(idx);
         }
     }
@@ -130,7 +129,8 @@ pub(super) fn permission_target_tool_anchor_fraction(
 
     let target_tool_idx = visible_tools.iter().position(|group| {
         group.iter().any(|block_idx| {
-            let Some(models::ParsedChatBlock::Tool { raw }) = render_cache.blocks.get(*block_idx) else {
+            let Some(models::ParsedChatBlock::Tool { raw }) = render_cache.blocks.get(*block_idx)
+            else {
                 return false;
             };
             pending_permission_targets_tool_call(request, message_id, raw)
@@ -161,12 +161,8 @@ fn locate_chat_message_idx(
         .iter()
         .take(target_idx)
         .fold(0.0, |acc, height| acc + height.max(0.0) + CHAT_MESSAGE_GAP);
-    let target_height = app
-        .chat_message_estimated_heights
-        .get(target_idx)
-        .copied()
-        .unwrap_or(0.0)
-        .max(0.0);
+    let target_height =
+        app.chat_message_estimated_heights.get(target_idx).copied().unwrap_or(0.0).max(0.0);
     let target_anchor_fraction = app
         .chat
         .get(target_idx)
@@ -183,32 +179,26 @@ fn locate_chat_message_idx(
     } else {
         prefix_height
     };
-    let relative_y = if max_scroll <= 0.0 {
-        0.0
-    } else {
-        (desired_top / max_scroll).clamp(0.0, 1.0)
-    };
+    let relative_y =
+        if max_scroll <= 0.0 { 0.0 } else { (desired_top / max_scroll).clamp(0.0, 1.0) };
 
     let target_chunk_start = crate::app::session::chat_ui_chunk_start_idx(target_idx);
-    let prewarm_task = if !app
-        .active_session_view_state
-        .preparing_chat_ui_chunks
-        .contains(&target_chunk_start)
-    {
-        if let Some(session_id) = app.active_session_id.clone() {
-            app.mark_chat_ui_chunks_preparing(&[target_chunk_start]);
-            crate::app::message::project::prepare_session_ui_task(
-                session_id,
-                app.active_shared_chat_messages(),
-                target_chunk_start,
-                false,
-            )
+    let prewarm_task =
+        if !app.active_session_view_state.preparing_chat_ui_chunks.contains(&target_chunk_start) {
+            if let Some(session_id) = app.active_session_id.clone() {
+                app.mark_chat_ui_chunks_preparing(&[target_chunk_start]);
+                crate::app::message::project::prepare_session_ui_task(
+                    session_id,
+                    app.active_shared_chat_messages(),
+                    target_chunk_start,
+                    false,
+                )
+            } else {
+                Task::none()
+            }
         } else {
             Task::none()
-        }
-    } else {
-        Task::none()
-    };
+        };
 
     Task::batch(vec![
         prewarm_task,
@@ -223,11 +213,9 @@ fn locate_chat_message_idx(
 /// 模块内可见函数，执行 locate_chat_message 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
 pub(super) fn locate_chat_message(app: &mut App, message_id: &str) -> Task<Message> {
-    let Some(target_idx) = preferred_chat_message_index_by_id(
-        &app.chat,
-        &app.chat_message_ids,
-        message_id,
-    ) else {
+    let Some(target_idx) =
+        preferred_chat_message_index_by_id(&app.chat, &app.chat_message_ids, message_id)
+    else {
         return Task::none();
     };
 

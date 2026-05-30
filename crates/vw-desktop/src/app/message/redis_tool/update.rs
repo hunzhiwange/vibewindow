@@ -8,6 +8,8 @@ pub fn update(app: &mut App, message: RedisToolMessage) -> Task<Message> {
         RedisToolMessage::CloseSettingsModal => navigation::close_settings_modal(app),
         RedisToolMessage::OpenHistoryModal => navigation::open_history_modal(app),
         RedisToolMessage::CloseHistoryModal => navigation::close_history_modal(app),
+        RedisToolMessage::OpenConnectionModal => navigation::open_connection_modal(app),
+        RedisToolMessage::CloseConnectionModal => navigation::close_connection_modal(app),
         RedisToolMessage::OpenCreateKeyModal => navigation::open_create_key_modal(app),
         RedisToolMessage::CloseCreateKeyModal => navigation::close_create_key_modal(app),
         RedisToolMessage::NewConnection => navigation::new_connection(app),
@@ -28,21 +30,15 @@ pub fn update(app: &mut App, message: RedisToolMessage) -> Task<Message> {
         RedisToolMessage::RefreshSelectedKeyAnalysis => {
             navigation::refresh_selected_key_analysis(app)
         }
-        RedisToolMessage::KeyAnalysisLoaded {
-            connection_id,
-            key,
-            result,
-        } => navigation::key_analysis_loaded(app, connection_id, key, result),
-        RedisToolMessage::RuntimeLoaded {
-            connection_id,
-            success_message,
-            result,
-        } => navigation::runtime_loaded(app, connection_id, success_message, result),
-        RedisToolMessage::KeyPageLoaded {
-            connection_id,
-            append,
-            result,
-        } => navigation::key_page_loaded(app, connection_id, append, result),
+        RedisToolMessage::KeyAnalysisLoaded { connection_id, key, result } => {
+            navigation::key_analysis_loaded(app, connection_id, key, result)
+        }
+        RedisToolMessage::RuntimeLoaded { connection_id, success_message, result } => {
+            navigation::runtime_loaded(app, connection_id, success_message, result)
+        }
+        RedisToolMessage::KeyPageLoaded { connection_id, append, result } => {
+            navigation::key_page_loaded(app, connection_id, append, result)
+        }
         RedisToolMessage::DraftNameChanged(value) => draft_inputs::draft_name_changed(app, value),
         RedisToolMessage::DraftHostChanged(value) => draft_inputs::draft_host_changed(app, value),
         RedisToolMessage::DraftPortChanged(value) => draft_inputs::draft_port_changed(app, value),
@@ -123,6 +119,9 @@ pub fn update(app: &mut App, message: RedisToolMessage) -> Task<Message> {
             draft_inputs::draft_key_pattern_changed(app, value)
         }
         RedisToolMessage::SaveDraft => operations::save_draft(app),
+        RedisToolMessage::SaveDraftCompleted(result) => {
+            operations::save_draft_completed(app, result)
+        }
         RedisToolMessage::DeleteSelected => operations::delete_selected(app),
         RedisToolMessage::TestSelected => operations::test_selected(app),
         RedisToolMessage::TestSelectedCompleted(result) => {
@@ -146,19 +145,16 @@ pub fn update(app: &mut App, message: RedisToolMessage) -> Task<Message> {
             operations::create_key_type_changed(app, value)
         }
         RedisToolMessage::ConfirmCreateKey => operations::confirm_create_key(app),
-        RedisToolMessage::CreateKeyCompleted {
-            connection_id,
-            key,
-            result,
-        } => operations::create_key_completed(app, connection_id, key, result),
+        RedisToolMessage::CreateKeyCompleted { connection_id, key, result } => {
+            operations::create_key_completed(app, connection_id, key, result)
+        }
         RedisToolMessage::CommandInputChanged(value) => {
             operations::command_input_changed(app, value)
         }
         RedisToolMessage::RunCommand => operations::run_command(app),
-        RedisToolMessage::CommandCompleted {
-            connection_id,
-            result,
-        } => operations::command_completed(app, connection_id, result),
+        RedisToolMessage::CommandCompleted { connection_id, result } => {
+            operations::command_completed(app, connection_id, result)
+        }
         RedisToolMessage::KeyBrowserPatternChanged(value) => {
             navigation::key_browser_pattern_changed(app, value)
         }
@@ -172,10 +168,9 @@ pub fn update(app: &mut App, message: RedisToolMessage) -> Task<Message> {
         RedisToolMessage::HistoryOnlyWriteToggled(value) => {
             navigation::history_only_write_toggled(app, value)
         }
-        RedisToolMessage::SnapshotLoaded {
-            success_message,
-            result,
-        } => navigation::snapshot_loaded(app, success_message, result),
+        RedisToolMessage::SnapshotLoaded { success_message, result } => {
+            navigation::snapshot_loaded(app, success_message, result)
+        }
         RedisToolMessage::ClearNotification => navigation::clear_notification(app),
         RedisToolMessage::ClearGatewayError => navigation::clear_gateway_error(app),
     }

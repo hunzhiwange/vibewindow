@@ -11,9 +11,7 @@ use crate::app::{App, Message};
 use iced::widget::{Space, column, container, row, text, text_input};
 use iced::{Alignment, Background, Border, Element, Length, Theme};
 
-use super::super::common::{
-    build_detail_action_button, masked_connection_preview, overview_row,
-};
+use super::super::common::{build_detail_action_button, masked_connection_preview, overview_row};
 
 /// 构建对应界面片段。
 ///
@@ -145,8 +143,11 @@ pub(super) fn build_runtime_empty_state<'a>(
 }
 
 fn build_runtime_card<'a>(title: &'a str, rows: Vec<(&'a str, String)>) -> Element<'a, Message> {
-    let mut content = column![text(title).size(14), crate::app::components::system_settings_common::settings_divider()]
-        .spacing(10);
+    let mut content = column![
+        text(title).size(14),
+        crate::app::components::system_settings_common::settings_divider()
+    ]
+    .spacing(10);
     for (label, value) in rows {
         content = content.push(overview_row(label, value));
     }
@@ -177,18 +178,11 @@ pub(super) fn build_keyspace_panel<'a>(runtime: &'a RedisRuntimeOverview) -> Ele
 
     if runtime.keyspace.is_empty() {
         content = content.push(
-            text("当前连接没有返回 Keyspace 统计。")
-                .size(12)
-                .style(settings_muted_text_style),
+            text("当前连接没有返回 Keyspace 统计。").size(12).style(settings_muted_text_style),
         );
     } else {
         content = content.push(build_keyspace_row(
-            [
-                "DB".to_string(),
-                "Keys".to_string(),
-                "Expires".to_string(),
-                "Avg TTL".to_string(),
-            ],
+            ["DB".to_string(), "Keys".to_string(), "Expires".to_string(), "Avg TTL".to_string()],
             true,
         ));
         for stat in &runtime.keyspace {
@@ -212,23 +206,17 @@ fn build_keyspace_row<'a>(cells: [String; 4], header: bool) -> Element<'a, Messa
     let mut row_widget = row![].spacing(10).align_y(Alignment::Center);
 
     for (index, cell) in cells.into_iter().enumerate() {
-        let width = if index == 3 {
-            Length::Fill
-        } else {
-            Length::Fixed(widths[index])
-        };
+        let width = if index == 3 { Length::Fill } else { Length::Fixed(widths[index]) };
         row_widget = row_widget.push(
-            container(
-                text(cell).size(if header { 12 } else { 11 }).style(move |theme: &Theme| {
-                    iced::widget::text::Style {
-                        color: Some(if header {
-                            theme.palette().text.scale_alpha(0.76)
-                        } else {
-                            theme.palette().text.scale_alpha(0.92)
-                        }),
-                    }
-                }),
-            )
+            container(text(cell).size(if header { 12 } else { 11 }).style(move |theme: &Theme| {
+                iced::widget::text::Style {
+                    color: Some(if header {
+                        theme.palette().text.scale_alpha(0.76)
+                    } else {
+                        theme.palette().text.scale_alpha(0.92)
+                    }),
+                }
+            }))
             .width(width),
         );
     }
@@ -283,7 +271,9 @@ pub(super) fn build_info_panel<'a>(
             Space::new().width(Length::Fill),
             container(
                 text_input("搜索 INFO 字段", &app.redis_tool.info_filter)
-                    .on_input(|value| Message::RedisTool(RedisToolMessage::InfoFilterChanged(value)))
+                    .on_input(|value| Message::RedisTool(RedisToolMessage::InfoFilterChanged(
+                        value
+                    )))
                     .padding([8, 10])
                     .size(12),
             )
@@ -310,11 +300,8 @@ pub(super) fn build_info_panel<'a>(
     }
 
     if matched == 0 {
-        content = content.push(
-            text("没有匹配的 INFO 字段。")
-                .size(12)
-                .style(settings_muted_text_style),
-        );
+        content =
+            content.push(text("没有匹配的 INFO 字段。").size(12).style(settings_muted_text_style));
     }
 
     settings_panel(content).into()
@@ -347,11 +334,7 @@ fn build_info_row<'a>(key: &'a str, value: &'a str) -> Element<'a, Message> {
 }
 
 fn fallback_runtime_value(value: &str) -> String {
-    if value.trim().is_empty() {
-        "--".to_string()
-    } else {
-        value.to_string()
-    }
+    if value.trim().is_empty() { "--".to_string() } else { value.to_string() }
 }
 
 #[cfg(test)]

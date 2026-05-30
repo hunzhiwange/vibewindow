@@ -4,14 +4,10 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::app::App;
-use crate::app::components::chat_panel::utils::{
-    normalize_file_url_to_path, resolve_path,
-};
+use crate::app::components::chat_panel::utils::{normalize_file_url_to_path, resolve_path};
 
 use super::super::changes::parse_changes_files;
-use super::super::tool_parse::{
-    tool_change_files, tool_input_path, tool_output_path,
-};
+use super::super::tool_parse::{tool_change_files, tool_input_path, tool_output_path};
 use super::super::types::ChangeFile;
 use super::FileListState;
 
@@ -117,28 +113,35 @@ pub(crate) fn parse_output_files(
     }
 
     if items.is_empty()
-        && let Some(open) = file_link_open {
-            let path = normalize_file_url_to_path(open).to_string();
-            let display = file_link_path.map(str::to_string).unwrap_or_else(|| path.clone());
-            if Path::new(&path).is_absolute() {
-                items.push((display, path));
-            }
+        && let Some(open) = file_link_open
+    {
+        let path = normalize_file_url_to_path(open).to_string();
+        let display = file_link_path.map(str::to_string).unwrap_or_else(|| path.clone());
+        if Path::new(&path).is_absolute() {
+            items.push((display, path));
         }
+    }
 
     if items.is_empty()
-        && let Some(path) = tool_output_path(value).and_then(|path| resolve_path(app, &path)) {
-            items.push((path.clone(), path));
-        }
+        && let Some(path) = tool_output_path(value).and_then(|path| resolve_path(app, &path))
+    {
+        items.push((path.clone(), path));
+    }
 
-    if items.is_empty() && matches!(tool_name, "read" | "file_read")
-        && let Some(path) = tool_input_path(input).and_then(|path| resolve_path(app, &path)) {
-            items.push((path.clone(), path));
-        }
+    if items.is_empty()
+        && matches!(tool_name, "read" | "file_read")
+        && let Some(path) = tool_input_path(input).and_then(|path| resolve_path(app, &path))
+    {
+        items.push((path.clone(), path));
+    }
 
-    if items.is_empty() && is_edit_like_tool(tool_name) && input.trim_start().starts_with('{')
-        && let Some(path) = tool_input_path(input).and_then(|path| resolve_path(app, &path)) {
-            items.push((path.clone(), path));
-        }
+    if items.is_empty()
+        && is_edit_like_tool(tool_name)
+        && input.trim_start().starts_with('{')
+        && let Some(path) = tool_input_path(input).and_then(|path| resolve_path(app, &path))
+    {
+        items.push((path.clone(), path));
+    }
 
     items.sort_by(|left, right| left.0.cmp(&right.0));
     items.dedup_by(|left, right| left.1 == right.1);

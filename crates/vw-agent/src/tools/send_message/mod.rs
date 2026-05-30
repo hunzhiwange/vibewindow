@@ -91,7 +91,8 @@ impl Tool for SendMessageTool {
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
         let args: Args = serde_json::from_value(args)?;
-        if let Err(error) = self.security.enforce_tool_operation(ToolOperation::Act, "agents_send") {
+        if let Err(error) = self.security.enforce_tool_operation(ToolOperation::Act, "agents_send")
+        {
             return Ok(ToolResult { success: false, output: String::new(), error: Some(error) });
         }
         // 发送消息也代表当前 agent 仍在线，先刷新心跳能让团队路由按最新活跃状态工作。

@@ -173,7 +173,8 @@ pub(super) fn duplicate_node(app: &mut App) -> Task<Message> {
         shift_on_insert(&mut tab.edge_colors, &parent_path, insert_at);
         shift_set_on_insert(&mut tab.collapsed_paths, &parent_path, insert_at);
 
-        let Some(new_path) = mind_map::insert_sibling_node(&mut tab.doc, &src_path, src_node) else {
+        let Some(new_path) = mind_map::insert_sibling_node(&mut tab.doc, &src_path, src_node)
+        else {
             return Task::none();
         };
 
@@ -230,23 +231,18 @@ pub(super) fn duplicate_node(app: &mut App) -> Task<Message> {
                     }
                 }
             };
-        let copy_meta_edge_style = |src: &HashMap<
-            Vec<usize>,
-            crate::apps::mindmap::state::EdgeStyle,
-        >,
-                                    dst: &mut HashMap<
-            Vec<usize>,
-            crate::apps::mindmap::state::EdgeStyle,
-        >| {
-            for (path, value) in src {
-                if path.as_slice().starts_with(&src_path) {
-                    let suffix = &path[src_path.len()..];
-                    let mut new_key = new_path.clone();
-                    new_key.extend_from_slice(suffix);
-                    dst.insert(new_key, *value);
+        let copy_meta_edge_style =
+            |src: &HashMap<Vec<usize>, crate::apps::mindmap::state::EdgeStyle>,
+             dst: &mut HashMap<Vec<usize>, crate::apps::mindmap::state::EdgeStyle>| {
+                for (path, value) in src {
+                    if path.as_slice().starts_with(&src_path) {
+                        let suffix = &path[src_path.len()..];
+                        let mut new_key = new_path.clone();
+                        new_key.extend_from_slice(suffix);
+                        dst.insert(new_key, *value);
+                    }
                 }
-            }
-        };
+            };
 
         copy_meta_u32(&tab.node_fills.clone(), &mut tab.node_fills);
         copy_meta_u32(&tab.node_text_colors.clone(), &mut tab.node_text_colors);

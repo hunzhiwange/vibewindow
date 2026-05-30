@@ -25,12 +25,12 @@ use crate::app::assets::Icon;
 use crate::app::components::input_panel::icons::{
     auto_icon, icon_svg, provider_logo_handle, themed_svg_handle,
 };
-use crate::app::components::system_settings_common::settings_text_input_style;
 use crate::app::components::input_panel::styles::{
-    BOTTOM_BAR_CHEVRON_ICON_SIZE, BOTTOM_BAR_ICON_SIZE, BOTTOM_BAR_LABEL_SIZE,
-    popover_style, selectable_list_button_style, selector_chevron_color, selector_label_font,
+    BOTTOM_BAR_CHEVRON_ICON_SIZE, BOTTOM_BAR_ICON_SIZE, BOTTOM_BAR_LABEL_SIZE, popover_style,
+    selectable_list_button_style, selector_chevron_color, selector_label_font,
     selector_pill_button_style, selector_text_color, square_icon_button_style, tooltip_dark_style,
 };
+use crate::app::components::system_settings_common::settings_text_input_style;
 use crate::app::{App, Message, message};
 
 fn normalize_model_input(model: &str) -> String {
@@ -67,7 +67,7 @@ pub fn model_toggle_button(
     let highlight_toggle = expanded || auto_model;
     // 下拉箭头图标的样式：使用半透明的文字颜色
     let chevron_style = move |theme: &Theme, _| svg::Style {
-        color: Some(selector_chevron_color(theme, highlight_toggle))
+        color: Some(selector_chevron_color(theme, highlight_toggle)),
     };
     let chevron_model = icon_svg(
         if expanded { Icon::ChevronUp } else { Icon::ChevronDown },
@@ -140,20 +140,17 @@ pub fn model_toggle_button(
     button(
         row![
             model_icon_svg,
-            text(toggle_label)
-                .size(BOTTOM_BAR_LABEL_SIZE)
-                .font(selector_label_font())
-                .style(move |theme: &Theme| iced::widget::text::Style {
+            text(toggle_label).size(BOTTOM_BAR_LABEL_SIZE).font(selector_label_font()).style(
+                move |theme: &Theme| iced::widget::text::Style {
                     color: Some(selector_text_color(theme, highlight_toggle))
-                }),
+                }
+            ),
             chevron_model
         ]
-            .spacing(6)
-            .align_y(Alignment::Center),
+        .spacing(6)
+        .align_y(Alignment::Center),
     )
-    .style(move |theme: &Theme, status| {
-        selector_pill_button_style(theme, status, highlight_toggle)
-    })
+    .style(move |theme: &Theme, status| selector_pill_button_style(theme, status, highlight_toggle))
     .padding([4, 10])
     .on_press(Message::View(message::ViewMessage::ToggleModelPopover))
     .into()

@@ -358,6 +358,7 @@ fn all_tools_includes_agent_tool_when_agents_configured() {
             max_depth: 3,
             agentic: false,
             allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
             options: HashMap::new(),
             permission: serde_json::Value::Null,
             max_iterations: 10,
@@ -420,6 +421,67 @@ fn all_tools_excludes_agent_tool_when_no_agents() {
 }
 
 #[test]
+fn all_tools_excludes_agent_tool_when_only_primary_agents() {
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let mem_cfg = MemoryConfig { backend: "markdown".into(), ..MemoryConfig::default() };
+    let mem: Arc<dyn Memory> =
+        Arc::from(memory::create_memory(&mem_cfg, tmp.path(), None).unwrap());
+
+    let browser = BrowserConfig::default();
+    let http = crate::app::agent::config::HttpRequestConfig::default();
+    let cfg = test_config(&tmp);
+
+    let mut agents = HashMap::new();
+    agents.insert(
+        "main".to_string(),
+        DelegateAgentConfig {
+            label: None,
+            description: None,
+            builtin: false,
+            mode: "primary".to_string(),
+            enabled: true,
+            provider: "ollama".to_string(),
+            model: "llama3".to_string(),
+            system_prompt: None,
+            api_key: None,
+            temperature: None,
+            top_p: None,
+            identity_format: None,
+            hidden: false,
+            max_depth: 3,
+            agentic: false,
+            allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
+            options: HashMap::new(),
+            permission: serde_json::Value::Null,
+            max_iterations: 10,
+            steps: None,
+        },
+    );
+
+    let tools = all_tools(
+        Arc::new(Config::default()),
+        &security,
+        mem,
+        None,
+        None,
+        &browser,
+        &http,
+        &crate::app::agent::config::WebFetchConfig::default(),
+        tmp.path(),
+        &agents,
+        None,
+        &cfg,
+        None,
+    );
+    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+    assert!(!names.contains(&"AgentTool"));
+    assert!(!names.contains(&"delegate"));
+    assert!(!names.contains(&"delegate_coordination_status"));
+}
+
+#[test]
 fn all_tools_disables_coordination_tool_when_coordination_is_disabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
@@ -452,6 +514,7 @@ fn all_tools_disables_coordination_tool_when_coordination_is_disabled() {
             max_depth: 3,
             agentic: false,
             allowed_tools: Vec::new(),
+            allowed_skills: Vec::new(),
             options: HashMap::new(),
             permission: serde_json::Value::Null,
             max_iterations: 10,

@@ -103,11 +103,9 @@ pub(super) fn build_node_layout_tree(
                         child_layout.size.height = child_layout.size.height.max(child_rect.height);
                     }
 
-                    child_layout.visual_rect = visual_bounds_for_style(&child_style, child_layout.rect, zoom);
-                    (
-                        child_index,
-                        child_layout,
-                    )
+                    child_layout.visual_rect =
+                        visual_bounds_for_style(&child_style, child_layout.rect, zoom);
+                    (child_index, child_layout)
                 })
                 .collect()
         })

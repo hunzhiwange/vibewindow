@@ -51,10 +51,7 @@ fn task_result_requires_correlation_id() {
     };
 
     let error = envelope.validate().expect_err("task result must require correlation");
-    assert_eq!(
-        error,
-        CoordinationError::MissingCorrelationId { message_id: "msg-2".to_string() }
-    );
+    assert_eq!(error, CoordinationError::MissingCorrelationId { message_id: "msg-2".to_string() });
 }
 
 /// 测试消息的 JSON 序列化/反序列化往返保持负载形状

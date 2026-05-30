@@ -104,7 +104,10 @@ fn build_preview_panel<'a>(app: &'a App) -> Element<'a, Message> {
     .align_y(Alignment::Center);
 
     column![
-        settings_page_intro("颜色预览", "参考 JSON 工具的工作区布局，预览与输入拆分为清晰的左右区域。"),
+        settings_page_intro(
+            "颜色预览",
+            "参考 JSON 工具的工作区布局，预览与输入拆分为清晰的左右区域。"
+        ),
         settings_panel(
             column![
                 summary,
@@ -130,7 +133,10 @@ fn build_forms_panel<'a>(app: &'a App) -> Element<'a, Message> {
     let outputs = format_outputs(app.color_tool_color);
 
     column![
-        settings_page_intro("格式输入", "表单样式对齐系统设置常规页，支持 HEX、RGB、HSL、HSV 四种语法。"),
+        settings_page_intro(
+            "格式输入",
+            "表单样式对齐系统设置常规页，支持 HEX、RGB、HSL、HSV 四种语法。"
+        ),
         settings_panel(
             column![
                 build_input_row(
@@ -171,7 +177,10 @@ fn build_forms_panel<'a>(app: &'a App) -> Element<'a, Message> {
             ]
             .spacing(0)
         ),
-        settings_page_intro("复制结果", "当前颜色会规范化输出，方便直接贴到样式变量、设计稿或 CSS 中。"),
+        settings_page_intro(
+            "复制结果",
+            "当前颜色会规范化输出，方便直接贴到样式变量、设计稿或 CSS 中。"
+        ),
         settings_panel(
             column![
                 build_output_row("HEX", "适合设计 Token 与变量。", outputs.hex.clone()),
@@ -217,7 +226,11 @@ fn build_input_row<'a>(
     )
 }
 
-fn build_output_row<'a>(label: &'a str, description: &'a str, value: String) -> Element<'a, Message> {
+fn build_output_row<'a>(
+    label: &'a str,
+    description: &'a str,
+    value: String,
+) -> Element<'a, Message> {
     form_row(
         label,
         description,

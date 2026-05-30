@@ -8,16 +8,16 @@ use std::io;
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 #[cfg(not(target_arch = "wasm32"))]
+use crate::app::task::models::TaskStatus;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::app::task::models::{SubTask, TaskLogEntry};
 use crate::app::task::models::{Task, TaskIndex};
-#[cfg(not(target_arch = "wasm32"))]
-use crate::app::task::models::TaskStatus;
 
+#[cfg(not(target_arch = "wasm32"))]
+use super::paths::get_index_db_path;
 use super::paths::{ensure_task_dir, with_index_lock};
 #[cfg(target_arch = "wasm32")]
 use super::paths::{get_legacy_index_file_path, get_task_dir, get_task_file_path};
-#[cfg(not(target_arch = "wasm32"))]
-use super::paths::get_index_db_path;
 
 /// 模块内部可见的 max_sequence_for_date 函数。
 ///
@@ -28,10 +28,11 @@ pub(super) fn max_sequence_for_date(index: &TaskIndex, date: &str) -> u32 {
     for task_id in index.tasks.keys() {
         if let Some(rest) = task_id.strip_prefix(&prefix)
             && rest.len() == 4
-                && let Ok(seq) = rest.parse::<u32>()
-                    && seq > max_seq {
-                        max_seq = seq;
-                    }
+            && let Ok(seq) = rest.parse::<u32>()
+            && seq > max_seq
+        {
+            max_seq = seq;
+        }
     }
     max_seq
 }
@@ -161,9 +162,7 @@ fn json_to_io_error(err: serde_json::Error) -> io::Error {
 fn table_has_column(conn: &Connection, table: &str, column: &str) -> io::Result<bool> {
     let sql = format!("PRAGMA table_info({table})");
     let mut stmt = conn.prepare(&sql).map_err(sqlite_to_io_error)?;
-    let rows = stmt
-        .query_map([], |row| row.get::<_, String>(1))
-        .map_err(sqlite_to_io_error)?;
+    let rows = stmt.query_map([], |row| row.get::<_, String>(1)).map_err(sqlite_to_io_error)?;
 
     for row in rows {
         if row.map_err(sqlite_to_io_error)? == column {
@@ -606,7 +605,7 @@ pub(super) fn load_task_from_sqlite(conn: &Connection, task_id: &str) -> io::Res
             |row| {
                 let status_key = row.get::<_, String>(7)?;
                 let subtasks_json = row.get::<_, String>(13)?;
-                let subtasks =
+                let mut subtasks =
                     serde_json::from_str::<Vec<SubTask>>(&subtasks_json).map_err(|err| {
                         rusqlite::Error::FromSqlConversionFailure(
                             13,
@@ -614,6 +613,13 @@ pub(super) fn load_task_from_sqlite(conn: &Connection, task_id: &str) -> io::Res
                             Box::new(err),
                         )
                     })?;
+                for subtask in &mut subtasks {
+                    if subtask.completed
+                        && subtask.status == crate::app::task::SubTaskStatus::Pending
+                    {
+                        subtask.status = crate::app::task::SubTaskStatus::Completed;
+                    }
+                }
 
                 Ok(Task {
                     id: row.get::<_, String>(0)?,
@@ -824,9 +830,10 @@ pub fn delete_task_file(project_path: &str, task_id: &str) -> io::Result<()> {
         let mut conn = open_index_connection(project_path)?;
         let mut index = load_index_from_sqlite(&conn)?;
         if let Some(status_key) = index.tasks.remove(task_id)
-            && let Some(order_list) = index.order_by_status.get_mut(&status_key) {
-                order_list.retain(|id| id != task_id);
-            }
+            && let Some(order_list) = index.order_by_status.get_mut(&status_key)
+        {
+            order_list.retain(|id| id != task_id);
+        }
         let tx = conn.transaction().map_err(sqlite_to_io_error)?;
         delete_task_with_tx(&tx, task_id)?;
         save_index_with_tx(&tx, &index)?;

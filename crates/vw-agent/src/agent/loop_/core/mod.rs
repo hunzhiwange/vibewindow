@@ -40,8 +40,8 @@ tokio::task_local! {
     static TOOL_LOOP_REPLY_TARGET: Option<String>;
 }
 
-pub(crate) use errors::{ToolLoopCancelled, is_tool_loop_cancelled};
 pub use errors::is_tool_iteration_limit_error;
+pub(crate) use errors::{ToolLoopCancelled, is_tool_loop_cancelled};
 pub use tool_loop::run_tool_call_loop;
 pub(crate) use turn::agent_turn;
 #[cfg(test)]

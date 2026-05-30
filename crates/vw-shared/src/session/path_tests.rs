@@ -20,15 +20,11 @@ fn session_paths_include_scope_and_snapshot_kind() {
     let scoped_dir = super::sessions_dir_for_scope(data_dir, Some("repo")).unwrap();
     let db_path = super::session_file_path(data_dir, "abc", Some("repo")).unwrap();
     let snapshot =
-        super::session_step_snapshot_file_path(data_dir, "abc", 3, "finish", Some("repo"))
-            .unwrap();
+        super::session_step_snapshot_file_path(data_dir, "abc", 3, "finish", Some("repo")).unwrap();
     let raw = super::session_step_llm_raw_file_path(data_dir, "abc", 3, Some("repo")).unwrap();
 
     assert_eq!(scoped_dir, data_dir.join("storage/session/scoped/repo"));
     assert_eq!(db_path, scoped_dir.join("index.sqlite3"));
-    assert_eq!(
-        snapshot,
-        scoped_dir.join("snapshots/session-abc-step-3-finish.json")
-    );
+    assert_eq!(snapshot, scoped_dir.join("snapshots/session-abc-step-3-finish.json"));
     assert_eq!(raw, scoped_dir.join("snapshots/session-abc-step-3-llm_raw.json"));
 }

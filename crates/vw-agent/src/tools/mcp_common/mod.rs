@@ -6,7 +6,9 @@
 use agent_client_protocol::McpServer;
 use rmcp::model::{ClientInfo, ResourceContents};
 use rmcp::service::{Peer, RoleClient, ServiceExt};
-use rmcp::transport::{ConfigureCommandExt, SseClientTransport, StreamableHttpClientTransport, TokioChildProcess};
+use rmcp::transport::{
+    ConfigureCommandExt, SseClientTransport, StreamableHttpClientTransport, TokioChildProcess,
+};
 use serde_json::{Value, json};
 use tokio::process::Command;
 

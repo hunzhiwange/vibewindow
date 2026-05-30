@@ -9,6 +9,10 @@ use super::common::{build_launchd_env_vars, run_capture, run_checked, xml_escape
 /// macOS launchd 服务的标识符标签。
 pub(super) const SERVICE_LABEL: &str = "com.vibewindow.daemon";
 
+fn config_dir_arg(config: &Config) -> Option<String> {
+    config.config_path.parent().map(|path| path.display().to_string())
+}
+
 pub(super) fn install_macos(config: &Config) -> Result<()> {
     let file = macos_service_file()?;
     if let Some(parent) = file.parent() {
@@ -23,6 +27,14 @@ pub(super) fn install_macos(config: &Config) -> Result<()> {
     let stdout = logs_dir.join("daemon.stdout.log");
     let stderr = logs_dir.join("daemon.stderr.log");
     let env_block = build_launchd_env_vars();
+    let config_dir_arg = config_dir_arg(config)
+        .map(|dir| {
+            format!(
+                "\n    <string>--config-dir</string>\n    <string>{}</string>",
+                xml_escape(&dir)
+            )
+        })
+        .unwrap_or_default();
 
     let plist = format!(
         r#"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -34,6 +46,7 @@ pub(super) fn install_macos(config: &Config) -> Result<()> {
   <key>ProgramArguments</key>
   <array>
     <string>{exe}</string>
+    {config_dir_arg}
     <string>daemon</string>
   </array>
   <key>RunAtLoad</key>

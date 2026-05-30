@@ -242,8 +242,12 @@ pub(super) fn tile_button_style(
         _ => theme.extended_palette().background.base.color,
     };
     let border_color = match status {
-        iced::widget::button::Status::Hovered => primary.scale_alpha(if dark { 0.34 } else { 0.20 }),
-        iced::widget::button::Status::Pressed => primary.scale_alpha(if dark { 0.42 } else { 0.26 }),
+        iced::widget::button::Status::Hovered => {
+            primary.scale_alpha(if dark { 0.34 } else { 0.20 })
+        }
+        iced::widget::button::Status::Pressed => {
+            primary.scale_alpha(if dark { 0.42 } else { 0.26 })
+        }
         _ => panel_style.border.color,
     };
     let background = match status {

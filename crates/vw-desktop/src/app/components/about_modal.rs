@@ -78,10 +78,7 @@ pub fn view<'a>() -> Element<'a, Message> {
                 "产品定位",
                 "围绕项目管理、代码编辑、UI 设计、预览和自动化任务组织一个统一工作界面。",
             ),
-            settings_section_card(
-                "作者信息",
-                "开发者：刘祥敏。",
-            ),
+            settings_section_card("作者信息", "开发者：刘祥敏。",),
             container(
                 button(text("关闭").size(13))
                     .on_press(close_message.clone())

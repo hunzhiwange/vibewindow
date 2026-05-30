@@ -1,4 +1,4 @@
-use super::{files, is_hidden_path, match_globs, FilesInput};
+use super::{FilesInput, files, is_hidden_path, match_globs};
 use glob::Pattern;
 
 #[test]

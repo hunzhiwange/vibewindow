@@ -2,18 +2,16 @@
 //!
 //! 本模块只负责视图组合与样式适配，不持有业务状态，也不扩大外部能力边界。
 
-use crate::app::message::RedisToolMessage;
-use crate::app::state::RedisConnectionTab;
-use crate::app::{App, Message};
 use crate::app::components::system_settings_common::{
     primary_action_btn_style, rounded_action_btn_style, settings_divider,
 };
+use crate::app::message::RedisToolMessage;
+use crate::app::state::RedisConnectionTab;
+use crate::app::{App, Message};
 use iced::widget::{button, checkbox, column, container, row, text};
 use iced::{Alignment, Element};
 
-use super::super::common::{
-    build_input, build_path_picker_input, form_row,
-};
+use super::super::common::{build_input, build_path_picker_input, form_row};
 
 /// 构建对应界面片段。
 ///
@@ -38,17 +36,19 @@ pub(super) fn build_tab_bar<'a>(app: &'a App, is_busy: bool) -> Element<'a, Mess
         let active = app.redis_tool.draft_tab == tab;
         let tab_button: Element<'a, Message> = if active {
             button(text(tab.title()).size(13))
-                .on_press_maybe((!is_busy).then_some(Message::RedisTool(
-                    RedisToolMessage::DraftTabChanged(tab),
-                )))
+                .on_press_maybe(
+                    (!is_busy)
+                        .then_some(Message::RedisTool(RedisToolMessage::DraftTabChanged(tab))),
+                )
                 .padding([8, 12])
                 .style(primary_action_btn_style)
                 .into()
         } else {
             button(text(tab.title()).size(13))
-                .on_press_maybe((!is_busy).then_some(Message::RedisTool(
-                    RedisToolMessage::DraftTabChanged(tab),
-                )))
+                .on_press_maybe(
+                    (!is_busy)
+                        .then_some(Message::RedisTool(RedisToolMessage::DraftTabChanged(tab))),
+                )
                 .padding([8, 12])
                 .style(rounded_action_btn_style)
                 .into()
@@ -163,7 +163,9 @@ fn build_ssh_tab<'a>(app: &'a App, compact: bool) -> Element<'a, Message> {
             "用于先打通堡垒机 / 跳板机，再访问 Redis。当前版本仅保存配置。",
             checkbox(app.redis_tool.draft.ssh_tunnel.enabled)
                 .label("启用 SSH")
-                .on_toggle(|value| Message::RedisTool(RedisToolMessage::DraftSshEnabledToggled(value)))
+                .on_toggle(|value| Message::RedisTool(RedisToolMessage::DraftSshEnabledToggled(
+                    value
+                )))
                 .into(),
             compact,
         ),
@@ -364,7 +366,9 @@ fn build_cluster_tab<'a>(app: &'a App, compact: bool) -> Element<'a, Message> {
             "记录后续键浏览 / 命令执行是否按只读节点策略接入。",
             checkbox(app.redis_tool.draft.read_only)
                 .label("Readonly")
-                .on_toggle(|value| Message::RedisTool(RedisToolMessage::DraftReadOnlyToggled(value)))
+                .on_toggle(|value| Message::RedisTool(RedisToolMessage::DraftReadOnlyToggled(
+                    value
+                )))
                 .into(),
             compact,
         ),

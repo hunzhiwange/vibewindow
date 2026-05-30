@@ -487,25 +487,29 @@ pub fn kill_tree(proc: &mut Child, exited: Option<&dyn Fn() -> bool>) {
         return;
     }
 
-    let mut tried_group = false;
-    if let Ok(status) =
-        std::process::Command::new("kill").args(["-TERM", &format!("-{pid}")]).status()
+    #[cfg(not(windows))]
     {
-        tried_group = status.success();
-    }
+        let mut tried_group = false;
+        if let Ok(status) =
+            std::process::Command::new("kill").args(["-TERM", &format!("-{pid}")]).status()
+        {
+            tried_group = status.success();
+        }
 
-    if tried_group {
+        if tried_group {
+            std::thread::sleep(Duration::from_millis(SIGKILL_TIMEOUT_MS));
+            if !exited.is_some_and(|f| f()) {
+                let _ =
+                    std::process::Command::new("kill").args(["-KILL", &format!("-{pid}")]).status();
+            }
+            return;
+        }
+
+        let _ = proc.kill();
         std::thread::sleep(Duration::from_millis(SIGKILL_TIMEOUT_MS));
         if !exited.is_some_and(|f| f()) {
-            let _ = std::process::Command::new("kill").args(["-KILL", &format!("-{pid}")]).status();
+            let _ = proc.kill();
         }
-        return;
-    }
-
-    let _ = proc.kill();
-    std::thread::sleep(Duration::from_millis(SIGKILL_TIMEOUT_MS));
-    if !exited.is_some_and(|f| f()) {
-        let _ = proc.kill();
     }
 }
 

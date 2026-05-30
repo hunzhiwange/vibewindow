@@ -101,10 +101,7 @@ fn bool_row<'a>(
     field_row(
         label,
         description,
-        checkbox(checked)
-            .label(checkbox_label)
-            .on_toggle(on_toggle)
-            .style(settings_checkbox_style),
+        checkbox(checked).label(checkbox_label).on_toggle(on_toggle).style(settings_checkbox_style),
     )
 }
 
@@ -124,9 +121,13 @@ fn bool_row<'a>(
 pub fn view(app: &App) -> Element<'_, Message> {
     let s = &app.browser_settings;
 
-    let enabled_row = bool_row("启用", "控制浏览器与网页自动化相关工具。", s.enabled, "启用浏览器相关工具", |value| {
-        Message::Settings(SettingsMessage::Browser(BrowserMessage::EnabledToggled(value)))
-    });
+    let enabled_row = bool_row(
+        "启用",
+        "控制浏览器与网页自动化相关工具。",
+        s.enabled,
+        "启用浏览器相关工具",
+        |value| Message::Settings(SettingsMessage::Browser(BrowserMessage::EnabledToggled(value))),
+    );
 
     let allowed_domains_row = field_row_top(
         "允许域名",
@@ -229,37 +230,43 @@ pub fn view(app: &App) -> Element<'_, Message> {
         ),
         settings_panel(
             column![
-            bool_row("无头模式", "决定是否在无界面模式下启动浏览器。", s.native_headless, "启用无头模式", |value| {
-                Message::Settings(SettingsMessage::Browser(BrowserMessage::NativeHeadlessToggled(
-                    value,
-                )))
-            }),
-            settings_divider(),
-            text_row(
-                "WebDriver 地址",
-                "连接本地或远程 WebDriver 服务。",
-                "http://127.0.0.1:9515",
-                &s.native_webdriver_url,
-                |value| {
-                    Message::Settings(SettingsMessage::Browser(
-                        BrowserMessage::NativeWebdriverUrlChanged(value),
-                    ))
-                },
-            ),
-            settings_divider(),
-            text_row(
-                "Chrome 路径",
-                "可选，覆盖自动探测到的 Chrome/Chromium 路径。",
-                "可选，Chrome/Chromium 可执行文件路径",
-                &s.native_chrome_path_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Browser(
-                        BrowserMessage::NativeChromePathChanged(value),
-                    ))
-                },
-            ),
-        ]
-        .spacing(0)
+                bool_row(
+                    "无头模式",
+                    "决定是否在无界面模式下启动浏览器。",
+                    s.native_headless,
+                    "启用无头模式",
+                    |value| {
+                        Message::Settings(SettingsMessage::Browser(
+                            BrowserMessage::NativeHeadlessToggled(value),
+                        ))
+                    }
+                ),
+                settings_divider(),
+                text_row(
+                    "WebDriver 地址",
+                    "连接本地或远程 WebDriver 服务。",
+                    "http://127.0.0.1:9515",
+                    &s.native_webdriver_url,
+                    |value| {
+                        Message::Settings(SettingsMessage::Browser(
+                            BrowserMessage::NativeWebdriverUrlChanged(value),
+                        ))
+                    },
+                ),
+                settings_divider(),
+                text_row(
+                    "Chrome 路径",
+                    "可选，覆盖自动探测到的 Chrome/Chromium 路径。",
+                    "可选，Chrome/Chromium 可执行文件路径",
+                    &s.native_chrome_path_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Browser(
+                            BrowserMessage::NativeChromePathChanged(value),
+                        ))
+                    },
+                ),
+            ]
+            .spacing(0)
         ),
     ];
 
@@ -270,91 +277,91 @@ pub fn view(app: &App) -> Element<'_, Message> {
         ),
         settings_panel(
             column![
-            text_row(
-                "操作端点",
-                "接收系统级浏览器动作请求的 sidecar URL。",
-                "http://127.0.0.1:8787/v1/actions",
-                &s.computer_use_endpoint,
-                |value| {
-                    Message::Settings(SettingsMessage::Browser(
-                        BrowserMessage::ComputerUseEndpointChanged(value),
-                    ))
-                },
-            ),
-            settings_divider(),
-            text_row(
-                "访问密钥",
-                "为 sidecar 请求附带可选的 Bearer Token。",
-                "可选，sidecar Bearer Token",
-                &s.computer_use_api_key_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Browser(
-                        BrowserMessage::ComputerUseApiKeyChanged(value),
-                    ))
-                },
-            ),
-            settings_divider(),
-            text_row(
-                "超时时间（毫秒）",
-                "控制系统级浏览器动作的请求超时。",
-                "15000",
-                &s.computer_use_timeout_ms_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Browser(
-                        BrowserMessage::ComputerUseTimeoutMsChanged(value),
-                    ))
-                },
-            ),
-            settings_divider(),
-            bool_row(
-                "允许远程端点",
-                "仅在明确可信时允许 sidecar 部署在公网。",
-                s.computer_use_allow_remote_endpoint,
-                "允许公网 sidecar 端点",
-                |value| {
-                    Message::Settings(SettingsMessage::Browser(
-                        BrowserMessage::ComputerUseAllowRemoteEndpointToggled(value),
-                    ))
-                },
-            ),
-            settings_divider(),
-            text_row(
-                "窗口白名单",
-                "限定允许控制的窗口标题或进程名。",
-                "逗号或换行分隔窗口标题/进程名",
-                &s.computer_use_window_allowlist_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Browser(
-                        BrowserMessage::ComputerUseWindowAllowlistChanged(value),
-                    ))
-                },
-            ),
-            settings_divider(),
-            text_row(
-                "最大 X 坐标",
-                "可选，限制鼠标操作的最大 X 边界。",
-                "可选，限制最大 X 坐标",
-                &s.computer_use_max_coordinate_x_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Browser(
-                        BrowserMessage::ComputerUseMaxCoordinateXChanged(value),
-                    ))
-                },
-            ),
-            settings_divider(),
-            text_row(
-                "最大 Y 坐标",
-                "可选，限制鼠标操作的最大 Y 边界。",
-                "可选，限制最大 Y 坐标",
-                &s.computer_use_max_coordinate_y_input,
-                |value| {
-                    Message::Settings(SettingsMessage::Browser(
-                        BrowserMessage::ComputerUseMaxCoordinateYChanged(value),
-                    ))
-                },
-            ),
-        ]
-        .spacing(0)
+                text_row(
+                    "操作端点",
+                    "接收系统级浏览器动作请求的 sidecar URL。",
+                    "http://127.0.0.1:8787/v1/actions",
+                    &s.computer_use_endpoint,
+                    |value| {
+                        Message::Settings(SettingsMessage::Browser(
+                            BrowserMessage::ComputerUseEndpointChanged(value),
+                        ))
+                    },
+                ),
+                settings_divider(),
+                text_row(
+                    "访问密钥",
+                    "为 sidecar 请求附带可选的 Bearer Token。",
+                    "可选，sidecar Bearer Token",
+                    &s.computer_use_api_key_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Browser(
+                            BrowserMessage::ComputerUseApiKeyChanged(value),
+                        ))
+                    },
+                ),
+                settings_divider(),
+                text_row(
+                    "超时时间（毫秒）",
+                    "控制系统级浏览器动作的请求超时。",
+                    "15000",
+                    &s.computer_use_timeout_ms_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Browser(
+                            BrowserMessage::ComputerUseTimeoutMsChanged(value),
+                        ))
+                    },
+                ),
+                settings_divider(),
+                bool_row(
+                    "允许远程端点",
+                    "仅在明确可信时允许 sidecar 部署在公网。",
+                    s.computer_use_allow_remote_endpoint,
+                    "允许公网 sidecar 端点",
+                    |value| {
+                        Message::Settings(SettingsMessage::Browser(
+                            BrowserMessage::ComputerUseAllowRemoteEndpointToggled(value),
+                        ))
+                    },
+                ),
+                settings_divider(),
+                text_row(
+                    "窗口白名单",
+                    "限定允许控制的窗口标题或进程名。",
+                    "逗号或换行分隔窗口标题/进程名",
+                    &s.computer_use_window_allowlist_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Browser(
+                            BrowserMessage::ComputerUseWindowAllowlistChanged(value),
+                        ))
+                    },
+                ),
+                settings_divider(),
+                text_row(
+                    "最大 X 坐标",
+                    "可选，限制鼠标操作的最大 X 边界。",
+                    "可选，限制最大 X 坐标",
+                    &s.computer_use_max_coordinate_x_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Browser(
+                            BrowserMessage::ComputerUseMaxCoordinateXChanged(value),
+                        ))
+                    },
+                ),
+                settings_divider(),
+                text_row(
+                    "最大 Y 坐标",
+                    "可选，限制鼠标操作的最大 Y 边界。",
+                    "可选，限制最大 Y 坐标",
+                    &s.computer_use_max_coordinate_y_input,
+                    |value| {
+                        Message::Settings(SettingsMessage::Browser(
+                            BrowserMessage::ComputerUseMaxCoordinateYChanged(value),
+                        ))
+                    },
+                ),
+            ]
+            .spacing(0)
         ),
     ];
 
@@ -363,15 +370,15 @@ pub fn view(app: &App) -> Element<'_, Message> {
         settings_section_card("基础行为", "域名范围、窗口行为与运行后端。"),
         settings_panel(
             column![
-        enabled_row,
-        settings_divider(),
-        allowed_domains_row,
-        settings_divider(),
-        browser_open_row,
-        settings_divider(),
-        session_name_row,
-        settings_divider(),
-        backend_row,
+                enabled_row,
+                settings_divider(),
+                allowed_domains_row,
+                settings_divider(),
+                browser_open_row,
+                settings_divider(),
+                session_name_row,
+                settings_divider(),
+                backend_row,
             ]
             .spacing(0)
         ),

@@ -71,8 +71,8 @@ pub(super) async fn redis_settings_put(
 /// # 返回值
 ///
 /// 返回按最近使用时间排序的连接列表。
-pub(super) async fn redis_connections_list(
-) -> Result<Json<Vec<GatewayRedisConnectionConfig>>, ApiError> {
+pub(super) async fn redis_connections_list()
+-> Result<Json<Vec<GatewayRedisConnectionConfig>>, ApiError> {
     let mut connections = storage_support::load_connections().await;
     storage_support::sort_connections(&mut connections);
     Ok(Json(connections))
@@ -219,9 +219,7 @@ pub(super) async fn redis_connection_delete(
     ))
     .await;
 
-    Ok(Json(GatewayRedisDeleteResponse {
-        deleted_id: removed.id,
-    }))
+    Ok(Json(GatewayRedisDeleteResponse { deleted_id: removed.id }))
 }
 
 /// 将指定 Redis 连接设为当前连接。
@@ -283,9 +281,10 @@ pub(super) async fn redis_connection_test(
 
     let test_connection = connection.clone();
     let started_at = Instant::now();
-    let result = tokio::task::spawn_blocking(move || runtime::ping_redis_connection(&test_connection))
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+    let result =
+        tokio::task::spawn_blocking(move || runtime::ping_redis_connection(&test_connection))
+            .await
+            .map_err(|error| ApiError::internal(error.to_string()))?;
     let latency_ms = started_at.elapsed().as_millis().try_into().unwrap_or(u64::MAX);
 
     match result {
@@ -299,20 +298,13 @@ pub(super) async fn redis_connection_test(
             ))
             .await;
 
-            Ok(Json(GatewayRedisConnectionTestResponse {
-                ok: true,
-                message,
-                latency_ms,
-            }))
+            Ok(Json(GatewayRedisConnectionTestResponse { ok: true, message, latency_ms }))
         }
         Err(error) => {
             storage_support::append_history_best_effort(storage_support::history_record(
                 Some(&connection),
                 "TEST_CONNECTION",
-                format!(
-                    "{} error={error}",
-                    storage_support::compact_connection_args(&connection)
-                ),
+                format!("{} error={error}", storage_support::compact_connection_args(&connection)),
                 latency_ms,
                 false,
             ))
@@ -398,11 +390,7 @@ pub(super) async fn redis_connection_keys(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or(connection.key_pattern.trim());
-    let pattern = if pattern.is_empty() {
-        "*".to_string()
-    } else {
-        pattern.to_string()
-    };
+    let pattern = if pattern.is_empty() { "*".to_string() } else { pattern.to_string() };
 
     let scan_connection = connection.clone();
     let scan_pattern = pattern.clone();
@@ -437,10 +425,7 @@ pub(super) async fn redis_connection_keys(
             storage_support::append_history_best_effort(storage_support::history_record(
                 Some(&connection),
                 "LOAD_KEYS",
-                format!(
-                    "pattern={} cursor={} count={} status=error",
-                    pattern, cursor, count
-                ),
+                format!("pattern={} cursor={} count={} status=error", pattern, cursor, count),
                 cost_ms,
                 false,
             ))
@@ -615,12 +600,7 @@ pub(super) async fn redis_command_execute(
             ))
             .await;
 
-            Ok(Json(GatewayRedisCommandResponse {
-                command,
-                output,
-                cost_ms,
-                is_error: false,
-            }))
+            Ok(Json(GatewayRedisCommandResponse { command, output, cost_ms, is_error: false }))
         }
         Err(error) => {
             storage_support::append_history_best_effort(storage_support::history_record(
@@ -660,11 +640,8 @@ pub(super) async fn redis_history_list(
         .limit
         .unwrap_or(storage_support::REDIS_HISTORY_PAGE_LIMIT)
         .clamp(1, storage_support::REDIS_HISTORY_PAGE_LIMIT_MAX);
-    let filter_connection_id = query
-        .connection_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
+    let filter_connection_id =
+        query.connection_id.as_deref().map(str::trim).filter(|value| !value.is_empty());
     let filter_text = query
         .query
         .as_deref()
@@ -677,8 +654,9 @@ pub(super) async fn redis_history_list(
         .into_iter()
         .filter(|record| {
             (!only_write || record.is_write)
-                && filter_connection_id
-                    .is_none_or(|connection_id| record.connection_id.as_deref() == Some(connection_id))
+                && filter_connection_id.is_none_or(|connection_id| {
+                    record.connection_id.as_deref() == Some(connection_id)
+                })
                 && filter_text.as_ref().is_none_or(|query| {
                     record.connection_label.to_ascii_lowercase().contains(query)
                         || record.command.to_ascii_lowercase().contains(query)
@@ -691,13 +669,7 @@ pub(super) async fn redis_history_list(
     let items = filtered.into_iter().skip(offset).take(limit).collect::<Vec<_>>();
     let has_more = offset.saturating_add(items.len()) < total;
 
-    Ok(Json(GatewayRedisHistoryPage {
-        items,
-        offset,
-        limit,
-        total,
-        has_more,
-    }))
+    Ok(Json(GatewayRedisHistoryPage { items, offset, limit, total, has_more }))
 }
 
 /// 导入 Redis 工具配置包。

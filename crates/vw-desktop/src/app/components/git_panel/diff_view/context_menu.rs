@@ -27,37 +27,38 @@ use crate::app::{App, Message, message};
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
 fn diff_selection_menu<'a>() -> Element<'a, Message> {
-    let menu_button_style = |theme: &iced::Theme, status: iced::widget::button::Status| {
-        let ext = theme.extended_palette();
-        let is_dark = theme.palette().background.r
-            + theme.palette().background.g
-            + theme.palette().background.b
-            < 1.5;
+    let menu_button_style =
+        |theme: &iced::Theme, status: iced::widget::button::Status| {
+            let ext = theme.extended_palette();
+            let is_dark = theme.palette().background.r
+                + theme.palette().background.g
+                + theme.palette().background.b
+                < 1.5;
 
-        iced::widget::button::Style {
-            // background 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-            background: match status {
-                // iced 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                iced::widget::button::Status::Pressed => Some(Background::Color(
-                    ext.background.strong.color.scale_alpha(if is_dark { 0.34 } else { 0.18 }),
-                )),
-                // iced 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                iced::widget::button::Status::Hovered => {
-                    Some(Background::Color(ext.background.weak.color.scale_alpha(if is_dark {
-                        0.3
-                    } else {
-                        0.72
-                    })))
-                }
-                _ => None,
-            },
-            // border 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-            border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 5.0.into() },
-            // text_color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-            text_color: theme.palette().text,
-            ..Default::default()
-        }
-    };
+            iced::widget::button::Style {
+                // background 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                background: match status {
+                    // iced 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                    iced::widget::button::Status::Pressed => Some(Background::Color(
+                        ext.background.strong.color.scale_alpha(if is_dark { 0.34 } else { 0.18 }),
+                    )),
+                    // iced 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                    iced::widget::button::Status::Hovered => {
+                        Some(Background::Color(ext.background.weak.color.scale_alpha(if is_dark {
+                            0.3
+                        } else {
+                            0.72
+                        })))
+                    }
+                    _ => None,
+                },
+                // border 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 5.0.into() },
+                // text_color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                text_color: theme.palette().text,
+                ..Default::default()
+            }
+        };
 
     let menu_item = |label: &'static str, message: Message| {
         button(

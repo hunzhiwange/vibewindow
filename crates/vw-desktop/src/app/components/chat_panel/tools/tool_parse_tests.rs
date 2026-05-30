@@ -1,4 +1,7 @@
-use super::tool_parse::{explore_item_dedupe_key, explore_tool_kind, is_explore_tool, tool_call_id_from_raw, tool_name_from_raw, tool_status_from_raw};
+use super::tool_parse::{
+    explore_item_dedupe_key, explore_tool_kind, is_explore_tool, tool_call_id_from_raw,
+    tool_name_from_raw, tool_status_from_raw,
+};
 
 #[test]
 fn tool_name_and_call_id_are_read_from_raw_tool_block() {
@@ -14,6 +17,11 @@ fn tool_name_and_call_id_are_read_from_raw_tool_block() {
 fn explore_tool_kind_classifies_read_like_tools() {
     assert!(is_explore_tool("read"));
     assert!(explore_tool_kind("read").is_some());
-    assert!(explore_item_dedupe_key(r#"tool read
-{"input":"{\"filePath\":\"src/main.rs\"}"}"#).is_some());
+    assert!(
+        explore_item_dedupe_key(
+            r#"tool read
+{"input":"{\"filePath\":\"src/main.rs\"}"}"#
+        )
+        .is_some()
+    );
 }

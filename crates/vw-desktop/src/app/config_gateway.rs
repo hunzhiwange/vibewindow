@@ -8,9 +8,9 @@ use std::sync::OnceLock;
 use vw_config_types::{config::Config, security::IdentityConfig};
 use vw_gateway_client::{GatewayClient, GatewayEndpoint};
 
-use super::system_settings::{
-    load_gateway_client_bootstrap_config, save_gateway_client_bootstrap_config,
-};
+use super::system_settings::load_gateway_client_bootstrap_config;
+#[cfg(not(target_arch = "wasm32"))]
+use super::system_settings::save_gateway_client_bootstrap_config;
 
 fn normalize_identity_format(raw: Option<&str>) -> String {
     let _ = raw;
@@ -19,11 +19,7 @@ fn normalize_identity_format(raw: Option<&str>) -> String {
 
 fn normalize_gateway_host(raw: &str) -> String {
     let value = raw.trim();
-    if value.is_empty() {
-        "127.0.0.1".to_string()
-    } else {
-        value.to_string()
-    }
+    if value.is_empty() { "127.0.0.1".to_string() } else { value.to_string() }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -110,7 +106,9 @@ fn should_attempt_tools_list_request(endpoint: &GatewayEndpoint) -> bool {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn maybe_auto_pair_gateway_client(cfg: &mut vw_config_types::ui::GatewayClientSystemSettingsConfig) {
+fn maybe_auto_pair_gateway_client(
+    cfg: &mut vw_config_types::ui::GatewayClientSystemSettingsConfig,
+) {
     if !cfg.bearer_token.trim().is_empty()
         || !cfg.username.trim().is_empty()
         || !cfg.password.trim().is_empty()
@@ -134,9 +132,8 @@ fn maybe_auto_pair_gateway_client(cfg: &mut vw_config_types::ui::GatewayClientSy
         return;
     }
 
-    let Some(pairing_code) = pair_code_response
-        .pairing_code
-        .filter(|value| !value.trim().is_empty())
+    let Some(pairing_code) =
+        pair_code_response.pairing_code.filter(|value| !value.trim().is_empty())
     else {
         tracing::warn!(target: "vw_desktop", endpoint = %endpoint.describe(), "gateway requires pairing but did not expose a usable loopback pairing code");
         return;
@@ -238,13 +235,15 @@ fn vibewindow_legacy_config_path() -> Option<std::path::PathBuf> {
 
 fn load_vibewindow_root_json() -> serde_json::Value {
     let mut candidates = Vec::new();
-    if let Some(home) = vibewindow_home_config_path() {
-        candidates.push(home);
-    }
     if let Some(primary) = vibewindow_config_path()
         && !candidates.iter().any(|p| p == &primary)
     {
         candidates.push(primary);
+    }
+    if let Some(home) = vibewindow_home_config_path()
+        && !candidates.iter().any(|p| p == &home)
+    {
+        candidates.push(home);
     }
     if let Some(legacy) = vibewindow_legacy_config_path()
         && !candidates.iter().any(|p| p == &legacy)
@@ -285,10 +284,8 @@ pub(super) fn set_config_value_at_path(
         {
             obj.insert((*key).to_string(), serde_json::json!({}));
         }
-        current = current
-            .as_object_mut()
-            .and_then(|obj| obj.get_mut(*key))
-            .expect("path object exists");
+        current =
+            current.as_object_mut().and_then(|obj| obj.get_mut(*key)).expect("path object exists");
     }
 
     if let Some(obj) = current.as_object_mut() {
@@ -335,7 +332,10 @@ pub fn spawn_gateway_task(
 }
 
 pub fn gateway_client_endpoint() -> GatewayEndpoint {
+    #[cfg(not(target_arch = "wasm32"))]
     let mut cfg = load_gateway_client_bootstrap_config();
+    #[cfg(target_arch = "wasm32")]
+    let cfg = load_gateway_client_bootstrap_config();
     #[cfg(not(target_arch = "wasm32"))]
     maybe_auto_pair_gateway_client(&mut cfg);
     let host = normalize_gateway_host(&cfg.host);
@@ -408,9 +408,7 @@ pub(super) fn run_gateway_call<T: Send>(
     future: impl std::future::Future<Output = Result<T, String>> + Send,
 ) -> Result<T, String> {
     match tokio::runtime::Handle::try_current() {
-        Ok(handle)
-            if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread =>
-        {
+        Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
             tokio::task::block_in_place(|| handle.block_on(future))
         }
         Ok(_) => std::thread::scope(|scope| {

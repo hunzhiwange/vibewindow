@@ -64,12 +64,7 @@ fn draw_tailwind_shadow(frame: &mut Frame, bounds: Rectangle, zoom: f32, style: 
 /// 公开的 draw_tailwind_outline 函数。
 ///
 /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
-pub fn draw_tailwind_outline(
-    frame: &mut Frame,
-    bounds: Rectangle,
-    zoom: f32,
-    style: &ParsedStyle,
-) {
+pub fn draw_tailwind_outline(frame: &mut Frame, bounds: Rectangle, zoom: f32, style: &ParsedStyle) {
     let outline_width = style.outline_width.unwrap_or(0.0) * zoom;
     let outline_style = style.outline_style.as_deref().unwrap_or("solid");
 

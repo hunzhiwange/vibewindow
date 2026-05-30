@@ -22,7 +22,10 @@ impl SqliteMemory {
     /// # 错误
     ///
     /// 当缓存查询、嵌入计算、缓存写入或阻塞任务调度失败时返回错误。
-    pub(super) async fn get_or_compute_embedding(&self, text: &str) -> anyhow::Result<Option<Vec<f32>>> {
+    pub(super) async fn get_or_compute_embedding(
+        &self,
+        text: &str,
+    ) -> anyhow::Result<Option<Vec<f32>>> {
         if self.embedder.dimensions() == 0 {
             // NoopEmbedding 使用 0 维作为显式哨兵，表示当前后端只启用关键词检索。
             return Ok(None);

@@ -84,9 +84,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "在时间线中显示模型推理摘要。",
         checkbox(app.dialogue_flow_show_reasoning_summary)
             .label("启用")
-            .on_toggle(|v| Message::Settings(
-                message::SettingsMessage::DialogueFlowShowReasoningSummaryToggled(v)
-            ))
+            .on_toggle(|v| {
+                Message::Settings(
+                    message::SettingsMessage::DialogueFlowShowReasoningSummaryToggled(v),
+                )
+            })
             .style(settings_checkbox_style),
     );
 
@@ -95,9 +97,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "默认在时间线中展开 shell 工具部分。",
         checkbox(app.dialogue_flow_expand_shell_tool_section)
             .label("启用")
-            .on_toggle(|v| Message::Settings(
-                message::SettingsMessage::DialogueFlowExpandShellToolSectionToggled(v)
-            ))
+            .on_toggle(|v| {
+                Message::Settings(
+                    message::SettingsMessage::DialogueFlowExpandShellToolSectionToggled(v),
+                )
+            })
             .style(settings_checkbox_style),
     );
 
@@ -106,9 +110,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         "默认在时间线中展开 edit、write、patch 工具部分。",
         checkbox(app.dialogue_flow_expand_edit_tool_section)
             .label("启用")
-            .on_toggle(|v| Message::Settings(
-                message::SettingsMessage::DialogueFlowExpandEditToolSectionToggled(v)
-            ))
+            .on_toggle(|v| {
+                Message::Settings(
+                    message::SettingsMessage::DialogueFlowExpandEditToolSectionToggled(v),
+                )
+            })
             .style(settings_checkbox_style),
     );
 

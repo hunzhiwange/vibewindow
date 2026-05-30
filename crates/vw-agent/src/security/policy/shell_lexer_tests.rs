@@ -11,4 +11,3 @@ fn lexer_ignores_quoted_shell_metacharacters() {
 fn env_assignment_prefix_is_skipped() {
     assert_eq!(skip_env_assignments("FOO=bar BAR=baz cargo test"), "cargo test");
 }
-

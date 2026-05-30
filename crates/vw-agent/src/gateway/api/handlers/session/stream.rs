@@ -50,20 +50,15 @@ impl StreamTurnMessageIds {
     /// # 返回值
     ///
     /// 返回用于持久化流式轮次的 id 容器。
-    pub(super) fn new(
-        assistant_id: impl Into<String>,
-        user_id: impl Into<String>,
-    ) -> Self {
+    pub(super) fn new(assistant_id: impl Into<String>, user_id: impl Into<String>) -> Self {
         Self { assistant_id: assistant_id.into(), user_id: user_id.into() }
     }
 }
 
 fn tool_content_to_session_text(content: &str) -> String {
     let parsed = serde_json::from_str::<Value>(content).ok();
-    let tool_call_id = parsed
-        .as_ref()
-        .and_then(|value| value.get("tool_call_id"))
-        .and_then(Value::as_str);
+    let tool_call_id =
+        parsed.as_ref().and_then(|value| value.get("tool_call_id")).and_then(Value::as_str);
     let tool_output = parsed
         .as_ref()
         .and_then(|value| value.get("content"))
@@ -72,7 +67,9 @@ fn tool_content_to_session_text(content: &str) -> String {
 
     match tool_call_id {
         Some(tool_call_id) => {
-            format!("[Tool results]\n<tool_result id=\"{tool_call_id}\">\n{tool_output}\n</tool_result>")
+            format!(
+                "[Tool results]\n<tool_result id=\"{tool_call_id}\">\n{tool_output}\n</tool_result>"
+            )
         }
         None => format!("[Tool results]\n<tool_result>\n{tool_output}\n</tool_result>"),
     }
@@ -266,10 +263,8 @@ pub(super) async fn chat_stream(
 
             let history_messages = messages;
             let root_dir = dir.clone();
-            let stream_session_id = session_id
-                .as_ref()
-                .map(|value| value.0.clone())
-                .unwrap_or_default();
+            let stream_session_id =
+                session_id.as_ref().map(|value| value.0.clone()).unwrap_or_default();
             let stream_message_ids = if stream_session_id.trim().is_empty() {
                 None
             } else {
@@ -406,7 +401,8 @@ pub(super) async fn chat_stream(
                                 })
                             }
                             agent_session::processor::StreamEvent::Done(usage) => {
-                                let (message_id, parent_message_id) = if !stream_session_id.is_empty()
+                                let (message_id, parent_message_id) = if !stream_session_id
+                                    .is_empty()
                                     && !(resume_history_only && query.trim().is_empty())
                                 {
                                     // processor 负责流式生成；桌面网关在完成事件中补写 UI 会话消息。
@@ -630,10 +626,10 @@ pub(super) async fn persist_stream_chat_turn(
 }
 
 fn preallocate_stream_turn_message_ids() -> Result<StreamTurnMessageIds, ApiError> {
-    let assistant_id =
-        id::ascending(id::Prefix::Message, None).map_err(|err| ApiError::internal(err.to_string()))?;
-    let user_id =
-        id::ascending(id::Prefix::Message, None).map_err(|err| ApiError::internal(err.to_string()))?;
+    let assistant_id = id::ascending(id::Prefix::Message, None)
+        .map_err(|err| ApiError::internal(err.to_string()))?;
+    let user_id = id::ascending(id::Prefix::Message, None)
+        .map_err(|err| ApiError::internal(err.to_string()))?;
     Ok(StreamTurnMessageIds { assistant_id, user_id })
 }
 

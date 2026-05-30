@@ -173,7 +173,11 @@ fn scope_project_metadata_path(data_dir: &Path, scope: &str) -> Option<PathBuf> 
     Some(path::sessions_dir_for_scope(data_dir, Some(scope))?.join("project.json"))
 }
 
-fn write_scope_project_metadata(data_dir: &Path, scope: &str, info: &project::Info) -> Option<PathBuf> {
+fn write_scope_project_metadata(
+    data_dir: &Path,
+    scope: &str,
+    info: &project::Info,
+) -> Option<PathBuf> {
     let metadata_path = scope_project_metadata_path(data_dir, scope)?;
     if let Some(parent) = metadata_path.parent() {
         std::fs::create_dir_all(parent).ok()?;

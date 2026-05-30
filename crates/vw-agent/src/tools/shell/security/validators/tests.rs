@@ -54,8 +54,8 @@ fn lower_tokens_supports_fallback() {
 
 #[test]
 fn lower_tokens_supports_ast_command_info() {
-    let info = crate::tools::shell::ast::CommandInfo::from_command("Git STATUS")
-        .expect("command info");
+    let info =
+        crate::tools::shell::ast::CommandInfo::from_command("Git STATUS").expect("command info");
     let ast = crate::tools::shell::ast::BashAst::parse("Git STATUS").0;
     let cmd = ParsedCommand::Ast(ast, info);
 

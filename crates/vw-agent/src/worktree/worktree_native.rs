@@ -155,10 +155,8 @@ pub(super) async fn run_git(args: &[&str], cwd: &str) -> Result<CmdResult, Error
     })
     .await??;
 
-    let stdout =
-        String::from_utf8_lossy(&output.stdout).replace("\r\n", "\n").replace('\r', "\n");
-    let stderr =
-        String::from_utf8_lossy(&output.stderr).replace("\r\n", "\n").replace('\r', "\n");
+    let stdout = String::from_utf8_lossy(&output.stdout).replace("\r\n", "\n").replace('\r', "\n");
+    let stderr = String::from_utf8_lossy(&output.stderr).replace("\r\n", "\n").replace('\r', "\n");
     Ok(CmdResult { success: output.status.success(), stdout, stderr })
 }
 

@@ -91,10 +91,7 @@ pub(super) fn design_generation_copy_chat_message(app: &mut App, index: usize) -
 ///
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 变更范围限制在当前消息处理路径内，不引入额外的流程分支。
-pub(super) fn design_generation_select_chat_message(
-    app: &mut App,
-    index: usize,
-) -> Task<Message> {
+pub(super) fn design_generation_select_chat_message(app: &mut App, index: usize) -> Task<Message> {
     if let Some(state) = app.active_design_state_mut() {
         state.design_chat_selected_message = Some(index);
     }
@@ -131,9 +128,10 @@ pub(super) fn design_generation_show_all_logs(app: &mut App) -> Task<Message> {
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 失败会被转换为界面可展示的状态或消息，避免在处理链路中静默丢失。
 pub(super) fn design_generation_load_log_files(app: &mut App) -> Task<Message> {
-    let project_path = app.project_path.clone().unwrap_or_else(|| {
-        std::env::current_dir().unwrap_or_default().display().to_string()
-    });
+    let project_path = app
+        .project_path
+        .clone()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default().display().to_string());
     // 耗时或平台相关操作交给异步任务，避免阻塞界面消息循环。
     Task::perform(
         async move {
@@ -145,7 +143,9 @@ pub(super) fn design_generation_load_log_files(app: &mut App) -> Task<Message> {
                 let mut files = Vec::new();
                 if let Ok(entries) = std::fs::read_dir(&log_dir) {
                     for entry in entries.flatten() {
-                        if let Some(name) = entry.file_name().to_str() && name.ends_with(".log") {
+                        if let Some(name) = entry.file_name().to_str()
+                            && name.ends_with(".log")
+                        {
                             files.push(name.to_string());
                         }
                     }
@@ -173,4 +173,3 @@ pub(super) fn design_generation_log_files_loaded(
     }
     Task::none()
 }
-

@@ -13,11 +13,11 @@ use crate::app::agent::provider::provider;
 use crate::app::agent::snapshot;
 use crate::app::agent::storage;
 use crate::app::agent::util::log;
-use std::sync::LazyLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use std::fmt;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
 
 /// 模块日志记录器
@@ -182,28 +182,48 @@ async fn summarize_session(
 ) -> Result<(), Error> {
     // 计算文件差异
     let diffs = compute_diff_inner(messages)?;
-    // 统计总新增行数
-    let additions: i64 = diffs.iter().map(|x| x.additions).sum();
-    // 统计总删除行数
-    let deletions: i64 = diffs.iter().map(|x| x.deletions).sum();
-    // 统计变更文件数
-    let files: i64 = diffs.len() as i64;
+    persist_session_diff_summary(session_id, diffs).await?;
+    Ok(())
+}
 
-    // 更新会话摘要信息
+fn summary_from_diffs(diffs: &[snapshot::FileDiff]) -> super::session::Summary {
+    super::session::Summary {
+        additions: diffs.iter().map(|x| x.additions).sum(),
+        deletions: diffs.iter().map(|x| x.deletions).sum(),
+        files: diffs.len() as i64,
+        diffs: None,
+    }
+}
+
+async fn persist_session_diff_summary(
+    session_id: &str,
+    diffs: Vec<snapshot::FileDiff>,
+) -> Result<super::session::Summary, Error> {
+    let summary = summary_from_diffs(&diffs);
+
+    let summary_for_session = summary.clone();
     let _ = super::session::update(session_id, |draft| {
-        draft.summary = Some(super::session::Summary { additions, deletions, files, diffs: None });
+        draft.summary = Some(summary_for_session.clone());
     })
     .await?;
 
-    // 持久化差异数据
     storage::write(&["session_diff", session_id], &diffs).await?;
-    // 发布差异变更事件，通知订阅者
     let _ = bus::publish(
         super::session::event::DIFF,
         json!({ "sessionID": session_id, "diff": diffs }),
         instance_directory_opt(),
     );
-    Ok(())
+
+    Ok(summary)
+}
+
+pub async fn refresh_session_diff_summary(
+    session_id: &str,
+) -> Result<super::session::Summary, Error> {
+    let mut all = super::message::messages(session_id, None).await?;
+    all.sort_by(|a, b| a.info.id().cmp(b.info.id()));
+    let diffs = compute_diff_inner(&all)?;
+    persist_session_diff_summary(session_id, diffs).await
 }
 
 /// 生成消息级摘要

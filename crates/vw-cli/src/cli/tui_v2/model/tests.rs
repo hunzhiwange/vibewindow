@@ -48,9 +48,7 @@ fn prompt_state_start_and_finish_submission_tracks_busy_lifecycle() {
     assert!(state.active_submission.is_none());
     assert_eq!(
         state.last_submission.as_ref().map(|value| &value.status),
-        Some(&PromptSubmissionStatus::Done {
-            finish_reason: Some("stop".to_string()),
-        })
+        Some(&PromptSubmissionStatus::Done { finish_reason: Some("stop".to_string()) })
     );
 }
 
@@ -68,7 +66,10 @@ fn prompt_state_queue_command_preserves_fifo_order() {
         enqueued_ms: Some(12),
     });
 
-    assert_eq!(state.pop_queued_command().map(|command| command.raw), Some("/model gpt-5.4".to_string()));
+    assert_eq!(
+        state.pop_queued_command().map(|command| command.raw),
+        Some("/model gpt-5.4".to_string())
+    );
     assert_eq!(state.pop_queued_command().map(|command| command.raw), Some("继续".to_string()));
     assert!(state.pop_queued_command().is_none());
 }
@@ -139,10 +140,7 @@ fn question_overlay_from_request_copies_prompt_and_tool_context() {
             multiple: Some(false),
             custom: Some(false),
         }],
-        tool: Some(ToolMeta {
-            message_id: "msg-1".to_string(),
-            call_id: "call-1".to_string(),
-        }),
+        tool: Some(ToolMeta { message_id: "msg-1".to_string(), call_id: "call-1".to_string() }),
     };
 
     let overlay = UiQuestionOverlay::from_request(&request);
@@ -192,9 +190,7 @@ fn ui_message_kind_and_base_accessors_match_variant() {
             reasoning_tokens: 5,
         },
         step_count: 2,
-        terminal: UiTurnTerminal::Done {
-            finish_reason: Some("stop".to_string()),
-        },
+        terminal: UiTurnTerminal::Done { finish_reason: Some("stop".to_string()) },
         model: Some("gpt-5.4".to_string()),
     });
 

@@ -52,14 +52,8 @@ fn gateway_stream_request_from_processor_request_preserves_history_and_query() {
     assert_eq!(gateway.options, Some(request.options.clone()));
     assert_eq!(gateway.messages.len(), 3);
     assert_eq!(gateway.messages[0], json!({ "role": "system", "content": "system prompt" }));
-    assert_eq!(
-        gateway.messages[1],
-        json!({ "role": "assistant", "content": "previous answer" })
-    );
-    assert_eq!(
-        gateway.messages[2],
-        json!({ "role": "user", "content": "continue the migration" })
-    );
+    assert_eq!(gateway.messages[1], json!({ "role": "assistant", "content": "previous answer" }));
+    assert_eq!(gateway.messages[2], json!({ "role": "user", "content": "continue the migration" }));
 }
 
 #[test]

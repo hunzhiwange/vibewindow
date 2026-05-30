@@ -92,8 +92,9 @@ pub(super) fn build_node_next_step_section<'a>(
 
     let add_content: Element<'a, Message> = match &editor.mode {
         super::state::WorkflowNodeEditorMode::Edit(node_id) => {
-            let mut content = column![build_start_next_step_button_group(state, node_id.clone(), None)]
-                .spacing(12);
+            let mut content =
+                column![build_start_next_step_button_group(state, node_id.clone(), None)]
+                    .spacing(12);
 
             let has_fail_branch = node_next_step_supports_fail_branch(state, editor, node_id);
 
@@ -107,11 +108,7 @@ pub(super) fn build_node_next_step_section<'a>(
                         Some("fail-branch"),
                         "当前还没有异常分支节点。",
                     ),
-                    build_start_next_step_button_group(
-                        state,
-                        node_id.clone(),
-                        Some("fail-branch"),
-                    ),
+                    build_start_next_step_button_group(state, node_id.clone(), Some("fail-branch")),
                 ));
             }
 
@@ -205,11 +202,11 @@ fn node_next_step_supports_fail_branch(
     editor: &super::state::WorkflowNodeEditorDraft,
     node_id: &str,
 ) -> bool {
-    if state.document.node(node_id).is_some_and(|node| {
-        node.source_handles
-            .iter()
-            .any(|handle| handle.id == "fail-branch")
-    }) {
+    if state
+        .document
+        .node(node_id)
+        .is_some_and(|node| node.source_handles.iter().any(|handle| handle.id == "fail-branch"))
+    {
         return true;
     }
 
@@ -242,10 +239,9 @@ pub(super) fn build_start_next_step_button(
             handle_id.to_string(),
             node_type.block_type.to_string(),
         ),
-        None => WorkflowMessage::InsertDownstreamNode(
-            source_node_id,
-            node_type.block_type.to_string(),
-        ),
+        None => {
+            WorkflowMessage::InsertDownstreamNode(source_node_id, node_type.block_type.to_string())
+        }
     };
 
     button(

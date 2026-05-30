@@ -2,11 +2,7 @@
 //!
 //! 该模块提供路径、图片、文本和 Tailwind 样式转换等底层辅助函数，减少渲染主流程中的重复样板逻辑。
 
-use iced::{
-    Point, Size,
-    border::Radius,
-    widget::canvas::Path,
-};
+use iced::{Point, Size, border::Radius, widget::canvas::Path};
 
 const SQUARE_EPS_PX: f32 = 0.5;
 

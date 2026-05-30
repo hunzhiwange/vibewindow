@@ -280,11 +280,8 @@ impl ToolCallResult {
         let success = result.success;
         let output = result.output;
         let error = result.error;
-        let model_text = if success {
-            output.clone()
-        } else {
-            error.clone().unwrap_or_else(|| output.clone())
-        };
+        let model_text =
+            if success { output.clone() } else { error.clone().unwrap_or_else(|| output.clone()) };
 
         Self {
             data: json!({

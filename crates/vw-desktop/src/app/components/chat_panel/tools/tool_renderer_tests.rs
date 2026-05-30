@@ -11,6 +11,10 @@ fn shared_tool_render_kind_routes_known_tools() {
         Some(SharedToolRenderKind::PlanMode)
     );
     assert_eq!(
+        shared_tool_render_kind("tool skill\n{}"),
+        Some(SharedToolRenderKind::Skill)
+    );
+    assert_eq!(
         shared_tool_render_kind("tool custom_tool\n{}"),
         Some(SharedToolRenderKind::Text)
     );

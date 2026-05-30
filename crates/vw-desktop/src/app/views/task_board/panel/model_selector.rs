@@ -10,8 +10,8 @@ use iced::widget::{
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
 use crate::app::assets::{self, Icon};
-use crate::app::components::system_settings_common::settings_text_input_style;
 use crate::app::components::overlays::BelowOverlay;
+use crate::app::components::system_settings_common::settings_text_input_style;
 use crate::app::message::{SettingsMessage, TaskBoardMessage, ViewMessage};
 use crate::app::task::normalize_task_model_input;
 use crate::app::{App, Message};

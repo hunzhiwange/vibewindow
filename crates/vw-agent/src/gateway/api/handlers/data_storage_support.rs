@@ -67,19 +67,14 @@ pub(super) fn sort_connections(connections: &mut [AiDataConnectionDto]) {
     connections.sort_by(|left, right| {
         let left_key = left.last_used_ms.unwrap_or(left.updated_at_ms);
         let right_key = right.last_used_ms.unwrap_or(right.updated_at_ms);
-        right_key
-            .cmp(&left_key)
-            .then_with(|| left.name.cmp(&right.name))
+        right_key.cmp(&left_key).then_with(|| left.name.cmp(&right.name))
     });
 }
 
 /// 按更新时间倒序排列报表。
 pub(super) fn sort_reports(reports: &mut [AiDataReportDto]) {
     reports.sort_by(|left, right| {
-        right
-            .updated_at_ms
-            .cmp(&left.updated_at_ms)
-            .then_with(|| left.name.cmp(&right.name))
+        right.updated_at_ms.cmp(&left.updated_at_ms).then_with(|| left.name.cmp(&right.name))
     });
 }
 

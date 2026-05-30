@@ -15,4 +15,3 @@ fn content_hash_is_deterministic_and_compact() {
     assert_eq!(first.len(), 16);
     assert_ne!(first, SqliteMemory::content_hash("other content"));
 }
-

@@ -99,9 +99,7 @@ async fn process_attachments_transcribes_audio_when_enabled() {
     let app = Router::new()
         .route("/audio.ogg", get(audio_handler))
         .route("/transcribe", post(transcribe_handler));
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("绑定测试服务器");
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("绑定测试服务器");
     let addr = listener.local_addr().expect("本地地址");
     tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;
@@ -120,7 +118,8 @@ async fn process_attachments_transcribes_audio_when_enabled() {
         "duration_secs": 4
     })];
 
-    let result = attachments::process_attachments(&attachments, &client, Some(&transcription)).await;
+    let result =
+        attachments::process_attachments(&attachments, &client, Some(&transcription)).await;
     assert_eq!(result, "[Voice:voice.ogg] hello from discord audio");
 }
 
@@ -141,7 +140,8 @@ async fn process_attachments_skips_audio_when_duration_exceeds_limit() {
         "duration_secs": 120
     })];
 
-    let result = attachments::process_attachments(&attachments, &client, Some(&transcription)).await;
+    let result =
+        attachments::process_attachments(&attachments, &client, Some(&transcription)).await;
     assert!(result.is_empty());
 }
 

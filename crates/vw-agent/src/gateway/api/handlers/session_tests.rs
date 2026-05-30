@@ -111,35 +111,34 @@ async fn persist_stream_chat_turn_reuses_preallocated_message_ids() {
     let temp = tempfile::tempdir().expect("tempdir");
     let session_id = "ses_stream_preallocated";
     // 预分配 id 来自流式响应开始阶段，落盘必须复用同一组 id 才能和前端事件对齐。
-    let preallocated = StreamTurnMessageIds::new(
-        "msg_assistant_preallocated",
-        "msg_user_preallocated",
-    );
+    let preallocated =
+        StreamTurnMessageIds::new("msg_assistant_preallocated", "msg_user_preallocated");
 
-    let (assistant_id, user_id, stored) = project::instance::provide(temp.path(), None, move || {
-        let preallocated = preallocated.clone();
-        Box::pin(async move {
-            let usage = ui_models::TokenUsage::default();
-            let (assistant_id, user_id) = persist_stream_chat_turn(
-                session_id,
-                "hello from user",
-                "hello from assistant",
-                Some("anthropic/claude-sonnet-4"),
-                &usage,
-                Some("stop"),
-                Some(&preallocated),
-            )
-            .await
-            .expect("stream turn should persist");
-            let stored = agent_session::message::messages(session_id, None)
+    let (assistant_id, user_id, stored) =
+        project::instance::provide(temp.path(), None, move || {
+            let preallocated = preallocated.clone();
+            Box::pin(async move {
+                let usage = ui_models::TokenUsage::default();
+                let (assistant_id, user_id) = persist_stream_chat_turn(
+                    session_id,
+                    "hello from user",
+                    "hello from assistant",
+                    Some("anthropic/claude-sonnet-4"),
+                    &usage,
+                    Some("stop"),
+                    Some(&preallocated),
+                )
                 .await
-                .expect("stored messages should load");
-            Ok::<_, project::Error>((assistant_id, user_id, stored))
+                .expect("stream turn should persist");
+                let stored = agent_session::message::messages(session_id, None)
+                    .await
+                    .expect("stored messages should load");
+                Ok::<_, project::Error>((assistant_id, user_id, stored))
+            })
         })
-    })
-    .await
-    .expect("instance context should be provided")
-    .expect("stream turn should return stored messages");
+        .await
+        .expect("instance context should be provided")
+        .expect("stream turn should return stored messages");
 
     assert_eq!(assistant_id, "msg_assistant_preallocated");
     assert_eq!(user_id, "msg_user_preallocated");

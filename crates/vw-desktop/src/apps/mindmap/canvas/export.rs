@@ -19,9 +19,9 @@
 /// 6. 绘制用户涂鸦
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn export_svg(tab: &crate::apps::mindmap::state::MindMapTab) -> String {
-    use crate::apps::mindmap::canvas::{layout, style};
     use crate::apps::mindmap::canvas::layout::compute_layout_for_diagram;
     use crate::apps::mindmap::canvas::theme::resolve_theme;
+    use crate::apps::mindmap::canvas::{layout, style};
     use crate::apps::mindmap::state::EdgeStyle;
     use iced::{Color, Point};
     use std::collections::HashMap;
@@ -156,37 +156,38 @@ pub(crate) fn export_svg(tab: &crate::apps::mindmap::state::MindMapTab) -> Strin
 
     // 如果是鱼骨图，需要额外考虑主脊线和箭头的几何范围
     if tab.diagram_type == crate::apps::mindmap::state::MindMapDiagramType::Fishbone
-        && let Some(root) = layout.nodes.iter().find(|n| n.path.is_empty()) {
-            let root_rect = layout::layout_node_rect(root);
-            // 根据布局方向确定主脊线方向
-            let spine_dir = match tab.fishbone_layout_format {
-                crate::apps::mindmap::state::FishboneLayoutFormat::HeadRight => -1.0,
-                crate::apps::mindmap::state::FishboneLayoutFormat::HeadLeft => 1.0,
-            };
-            // 计算主脊线的极端 X 坐标（考虑所有一级分支）
-            let mut extreme_x = root.pos.x + spine_dir * 480.0;
-            for n in layout.nodes.iter().filter(|n| n.path.len() == 1) {
-                if spine_dir < 0.0 {
-                    extreme_x = extreme_x.min(n.pos.x);
-                } else {
-                    extreme_x = extreme_x.max(n.pos.x);
-                }
-            }
-            // 计算鱼骨图关键点：尾部、箭头基部、箭头顶点
-            let tail_x = extreme_x + spine_dir * 320.0;
-            let spine_y = root.pos.y;
-            let apex_x = if spine_dir < 0.0 { root_rect.x } else { root_rect.x + root_rect.width };
-            let apex = Point::new(apex_x * zoom, spine_y * zoom);
-            let base = Point::new((apex_x + spine_dir * 18.0) * zoom, spine_y * zoom);
-            let tail = Point::new(tail_x * zoom, spine_y * zoom);
-            // 将这些点纳入边界计算
-            for p in [apex, base, tail] {
-                min_x = min_x.min(p.x);
-                min_y = min_y.min(p.y);
-                max_x = max_x.max(p.x);
-                max_y = max_y.max(p.y);
+        && let Some(root) = layout.nodes.iter().find(|n| n.path.is_empty())
+    {
+        let root_rect = layout::layout_node_rect(root);
+        // 根据布局方向确定主脊线方向
+        let spine_dir = match tab.fishbone_layout_format {
+            crate::apps::mindmap::state::FishboneLayoutFormat::HeadRight => -1.0,
+            crate::apps::mindmap::state::FishboneLayoutFormat::HeadLeft => 1.0,
+        };
+        // 计算主脊线的极端 X 坐标（考虑所有一级分支）
+        let mut extreme_x = root.pos.x + spine_dir * 480.0;
+        for n in layout.nodes.iter().filter(|n| n.path.len() == 1) {
+            if spine_dir < 0.0 {
+                extreme_x = extreme_x.min(n.pos.x);
+            } else {
+                extreme_x = extreme_x.max(n.pos.x);
             }
         }
+        // 计算鱼骨图关键点：尾部、箭头基部、箭头顶点
+        let tail_x = extreme_x + spine_dir * 320.0;
+        let spine_y = root.pos.y;
+        let apex_x = if spine_dir < 0.0 { root_rect.x } else { root_rect.x + root_rect.width };
+        let apex = Point::new(apex_x * zoom, spine_y * zoom);
+        let base = Point::new((apex_x + spine_dir * 18.0) * zoom, spine_y * zoom);
+        let tail = Point::new(tail_x * zoom, spine_y * zoom);
+        // 将这些点纳入边界计算
+        for p in [apex, base, tail] {
+            min_x = min_x.min(p.x);
+            min_y = min_y.min(p.y);
+            max_x = max_x.max(p.x);
+            max_y = max_y.max(p.y);
+        }
+    }
 
     // 提取鱼骨图的元数据（根节点位置和主脊线方向），用于后续边的绘制
     let fishbone_meta =
@@ -457,33 +458,34 @@ pub(crate) fn export_svg(tab: &crate::apps::mindmap::state::MindMapTab) -> Strin
 
     // 绘制鱼骨图的主脊线和箭头
     if tab.diagram_type == crate::apps::mindmap::state::MindMapDiagramType::Fishbone
-        && let Some(root) = layout.nodes.iter().find(|n| n.path.is_empty()) {
-            let root_rect = layout::layout_node_rect(root);
-            // 确定主脊线方向
-            let spine_dir = match tab.fishbone_layout_format {
-                crate::apps::mindmap::state::FishboneLayoutFormat::HeadRight => -1.0,
-                crate::apps::mindmap::state::FishboneLayoutFormat::HeadLeft => 1.0,
-            };
-            // 计算主脊线的极端 X 坐标
-            let mut extreme_x = root.pos.x + spine_dir * 480.0;
-            for n in layout.nodes.iter().filter(|n| n.path.len() == 1) {
-                if spine_dir < 0.0 {
-                    extreme_x = extreme_x.min(n.pos.x);
-                } else {
-                    extreme_x = extreme_x.max(n.pos.x);
-                }
+        && let Some(root) = layout.nodes.iter().find(|n| n.path.is_empty())
+    {
+        let root_rect = layout::layout_node_rect(root);
+        // 确定主脊线方向
+        let spine_dir = match tab.fishbone_layout_format {
+            crate::apps::mindmap::state::FishboneLayoutFormat::HeadRight => -1.0,
+            crate::apps::mindmap::state::FishboneLayoutFormat::HeadLeft => 1.0,
+        };
+        // 计算主脊线的极端 X 坐标
+        let mut extreme_x = root.pos.x + spine_dir * 480.0;
+        for n in layout.nodes.iter().filter(|n| n.path.len() == 1) {
+            if spine_dir < 0.0 {
+                extreme_x = extreme_x.min(n.pos.x);
+            } else {
+                extreme_x = extreme_x.max(n.pos.x);
             }
-            // 计算关键点坐标
-            let tail_x = extreme_x + spine_dir * 320.0;
-            let spine_y = root.pos.y;
-            let apex_x = if spine_dir < 0.0 { root_rect.x } else { root_rect.x + root_rect.width };
-            let apex = Point::new(apex_x * zoom, spine_y * zoom);
-            let base = Point::new((apex_x + spine_dir * 18.0) * zoom, spine_y * zoom);
-            let tail = Point::new(tail_x * zoom, spine_y * zoom);
+        }
+        // 计算关键点坐标
+        let tail_x = extreme_x + spine_dir * 320.0;
+        let spine_y = root.pos.y;
+        let apex_x = if spine_dir < 0.0 { root_rect.x } else { root_rect.x + root_rect.width };
+        let apex = Point::new(apex_x * zoom, spine_y * zoom);
+        let base = Point::new((apex_x + spine_dir * 18.0) * zoom, spine_y * zoom);
+        let tail = Point::new(tail_x * zoom, spine_y * zoom);
 
-            // 绘制主脊线
-            let spine_rgba = current_theme.line_color.unwrap_or(default_stroke_rgba);
-            svg.push_str(&format!(
+        // 绘制主脊线
+        let spine_rgba = current_theme.line_color.unwrap_or(default_stroke_rgba);
+        svg.push_str(&format!(
                 "<line x1=\"{x1:.2}\" y1=\"{y1:.2}\" x2=\"{x2:.2}\" y2=\"{y2:.2}\" stroke=\"{stroke}\" stroke-width=\"{sw:.2}\" />",
                 x1 = tail.x,
                 y1 = tail.y,
@@ -493,11 +495,11 @@ pub(crate) fn export_svg(tab: &crate::apps::mindmap::state::MindMapTab) -> Strin
                 sw = stroke_width
             ));
 
-            // 绘制箭头
-            let aw = (7.0 * zoom).clamp(4.0, 10.0);
-            let b1 = Point::new(base.x, base.y - aw);
-            let b2 = Point::new(base.x, base.y + aw);
-            svg.push_str(&format!(
+        // 绘制箭头
+        let aw = (7.0 * zoom).clamp(4.0, 10.0);
+        let b1 = Point::new(base.x, base.y - aw);
+        let b2 = Point::new(base.x, base.y + aw);
+        svg.push_str(&format!(
                 "<polygon points=\"{ax:.2},{ay:.2} {b1x:.2},{b1y:.2} {b2x:.2},{b2y:.2}\" fill=\"{fill}\" />",
                 ax = apex.x,
                 ay = apex.y,
@@ -507,7 +509,7 @@ pub(crate) fn export_svg(tab: &crate::apps::mindmap::state::MindMapTab) -> Strin
                 b2y = b2.y,
                 fill = rgba_u32_to_css(spine_rgba)
             ));
-        }
+    }
 
     // 绘制括号图的括号曲线
     if tab.diagram_type == crate::apps::mindmap::state::MindMapDiagramType::Bracket {

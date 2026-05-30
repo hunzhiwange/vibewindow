@@ -12,11 +12,7 @@ use super::super::*;
 /// - `ctx`: 通道运行时上下文，用于读取和写回路由选择。
 /// - `sender_key`: 当前发送者的稳定会话键。
 /// - `enabled`: `true` 表示后续消息创建任务，`false` 表示恢复普通对话。
-pub(super) fn set_sender_task_mode(
-    ctx: &ChannelRuntimeContext,
-    sender_key: &str,
-    enabled: bool,
-) {
+pub(super) fn set_sender_task_mode(ctx: &ChannelRuntimeContext, sender_key: &str, enabled: bool) {
     let mut current = get_route_selection(ctx, sender_key);
     current.task_mode_enabled = enabled;
     set_route_selection(ctx, sender_key, current);

@@ -183,11 +183,12 @@ impl<Message> Widget<Message, Theme, Renderer> for WheelInterceptor<'_, Message>
         viewport: &Rectangle,
     ) {
         if cursor.is_over(layout.bounds())
-            && let Event::Mouse(mouse::Event::WheelScrolled { delta }) = event {
-                shell.publish((self.on_scroll)(*delta));
-                shell.capture_event();
-                return;
-            }
+            && let Event::Mouse(mouse::Event::WheelScrolled { delta }) = event
+        {
+            shell.publish((self.on_scroll)(*delta));
+            shell.capture_event();
+            return;
+        }
 
         self.content.as_widget_mut().update(
             &mut tree.children[0],

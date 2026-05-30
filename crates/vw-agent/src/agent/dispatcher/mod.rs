@@ -391,9 +391,8 @@ impl ToolDispatcher for XmlToolDispatcher {
         // 添加工具使用协议标题
         instructions.push_str("## Tool Use Protocol\n\n");
         // 添加工具调用格式说明
-        instructions.push_str(
-            "To use a tool, wrap a JSON object in <tool_call></tool_call> tags:\n\n",
-        );
+        instructions
+            .push_str("To use a tool, wrap a JSON object in <tool_call></tool_call> tags:\n\n");
         instructions.push_str(
             "```\n<tool_call>\n{\"name\": \"tool_name\", \"arguments\": {\"param\": \"value\"}}\n</tool_call>\n```\n\n",
         );
@@ -406,9 +405,7 @@ impl ToolDispatcher for XmlToolDispatcher {
             let _ = writeln!(
                 instructions,
                 "- **{}**: {}\n  Parameters: `{}`",
-                spec.id,
-                spec.description,
-                spec.input_schema
+                spec.id, spec.description, spec.input_schema
             );
         }
 

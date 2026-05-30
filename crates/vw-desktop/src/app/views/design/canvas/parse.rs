@@ -210,12 +210,11 @@ pub fn wrap_text_lines_with_font(
         for word in raw_line.split_whitespace() {
             let word_w = measure_text_width_with_font(word, font_family, font_size_px, 0.0);
 
-            if current.is_empty()
-                && word_w <= max_width + eps {
-                    current.push_str(word);
-                    current_w = word_w;
-                    continue;
-                }
+            if current.is_empty() && word_w <= max_width + eps {
+                current.push_str(word);
+                current_w = word_w;
+                continue;
+            }
 
             if !current.is_empty() && current_w + space_w + word_w <= max_width + eps {
                 current.push(' ');
@@ -390,9 +389,10 @@ fn parse_fill_value(
                         return Some(parse_color(s, variables, theme_mode));
                     }
                     if let serde_json::Value::Object(color_map) = color
-                        && let Some(serde_json::Value::String(c)) = color_map.get("color") {
-                            return Some(parse_color(c, variables, theme_mode));
-                        }
+                        && let Some(serde_json::Value::String(c)) = color_map.get("color")
+                    {
+                        return Some(parse_color(c, variables, theme_mode));
+                    }
                 }
             }
             None

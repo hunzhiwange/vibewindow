@@ -7,9 +7,15 @@ fn owned_blocks_from_raw_splits_think_tool_and_text() {
 
     let blocks = owned_blocks_from_raw(raw);
 
-    assert!(matches!(blocks.first(), Some(ParsedChatBlock::Think { content, open }) if content == "plan" && !open));
-    assert!(matches!(blocks.get(1), Some(ParsedChatBlock::Text { content }) if content.trim() == "answer"));
-    assert!(matches!(blocks.get(2), Some(ParsedChatBlock::Tool { raw }) if raw.starts_with("tool bash")));
+    assert!(
+        matches!(blocks.first(), Some(ParsedChatBlock::Think { content, open }) if content == "plan" && !open)
+    );
+    assert!(
+        matches!(blocks.get(1), Some(ParsedChatBlock::Text { content }) if content.trim() == "answer")
+    );
+    assert!(
+        matches!(blocks.get(2), Some(ParsedChatBlock::Tool { raw }) if raw.starts_with("tool bash"))
+    );
 }
 
 #[test]
@@ -22,7 +28,9 @@ fn borrowed_blocks_preserve_block_kinds() {
     let borrowed = borrowed_blocks(&blocks).collect::<Vec<_>>();
 
     assert!(matches!(borrowed[0], RenderBlock::Text { content } if content == "hello"));
-    assert!(matches!(borrowed[1], RenderBlock::Think { content, open } if content == "why" && open));
+    assert!(
+        matches!(borrowed[1], RenderBlock::Think { content, open } if content == "why" && open)
+    );
 }
 
 #[test]

@@ -3,9 +3,9 @@
 //! 本模块定义了会话处理过程中使用的核心数据类型，包括请求结构、流式事件和工具会话状态。
 //! 这些类型用于在会话处理管道中传递和处理数据。
 
-use crate::session::ui_types as models;
-use crate::app::agent::approval::ApprovalManager;
 use crate::agent::loop_::NonCliApprovalContext;
+use crate::app::agent::approval::ApprovalManager;
+use crate::session::ui_types as models;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::sync::Arc;

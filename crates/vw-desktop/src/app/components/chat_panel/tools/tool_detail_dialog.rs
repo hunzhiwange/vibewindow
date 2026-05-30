@@ -27,13 +27,9 @@ use iced::mouse;
 /// 重新导出 use iced::widget::slider::Rail，让上层模块通过稳定路径访问。
 use iced::widget::slider::Rail;
 /// 重新导出 use iced::widget::{，让上层模块通过稳定路径访问。
-use iced::widget::{
-    Space, column, container, responsive, row, text, text_editor, vertical_slider,
-};
+use iced::widget::{Space, column, container, responsive, row, text, text_editor, vertical_slider};
 /// 重新导出 use iced::{，让上层模块通过稳定路径访问。
-use iced::{
-    Border, Color, Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector,
-};
+use iced::{Border, Color, Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector};
 
 /// 处理 tool detail dialog view 对应的局部职责。
 ///
@@ -62,9 +58,7 @@ pub fn tool_detail_dialog_view<'a>(app: &'a App) -> Option<Element<'a, Message>>
             row![
                 column![
                     title,
-                    text("查看工具输出详情。")
-                        .size(12)
-                        .style(settings_muted_text_style),
+                    text("查看工具输出详情。").size(12).style(settings_muted_text_style),
                 ]
                 .spacing(4)
                 .width(Length::Fill),
@@ -424,11 +418,12 @@ impl<Message> Widget<Message, Theme, Renderer> for WheelInterceptor<'_, Message>
         viewport: &Rectangle,
     ) {
         if cursor.is_over(layout.bounds())
-            && let Event::Mouse(mouse::Event::WheelScrolled { delta }) = event {
-                shell.publish((self.on_scroll)(*delta));
-                shell.capture_event();
-                return;
-            }
+            && let Event::Mouse(mouse::Event::WheelScrolled { delta }) = event
+        {
+            shell.publish((self.on_scroll)(*delta));
+            shell.capture_event();
+            return;
+        }
 
         self.content.as_widget_mut().update(
             &mut tree.children[0],

@@ -17,8 +17,8 @@
 //! - `Layout`: 布局数据结构，包含节点和边的位置信息
 //! - `NodeLayout` / `EdgeLayout`: 单个节点/边的布局信息
 
-pub(crate) mod layout;
 mod export;
+pub(crate) mod layout;
 mod program;
 mod rasterize;
 mod style;

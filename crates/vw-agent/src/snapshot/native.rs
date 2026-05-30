@@ -58,7 +58,8 @@ pub fn cleanup(worktree: impl AsRef<Path>) -> Result<(), Error> {
         return Ok(());
     }
 
-    let out = run_git(worktree, &git, ["gc", &format!("--prune={}", PRUNE)], None::<&[(&str, &str)]>)?;
+    let out =
+        run_git(worktree, &git, ["gc", &format!("--prune={}", PRUNE)], None::<&[(&str, &str)]>)?;
     if !out.status.success() {
         LOGGER.warn(
             "cleanup failed",
@@ -211,13 +212,24 @@ pub fn revert(worktree: impl AsRef<Path>, patches: &[Patch]) -> Result<(), Error
             );
 
             let rel = file_relative(worktree, file);
-            let out = run_git(worktree, &git, ["checkout", &item.hash, "--", &rel], None::<&[(&str, &str)]>)?;
+            let out = run_git(
+                worktree,
+                &git,
+                ["checkout", &item.hash, "--", &rel],
+                None::<&[(&str, &str)]>,
+            )?;
             if out.status.success() {
                 continue;
             }
 
-            let check = run_git(worktree, &git, ["ls-tree", &item.hash, "--", &rel], None::<&[(&str, &str)]>)?;
-            let exists_in_tree = check.status.success() && !String::from_utf8(check.stdout)?.trim().is_empty();
+            let check = run_git(
+                worktree,
+                &git,
+                ["ls-tree", &item.hash, "--", &rel],
+                None::<&[(&str, &str)]>,
+            )?;
+            let exists_in_tree =
+                check.status.success() && !String::from_utf8(check.stdout)?.trim().is_empty();
 
             if exists_in_tree {
                 LOGGER.info(
@@ -394,7 +406,12 @@ fn init_repo(worktree: &Path, git: &Path) -> Result<(), Error> {
 
 fn show_file(worktree: &Path, git: &Path, rev: &str, file: &str) -> Result<String, Error> {
     let spec = format!("{}:{}", rev, file);
-    let out = run_git(worktree, git, ["-c", "core.autocrlf=false", "show", &spec], None::<&[(&str, &str)]>)?;
+    let out = run_git(
+        worktree,
+        git,
+        ["-c", "core.autocrlf=false", "show", &spec],
+        None::<&[(&str, &str)]>,
+    )?;
     if !out.status.success() {
         return Ok(String::new());
     }

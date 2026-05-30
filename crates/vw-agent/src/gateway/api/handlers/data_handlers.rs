@@ -4,11 +4,7 @@
 //! 参数校验、持久化编排和错误映射，实际执行与存储细节分别委托给 runtime
 //! 和 storage_support。
 
-use axum::{
-    extract::State,
-    Json,
-    extract::Path,
-};
+use axum::{Json, extract::Path, extract::State};
 use uuid::Uuid;
 use vw_api_types::data::{
     AiDataAiQueryRequest, AiDataAiQueryResponse, AiDataConnectionCatalogResponse,
@@ -42,8 +38,7 @@ pub(super) async fn data_settings_put(
 }
 
 /// 列出全部 AI-DATA 连接。
-pub(super) async fn data_connections_list(
-) -> Result<Json<Vec<AiDataConnectionDto>>, ApiError> {
+pub(super) async fn data_connections_list() -> Result<Json<Vec<AiDataConnectionDto>>, ApiError> {
     let mut connections = storage_support::load_connections().await;
     storage_support::sort_connections(&mut connections);
     Ok(Json(connections))
@@ -240,7 +235,9 @@ pub(super) async fn data_connection_catalog(
         .ok_or_else(|| ApiError::not_found("AI-DATA 连接不存在"))?;
 
     let timeout_secs = storage_support::load_settings().await.default_timeout_secs;
-    let catalog = runtime::connection_catalog(&connection, timeout_secs).await.map_err(ApiError::bad_request)?;
+    let catalog = runtime::connection_catalog(&connection, timeout_secs)
+        .await
+        .map_err(ApiError::bad_request)?;
     Ok(Json(AiDataConnectionCatalogResponse {
         connection_id: connection.id,
         kind: connection.kind,

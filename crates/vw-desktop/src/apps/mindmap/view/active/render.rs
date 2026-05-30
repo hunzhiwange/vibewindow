@@ -282,7 +282,12 @@ pub(super) fn render(tab: &MindMapTab) -> Element<'_, Message> {
         },
         node_toolbar_rect,
         active_picker_target,
-        |target| color_picker_anchor(target, Point::new(action_menu_x + action_menu_w + 8.0, action_menu_y + action_bar_h)),
+        |target| {
+            color_picker_anchor(
+                target,
+                Point::new(action_menu_x + action_menu_w + 8.0, action_menu_y + action_bar_h),
+            )
+        },
         node_action_btn_bottom_left_anchor,
         node_action_btn_top_anchor,
     );
@@ -508,8 +513,8 @@ pub(super) fn render(tab: &MindMapTab) -> Element<'_, Message> {
             .on_close(Message::MindMapTool(MindMapMessage::ClosePickers))
             .into()
         } else {
-            let anchor =
-                node_action_btn_bottom_left_anchor(0, 140.0).unwrap_or(computed_layout.default_side_anchor);
+            let anchor = node_action_btn_bottom_left_anchor(0, 140.0)
+                .unwrap_or(computed_layout.default_side_anchor);
             PointBelowOverlay::new(
                 canvas_with_overlays,
                 pickers::priority_picker_overlay(current_priority),
@@ -529,8 +534,8 @@ pub(super) fn render(tab: &MindMapTab) -> Element<'_, Message> {
                 .on_close(Message::MindMapTool(MindMapMessage::ClosePickers))
                 .into()
         } else {
-            let anchor =
-                node_action_btn_bottom_left_anchor(5, 350.0).unwrap_or(computed_layout.default_side_anchor);
+            let anchor = node_action_btn_bottom_left_anchor(5, 350.0)
+                .unwrap_or(computed_layout.default_side_anchor);
             PointBelowOverlay::new(canvas_with_overlays, pickers::url_editor_overlay(tab))
                 .show(true)
                 .anchor(anchor)

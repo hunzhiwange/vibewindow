@@ -12,8 +12,7 @@ use vw_shared::session::ui_types::ChatSession;
 use super::selectors::derive_search_matches_with_cache;
 use super::{
     TuiModelCatalogEntry, TuiRuntimeState, TuiScrollState, TuiSessionPreview, TuiState,
-    is_persistable_chat_message,
-    persisted_slot_index_for_message_index,
+    is_persistable_chat_message, persisted_slot_index_for_message_index,
 };
 use crate::cli::session::GitWorkspaceStatus;
 use crate::cli::tui_v2::model::{
@@ -252,21 +251,11 @@ pub(crate) fn reduce_tui_state(state: &mut TuiState, action: TuiAction) {
             append_assistant_delta(state, delta);
             refresh_search_overlays(state);
         }
-        TuiAction::StepStarted {
-            step_index,
-            started_ms,
-            model,
-        } => {
+        TuiAction::StepStarted { step_index, started_ms, model } => {
             start_step(state, step_index, started_ms, model);
             refresh_search_overlays(state);
         }
-        TuiAction::StepFinished {
-            step_index,
-            finished_ms,
-            usage,
-            finish_reason,
-            model,
-        } => {
+        TuiAction::StepFinished { step_index, finished_ms, usage, finish_reason, model } => {
             finish_step(state, step_index, finished_ms, usage, finish_reason, model);
             refresh_search_overlays(state);
         }
@@ -304,10 +293,7 @@ fn start_submission(state: &mut TuiState, submission: PromptSubmission) {
         base = base.with_created_ms(created_ms);
     }
 
-    state.append_message(UiMessage::User(UiUserMessage {
-        base,
-        text: submission_text,
-    }));
+    state.append_message(UiMessage::User(UiUserMessage { base, text: submission_text }));
     state.clamp_scroll();
 }
 
@@ -326,17 +312,16 @@ fn append_assistant_delta(state: &mut TuiState, delta: String) {
 
 fn append_thinking_delta(state: &mut TuiState, delta: String) {
     let updated_ms = now_ms();
-    if let Some((block_index, block)) = state.messages.iter_mut().enumerate().rev().find_map(|(index, message)| match message {
-        UiMessage::Thinking(block)
-            if block
-                .timing
-                .last()
-                .is_some_and(|timing| timing.end_ms.is_none()) =>
-        {
-            Some((index, block))
-        }
-        _ => None,
-    }) {
+    if let Some((block_index, block)) =
+        state.messages.iter_mut().enumerate().rev().find_map(|(index, message)| match message {
+            UiMessage::Thinking(block)
+                if block.timing.last().is_some_and(|timing| timing.end_ms.is_none()) =>
+            {
+                Some((index, block))
+            }
+            _ => None,
+        })
+    {
         block.content.push_str(&delta);
         refresh_thinking_block(block, updated_ms);
         state.refresh_search_index_for_message(block_index);
@@ -375,17 +360,16 @@ fn append_thinking_delta(state: &mut TuiState, delta: String) {
 
 fn close_thinking_block(state: &mut TuiState) {
     let finished_ms = now_ms();
-    if let Some((block_index, block)) = state.messages.iter_mut().enumerate().rev().find_map(|(index, message)| match message {
-        UiMessage::Thinking(block)
-            if block
-                .timing
-                .last()
-                .is_some_and(|timing| timing.end_ms.is_none()) =>
-        {
-            Some((index, block))
-        }
-        _ => None,
-    }) {
+    if let Some((block_index, block)) =
+        state.messages.iter_mut().enumerate().rev().find_map(|(index, message)| match message {
+            UiMessage::Thinking(block)
+                if block.timing.last().is_some_and(|timing| timing.end_ms.is_none()) =>
+            {
+                Some((index, block))
+            }
+            _ => None,
+        })
+    {
         if let Some(timing) = block.timing.last_mut() {
             timing.end_ms = Some(finished_ms);
             timing.last_update_ms = finished_ms;
@@ -397,13 +381,7 @@ fn close_thinking_block(state: &mut TuiState) {
 }
 
 fn apply_tool_call_update(state: &mut TuiState, update: TuiToolCallUpdate) {
-    let TuiToolCallUpdate {
-        tool_name,
-        summary,
-        arguments,
-        state: next_state,
-        result,
-    } = update;
+    let TuiToolCallUpdate { tool_name, summary, arguments, state: next_state, result } = update;
 
     let parent_id = current_turn_parent_id(state);
     let call_index = find_open_tool_call_index(&state.messages, tool_name.as_str());
@@ -558,7 +536,8 @@ fn finish_step(
 
 fn apply_assistant_terminal_update(state: &mut TuiState, update: TuiTerminalUpdate) {
     let assistant_index = ensure_streaming_assistant_message(state);
-    let assistant_slot_index = persisted_slot_index_for_message_index(&state.messages, assistant_index);
+    let assistant_slot_index =
+        persisted_slot_index_for_message_index(&state.messages, assistant_index);
 
     if let Some(UiMessage::Assistant(message)) = state.messages.get_mut(assistant_index) {
         message.terminal = update.terminal.clone();
@@ -598,10 +577,7 @@ fn set_search_query(state: &mut TuiState, query: String) {
         return;
     }
 
-    let mut overlay = UiSearchOverlay {
-        query,
-        ..UiSearchOverlay::default()
-    };
+    let mut overlay = UiSearchOverlay { query, ..UiSearchOverlay::default() };
     refresh_search_overlay_matches(&state.messages, &state.search_index, &mut overlay);
     state.overlays.push(UiOverlay::Search(overlay));
 }
@@ -695,10 +671,7 @@ fn refresh_thinking_block(block: &mut UiThinkingBlock, updated_ms: u64) {
 }
 
 fn thinking_summary(content: &str) -> Option<String> {
-    let first_line = content
-        .lines()
-        .map(str::trim)
-        .find(|line| !line.is_empty())?;
+    let first_line = content.lines().map(str::trim).find(|line| !line.is_empty())?;
 
     Some(truncate_summary(first_line, 96))
 }
@@ -711,7 +684,10 @@ fn truncate_summary(value: &str, max_chars: usize) -> String {
     summary
 }
 
-fn find_active_step_message_mut(messages: &mut [UiMessage], step_index: u32) -> Option<&mut UiStep> {
+fn find_active_step_message_mut(
+    messages: &mut [UiMessage],
+    step_index: u32,
+) -> Option<&mut UiStep> {
     messages.iter_mut().rev().find_map(|message| match message {
         UiMessage::Step(step)
             if step.step_index == step_index
@@ -727,7 +703,8 @@ fn find_active_step_message_mut(messages: &mut [UiMessage], step_index: u32) -> 
 }
 
 fn next_local_base(state: &TuiState, seed: &str) -> UiMessageBase {
-    let mut base = UiMessageBase::new(UiMessageId::local(format!("{seed}-{}", state.messages.len())));
+    let mut base =
+        UiMessageBase::new(UiMessageId::local(format!("{seed}-{}", state.messages.len())));
     if let Some(session_id) = state.session.session_id.as_deref() {
         base = base.with_session_id(session_id);
     }
@@ -777,29 +754,27 @@ fn step_state_from_finish_reason(finish_reason: Option<&str>) -> UiStepState {
 fn prompt_status_from_terminal(terminal: &UiTurnTerminal) -> Option<PromptSubmissionStatus> {
     match terminal {
         UiTurnTerminal::Pending | UiTurnTerminal::Streaming => None,
-        UiTurnTerminal::Done { finish_reason } => Some(PromptSubmissionStatus::Done {
-            finish_reason: finish_reason.clone(),
-        }),
-        UiTurnTerminal::Cancelled { reason } => Some(PromptSubmissionStatus::Cancelled {
-            reason: reason.clone(),
-        }),
-        UiTurnTerminal::TimedOut { message } => Some(PromptSubmissionStatus::TimedOut {
-            message: message.clone(),
-        }),
-        UiTurnTerminal::Error { message } => Some(PromptSubmissionStatus::Error {
-            message: message.clone(),
-        }),
+        UiTurnTerminal::Done { finish_reason } => {
+            Some(PromptSubmissionStatus::Done { finish_reason: finish_reason.clone() })
+        }
+        UiTurnTerminal::Cancelled { reason } => {
+            Some(PromptSubmissionStatus::Cancelled { reason: reason.clone() })
+        }
+        UiTurnTerminal::TimedOut { message } => {
+            Some(PromptSubmissionStatus::TimedOut { message: message.clone() })
+        }
+        UiTurnTerminal::Error { message } => {
+            Some(PromptSubmissionStatus::Error { message: message.clone() })
+        }
     }
 }
 
 fn terminal_error_message(terminal: &UiTurnTerminal) -> Option<String> {
     match terminal {
         UiTurnTerminal::Pending | UiTurnTerminal::Streaming | UiTurnTerminal::Done { .. } => None,
-        UiTurnTerminal::Cancelled { reason } => Some(
-            reason
-                .clone()
-                .unwrap_or_else(|| "session cancelled".to_string()),
-        ),
+        UiTurnTerminal::Cancelled { reason } => {
+            Some(reason.clone().unwrap_or_else(|| "session cancelled".to_string()))
+        }
         UiTurnTerminal::TimedOut { message } | UiTurnTerminal::Error { message } => {
             Some(message.clone())
         }

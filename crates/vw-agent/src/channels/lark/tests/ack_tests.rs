@@ -54,10 +54,7 @@ fn lark_reaction_locale_prefers_explicit_payload_locale() {
             "content": "{\"text\":\"hello\"}"
         }
     });
-    assert_eq!(
-        detect_lark_ack_locale(Some(&payload), "你好，世界"),
-        LarkAckLocale::Ja
-    );
+    assert_eq!(detect_lark_ack_locale(Some(&payload), "你好，世界"), LarkAckLocale::Ja);
 }
 
 #[test]
@@ -71,30 +68,18 @@ fn lark_reaction_locale_unsupported_payload_falls_back_to_text_script() {
             "content": "{\"text\":\"頑張れ\"}"
         }
     });
-    assert_eq!(
-        detect_lark_ack_locale(Some(&payload), "頑張ってください"),
-        LarkAckLocale::Ja
-    );
+    assert_eq!(detect_lark_ack_locale(Some(&payload), "頑張ってください"), LarkAckLocale::Ja);
 }
 
 #[test]
 fn lark_reaction_locale_detects_simplified_and_traditional_text() {
-    assert_eq!(
-        detect_lark_ack_locale(None, "继续奋斗，今天很强"),
-        LarkAckLocale::ZhCn
-    );
-    assert_eq!(
-        detect_lark_ack_locale(None, "繼續奮鬥，今天很強"),
-        LarkAckLocale::ZhTw
-    );
+    assert_eq!(detect_lark_ack_locale(None, "继续奋斗，今天很强"), LarkAckLocale::ZhCn);
+    assert_eq!(detect_lark_ack_locale(None, "繼續奮鬥，今天很強"), LarkAckLocale::ZhTw);
 }
 
 #[test]
 fn lark_reaction_locale_defaults_to_english_for_unsupported_text() {
-    assert_eq!(
-        detect_lark_ack_locale(None, "Bonjour tout le monde"),
-        LarkAckLocale::En
-    );
+    assert_eq!(detect_lark_ack_locale(None, "Bonjour tout le monde"), LarkAckLocale::En);
 }
 
 #[test]

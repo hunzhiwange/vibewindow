@@ -18,9 +18,14 @@ mod styles;
 mod table;
 mod utils;
 
-use collections::{current_variable_collection_name, render_add_collection_button, render_collection_tab};
+use collections::{
+    current_variable_collection_name, render_add_collection_button, render_collection_tab,
+};
 use menus::{action_button, ghost_button, render_variable_footer};
-use styles::{PANEL_HEIGHT, PANEL_WIDTH, THEME_TABS_SCROLL_HEIGHT, backdrop_style, panel_surface_style, variable_text_input_style};
+use styles::{
+    PANEL_HEIGHT, PANEL_WIDTH, THEME_TABS_SCROLL_HEIGHT, backdrop_style, panel_surface_style,
+    variable_text_input_style,
+};
 use table::render_variable_table;
 
 /// 渲染对应界面。

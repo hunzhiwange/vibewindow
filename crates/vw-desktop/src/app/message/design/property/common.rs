@@ -46,7 +46,10 @@ fn next_page_clone_id(counter: &mut u64) -> String {
 ///
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 变更范围限制在当前消息处理路径内，不引入额外的流程分支。
-pub(super) fn clone_page_elements(elements: &[DesignElement], new_group_id: u32) -> Vec<DesignElement> {
+pub(super) fn clone_page_elements(
+    elements: &[DesignElement],
+    new_group_id: u32,
+) -> Vec<DesignElement> {
     let mut counter = 0;
     let mut id_map = HashMap::new();
     let mut cloned = elements.to_vec();
@@ -126,4 +129,3 @@ pub(super) fn parse_fills(v: &serde_json::Value) -> Vec<FillItem> {
 
     vec![]
 }
-

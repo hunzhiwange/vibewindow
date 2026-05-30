@@ -64,15 +64,16 @@ pub fn wrap_with_context_menu<'a, Message: Clone + 'a>(
         RightClickArea::new(content.into(), Box::new(on_open)).preserve_on_right_click().into();
 
     if menu_state.open
-        && let Some((x, y)) = menu_state.position {
-            let close_message = messages.close.clone();
-            return PointBelowOverlay::new(content, context_menu(messages))
-                .show(true)
-                .anchor(Point::new(x, y))
-                .gap(0.0)
-                .on_close(close_message)
-                .into();
-        }
+        && let Some((x, y)) = menu_state.position
+    {
+        let close_message = messages.close.clone();
+        return PointBelowOverlay::new(content, context_menu(messages))
+            .show(true)
+            .anchor(Point::new(x, y))
+            .gap(0.0)
+            .on_close(close_message)
+            .into();
+    }
 
     content
 }

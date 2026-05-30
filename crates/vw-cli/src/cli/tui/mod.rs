@@ -32,8 +32,7 @@ use super::render::render_scanline_background;
 use super::stats::CliStats;
 use super::theme::{ACCENT_CYAN, ACCENT_RED, SUCCESS, TEXT_MUTED, TEXT_SUBTLE, WARNING};
 use super::transcript::{
-    ThinkBlockMeta, TranscriptEntry, think_block_expanded, transcript_to_lines,
-    wrap_trim_disabled,
+    ThinkBlockMeta, TranscriptEntry, think_block_expanded, transcript_to_lines, wrap_trim_disabled,
 };
 use super::tui_utils::neon_breath_color;
 use anyhow::Result;
@@ -52,6 +51,7 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use std::collections::BTreeSet;
+#[cfg(unix)]
 use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
@@ -376,10 +376,8 @@ impl CliTui {
             // 将点击位置映射到滚动位置
             let row_u64 = u64::try_from(row).unwrap_or(u64::MAX);
             let max_row_u64 = u64::try_from(max_row).unwrap_or(u64::MAX);
-            let target_effective = u16::try_from(
-                row_u64 * u64::from(base_scroll) / max_row_u64,
-            )
-            .unwrap_or(base_scroll);
+            let target_effective = u16::try_from(row_u64 * u64::from(base_scroll) / max_row_u64)
+                .unwrap_or(base_scroll);
             let target_scroll_back = base_scroll.saturating_sub(target_effective);
             return MouseAction::SetScrollBack(target_scroll_back);
         }
@@ -392,10 +390,12 @@ impl CliTui {
         };
 
         // 处理思考块点击
-        if let Some(think_meta) = self.last_conversation_think_map.get(line_idx).and_then(|v| *v)
-        {
-            let current_expanded =
-                think_block_expanded(think_meta, self.expand_think_all, &self.think_detail_overrides);
+        if let Some(think_meta) = self.last_conversation_think_map.get(line_idx).and_then(|v| *v) {
+            let current_expanded = think_block_expanded(
+                think_meta,
+                self.expand_think_all,
+                &self.think_detail_overrides,
+            );
             let next_expanded = !current_expanded;
             self.expand_think_all = false;
 
@@ -698,10 +698,8 @@ impl CliTui {
 
             if show_menu {
                 let overlay = layout::centered_overlay_rect(area, 2, 5, 10);
-                let lines = vec![Line::from(Span::styled(
-                    "暂无命令",
-                    Style::default().fg(TEXT_SUBTLE),
-                ))];
+                let lines =
+                    vec![Line::from(Span::styled("暂无命令", Style::default().fg(TEXT_SUBTLE)))];
                 let popup = Paragraph::new(Text::from(lines))
                     .block(Block::default().borders(Borders::ALL).title("Commands"));
                 f.render_widget(Clear, overlay);

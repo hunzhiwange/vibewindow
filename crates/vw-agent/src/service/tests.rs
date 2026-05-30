@@ -17,7 +17,6 @@ use super::*;
 #[allow(dead_code)]
 mod tests {
     use super::*;
-    #[cfg(unix)]
     use std::path::Path;
     use std::process::Command;
 
@@ -99,6 +98,26 @@ mod tests {
         let file = linux_service_file(&Config::default()).unwrap();
         let path = file.to_string_lossy();
         assert!(path.ends_with(".config/systemd/user/vibewindow.service"));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn systemd_config_dir_args_preserves_selected_config_dir() {
+        let mut config = Config::default();
+        config.config_path =
+            "/Users/me/Library/Application Support/VibeWindow/vibewindow.json".into();
+
+        let args = systemd_config_dir_args(&config);
+
+        assert!(args.contains("--config-dir"));
+        assert!(args.contains("\"/Users/me/Library/Application Support/VibeWindow\""));
+        assert!(!args.contains("vibewindow.json"));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn systemd_quote_arg_leaves_simple_paths_unquoted() {
+        assert_eq!(systemd_quote_arg("/home/me/.vibewindow"), "/home/me/.vibewindow");
     }
 
     /// 测试 Windows 任务名称常量

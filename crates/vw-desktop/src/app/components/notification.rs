@@ -3,12 +3,12 @@
 //! 本模块把通知队列转换为可复制、可删除的紧凑通知列表。
 
 use crate::app::assets::{self, Icon};
-/// 重新导出 use crate::app::message::NotificationMessage，让上层模块通过稳定路径访问。
-use crate::app::message::NotificationMessage;
 /// 重新导出 use crate::app::components::system_settings_common::{，让上层模块通过稳定路径访问。
 use crate::app::components::system_settings_common::{
     round_icon_btn_style, rounded_action_btn_style, settings_panel_style,
 };
+/// 重新导出 use crate::app::message::NotificationMessage，让上层模块通过稳定路径访问。
+use crate::app::message::NotificationMessage;
 /// 重新导出 use crate::app::{App, Message}，让上层模块通过稳定路径访问。
 use crate::app::{App, Message};
 /// 重新导出 use iced::widget::svg::{self, Svg}，让上层模块通过稳定路径访问。
@@ -282,12 +282,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let list: Element<'_, Message> = if app.notifications.is_empty() {
         container(
             column![
-                container(
-                    icon_svg(Icon::Journals, 16.0).style(move |_theme: &Theme, _status| {
-                        // svg 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        svg::Style { color: Some(accent) }
-                    }),
-                )
+                container(icon_svg(Icon::Journals, 16.0).style(move |_theme: &Theme, _status| {
+                    // svg 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                    svg::Style { color: Some(accent) }
+                }),)
                 .width(Length::Fixed(38.0))
                 .height(Length::Fixed(38.0))
                 .align_x(iced::alignment::Horizontal::Center)
@@ -303,7 +301,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 }),
                 text("新的系统消息会在这里汇总展示。").size(12).style(|theme: &Theme| {
                     let p = theme.extended_palette();
-                    iced::widget::text::Style { color: Some(p.background.weak.text.scale_alpha(0.72)) }
+                    iced::widget::text::Style {
+                        color: Some(p.background.weak.text.scale_alpha(0.72)),
+                    }
                 }),
             ]
             .spacing(10)
@@ -332,62 +332,64 @@ pub fn view(app: &App) -> Element<'_, Message> {
             };
 
             let notification_id = n.id;
-            let msg_element: Element<'_, Message> = if let Some(editor_content) =
-                app.notification_editors.get(&n.id)
-            {
-                container(
-                    text_editor(editor_content)
-                        .on_action(move |a| {
-                            // Message 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                            Message::Notification(NotificationMessage::EditorAction(notification_id, a))
-                        })
-                        .size(13)
-                        .padding(0)
-                        .height(Length::Shrink)
-                        .style(|theme: &Theme, _status| {
-                            let value = theme.palette().text;
-                            iced::widget::text_editor::Style {
-                                // background 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                                background: Background::Color(Color::TRANSPARENT),
-                                // border 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                                border: Border {
-                                    // width 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                                    width: 0.0,
-                                    // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                                    color: Color::TRANSPARENT,
-                                    // radius 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                                    radius: 0.0.into(),
-                                },
-                                value,
-                                // selection 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                                selection: if is_dark_theme(theme) {
-                                    // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                                    Color::from_rgba8(0x8B, 0x93, 0x9C, 0.34)
-                                } else {
-                                    // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                                    Color::from_rgba8(0xD9, 0xDE, 0xE5, 0.92)
-                                },
-                                // placeholder 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                                placeholder: value.scale_alpha(0.7),
-                            }
-                        }),
-                )
-                .width(Length::Fill)
-                .into()
-            } else {
-                text(&n.message)
-                    .size(13)
+            let msg_element: Element<'_, Message> =
+                if let Some(editor_content) = app.notification_editors.get(&n.id) {
+                    container(
+                        text_editor(editor_content)
+                            .on_action(move |a| {
+                                // Message 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                                Message::Notification(NotificationMessage::EditorAction(
+                                    notification_id,
+                                    a,
+                                ))
+                            })
+                            .size(13)
+                            .padding(0)
+                            .height(Length::Shrink)
+                            .style(|theme: &Theme, _status| {
+                                let value = theme.palette().text;
+                                iced::widget::text_editor::Style {
+                                    // background 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                                    background: Background::Color(Color::TRANSPARENT),
+                                    // border 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                                    border: Border {
+                                        // width 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                                        width: 0.0,
+                                        // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                                        color: Color::TRANSPARENT,
+                                        // radius 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                                        radius: 0.0.into(),
+                                    },
+                                    value,
+                                    // selection 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                                    selection: if is_dark_theme(theme) {
+                                        // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                                        Color::from_rgba8(0x8B, 0x93, 0x9C, 0.34)
+                                    } else {
+                                        // Color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                                        Color::from_rgba8(0xD9, 0xDE, 0xE5, 0.92)
+                                    },
+                                    // placeholder 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                                    placeholder: value.scale_alpha(0.7),
+                                }
+                            }),
+                    )
                     .width(Length::Fill)
-                    .style(|theme: &Theme| iced::widget::text::Style {
-                        // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                        color: Some(if is_dark_theme(theme) {
-                            theme.extended_palette().background.base.text.scale_alpha(0.92)
-                        } else {
-                            theme.palette().text.scale_alpha(0.86)
-                        }),
-                    })
                     .into()
-            };
+                } else {
+                    text(&n.message)
+                        .size(13)
+                        .width(Length::Fill)
+                        .style(|theme: &Theme| iced::widget::text::Style {
+                            // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                            color: Some(if is_dark_theme(theme) {
+                                theme.extended_palette().background.base.text.scale_alpha(0.92)
+                            } else {
+                                theme.palette().text.scale_alpha(0.86)
+                            }),
+                        })
+                        .into()
+                };
 
             let copied = app.copied_notification_id == Some(n.id);
             let copy_label = if copied { "✓" } else { "复制" };
@@ -478,10 +480,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     ]
     .spacing(10);
 
-    let panel = container(content)
-        .width(Length::Fixed(368.0))
-        .padding(14)
-        .style(panel_style);
+    let panel = container(content).width(Length::Fixed(368.0)).padding(14).style(panel_style);
 
     opaque(mouse_area(panel))
 }

@@ -119,9 +119,7 @@ pub(crate) fn is_runtime_token(value: &str) -> bool {
     let token = value.trim();
     // 授权请求 ID 和工具名只允许保守字符集，避免自然语言误解析成危险控制输入。
     !token.is_empty()
-        && token
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | ':'))
+        && token.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | ':'))
 }
 
 /// 从指定前缀后提取一个受限运行时 token。
@@ -137,11 +135,7 @@ pub(crate) fn extract_runtime_tail_token(text: &str, prefixes: &[&str]) -> Optio
     prefixes.iter().find_map(|prefix| {
         text.strip_prefix(prefix).and_then(|rest| {
             let token = rest.trim();
-            if is_runtime_token(token) {
-                Some(token.to_string())
-            } else {
-                None
-            }
+            if is_runtime_token(token) { Some(token.to_string()) } else { None }
         })
     })
 }
@@ -242,7 +236,9 @@ pub(crate) fn parse_natural_language_runtime_command(
         return Some(ChannelRuntimeCommand::ConfirmToolApproval(request_id));
     }
 
-    if let Some(tool) = extract_runtime_tail_token(&lower, &["revoke tool ", "unapprove ", "revoke "]) {
+    if let Some(tool) =
+        extract_runtime_tail_token(&lower, &["revoke tool ", "unapprove ", "revoke "])
+    {
         return Some(ChannelRuntimeCommand::UnapproveTool(tool));
     }
     if let Some(tool) = extract_runtime_tail_token(trimmed, &["撤销工具 ", "取消授权 "]) {
@@ -252,7 +248,8 @@ pub(crate) fn parse_natural_language_runtime_command(
     if let Some(tool) = extract_runtime_tail_token(&lower, &["approve tool ", "approve "]) {
         return Some(ChannelRuntimeCommand::RequestToolApproval(tool));
     }
-    if let Some(tool) = extract_runtime_tail_token(trimmed, &["授权工具 ", "请放开 ", "放开 "]) {
+    if let Some(tool) = extract_runtime_tail_token(trimmed, &["授权工具 ", "请放开 ", "放开 "])
+    {
         return Some(ChannelRuntimeCommand::RequestToolApproval(tool));
     }
 

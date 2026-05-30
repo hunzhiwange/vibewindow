@@ -438,13 +438,19 @@ fn load_task_from_sqlite(conn: &Connection, task_id: &str) -> io::Result<Option<
         |row| {
             let subtasks_json: String = row.get(23)?;
             let logs_json: String = row.get(24)?;
-            let subtasks = serde_json::from_str::<Vec<SubTask>>(&subtasks_json).map_err(|err| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    subtasks_json.len(),
-                    rusqlite::types::Type::Text,
-                    Box::new(err),
-                )
-            })?;
+            let mut subtasks =
+                serde_json::from_str::<Vec<SubTask>>(&subtasks_json).map_err(|err| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        subtasks_json.len(),
+                        rusqlite::types::Type::Text,
+                        Box::new(err),
+                    )
+                })?;
+            for subtask in &mut subtasks {
+                if subtask.completed && subtask.status == super::models::SubTaskStatus::Pending {
+                    subtask.status = super::models::SubTaskStatus::Completed;
+                }
+            }
             let logs = serde_json::from_str::<Vec<TaskLogEntry>>(&logs_json).map_err(|err| {
                 rusqlite::Error::FromSqlConversionFailure(
                     logs_json.len(),

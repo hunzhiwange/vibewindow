@@ -1,5 +1,5 @@
 use super::editor_toolbar::{icon_button, icon_svg};
-use crate::app::{assets::Icon, Message};
+use crate::app::{Message, assets::Icon};
 use iced::widget::tooltip::Position;
 
 #[test]

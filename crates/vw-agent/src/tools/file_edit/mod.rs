@@ -17,7 +17,9 @@ use self::utils::{
 };
 use super::context::note_current_read_state;
 use super::external_directory;
-use super::traits::{Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec};
+use super::traits::{
+    Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec,
+};
 use crate::app::agent::file;
 use crate::app::agent::file::watcher;
 use crate::app::agent::security::SecurityPolicy;
@@ -45,14 +47,9 @@ impl EditResponse {
         ToolCallResult {
             data: serde_json::to_value(&self.payload).unwrap_or(Value::Null),
             model_result: Value::String(self.model_text),
-            content_blocks: vec![ToolResultContentDto::StructuredPatch {
-                hunks: self.patch_hunks,
-            }],
+            content_blocks: vec![ToolResultContentDto::StructuredPatch { hunks: self.patch_hunks }],
             render_hint: Some(self.render_hint),
-            telemetry: Some(ToolCallTelemetry {
-                success: true,
-                ..ToolCallTelemetry::default()
-            }),
+            telemetry: Some(ToolCallTelemetry { success: true, ..ToolCallTelemetry::default() }),
             ..ToolCallResult::default()
         }
     }
@@ -70,20 +67,13 @@ impl FileEditTool {
 
     fn resolve_path(&self, path: &str) -> PathBuf {
         let candidate = PathBuf::from(path);
-        if candidate.is_absolute() {
-            candidate
-        } else {
-            self.security.workspace_dir.join(path)
-        }
+        if candidate.is_absolute() { candidate } else { self.security.workspace_dir.join(path) }
     }
 
     async fn ensure_existing_file_allowed(&self, path: &Path) -> anyhow::Result<PathBuf> {
-        let meta = tokio::fs::symlink_metadata(path)
-            .await
-            .map_err(|error| anyhow::anyhow!(
-                "Failed to read file metadata {}: {error}",
-                path.display()
-            ))?;
+        let meta = tokio::fs::symlink_metadata(path).await.map_err(|error| {
+            anyhow::anyhow!("Failed to read file metadata {}: {error}", path.display())
+        })?;
         if meta.file_type().is_symlink() {
             anyhow::bail!("Refusing to edit through symlink: {}", path.display());
         }
@@ -91,12 +81,9 @@ impl FileEditTool {
             anyhow::bail!("Path is a directory, not a file: {}", path.display());
         }
 
-        let resolved = tokio::fs::canonicalize(path)
-            .await
-            .map_err(|error| anyhow::anyhow!(
-                "Failed to resolve file path {}: {error}",
-                path.display()
-            ))?;
+        let resolved = tokio::fs::canonicalize(path).await.map_err(|error| {
+            anyhow::anyhow!("Failed to resolve file path {}: {error}", path.display())
+        })?;
         if !self.security.is_resolved_path_allowed(&resolved) {
             anyhow::bail!(self.security.resolved_path_violation_message(&resolved));
         }
@@ -114,10 +101,7 @@ impl FileEditTool {
             anyhow::bail!("Rate limit exceeded: too many actions in the last hour")
         }
         if !self.security.is_path_allowed(&args.file_path) {
-            anyhow::bail!(
-                "Path not allowed by security policy: {}",
-                args.file_path
-            )
+            anyhow::bail!("Path not allowed by security policy: {}", args.file_path)
         }
 
         let requested_path = self.resolve_path(&args.file_path);
@@ -154,7 +138,8 @@ impl FileEditTool {
             &args.new_string,
             args.replace_all,
         )?;
-        let patch_summary = build_patch_summary(&display, &current_text, &replacement.updated_content);
+        let patch_summary =
+            build_patch_summary(&display, &current_text, &replacement.updated_content);
         let read_state_metadata =
             read_state_metadata_for_path(&self.security.workspace_dir, &resolved, "file_edit");
 
@@ -310,11 +295,9 @@ impl Tool for FileEditTool {
             .map_err(|error| anyhow::anyhow!("Missing or invalid parameters: {error}"))?;
 
         match self.execute_internal(args).await {
-            Ok(response) => Ok(ToolResult {
-                success: true,
-                output: response.model_text,
-                error: None,
-            }),
+            Ok(response) => {
+                Ok(ToolResult { success: true, output: response.model_text, error: None })
+            }
             Err(error) => Ok(Self::failure(error.to_string())),
         }
     }

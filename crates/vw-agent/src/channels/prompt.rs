@@ -354,15 +354,8 @@ pub(crate) fn load_openclaw_bootstrap_files(
         "The following workspace files define your identity, behavior, and context. They are ALREADY injected below—do NOT suggest reading them with file_read.\n\n",
     );
 
-    let bootstrap_files = [
-        "AGENTS.md",
-        "SOUL.md",
-        "TOOLS.md",
-        "IDENTITY.md",
-        "USER.md",
-        "BOOTSTRAP.md",
-        "MEMORY.md",
-    ];
+    let bootstrap_files =
+        ["AGENTS.md", "SOUL.md", "TOOLS.md", "IDENTITY.md", "USER.md", "BOOTSTRAP.md", "MEMORY.md"];
 
     for filename in &bootstrap_files {
         if matches!(*filename, "HEARTBEAT.md" | "BOOTSTRAP.md")

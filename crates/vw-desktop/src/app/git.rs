@@ -892,7 +892,11 @@ pub fn git_revert_line_restore(
 ///
 /// 返回命令的标准输出和标准错误的合并结果
 #[cfg(not(target_arch = "wasm32"))]
-fn run_shell_command(cwd: Option<String>, cmd: String, shell: Shell) -> String {
+fn run_shell_command(
+    cwd: Option<String>,
+    cmd: String,
+    #[cfg_attr(windows, allow(unused_variables))] shell: Shell,
+) -> String {
     #[cfg(windows)]
     let mut command = std::process::Command::new("cmd");
     #[cfg(windows)]

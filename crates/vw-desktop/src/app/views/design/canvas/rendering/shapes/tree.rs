@@ -138,18 +138,7 @@ pub fn draw_shapes_tree(
             && let Some(content) = &element.content
         {
             let nodes = parse_html(content);
-            render(
-                frame,
-                &nodes,
-                Rectangle {
-                    x,
-                    y,
-                    width: w,
-                    height: h,
-                },
-                zoom,
-                &doc.images,
-            );
+            render(frame, &nodes, Rectangle { x, y, width: w, height: h }, zoom, &doc.images);
         }
 
         if let Some(shadow) = parse_shadow(&element.effect, &doc.variables, theme_mode) {
@@ -175,18 +164,10 @@ pub fn draw_shapes_tree(
             StrokeAlign::Outside => -stroke_width_uniform / 2.0,
             StrokeAlign::Center => 0.0,
         };
-        let tailwind_style = element
-            .class
-            .as_deref()
-            .map(TailwindParser::parse)
-            .unwrap_or_default();
+        let tailwind_style =
+            element.class.as_deref().map(TailwindParser::parse).unwrap_or_default();
         if let Some(r) = tailwind_style.border_radius {
-            if element
-                .class
-                .as_deref()
-                .map(|s| s.contains("rounded-full"))
-                .unwrap_or(false)
-            {
+            if element.class.as_deref().map(|s| s.contains("rounded-full")).unwrap_or(false) {
                 let full = (resolved.width.min(resolved.height)) / 2.0;
                 corner_radii = full.into();
                 radius = full;
@@ -235,46 +216,27 @@ pub fn draw_shapes_tree(
                     }
                 })
                 .unwrap_or_else(|| {
-                    element_path(
-                        element.kind.as_str(),
-                        path_x,
-                        path_y,
-                        path_w,
-                        path_h,
-                        path_radius,
-                    )
+                    element_path(element.kind.as_str(), path_x, path_y, path_w, path_h, path_radius)
                 })
         } else {
             element_path_radius(element.kind.as_str(), path_x, path_y, path_w, path_h, path_radii)
         };
-        let bounds = Rectangle {
-            x: path_x,
-            y: path_y,
-            width: path_w,
-            height: path_h,
-        };
+        let bounds = Rectangle { x: path_x, y: path_y, width: path_w, height: path_h };
 
         if element.kind.eq_ignore_ascii_case("icon_font") {
-            let icon_color = fill_colors
-                .first()
-                .copied()
-                .unwrap_or_else(|| Color::from_rgba8(17, 24, 39, 1.0));
-            if let (Some(family), Some(name)) = (
-                element.icon_font_family.as_deref(),
-                element.icon_font_name.as_deref(),
-            ) && let Some(handle) = assets::get_named_icon_image_with_weight(
-                family,
-                name,
-                element.weight.as_ref(),
-                icon_color,
-            ) {
+            let icon_color =
+                fill_colors.first().copied().unwrap_or_else(|| Color::from_rgba8(17, 24, 39, 1.0));
+            if let (Some(family), Some(name)) =
+                (element.icon_font_family.as_deref(), element.icon_font_name.as_deref())
+                && let Some(handle) = assets::get_named_icon_image_with_weight(
+                    family,
+                    name,
+                    element.weight.as_ref(),
+                    icon_color,
+                )
+            {
                 frame.draw_image(
-                    Rectangle {
-                        x: path_x,
-                        y: path_y,
-                        width: path_w,
-                        height: path_h,
-                    },
+                    Rectangle { x: path_x, y: path_y, width: path_w, height: path_h },
                     Image::new(handle),
                 );
             } else {
@@ -292,12 +254,7 @@ pub fn draw_shapes_tree(
             if !url.is_empty() {
                 drawn = draw_image_from_cache(
                     frame,
-                    Rectangle {
-                        x: path_x,
-                        y: path_y,
-                        width: path_w,
-                        height: path_h,
-                    },
+                    Rectangle { x: path_x, y: path_y, width: path_w, height: path_h },
                     &doc.images,
                     url,
                 );
@@ -307,17 +264,12 @@ pub fn draw_shapes_tree(
                 frame.fill(&path, Color::from_rgb(0.9, 0.9, 0.95));
                 frame.stroke(
                     &path,
-                    Stroke::default()
-                        .with_color(Color::from_rgb(0.8, 0.8, 0.8))
-                        .with_width(1.0),
+                    Stroke::default().with_color(Color::from_rgb(0.8, 0.8, 0.8)).with_width(1.0),
                 );
 
                 if !url.is_empty() {
-                    let short_url = if url.len() > 30 {
-                        format!("{}...", &url[..27])
-                    } else {
-                        url.to_string()
-                    };
+                    let short_url =
+                        if url.len() > 30 { format!("{}...", &url[..27]) } else { url.to_string() };
                     frame.fill_text(Text {
                         content: short_url,
                         position: Point::new(
@@ -365,9 +317,7 @@ pub fn draw_shapes_tree(
                     Point::new(hatch_bounds.x, hatch_bounds.y),
                     Size::new(hatch_bounds.width, hatch_bounds.height),
                 ),
-                Stroke::default()
-                    .with_color(border_color)
-                    .with_width(border_w),
+                Stroke::default().with_color(border_color).with_width(border_w),
             );
         }
 
@@ -425,9 +375,8 @@ pub fn draw_shapes_tree(
     } else {
         None
     };
-    let children: &[DesignElement] = slot_children_buf
-        .as_deref()
-        .unwrap_or_else(|| element.children.as_slice());
+    let children: &[DesignElement] =
+        slot_children_buf.as_deref().unwrap_or_else(|| element.children.as_slice());
 
     let has_slot = element
         .slot
@@ -553,12 +502,7 @@ pub fn draw_shapes_tree(
 
                 let child_size = resolve_element_size(child, Some(content_size), doc, theme_mode);
                 let child_size_override = if clip_children {
-                    Some(clamp_child_size_to_content(
-                        content_size,
-                        child.x,
-                        child.y,
-                        child_size,
-                    ))
+                    Some(clamp_child_size_to_content(content_size, child.x, child.y, child_size))
                 } else {
                     None
                 };

@@ -7,8 +7,7 @@ fn provider_requests_keep_credentials_explicit_and_default_empty() {
     assert_eq!(list.enabled, None);
     assert_eq!(list.configured, None);
 
-    let connect: ConnectProviderRequest =
-        serde_json::from_value(json!({})).expect("valid connect");
+    let connect: ConnectProviderRequest = serde_json::from_value(json!({})).expect("valid connect");
     assert!(connect.credentials.is_empty());
     assert!(!connect.set_as_default);
 

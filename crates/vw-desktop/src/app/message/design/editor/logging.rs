@@ -130,6 +130,13 @@ pub(super) fn format_design_log_stream(log: &TaskLogStream) -> Option<String> {
             let line = line.trim();
             if line.is_empty() { None } else { Some(line.to_string()) }
         }
+        TaskLogStream::SubTaskStarted { content, .. } => Some(format!("[SUBTASK] start {content}")),
+        TaskLogStream::SubTaskCompleted { subtask_id } => {
+            Some(format!("[SUBTASK] completed {subtask_id}"))
+        }
+        TaskLogStream::SubTaskFailed { subtask_id, error } => {
+            Some(format!("[SUBTASK] failed {subtask_id} {error}"))
+        }
         TaskLogStream::ExitStatus { success, code, signal } => Some(if *success {
             format!("[EXEC_EXIT] success code={:?}", code)
         } else {
@@ -232,4 +239,3 @@ pub(super) fn collect_design_log_lines(
     }
     lines
 }
-

@@ -400,7 +400,8 @@ impl SubAgentRegistry {
         };
 
         if let Some(title) = title {
-            session.title = title.map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
+            session.title =
+                title.map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
         }
         if let Some(metadata) = metadata {
             session.metadata = metadata;

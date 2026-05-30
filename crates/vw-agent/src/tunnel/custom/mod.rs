@@ -157,7 +157,9 @@ impl Tunnel for CustomTunnel {
         let mut public_url = format!("http://{local_host}:{local_port}");
 
         // 如果配置了 URL 匹配模式，尝试从子进程标准输出中提取公网地址
-        if let Some(ref pattern) = self.url_pattern && let Some(stdout) = child.stdout.take() {
+        if let Some(ref pattern) = self.url_pattern
+            && let Some(stdout) = child.stdout.take()
+        {
             let mut reader = tokio::io::BufReader::new(stdout).lines();
             // 设置 15 秒的总超时时间
             let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(15);
@@ -165,11 +167,9 @@ impl Tunnel for CustomTunnel {
             // 在超时时间内持续读取输出行，寻找公网地址
             while tokio::time::Instant::now() < deadline {
                 // 每次读取行设置 3 秒超时，防止单次读取阻塞过久
-                let line = tokio::time::timeout(
-                    tokio::time::Duration::from_secs(3),
-                    reader.next_line(),
-                )
-                .await;
+                let line =
+                    tokio::time::timeout(tokio::time::Duration::from_secs(3), reader.next_line())
+                        .await;
 
                 match line {
                     Ok(Ok(Some(l))) => {
@@ -180,15 +180,17 @@ impl Tunnel for CustomTunnel {
                             if let Some(idx) = l.find("https://") {
                                 let url_part = &l[idx..];
                                 // 找到 URL 结束位置（以空白字符为界）
-                                let end =
-                                    url_part.find(|c: char| c.is_whitespace()).unwrap_or(url_part.len());
+                                let end = url_part
+                                    .find(|c: char| c.is_whitespace())
+                                    .unwrap_or(url_part.len());
                                 public_url = url_part[..end].to_string();
                                 break;
                             // 尝试提取 HTTP URL
                             } else if let Some(idx) = l.find("http://") {
                                 let url_part = &l[idx..];
-                                let end =
-                                    url_part.find(|c: char| c.is_whitespace()).unwrap_or(url_part.len());
+                                let end = url_part
+                                    .find(|c: char| c.is_whitespace())
+                                    .unwrap_or(url_part.len());
                                 public_url = url_part[..end].to_string();
                                 break;
                             }

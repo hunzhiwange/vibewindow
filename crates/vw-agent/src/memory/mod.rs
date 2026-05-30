@@ -49,6 +49,7 @@ pub mod lucid;
 pub mod mariadb;
 pub mod markdown;
 pub mod none;
+pub(crate) mod paths;
 #[cfg(feature = "memory-postgres")]
 pub mod postgres;
 pub mod qdrant;

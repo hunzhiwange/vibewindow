@@ -215,8 +215,8 @@ impl Memory for PostgresMemory {
             let mut client = client.lock();
             let stmt = format!("SELECT COUNT(*) FROM {qualified_table}");
             let count: i64 = client.query_one(&stmt, &[])?.get(0);
-            let count = usize::try_from(count)
-                .context("PostgreSQL returned a negative memory count")?;
+            let count =
+                usize::try_from(count).context("PostgreSQL returned a negative memory count")?;
             Ok(count)
         })
         .await?

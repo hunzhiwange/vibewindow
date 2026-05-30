@@ -5,13 +5,13 @@
 use iced::widget::{Space, button, column, container, mouse_area, text};
 use iced::{Background, Border, Color, Element, Length};
 
-use crate::app::message::design::CanvasContextMenuAction;
+use super::shared::design_overlay_surface_shadow;
 use crate::app::message::DesignMessage;
+use crate::app::message::design::CanvasContextMenuAction;
 use crate::app::views::design::canvas::get_element_screen_bounds;
 use crate::app::views::design::state::DesignState;
 use crate::app::views::design::toolbar;
 use crate::app::{App, Message};
-use super::shared::design_overlay_surface_shadow;
 
 /// 执行本模块的界面辅助逻辑。
 ///
@@ -45,10 +45,9 @@ pub fn context_toolbar_layers<'a>(
             Some(crate::app::views::design::state::ContextPopoverType::Shape) => (256.0, 258.0),
             Some(crate::app::views::design::state::ContextPopoverType::Fill) => (332.0, 170.0),
             Some(crate::app::views::design::state::ContextPopoverType::Border) => (332.0, 170.0),
-            Some(crate::app::views::design::state::ContextPopoverType::TextColor) => (
-                toolbar::text_context_panel_width(selected_font, true),
-                140.0,
-            ),
+            Some(crate::app::views::design::state::ContextPopoverType::TextColor) => {
+                (toolbar::text_context_panel_width(selected_font, true), 140.0)
+            }
             Some(crate::app::views::design::state::ContextPopoverType::ToolbarBrush) => {
                 (164.0, 44.0)
             }
@@ -58,7 +57,9 @@ pub fn context_toolbar_layers<'a>(
             Some(crate::app::views::design::state::ContextPopoverType::ToolbarIcon) => {
                 (164.0, 44.0)
             }
-            None if is_text_selected => (toolbar::text_context_panel_width(selected_font, false), 44.0),
+            None if is_text_selected => {
+                (toolbar::text_context_panel_width(selected_font, false), 44.0)
+            }
             None => (164.0, 44.0),
         };
         let canvas_left_offset: f32 =

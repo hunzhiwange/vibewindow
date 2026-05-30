@@ -105,13 +105,14 @@ pub(super) fn handle(app: &mut App, message: WorkflowMessage) -> Option<Task<Mes
         }
         WorkflowMessage::Reload => {
             app.workflow_state.close_floating_panels();
-            let result = if let Some(path) = app.workflow_state.source_path.as_deref().map(str::to_owned) {
-                load_document_from_path(&path)
-            } else if let Some(entry) = app.workflow_state.active_entry_snapshot() {
-                load_document_from_value(None, entry.raw_root)
-            } else {
-                load_builtin_workflow()
-            };
+            let result =
+                if let Some(path) = app.workflow_state.source_path.as_deref().map(str::to_owned) {
+                    load_document_from_path(&path)
+                } else if let Some(entry) = app.workflow_state.active_entry_snapshot() {
+                    load_document_from_value(None, entry.raw_root)
+                } else {
+                    load_builtin_workflow()
+                };
 
             match result {
                 Ok(loaded) => {

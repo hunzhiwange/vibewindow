@@ -332,10 +332,8 @@ fn normalize_module_doc_value(
             object.insert("children".to_string(), serde_json::Value::Array(Vec::new()));
         }
         if !object.contains_key("variables") {
-            object.insert(
-                "variables".to_string(),
-                serde_json::Value::Object(serde_json::Map::new()),
-            );
+            object
+                .insert("variables".to_string(), serde_json::Value::Object(serde_json::Map::new()));
         }
         if !object.contains_key("theme") {
             object.insert("theme".to_string(), default_module_doc_theme(theme));
@@ -541,4 +539,3 @@ pub(super) fn parse_design_generation_module_doc(
 
     Err(INVALID_DOC_ERROR.to_string())
 }
-

@@ -4,15 +4,11 @@ use crate::apps::mindmap::state::MindMapCanvasTool;
 use iced::widget::canvas::{Frame, LineCap, Path, Stroke};
 use iced::{Color, Point, Rectangle, mouse};
 
+use super::super::{
+    DragMode, ERASER_RADIUS_PX, HoverButtonKind, MindMapCanvas, MindMapCanvasState,
+};
 use super::doodles::{draw_active_doodle, draw_eraser};
 use super::layout_for_canvas;
-use super::super::{
-    DragMode,
-    ERASER_RADIUS_PX,
-    HoverButtonKind,
-    MindMapCanvas,
-    MindMapCanvasState,
-};
 
 /// 构建或更新 draw overlay 相关行为。
 ///

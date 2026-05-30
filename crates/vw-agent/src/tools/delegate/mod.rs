@@ -40,6 +40,7 @@ pub struct DelegateTool {
     parent_tools: Arc<Vec<Arc<dyn Tool>>>,
     multimodal_config: crate::app::agent::config::MultimodalConfig,
     workspace_identity_context: String,
+    skill_contexts: HashMap<String, String>,
     coordination_bus: Option<InMemoryMessageBus>,
     coordination_lead_agent: String,
 }
@@ -75,6 +76,7 @@ impl DelegateTool {
             parent_tools: Arc::new(Vec::new()),
             multimodal_config: crate::app::agent::config::MultimodalConfig::default(),
             workspace_identity_context: String::new(),
+            skill_contexts: HashMap::new(),
             coordination_bus,
             coordination_lead_agent: DEFAULT_COORDINATION_LEAD_AGENT.to_string(),
         }
@@ -113,6 +115,7 @@ impl DelegateTool {
             parent_tools: Arc::new(Vec::new()),
             multimodal_config: crate::app::agent::config::MultimodalConfig::default(),
             workspace_identity_context: String::new(),
+            skill_contexts: HashMap::new(),
             coordination_bus,
             coordination_lead_agent: DEFAULT_COORDINATION_LEAD_AGENT.to_string(),
         }
@@ -133,6 +136,11 @@ impl DelegateTool {
 
     pub fn with_workspace_identity_context(mut self, workspace_identity_context: String) -> Self {
         self.workspace_identity_context = workspace_identity_context;
+        self
+    }
+
+    pub fn with_skill_contexts(mut self, skill_contexts: HashMap<String, String>) -> Self {
+        self.skill_contexts = skill_contexts;
         self
     }
 
@@ -222,18 +230,27 @@ impl Tool for DelegateTool {
 }
 
 impl DelegateTool {
-    fn merged_system_prompt(&self, agent_system_prompt: Option<&str>) -> Option<String> {
-        match (
-            self.workspace_identity_context.trim().is_empty(),
-            agent_system_prompt.map(str::trim).filter(|prompt| !prompt.is_empty()),
-        ) {
-            (true, None) => None,
-            (true, Some(agent_prompt)) => Some(agent_prompt.to_string()),
-            (false, None) => Some(self.workspace_identity_context.clone()),
-            (false, Some(agent_prompt)) => {
-                Some(format!("{}\n\n{}", self.workspace_identity_context, agent_prompt))
-            }
+    fn merged_system_prompt(
+        &self,
+        agent_name: &str,
+        agent_system_prompt: Option<&str>,
+    ) -> Option<String> {
+        let mut sections = Vec::new();
+        if !self.workspace_identity_context.trim().is_empty() {
+            sections.push(self.workspace_identity_context.clone());
         }
+        if let Some(skill_context) =
+            self.skill_contexts.get(agent_name).filter(|context| !context.trim().is_empty())
+        {
+            sections.push(skill_context.clone());
+        }
+        if let Some(agent_prompt) =
+            agent_system_prompt.map(str::trim).filter(|prompt| !prompt.is_empty())
+        {
+            sections.push(agent_prompt.to_string());
+        }
+
+        (!sections.is_empty()).then(|| sections.join("\n\n"))
     }
 
     async fn execute_agentic(

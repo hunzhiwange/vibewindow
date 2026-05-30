@@ -41,10 +41,7 @@ where
             "/desktop/skills/install-built-in",
             post(super::desktop_skills::install_builtin_post),
         )
-        .route(
-            "/desktop/skills/set-enabled",
-            post(super::desktop_skills::set_enabled_post),
-        )
+        .route("/desktop/skills/set-enabled", post(super::desktop_skills::set_enabled_post))
         .route("/desktop/skills/delete", post(super::desktop_skills::delete_post))
         .route("/desktop/external-apps", get(external_apps_get))
         .route("/desktop/external-apps/open", post(external_apps_open_post))
@@ -62,22 +59,33 @@ async fn preferences_get() -> Result<Json<Value>, ApiError> {
 
 async fn preferences_patch(Json(patch): Json<Value>) -> Result<Json<Value>, ApiError> {
     let mut current: Value = storage::read(&["desktop", "preferences"]).await.unwrap_or_default();
-    if let Some(obj) = current.as_object_mut() {
-        if let Some(patch_obj) = patch.as_object() {
-            for (k, v) in patch_obj {
-                // `null` 在偏好补丁里表示删除键，便于前端恢复默认值而不引入额外协议字段。
-                if v.is_null() {
-                    obj.remove(k);
-                } else {
-                    obj.insert(k.clone(), v.clone());
-                }
-            }
-        }
-    }
+    merge_preferences_patch(&mut current, &patch);
     storage::write(&["desktop", "preferences"], &current)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
     Ok(Json(current))
+}
+
+fn merge_preferences_patch(current: &mut Value, patch: &Value) {
+    if !current.is_object() {
+        *current = serde_json::json!({});
+    }
+
+    let Some(obj) = current.as_object_mut() else {
+        return;
+    };
+    let Some(patch_obj) = patch.as_object() else {
+        return;
+    };
+
+    for (k, v) in patch_obj {
+        // `null` 在偏好补丁里表示删除键，便于前端恢复默认值而不引入额外协议字段。
+        if v.is_null() {
+            obj.remove(k);
+        } else {
+            obj.insert(k.clone(), v.clone());
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -185,6 +193,10 @@ fn project_prefs_key(project_path: &str) -> Vec<String> {
     let id = if trimmed.is_empty() { "_root".to_string() } else { trimmed.to_string() };
     vec!["desktop".to_string(), "project_prefs".to_string(), id]
 }
+
+#[cfg(test)]
+#[path = "desktop_tests.rs"]
+mod desktop_tests;
 
 #[derive(Debug, Serialize)]
 struct ExternalAppState {
@@ -396,20 +408,20 @@ fn reveal_path_in_file_manager(path: &str) -> Result<(), String> {
 }
 
 fn decode_file_url_path(path_or_url: &str) -> String {
-    let has_file_scheme = path_or_url.starts_with("file://");
-    let has_triple_slash = path_or_url.starts_with("file:///");
     let raw = path_or_url
         .strip_prefix("file:///")
         .or_else(|| path_or_url.strip_prefix("file://"))
         .unwrap_or(path_or_url);
-    let mut decoded = urlencoding::decode(raw)
+    let decoded = urlencoding::decode(raw)
         .map(|value| value.into_owned())
         .unwrap_or_else(|_| raw.to_string());
     #[cfg(not(windows))]
     {
         // macOS/Linux 的 file:///foo 在去前缀后会丢掉根斜杠，这里显式补回绝对路径语义。
+        let has_file_scheme = path_or_url.starts_with("file://");
+        let has_triple_slash = path_or_url.starts_with("file:///");
         if has_file_scheme && has_triple_slash && !decoded.starts_with('/') {
-            decoded = format!("/{}", decoded);
+            return format!("/{}", decoded);
         }
     }
     #[cfg(windows)]

@@ -3,12 +3,17 @@
 use crate::app::views::design::models::Stroke;
 use serde_json::{Map, Value, json};
 
-use super::figma_support::{clone_number_or_string, normalized_color_channel, value_to_f64, value_to_str};
+use super::figma_support::{
+    clone_number_or_string, normalized_color_channel, value_to_f64, value_to_str,
+};
 
 /// 执行 Figma 数据到设计文档的转换。
 ///
 /// 转换失败时返回错误，调用方据此中止导入而不是生成半成品。
-pub(super) fn map_figma_stroke(object: &Map<String, Value>, value: Option<&Value>) -> Option<Stroke> {
+pub(super) fn map_figma_stroke(
+    object: &Map<String, Value>,
+    value: Option<&Value>,
+) -> Option<Stroke> {
     let align =
         object.get("strokeAlign").and_then(value_to_str).map(|value| value.to_ascii_lowercase());
     let thickness = clone_number_or_string(object.get("strokeWeight"));

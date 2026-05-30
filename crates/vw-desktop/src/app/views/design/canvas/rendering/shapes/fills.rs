@@ -16,7 +16,9 @@ use crate::app::views::design::{
 /// 模块内部可见的 extract_first_enabled_image_fill 函数。
 ///
 /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
-pub(super) fn extract_first_enabled_image_fill(fill: &Option<serde_json::Value>) -> Option<ImageFill> {
+pub(super) fn extract_first_enabled_image_fill(
+    fill: &Option<serde_json::Value>,
+) -> Option<ImageFill> {
     match fill {
         Some(serde_json::Value::Object(map)) => {
             if let Ok(FillItem::Object(FillObject::Image(img))) =
@@ -47,7 +49,9 @@ pub(super) fn extract_first_enabled_image_fill(fill: &Option<serde_json::Value>)
 /// 模块内部可见的 extract_first_enabled_mesh_fill 函数。
 ///
 /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
-pub(super) fn extract_first_enabled_mesh_fill(fill: &Option<serde_json::Value>) -> Option<MeshFill> {
+pub(super) fn extract_first_enabled_mesh_fill(
+    fill: &Option<serde_json::Value>,
+) -> Option<MeshFill> {
     match fill {
         Some(serde_json::Value::Object(map)) => {
             if let Ok(FillItem::Object(FillObject::Mesh(mesh))) =
@@ -78,12 +82,7 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 }
 
 fn lerp_color(a: Color, b: Color, t: f32) -> Color {
-    Color {
-        r: lerp(a.r, b.r, t),
-        g: lerp(a.g, b.g, t),
-        b: lerp(a.b, b.b, t),
-        a: lerp(a.a, b.a, t),
-    }
+    Color { r: lerp(a.r, b.r, t), g: lerp(a.g, b.g, t), b: lerp(a.b, b.b, t), a: lerp(a.a, b.a, t) }
 }
 
 fn bilerp_point(p00: Point, p10: Point, p01: Point, p11: Point, u: f32, v: f32) -> Point {
@@ -110,11 +109,8 @@ pub(super) fn draw_mesh_fill(
         return;
     }
 
-    let mut colors: Vec<Color> = mesh
-        .colors
-        .iter()
-        .map(|s| parse_color(s, variables, theme_mode))
-        .collect();
+    let mut colors: Vec<Color> =
+        mesh.colors.iter().map(|s| parse_color(s, variables, theme_mode)).collect();
     if colors.is_empty() {
         return;
     }
@@ -291,12 +287,7 @@ pub(super) fn draw_image_fill(
 
         let dx = bounds.x + (cw - dw) / 2.0;
         let dy = bounds.y + (ch - dh) / 2.0;
-        dest = Rectangle {
-            x: dx,
-            y: dy,
-            width: dw,
-            height: dh,
-        };
+        dest = Rectangle { x: dx, y: dy, width: dw, height: dh };
     }
 
     frame.draw_image(dest, Image::new(handle.clone()));

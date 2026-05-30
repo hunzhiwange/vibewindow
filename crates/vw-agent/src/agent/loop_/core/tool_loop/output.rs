@@ -6,9 +6,9 @@ use anyhow::Result;
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
+use super::super::super::progress::{DRAFT_CLEAR_SENTINEL, DRAFT_PROGRESS_SENTINEL};
 use super::super::constants::STREAM_CHUNK_MIN_CHARS;
 use super::super::errors::ToolLoopCancelled;
-use super::super::super::progress::{DRAFT_CLEAR_SENTINEL, DRAFT_PROGRESS_SENTINEL};
 
 #[cfg(test)]
 #[path = "output_tests.rs"]

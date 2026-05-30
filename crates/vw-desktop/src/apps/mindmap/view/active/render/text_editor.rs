@@ -16,15 +16,14 @@ pub(super) fn with_text_editor_overlay<'a>(
     tab: &'a MindMapTab,
     base: Element<'a, Message>,
 ) -> Element<'a, Message> {
-    let backdrop = mouse_area(
-        container(Space::new().width(Length::Fill).height(Length::Fill)).style(|_| {
+    let backdrop =
+        mouse_area(container(Space::new().width(Length::Fill).height(Length::Fill)).style(|_| {
             iced::widget::container::Style {
                 background: Some(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.25))),
                 ..Default::default()
             }
-        }),
-    )
-    .on_press(Message::MindMapTool(MindMapMessage::ClosePickers));
+        }))
+        .on_press(Message::MindMapTool(MindMapMessage::ClosePickers));
 
     let Some(node_rect) = selected_node_rect(tab) else {
         return stack(vec![base, backdrop.into()]).into();
@@ -74,8 +73,10 @@ pub(super) fn with_text_editor_overlay<'a>(
         .placeholder("输入文本…")
         .on_action(|action| Message::MindMapTool(MindMapMessage::NodeTextEditorAction(action)))
         .key_binding(|kp| {
-            if matches!(kp.key.clone(), iced::keyboard::Key::Named(iced::keyboard::key::Named::Enter))
-            {
+            if matches!(
+                kp.key.clone(),
+                iced::keyboard::Key::Named(iced::keyboard::key::Named::Enter)
+            ) {
                 Some(iced::widget::text_editor::Binding::Custom(Message::MindMapTool(
                     MindMapMessage::NodeTextEditorEnter { shift: kp.modifiers.shift() },
                 )))
@@ -97,11 +98,7 @@ pub(super) fn with_text_editor_overlay<'a>(
     .on_press(Message::None);
 
     let editor_layer: Element<'_, Message> = container(editor)
-        .padding(iced::Padding {
-            top: node_rect.y,
-            left: node_rect.x,
-            ..Default::default()
-        })
+        .padding(iced::Padding { top: node_rect.y, left: node_rect.x, ..Default::default() })
         .align_x(iced::alignment::Horizontal::Left)
         .align_y(iced::alignment::Vertical::Top)
         .width(Length::Fill)

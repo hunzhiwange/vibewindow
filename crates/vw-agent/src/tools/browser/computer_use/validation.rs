@@ -124,9 +124,9 @@ impl ComputerUseClient {
         }
         let raw_path = Path::new(trimmed);
         if raw_path.is_absolute()
-            || raw_path.components().any(|component| {
-                matches!(component, std::path::Component::ParentDir)
-            })
+            || raw_path
+                .components()
+                .any(|component| matches!(component, std::path::Component::ParentDir))
         {
             anyhow::bail!("'{key}' path must stay within the workspace");
         }

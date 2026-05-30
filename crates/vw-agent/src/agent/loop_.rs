@@ -71,15 +71,15 @@ pub mod runner;
 /// 通用工具函数
 pub mod utils;
 
-/// 单元测试和集成测试
-#[cfg(test)]
-mod tests;
 #[cfg(test)]
 mod progress_tests;
 #[cfg(test)]
 mod query_engine_tests;
 #[cfg(test)]
 mod runner_tests;
+/// 单元测试和集成测试
+#[cfg(test)]
+mod tests;
 #[cfg(test)]
 mod utils_tests;
 
@@ -165,10 +165,10 @@ pub(crate) use instructions::{
 /// - `default_param_for_tool` - 工具默认参数查询
 #[cfg(test)]
 pub(crate) use parsing::{
-    ParsedToolCall, default_param_for_tool, detect_tool_call_parse_issue,
-    parse_arguments_value, parse_glm_shortened_body, parse_glm_style_tool_calls,
-    parse_perl_style_tool_calls, parse_structured_tool_calls, parse_tool_call_value,
-    parse_tool_calls, parse_tool_calls_from_json_value,
+    ParsedToolCall, default_param_for_tool, detect_tool_call_parse_issue, parse_arguments_value,
+    parse_glm_shortened_body, parse_glm_style_tool_calls, parse_perl_style_tool_calls,
+    parse_structured_tool_calls, parse_tool_call_value, parse_tool_calls,
+    parse_tool_calls_from_json_value,
 };
 
 /// 进度跟踪常量
@@ -178,9 +178,7 @@ pub(crate) use parsing::{
 /// - `DRAFT_PROGRESS_SENTINEL` - 草稿进度标记
 /// - `DRAFT_WS_EVENT_SENTINEL` - WebSocket 私有结构化事件标记
 /// - `PROGRESS_MIN_INTERVAL_MS` - 最小进度更新间隔（毫秒）
-pub(crate) use progress::{
-    DRAFT_CLEAR_SENTINEL, DRAFT_PROGRESS_SENTINEL, DRAFT_WS_EVENT_SENTINEL,
-};
+pub(crate) use progress::{DRAFT_CLEAR_SENTINEL, DRAFT_PROGRESS_SENTINEL, DRAFT_WS_EVENT_SENTINEL};
 
 /// 凭据清理工具函数
 ///

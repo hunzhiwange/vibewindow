@@ -60,9 +60,7 @@ pub fn rebuild_node_from_parts(
     let raw_map = ensure_value_mapping(&mut raw_node);
     set_mapping_value(raw_map, "selected", Value::Bool(node.selected));
 
-    let data_entry = raw_map
-        .entry(key_value("data"))
-        .or_insert_with(|| yaml_map(vec![]));
+    let data_entry = raw_map.entry(key_value("data")).or_insert_with(|| yaml_map(vec![]));
     *data_entry = data_value;
     let data_map = ensure_value_mapping(data_entry);
 
@@ -99,4 +97,3 @@ pub fn load_document_from_text(
         serde_yaml::from_str(&text).map_err(|error| format!("解析 Dify DSL 失败: {error}"))?;
     load_document_from_value(source_path, raw_root)
 }
-

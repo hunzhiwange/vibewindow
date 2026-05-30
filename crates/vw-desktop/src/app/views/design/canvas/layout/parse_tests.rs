@@ -15,7 +15,8 @@ fn parse_layout_accepts_row_and_column_aliases() {
 
 #[test]
 fn parse_padding_follows_css_shorthand_order() {
-    let padding = super::parse_padding(&Some(serde_json::json!([1, 2, 3, 4])), &HashMap::new(), None);
+    let padding =
+        super::parse_padding(&Some(serde_json::json!([1, 2, 3, 4])), &HashMap::new(), None);
     assert_eq!((padding.top, padding.right, padding.bottom, padding.left), (1.0, 2.0, 3.0, 4.0));
 }
 

@@ -10,21 +10,23 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
-use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
+};
 
 use super::input::{
     TuiPromptSuggestionMotion, TuiSlashCommandInvocation, apply_selected_suggestion,
     move_prompt_suggestion_selection, parse_slash_command, selected_prompt_suggestion,
 };
 use super::model::{
-    PromptMode, PromptMotion, PromptSubmission, PromptSubmissionStatus,
-    QueuedPromptCommand, QueuedPromptCommandKind, UiConfirmOverlay, UiErrorOverlay, UiOverlay,
-    UiOverlayKind, UiQuestionOverlay, UiTaskOverlay, UiTodoOverlay,
+    PromptMode, PromptMotion, PromptSubmission, PromptSubmissionStatus, QueuedPromptCommand,
+    QueuedPromptCommandKind, UiConfirmOverlay, UiErrorOverlay, UiOverlay, UiOverlayKind,
+    UiQuestionOverlay, UiTaskOverlay, UiTodoOverlay,
 };
 use super::render::layout::FullscreenLayoutSlots;
 use super::state::{
-    TuiAction, TuiScrollState, TuiState, reduce_tui_state,
-    select_transcript_message_anchors, select_visible_grouped_transcript_window,
+    TuiAction, TuiScrollState, TuiState, reduce_tui_state, select_transcript_message_anchors,
+    select_visible_grouped_transcript_window,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -83,10 +85,7 @@ impl Default for TuiController {
 impl TuiController {
     /// 基于给定 tick 速率创建 controller。
     pub(crate) fn new(tick_rate: Duration) -> Self {
-        Self {
-            tick_rate,
-            spinner_frame: 0,
-        }
+        Self { tick_rate, spinner_frame: 0 }
     }
 
     /// 返回当前动画帧索引，供 renderer 在 header 中绘制轻量状态指示。
@@ -113,11 +112,7 @@ impl TuiController {
     }
 
     /// 将 renderer 反馈的 viewport 能力同步回状态层。
-    pub(crate) fn sync_layout(
-        &mut self,
-        state: &mut TuiState,
-        slots: &impl TuiRenderFeedbackLike,
-    ) {
+    pub(crate) fn sync_layout(&mut self, state: &mut TuiState, slots: &impl TuiRenderFeedbackLike) {
         let layout = slots.layout();
         let next_viewport_height = layout.scrollable.height.saturating_sub(2);
         let next_viewport_width = layout.scrollable.width.saturating_sub(2);
@@ -160,11 +155,7 @@ impl TuiController {
         }
     }
 
-    fn handle_key_event(
-        &mut self,
-        state: &mut TuiState,
-        key: KeyEvent,
-    ) -> TuiControllerCommand {
+    fn handle_key_event(&mut self, state: &mut TuiState, key: KeyEvent) -> TuiControllerCommand {
         if key.modifiers.contains(KeyModifiers::CONTROL)
             && matches!(key.code, KeyCode::Char('c' | 'd'))
         {
@@ -270,25 +261,17 @@ fn try_accept_prompt_suggestion(state: &mut TuiState) -> bool {
 }
 
 fn can_navigate_prompt_suggestions(state: &TuiState) -> bool {
-    matches!(state.prompt.mode, PromptMode::SlashCommand) && selected_prompt_suggestion(state).is_some()
+    matches!(state.prompt.mode, PromptMode::SlashCommand)
+        && selected_prompt_suggestion(state).is_some()
 }
 
-fn move_prompt_suggestion_cursor(
-    state: &mut TuiState,
-    motion: TuiPromptSuggestionMotion,
-) {
+fn move_prompt_suggestion_cursor(state: &mut TuiState, motion: TuiPromptSuggestionMotion) {
     if let Some(next_index) = move_prompt_suggestion_selection(state, motion) {
-        reduce_tui_state(
-            state,
-            TuiAction::PromptSuggestionSelectionSet(Some(next_index)),
-        );
+        reduce_tui_state(state, TuiAction::PromptSuggestionSelectionSet(Some(next_index)));
     }
 }
 
-pub(crate) fn build_prompt_submission(
-    state: &TuiState,
-    text: &str,
-) -> Option<PromptSubmission> {
+pub(crate) fn build_prompt_submission(state: &TuiState, text: &str) -> Option<PromptSubmission> {
     let text = text.trim().to_string();
     if text.is_empty() {
         return None;
@@ -490,7 +473,9 @@ fn handle_search_overlay_key(state: &mut TuiState, key: KeyEvent) -> KeymapLayer
             toggle_search_case_sensitivity(state);
             KeymapLayerResult::Handled(TuiControllerCommand::Continue)
         }
-        (_, KeyCode::Char(ch)) if matches!(key.modifiers, KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+        (_, KeyCode::Char(ch))
+            if matches!(key.modifiers, KeyModifiers::NONE | KeyModifiers::SHIFT) =>
+        {
             append_search_query(state, ch);
             KeymapLayerResult::Handled(TuiControllerCommand::Continue)
         }
@@ -569,17 +554,12 @@ fn jump_to_selected_search_match(state: &mut TuiState) -> bool {
     let Some(selected_index) = overlay.selected_index else {
         return false;
     };
-    let Some(message_id) = overlay
-        .matches
-        .get(selected_index)
-        .and_then(|item| item.message_id.as_ref())
+    let Some(message_id) =
+        overlay.matches.get(selected_index).and_then(|item| item.message_id.as_ref())
     else {
         return false;
     };
-    let Some(message_index) = state
-        .messages
-        .iter()
-        .position(|message| message.id() == message_id)
+    let Some(message_index) = state.messages.iter().position(|message| message.id() == message_id)
     else {
         return false;
     };
@@ -688,10 +668,7 @@ fn question_overlay_allows_custom_input(state: &TuiState) -> bool {
     let Some(UiOverlay::Question(overlay)) = state.overlays.active() else {
         return false;
     };
-    overlay
-        .prompts
-        .get(overlay.selected_index)
-        .is_some_and(|prompt| prompt.allow_custom_input)
+    overlay.prompts.get(overlay.selected_index).is_some_and(|prompt| prompt.allow_custom_input)
 }
 
 fn move_question_prompt_selection(overlay: &mut UiQuestionOverlay, delta: isize) {
@@ -704,10 +681,7 @@ fn move_question_prompt_selection(overlay: &mut UiQuestionOverlay, delta: isize)
     overlay.selected_index = if delta.is_negative() {
         overlay.selected_index.saturating_sub(delta.unsigned_abs())
     } else {
-        overlay
-            .selected_index
-            .saturating_add(delta.cast_unsigned())
-            .min(max_index)
+        overlay.selected_index.saturating_add(delta.cast_unsigned()).min(max_index)
     };
 }
 
@@ -737,12 +711,7 @@ fn toggle_question_option_by_digit(overlay: &mut UiQuestionOverlay, digit: char)
         return;
     }
 
-    answers.retain(|answer| {
-        !prompt
-            .options
-            .iter()
-            .any(|candidate| candidate.label == *answer)
-    });
+    answers.retain(|answer| !prompt.options.iter().any(|candidate| candidate.label == *answer));
     answers.push(selected_label);
 }
 
@@ -816,9 +785,9 @@ fn handle_todo_overlay_key(state: &mut TuiState, key: KeyEvent) -> KeymapLayerRe
             let Some(UiOverlay::Todo(overlay)) = state.overlays.active().cloned() else {
                 return KeymapLayerResult::Pass;
             };
-            KeymapLayerResult::Handled(TuiControllerCommand::Overlay(
-                TuiOverlayCommand::TodoSave(overlay),
-            ))
+            KeymapLayerResult::Handled(TuiControllerCommand::Overlay(TuiOverlayCommand::TodoSave(
+                overlay,
+            )))
         }
         _ => KeymapLayerResult::Handled(TuiControllerCommand::Continue),
     }
@@ -834,10 +803,7 @@ fn move_todo_selection(overlay: &mut UiTodoOverlay, delta: isize) {
     overlay.selected_index = if delta.is_negative() {
         overlay.selected_index.saturating_sub(delta.unsigned_abs())
     } else {
-        overlay
-            .selected_index
-            .saturating_add(delta.cast_unsigned())
-            .min(max_index)
+        overlay.selected_index.saturating_add(delta.cast_unsigned()).min(max_index)
     };
 }
 
@@ -905,17 +871,11 @@ fn jump_to_selected_task_step(state: &mut TuiState) -> bool {
     let Some(UiOverlay::Task(overlay)) = state.overlays.active() else {
         return false;
     };
-    let Some(message_id) = overlay
-        .steps
-        .get(overlay.selected_index)
-        .map(|step| &step.message_id)
+    let Some(message_id) = overlay.steps.get(overlay.selected_index).map(|step| &step.message_id)
     else {
         return false;
     };
-    let Some(message_index) = state
-        .messages
-        .iter()
-        .position(|message| message.id() == message_id)
+    let Some(message_index) = state.messages.iter().position(|message| message.id() == message_id)
     else {
         return false;
     };
@@ -933,8 +893,7 @@ fn handle_mcp_overlay_key(state: &mut TuiState, key: KeyEvent) -> KeymapLayerRes
             if let Some(UiOverlay::Mcp(overlay)) = state.overlays.stack.last_mut() {
                 let len = overlay.servers.len();
                 if len > 0 {
-                    overlay.selected_index =
-                        (overlay.selected_index + len.saturating_sub(1)) % len;
+                    overlay.selected_index = (overlay.selected_index + len.saturating_sub(1)) % len;
                 }
             }
             KeymapLayerResult::Handled(TuiControllerCommand::Continue)
@@ -962,8 +921,7 @@ fn handle_memory_overlay_key(state: &mut TuiState, key: KeyEvent) -> KeymapLayer
             if let Some(UiOverlay::Memory(overlay)) = state.overlays.stack.last_mut() {
                 let len = overlay.entries.len();
                 if len > 0 {
-                    overlay.selected_index =
-                        (overlay.selected_index + len.saturating_sub(1)) % len;
+                    overlay.selected_index = (overlay.selected_index + len.saturating_sub(1)) % len;
                 }
             }
             KeymapLayerResult::Handled(TuiControllerCommand::Continue)
@@ -1010,8 +968,7 @@ fn handle_prompt_layer_key(state: &mut TuiState, key: KeyEvent) -> KeymapLayerRe
             toggle_help_overlay(state);
             KeymapLayerResult::Handled(TuiControllerCommand::Continue)
         }
-        (_, KeyCode::BackTab | KeyCode::Up)
-            | (KeyModifiers::CONTROL, KeyCode::Char('p'))
+        (_, KeyCode::BackTab | KeyCode::Up) | (KeyModifiers::CONTROL, KeyCode::Char('p'))
             if can_navigate_prompt_suggestions(state) =>
         {
             move_prompt_suggestion_cursor(state, TuiPromptSuggestionMotion::Previous);
@@ -1028,9 +985,7 @@ fn handle_prompt_layer_key(state: &mut TuiState, key: KeyEvent) -> KeymapLayerRe
         (_, KeyCode::Enter) if try_accept_prompt_suggestion(state) => {
             KeymapLayerResult::Handled(TuiControllerCommand::Continue)
         }
-        (_, KeyCode::Enter) => {
-            KeymapLayerResult::Handled(submit_or_execute_prompt_command(state))
-        }
+        (_, KeyCode::Enter) => KeymapLayerResult::Handled(submit_or_execute_prompt_command(state)),
         (_, KeyCode::Backspace) => {
             backspace_prompt(state);
             KeymapLayerResult::Handled(TuiControllerCommand::Continue)
@@ -1137,10 +1092,8 @@ fn handle_prompt_escape(state: &mut TuiState) -> TuiControllerCommand {
 }
 
 fn page_scroll_amount(state: &TuiState) -> isize {
-    select_visible_grouped_transcript_window(state)
-        .viewport_summary()
-        .message_capacity
-        .max(1) as isize
+    select_visible_grouped_transcript_window(state).viewport_summary().message_capacity.max(1)
+        as isize
 }
 
 fn scroll_relative(state: &mut TuiState, delta: isize) {
@@ -1149,10 +1102,8 @@ fn scroll_relative(state: &mut TuiState, delta: isize) {
         return;
     }
 
-    let current_anchor_index = anchors
-        .iter()
-        .rposition(|anchor| *anchor <= state.scroll.top_message)
-        .unwrap_or_default();
+    let current_anchor_index =
+        anchors.iter().rposition(|anchor| *anchor <= state.scroll.top_message).unwrap_or_default();
     let max_top = anchors.len().saturating_sub(1);
     let mut scroll = state.scroll.clone();
     let next_top = offset_index(current_anchor_index, delta).min(max_top);
@@ -1162,11 +1113,7 @@ fn scroll_relative(state: &mut TuiState, delta: isize) {
 }
 
 fn scroll_to_top(state: &mut TuiState) {
-    let mut scroll = TuiScrollState {
-        top_message: 0,
-        follow_tail: false,
-        ..state.scroll.clone()
-    };
+    let mut scroll = TuiScrollState { top_message: 0, follow_tail: false, ..state.scroll.clone() };
     scroll.follow_tail = false;
     reduce_tui_state(state, TuiAction::ScrollSet(scroll));
 }

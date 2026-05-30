@@ -5,20 +5,6 @@ use crate::app::{
 use iced::Task;
 use iced::{Font, widget};
 
-fn promote(app: &mut App) {
-    let Some(path) = app.active_preview_path.as_ref() else {
-        return;
-    };
-    let Some(pos) = app.preview_tabs.iter().position(|t| t.path == *path) else {
-        return;
-    };
-    if pos == 0 {
-        return;
-    }
-    let tab = app.preview_tabs.remove(pos);
-    app.preview_tabs.insert(0, tab);
-}
-
 const TRACE_HISTORY_LIMIT: usize = 256;
 
 fn push_trace_entry(entries: &mut Vec<(String, usize, usize)>, entry: (String, usize, usize)) {
@@ -205,7 +191,6 @@ pub fn update(app: &mut App, message: PreviewMessage) -> Task<Message> {
                     app.pending_preview_goto = None;
                     app.preview_trace_navigating = false;
                     let goto_task = goto_with_retry(line, col);
-                    promote(app);
                     if matches!(app.screen, Screen::Project) {
                         return goto_task;
                     }
@@ -300,7 +285,6 @@ pub fn update(app: &mut App, message: PreviewMessage) -> Task<Message> {
                     );
                 }
             }
-            promote(app);
             if matches!(app.screen, Screen::Project) {
                 return load_task;
             }
@@ -379,7 +363,6 @@ pub fn update(app: &mut App, message: PreviewMessage) -> Task<Message> {
                 app.active_preview_path = Some(path.clone());
                 app.focus_area = FocusArea::Preview;
             }
-            promote(app);
             Task::none()
         }
         PreviewMessage::Close(path) => {
@@ -395,7 +378,6 @@ pub fn update(app: &mut App, message: PreviewMessage) -> Task<Message> {
                     app.active_preview_path = app.preview_tabs.last().map(|t| t.path.clone());
                 }
             }
-            promote(app);
             Task::none()
         }
         PreviewMessage::SaveFile => {
@@ -617,4 +599,3 @@ pub fn update(app: &mut App, message: PreviewMessage) -> Task<Message> {
         _ => Task::none(),
     }
 }
-

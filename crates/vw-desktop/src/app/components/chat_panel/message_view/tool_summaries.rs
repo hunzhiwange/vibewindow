@@ -9,10 +9,9 @@ use std::path::Path;
 use crate::app::models::ParsedChatBlock;
 use crate::app::state::{AdvancedToolSurfaceState, explicit_advanced_tool_surface_spec};
 
-use super::parse::{borrowed_blocks, owned_blocks_from_raw, RenderBlock};
 use super::super::tools::{
-    ExploreToolKind, EXPLORE_GROUP_TOOL_IDX, canonical_tool_name, explore_tool_kind, is_explore_tool,
-    explore_item_dedupe_key, tool_error_text, tool_inline_summary, tool_input,
+    EXPLORE_GROUP_TOOL_IDX, ExploreToolKind, canonical_tool_name, explore_item_dedupe_key,
+    explore_tool_kind, is_explore_tool, tool_error_text, tool_inline_summary, tool_input,
     tool_name_from_raw, tool_output_text, tool_permission_error_text, tool_permission_summary,
     tool_status, tool_status_from_raw, tool_structured_diff_text, tool_summary_text,
 };
@@ -20,6 +19,7 @@ use super::super::utils::{
     normalize_display_text, normalize_file_reference_to_path, strip_internal_tool_trace,
     truncate_chars,
 };
+use super::parse::{RenderBlock, borrowed_blocks, owned_blocks_from_raw};
 
 fn bash_command_title(input: &str) -> String {
     let cmd_line = if input.trim_start().starts_with('{') {
@@ -34,11 +34,7 @@ fn bash_command_title(input: &str) -> String {
     };
 
     let trimmed = cmd_line.trim();
-    if trimmed.is_empty() {
-        "运行命令".to_string()
-    } else {
-        truncate_chars(trimmed, 140)
-    }
+    if trimmed.is_empty() { "运行命令".to_string() } else { truncate_chars(trimmed, 140) }
 }
 
 fn parse_read_summary_input(input: &str) -> Option<(String, usize, usize)> {
@@ -64,7 +60,10 @@ fn read_summary_range_text(offset: usize, limit: usize) -> Option<String> {
         let end_line = offset + limit;
         Some(format!(
             "offset={} limit={} (line {}-{})",
-            offset, end_line - start_line + 1, start_line, end_line
+            offset,
+            end_line - start_line + 1,
+            start_line,
+            end_line
         ))
     } else if offset > 0 {
         Some(format!("offset={} (from line {})", offset, offset + 1))
@@ -149,11 +148,7 @@ fn json_string_or_array_field(value: &serde_json::Value, keys: &[&str]) -> Optio
                 .filter_map(serde_json::Value::as_str)
                 .map(ToString::to_string)
                 .collect::<Vec<_>>();
-            if lines.is_empty() {
-                None
-            } else {
-                Some(lines.join("\n"))
-            }
+            if lines.is_empty() { None } else { Some(lines.join("\n")) }
         }
         _ => None,
     })
@@ -175,7 +170,9 @@ fn file_tool_input_preview(tool_name: &str, input: &str) -> Option<String> {
     }
 }
 
-fn tool_result_data_object(value: &serde_json::Value) -> Option<&serde_json::Map<String, serde_json::Value>> {
+fn tool_result_data_object(
+    value: &serde_json::Value,
+) -> Option<&serde_json::Map<String, serde_json::Value>> {
     value
         .get("result")
         .and_then(|result| result.get("data"))
@@ -240,7 +237,8 @@ fn browser_preview_texts(tool_name: &str, value: &serde_json::Value) -> Vec<Stri
     };
 
     if matches!(tool_name, "browser_open" | "open_browser_page") {
-        let browser = data.get("browser").and_then(|item| item.as_str()).map(str::trim).unwrap_or("");
+        let browser =
+            data.get("browser").and_then(|item| item.as_str()).map(str::trim).unwrap_or("");
         let url = data.get("url").and_then(|item| item.as_str()).map(str::trim).unwrap_or("");
         return match (browser.is_empty(), url.is_empty()) {
             (true, true) => Vec::new(),
@@ -325,11 +323,8 @@ fn brief_preview_texts(value: &serde_json::Value) -> Vec<String> {
         lines.push(message.to_string());
     }
 
-    let attachments = data
-        .get("attachments")
-        .and_then(|item| item.as_array())
-        .cloned()
-        .unwrap_or_default();
+    let attachments =
+        data.get("attachments").and_then(|item| item.as_array()).cloned().unwrap_or_default();
     for attachment in attachments.iter().take(3) {
         let Some(object) = attachment.as_object() else {
             continue;
@@ -475,7 +470,9 @@ pub(super) fn normalized_visible_text(content: &str) -> Option<String> {
     if normalized.is_empty() { None } else { Some(normalized) }
 }
 
-pub(crate) fn trailing_tool_tail_text_source_block_idx(blocks: &[ParsedChatBlock]) -> Option<usize> {
+pub(crate) fn trailing_tool_tail_text_source_block_idx(
+    blocks: &[ParsedChatBlock],
+) -> Option<usize> {
     let mut trailing_end = blocks.len();
     while trailing_end > 0 {
         match &blocks[trailing_end - 1] {
@@ -562,8 +559,7 @@ fn collect_tool_texts(tool_name: &str, value: &serde_json::Value) -> Vec<String>
             tool_texts.push(bash_command_title(input));
         }
         "read" | "file_read" | "pdf_read" => {
-            if let Some((file_name, range_text)) = read_summary_parts(tool_input(value))
-            {
+            if let Some((file_name, range_text)) = read_summary_parts(tool_input(value)) {
                 tool_texts.push(file_name);
                 if let Some(range_text) = range_text {
                     tool_texts.push(range_text);
@@ -580,14 +576,12 @@ fn collect_tool_texts(tool_name: &str, value: &serde_json::Value) -> Vec<String>
             } else if let Some(summary) = tool_summary_text(value) {
                 tool_texts.push(summary);
             }
-            if let Some(diff) = tool_structured_diff_text(value)
-                .or_else(|| {
-                    value
-                        .get("output")
-                        .and_then(|item| item.as_str())
-                        .and_then(super::super::tools::extract_diff_block)
-                })
-            {
+            if let Some(diff) = tool_structured_diff_text(value).or_else(|| {
+                value
+                    .get("output")
+                    .and_then(|item| item.as_str())
+                    .and_then(super::super::tools::extract_diff_block)
+            }) {
                 let diff = diff.trim();
                 if !diff.is_empty() {
                     tool_texts.push(diff.to_string());
@@ -656,10 +650,9 @@ fn collect_tool_texts(tool_name: &str, value: &serde_json::Value) -> Vec<String>
                 && !summary.trim().is_empty()
             {
                 tool_texts.push(summary);
-            } else if let Some(summary) = super::super::tools::tool_inline_summary(
-                tool_name,
-                tool_input(value),
-            ) && !summary.trim().is_empty()
+            } else if let Some(summary) =
+                super::super::tools::tool_inline_summary(tool_name, tool_input(value))
+                && !summary.trim().is_empty()
             {
                 tool_texts.push(summary);
             }
@@ -732,11 +725,8 @@ fn collect_tool_texts(tool_name: &str, value: &serde_json::Value) -> Vec<String>
                 let lines = todos
                     .iter()
                     .map(|todo| {
-                        let status = todo
-                            .get("status")
-                            .and_then(|item| item.as_str())
-                            .unwrap_or("")
-                            .trim();
+                        let status =
+                            todo.get("status").and_then(|item| item.as_str()).unwrap_or("").trim();
                         let content = todo
                             .get("content")
                             .and_then(|item| item.as_str())
@@ -876,11 +866,8 @@ pub(crate) fn summarize_explore_items<'a>(
     let summary_text = if parts.is_empty() { "暂无".to_string() } else { parts.join("，") };
     let group_base_idx = EXPLORE_GROUP_TOOL_IDX.saturating_sub(group_idx.saturating_mul(2));
     let group_running_idx = group_base_idx.saturating_sub(1);
-    let group_tool_idx = if has_running || force_running {
-        group_running_idx
-    } else {
-        group_base_idx
-    };
+    let group_tool_idx =
+        if has_running || force_running { group_running_idx } else { group_base_idx };
     Some((group_tool_idx, summary_text))
 }
 
@@ -915,7 +902,8 @@ fn flush_explore_summary<'a>(
     group_idx: usize,
     force_running: bool,
 ) {
-    if let Some(summary) = summarize_explore_items(items.iter().copied(), group_idx, force_running) {
+    if let Some(summary) = summarize_explore_items(items.iter().copied(), group_idx, force_running)
+    {
         out.push(summary);
     }
     items.clear();
@@ -977,11 +965,6 @@ pub(crate) fn explore_summary_text_blocks(raw: &str) -> Vec<(usize, String)> {
         }
     }
 
-    flush_explore_summary(
-        &mut out,
-        &mut explore_items,
-        group_idx,
-        explore_group_force_running,
-    );
+    flush_explore_summary(&mut out, &mut explore_items, group_idx, explore_group_force_running);
     out
 }

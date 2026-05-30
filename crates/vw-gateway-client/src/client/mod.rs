@@ -23,12 +23,12 @@ mod question_api;
 mod redis_api;
 mod request_helpers;
 mod session_api;
+mod task_pool_api;
 mod tools_api;
 mod workflow_api;
 
 pub use self::desktop_settings_api::{
-    DesktopSkillCatalogEntryDto, DesktopSkillDetailDto, DesktopSkillPathDto,
-    ExternalAppsStateDto,
+    DesktopSkillCatalogEntryDto, DesktopSkillDetailDto, DesktopSkillPathDto, ExternalAppsStateDto,
 };
 pub use self::permission_api::{
     PendingPermissionReplyDto, PendingPermissionRequestDto, PendingPermissionToolDto,

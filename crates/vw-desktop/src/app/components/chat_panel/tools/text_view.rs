@@ -11,8 +11,10 @@
 //! - 智能截断过长的文本输出
 //! - 提供悬停交互效果
 
+use iced::widget::tooltip::{Position as TooltipPosition, Tooltip};
 use iced::widget::{Space, button, column, container, mouse_area, row, scrollable, text};
 use iced::{Alignment, Background, Border, Element, Length, Theme};
+use std::hash::{Hash, Hasher};
 
 use crate::app::assets::Icon;
 use crate::app::components::overlays::PointBelowOverlay;
@@ -20,16 +22,43 @@ use crate::app::components::widgets::RightClickArea;
 use crate::app::{App, Message, message};
 
 use super::tool_meta::{tool_header_label, tool_header_title, tool_inline_summary};
-use super::tool_parse::{tool_error_text, tool_input, tool_output_text, tool_status, tool_summary_text};
+use super::tool_parse::{
+    tool_error_text, tool_input, tool_output_text, tool_status, tool_summary_text,
+};
 use super::{
-    ToolTextTarget, canonical_tool_name, selected_chat_text_for_target, tool_permission_state,
-    tool_permission_error_text, tool_permission_summary, tool_permission_title, tool_text_editor,
+    ToolTextTarget, canonical_tool_name, selected_chat_text_for_target, tool_permission_error_text,
+    tool_permission_state, tool_permission_summary, tool_permission_title, tool_text_editor,
 };
 use crate::app::components::chat_panel::utils::{
     chat_context_menu, chat_context_target_key, chat_scroll_direction,
-    chat_secondary_muted_text_color, eye_icon_button_style, eye_icon_svg_style, icon_svg,
-    simplified_block_style, simplified_code_block_style, truncate_chars, truncate_lines_middle,
+    chat_secondary_muted_text_color, copy_tooltip_content, eye_icon_button_style,
+    eye_icon_svg_style, icon_svg, is_recent_copy, simplified_block_style,
+    simplified_code_block_style, truncate_chars, truncate_lines_middle,
 };
+
+fn copy_content_hash(text: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    text.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn error_copy_button<'a>(app: &'a App, text: &str) -> Element<'a, Message> {
+    let content_hash = copy_content_hash(text);
+    let recently_copied = is_recent_copy(app, content_hash);
+    let icon = if recently_copied { Icon::Check } else { Icon::Copy };
+    let label = if recently_copied { "已复制" } else { "复制失败信息" };
+    let button = button(
+        icon_svg(icon)
+            .width(Length::Fixed(11.0))
+            .height(Length::Fixed(11.0))
+            .style(eye_icon_svg_style),
+    )
+    .padding([3, 5])
+    .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
+    .on_press(Message::CopyCode(text.trim().to_string()));
+
+    Tooltip::new(button, copy_tooltip_content(label), TooltipPosition::Top).gap(6).into()
+}
 
 /// 创建工具文本视图组件
 ///
@@ -124,9 +153,8 @@ pub fn tool_text_view<'a>(
 
     let display_text = if is_error && !err_text.is_empty() { err_text } else { output };
     let permission_state = tool_permission_state(tool_name, &v);
-    let mut summary = tool_permission_summary(tool_name, &v)
-        .map(ToOwned::to_owned)
-        .unwrap_or_default();
+    let mut summary =
+        tool_permission_summary(tool_name, &v).map(ToOwned::to_owned).unwrap_or_default();
     if summary.is_empty() {
         summary = tool_summary_text(&v).unwrap_or_default();
     }
@@ -192,15 +220,15 @@ pub fn tool_text_view<'a>(
         .on_enter(Message::Chat(message::ChatMessage::ToolHover(msg_idx, tool_idx)))
         .on_exit(Message::Chat(message::ChatMessage::ToolHoverLeave));
 
-    let context_text = selected_chat_text_for_target(app, context_key)
-        .unwrap_or_else(|| {
-            let trimmed = display_text.trim();
-            if trimmed.is_empty() { summary.clone() } else { trimmed.to_string() }
-        });
+    let context_text = selected_chat_text_for_target(app, context_key).unwrap_or_else(|| {
+        let trimmed = display_text.trim();
+        if trimmed.is_empty() { summary.clone() } else { trimmed.to_string() }
+    });
 
     let body: Element<'a, Message> = if expanded {
         let out = truncate_lines_middle(display_text, 100, 500);
         if is_error {
+            let copy_button = error_copy_button(app, display_text);
             let err_body = tool_text_editor(
                 app,
                 ToolTextTarget::ToolCardText { msg_idx, tool_idx, text_idx: 0 },
@@ -216,8 +244,11 @@ pub fn tool_text_view<'a>(
                 .width(Length::Fill)
                 .into()
             });
+            let err_content = row![container(err_body).width(Length::Fill), copy_button]
+                .spacing(8)
+                .align_y(Alignment::Start);
             RightClickArea::new(
-                container(err_body)
+                container(err_content)
                     .padding([10, 12])
                     .width(Length::Fill)
                     .style(|theme: &Theme| {
@@ -268,7 +299,10 @@ pub fn tool_text_view<'a>(
                     .into()
             });
             let scroll: Element<'a, Message> = scrollable(
-                container(code).width(Length::Fill).padding([10, 12]).style(simplified_code_block_style),
+                container(code)
+                    .width(Length::Fill)
+                    .padding([10, 12])
+                    .style(simplified_code_block_style),
             )
             .direction(chat_scroll_direction())
             .height(Length::Fixed(180.0))
@@ -292,6 +326,7 @@ pub fn tool_text_view<'a>(
             .into()
         }
     } else if is_error {
+        let copy_button = error_copy_button(app, display_text);
         let err_body = tool_text_editor(
             app,
             ToolTextTarget::ToolCardText { msg_idx, tool_idx, text_idx: 0 },
@@ -309,8 +344,11 @@ pub fn tool_text_view<'a>(
             .width(Length::Fill)
             .into()
         });
+        let err_content = row![container(err_body).width(Length::Fill), copy_button]
+            .spacing(8)
+            .align_y(Alignment::Start);
         RightClickArea::new(
-            container(err_body)
+            container(err_content)
                 .padding([10, 12])
                 .width(Length::Fill)
                 .style(|theme: &Theme| {

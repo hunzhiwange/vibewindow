@@ -39,15 +39,13 @@ impl App {
             Subscription::batch(subs)
         };
 
-        let events = iced::event::listen_with(|event, status, _id| match event {
+        let events = iced::event::listen_with(|event, status, id| match event {
             iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
                 Some(Message::View(message::ViewMessage::PointerMoved(position.x, position.y)))
             }
-            iced::Event::Window(iced::window::Event::FileHovered(path)) => {
-                Some(Message::View(message::ViewMessage::HoveredFilePath(
-                    path.to_string_lossy().to_string(),
-                )))
-            }
+            iced::Event::Window(iced::window::Event::FileHovered(path)) => Some(Message::View(
+                message::ViewMessage::HoveredFilePath(path.to_string_lossy().to_string()),
+            )),
             iced::Event::Window(iced::window::Event::FilesHoveredLeft) => {
                 Some(Message::View(message::ViewMessage::HoveredFilesLeft))
             }
@@ -57,14 +55,17 @@ impl App {
             iced::Event::Mouse(iced::mouse::Event::CursorLeft) => {
                 Some(Message::View(message::ViewMessage::GlobalCursorLeft))
             }
-            iced::Event::Window(iced::window::Event::Resized(size)) => {
-                Some(Message::View(message::ViewMessage::WindowResized(size.width, size.height)))
-            }
+            iced::Event::Window(iced::window::Event::Resized(size)) => Some(Message::View(
+                message::ViewMessage::WindowResized(id, size.width, size.height),
+            )),
             iced::Event::Window(iced::window::Event::Moved(pos)) => {
-                Some(Message::View(message::ViewMessage::WindowMoved(pos.x, pos.y)))
+                Some(Message::View(message::ViewMessage::WindowMoved(id, pos.x, pos.y)))
             }
             iced::Event::Window(iced::window::Event::CloseRequested) => {
-                Some(Message::View(message::ViewMessage::CloseRequested))
+                Some(Message::View(message::ViewMessage::CloseRequested(id)))
+            }
+            iced::Event::Window(iced::window::Event::Closed) => {
+                Some(Message::View(message::ViewMessage::WindowClosed(id)))
             }
             iced::Event::Window(iced::window::Event::Unfocused) => {
                 Some(Message::Preview(message::PreviewMessage::WindowUnfocused))
@@ -105,10 +106,7 @@ impl App {
                 if status == iced::event::Status::Captured {
                     return None;
                 }
-                Some(Message::View(message::ViewMessage::GlobalKeyPressed(
-                    key,
-                    modifiers,
-                )))
+                Some(Message::View(message::ViewMessage::GlobalKeyPressed(key, modifiers)))
             }
             _ => None,
         });
@@ -167,6 +165,7 @@ impl App {
 
         let activity_animation_tick = if self.any_session_requesting()
             || self.has_active_explore_summary_animation()
+            || self.task_pet_window_id.is_some()
         {
             iced::time::every(std::time::Duration::from_millis(90))
                 .map(|_| Message::View(message::ViewMessage::ActivityAnimationTick))

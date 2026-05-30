@@ -104,10 +104,11 @@ impl SessionLlmProvider {
             },
             |event| {
                 match event {
-                    vw_gateway_client::GatewayChatStreamEvent::Delta(delta) => output.push_str(&delta),
+                    vw_gateway_client::GatewayChatStreamEvent::Delta(delta) => {
+                        output.push_str(&delta)
+                    }
                     vw_gateway_client::GatewayChatStreamEvent::Done {
-                        usage: done_usage,
-                        ..
+                        usage: done_usage, ..
                     } => {
                         // Done 事件是用量统计的唯一可靠来源，收到后即可停止阻塞流消费。
                         usage = Self::parse_usage(done_usage.as_ref());
@@ -180,7 +181,9 @@ impl Provider for SessionLlmProvider {
                     }
                 };
                 let mut modified_messages = request.messages.to_vec();
-                if let Some(system_message) = modified_messages.iter_mut().find(|m| m.role == "system") {
+                if let Some(system_message) =
+                    modified_messages.iter_mut().find(|m| m.role == "system")
+                {
                     if !system_message.content.is_empty() {
                         system_message.content.push_str("\n\n");
                     }
@@ -237,7 +240,8 @@ impl Provider for SessionLlmProvider {
     ) -> anyhow::Result<String> {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let (text, _) = Self::stream_gateway_chat_blocking(Self::build_history_messages(messages), model)?;
+            let (text, _) =
+                Self::stream_gateway_chat_blocking(Self::build_history_messages(messages), model)?;
             return Ok(text);
         }
 

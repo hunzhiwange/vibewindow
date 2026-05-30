@@ -121,9 +121,9 @@ struct NotebookCell {
 
 impl NotebookCell {
     fn resolved_id(&self) -> Option<String> {
-        self.id.clone().or_else(|| {
-            self.metadata.get("id").and_then(Value::as_str).map(ToOwned::to_owned)
-        })
+        self.id
+            .clone()
+            .or_else(|| self.metadata.get("id").and_then(Value::as_str).map(ToOwned::to_owned))
     }
 }
 
@@ -181,9 +181,7 @@ impl NotebookEditResponse {
         let content_blocks = if self.patch_hunks.is_empty() {
             Vec::new()
         } else {
-            vec![ToolResultContentDto::StructuredPatch {
-                hunks: self.patch_hunks,
-            }]
+            vec![ToolResultContentDto::StructuredPatch { hunks: self.patch_hunks }]
         };
 
         ToolCallResult {
@@ -191,10 +189,7 @@ impl NotebookEditResponse {
             model_result: Value::String(self.model_text),
             content_blocks,
             render_hint: Some(self.render_hint),
-            telemetry: Some(ToolCallTelemetry {
-                success: true,
-                ..ToolCallTelemetry::default()
-            }),
+            telemetry: Some(ToolCallTelemetry { success: true, ..ToolCallTelemetry::default() }),
             ..ToolCallResult::default()
         }
     }
@@ -260,7 +255,9 @@ impl NotebookEditTool {
     }
 
     fn is_notebook_path(path: &Path) -> bool {
-        path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("ipynb"))
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("ipynb"))
     }
 
     fn normalize_document(document: &mut NotebookDocument) -> anyhow::Result<()> {
@@ -309,7 +306,10 @@ impl NotebookEditTool {
         format!("cell-{nanos:x}")
     }
 
-    fn prepare_cell(mut cell: NotebookCell, forced_id: Option<String>) -> anyhow::Result<NotebookCell> {
+    fn prepare_cell(
+        mut cell: NotebookCell,
+        forced_id: Option<String>,
+    ) -> anyhow::Result<NotebookCell> {
         if cell.cell_type.trim().is_empty() {
             anyhow::bail!("cell.cell_type must not be empty");
         }
@@ -327,9 +327,8 @@ impl NotebookEditTool {
             _ => anyhow::bail!("cell.source must be a string or an array of strings"),
         }
 
-        let resolved_id = forced_id
-            .or_else(|| cell.resolved_id())
-            .unwrap_or_else(Self::generate_cell_id);
+        let resolved_id =
+            forced_id.or_else(|| cell.resolved_id()).unwrap_or_else(Self::generate_cell_id);
         cell.id = Some(resolved_id.clone());
         if let Some(metadata) = cell.metadata.as_object_mut() {
             metadata.insert("id".to_string(), Value::String(resolved_id));
@@ -371,7 +370,9 @@ impl NotebookEditTool {
                 anyhow::bail!("cell_id and cell_number refer to different notebook cells")
             }
             (Some(index), _) | (_, Some(index)) => Ok(index),
-            (None, None) => anyhow::bail!("NotebookEdit requires cell_id or cell_number for this operation"),
+            (None, None) => {
+                anyhow::bail!("NotebookEdit requires cell_id or cell_number for this operation")
+            }
         }
     }
 
@@ -443,7 +444,8 @@ impl NotebookEditTool {
         let current_text = tokio::fs::read_to_string(&resolved)
             .await
             .map_err(|error| anyhow!("Failed to read notebook file: {error}"))?;
-        let read_state = require_read_state_for_existing_file(&resolved, &display, "notebook_edit")?;
+        let read_state =
+            require_read_state_for_existing_file(&resolved, &display, "notebook_edit")?;
         ensure_read_state_is_fresh(&read_state, &current_text, &display, "notebook_edit")?;
         let read_state_metadata =
             read_state_metadata_for_path(&self.security.workspace_dir, &resolved, "notebook_edit");
@@ -478,15 +480,11 @@ impl NotebookEditTool {
                     cell: descriptor.clone(),
                     position: position.as_str().to_string(),
                     total_cells: document.cells.len(),
-                    structured_patch: StructuredPatch {
-                        hunks: patch_summary.hunks.clone(),
-                    },
+                    structured_patch: StructuredPatch { hunks: patch_summary.hunks.clone() },
                     read_state: read_state_metadata.clone(),
                 };
-                let model_text = format!(
-                    "Inserted cell {} into {}.",
-                    descriptor.cell_number, notebook.path
-                );
+                let model_text =
+                    format!("Inserted cell {} into {}.", descriptor.cell_number, notebook.path);
                 (payload, model_text, (updated_text, patch_summary.hunks, true))
             }
             NotebookEditOperation::Edit => {
@@ -515,9 +513,7 @@ impl NotebookEditTool {
                     cell: descriptor.clone(),
                     changed,
                     total_cells: document.cells.len(),
-                    structured_patch: StructuredPatch {
-                        hunks: patch_summary.hunks.clone(),
-                    },
+                    structured_patch: StructuredPatch { hunks: patch_summary.hunks.clone() },
                     read_state: read_state_metadata.clone(),
                 };
                 let model_text = if changed {
@@ -549,12 +545,11 @@ impl NotebookEditTool {
                     notebook: notebook.clone(),
                     cell: descriptor.clone(),
                     total_cells: document.cells.len(),
-                    structured_patch: StructuredPatch {
-                        hunks: patch_summary.hunks.clone(),
-                    },
+                    structured_patch: StructuredPatch { hunks: patch_summary.hunks.clone() },
                     read_state: read_state_metadata.clone(),
                 };
-                let model_text = format!("Deleted cell {} from {}.", descriptor.cell_number, notebook.path);
+                let model_text =
+                    format!("Deleted cell {} from {}.", descriptor.cell_number, notebook.path);
                 (payload, model_text, (updated_text, patch_summary.hunks, true))
             }
         };
@@ -581,21 +576,11 @@ impl NotebookEditTool {
         );
 
         let (operation, cell_number, cell_id, total_cells) = match &payload {
-            NotebookEditPayload::Insert {
-                cell,
-                total_cells,
-                ..
+            NotebookEditPayload::Insert { cell, total_cells, .. }
+            | NotebookEditPayload::Edit { cell, total_cells, .. }
+            | NotebookEditPayload::Delete { cell, total_cells, .. } => {
+                (args.edit_type.as_str(), cell.cell_number, cell.cell_id.clone(), *total_cells)
             }
-            | NotebookEditPayload::Edit {
-                cell,
-                total_cells,
-                ..
-            }
-            | NotebookEditPayload::Delete {
-                cell,
-                total_cells,
-                ..
-            } => (args.edit_type.as_str(), cell.cell_number, cell.cell_id.clone(), *total_cells),
         };
 
         Ok(NotebookEditResponse {
@@ -686,11 +671,9 @@ impl Tool for NotebookEditTool {
             .map_err(|error| anyhow!("Missing or invalid parameters: {error}"))?;
 
         match self.execute_internal(args).await {
-            Ok(response) => Ok(ToolResult {
-                success: true,
-                output: response.model_text,
-                error: None,
-            }),
+            Ok(response) => {
+                Ok(ToolResult { success: true, output: response.model_text, error: None })
+            }
             Err(error) => Ok(Self::failure(error.to_string())),
         }
     }

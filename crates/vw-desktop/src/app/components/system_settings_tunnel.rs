@@ -77,10 +77,7 @@ fn bool_row<'a>(
     field_row(
         label,
         description,
-        checkbox(checked)
-            .label(checkbox_label)
-            .on_toggle(on_toggle)
-            .style(settings_checkbox_style),
+        checkbox(checked).label(checkbox_label).on_toggle(on_toggle).style(settings_checkbox_style),
     )
 }
 
@@ -124,11 +121,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .menu_style(settings_pick_list_menu_style)
     .width(Length::Fixed(300.0));
 
-    let provider_row = field_row(
-        "提供者",
-        "选择自动暴露网关到公网或私有网络的方式。",
-        provider_pick,
-    );
+    let provider_row =
+        field_row("提供者", "选择自动暴露网关到公网或私有网络的方式。", provider_pick);
 
     let provider_section: Element<'_, Message> = match s.provider.as_str() {
         "cloudflare" => column![

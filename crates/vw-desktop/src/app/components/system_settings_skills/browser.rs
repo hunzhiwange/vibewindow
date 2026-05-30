@@ -10,14 +10,14 @@ use crate::app::assets::Icon;
 use crate::app::components::system_settings_common::{
     danger_action_btn_style, icon_svg, primary_action_btn_style, rounded_action_btn_style,
     settings_close_button, settings_error_banner, settings_modal_card, settings_modal_overlay,
-    settings_panel_style, settings_segment_button_style, settings_text_input_style,
-    settings_value_badge,
+    settings_panel_style, settings_segment_button_style, settings_value_badge,
 };
 use crate::app::state::{SkillsCatalogKind as CatalogSkillKind, SkillsDirectoryScope};
 use crate::app::{App, Message, message};
 use iced::widget::scrollable::{Direction, Scrollbar};
 use iced::widget::{Space, button, column, container, row, scrollable, text, text_input};
 use iced::{Alignment, Background, Border, Element, Length};
+use vw_config_types::skills::SkillsDirectoryProvider;
 
 #[derive(Clone, Copy)]
 enum DetailActionStyle {
@@ -32,6 +32,23 @@ fn search_bar_style(theme: &iced::Theme) -> iced::widget::container::Style {
     style.border.radius = 12.0.into();
     style.shadow = iced::Shadow::default();
     style
+}
+
+fn search_text_input_style(
+    theme: &iced::Theme,
+    status: iced::widget::text_input::Status,
+) -> iced::widget::text_input::Style {
+    let palette = theme.palette();
+    let disabled = matches!(status, iced::widget::text_input::Status::Disabled);
+
+    iced::widget::text_input::Style {
+        background: Background::Color(iced::Color::TRANSPARENT),
+        border: Border { width: 0.0, color: iced::Color::TRANSPARENT, radius: 0.0.into() },
+        icon: palette.text.scale_alpha(0.65),
+        placeholder: palette.text.scale_alpha(0.48),
+        value: if disabled { palette.text.scale_alpha(0.50) } else { palette.text },
+        selection: palette.primary.scale_alpha(0.22),
+    }
 }
 
 fn header_panel_style(theme: &iced::Theme) -> iced::widget::container::Style {
@@ -98,14 +115,195 @@ fn scope_button(
         .into()
 }
 
-fn discovery_order_text(app: &App) -> String {
+fn refresh_button(loading: bool) -> Element<'static, Message> {
+    detail_action_button(
+        if loading { "刷新中" } else { "刷新" },
+        Icon::ArrowRepeat,
+        DetailActionStyle::Secondary,
+        (!loading).then_some(Message::Settings(message::SettingsMessage::SkillsRefresh)),
+    )
+}
+
+fn scope_source_matches(scope: SkillsDirectoryScope, source: &str) -> bool {
+    match scope {
+        SkillsDirectoryScope::Project => source == "workspace",
+        SkillsDirectoryScope::Ancestor => source == "ancestor",
+        SkillsDirectoryScope::Global => source == "global",
+        SkillsDirectoryScope::Bundled => source == "bundled",
+        SkillsDirectoryScope::All => true,
+    }
+}
+
+fn scope_title(scope: SkillsDirectoryScope) -> &'static str {
+    match scope {
+        SkillsDirectoryScope::Project => "项目目录技能",
+        SkillsDirectoryScope::Ancestor => "父级目录技能",
+        SkillsDirectoryScope::Global => "全局目录技能",
+        SkillsDirectoryScope::Bundled => "内置技能",
+        SkillsDirectoryScope::All => "全部技能目录",
+    }
+}
+
+fn provider_project_paths(provider: SkillsDirectoryProvider) -> &'static str {
+    match provider {
+        SkillsDirectoryProvider::Vibewindow => ".vibewindow/skills 与 skills",
+        SkillsDirectoryProvider::Codex => ".codex/skills 与 .agents/skills",
+        SkillsDirectoryProvider::Claude => ".claude/skills",
+        SkillsDirectoryProvider::Cursor => ".cursor/skills",
+    }
+}
+
+fn provider_global_paths(provider: SkillsDirectoryProvider) -> &'static str {
+    match provider {
+        SkillsDirectoryProvider::Vibewindow => "~/.vibewindow/skills 与 ~/.skills",
+        SkillsDirectoryProvider::Codex => "~/.codex/skills 与 ~/.agents/skills",
+        SkillsDirectoryProvider::Claude => "~/.claude/skills",
+        SkillsDirectoryProvider::Cursor => "~/.cursor/skills",
+    }
+}
+
+fn scope_description(scope: SkillsDirectoryScope, provider: SkillsDirectoryProvider) -> String {
+    match scope {
+        SkillsDirectoryScope::Project => {
+            format!("查看当前项目 {} 目录命中的技能。", provider_project_paths(provider))
+        }
+        SkillsDirectoryScope::Ancestor => {
+            format!("查看从项目父级向上发现的 {} 技能。", provider_project_paths(provider))
+        }
+        SkillsDirectoryScope::Global => {
+            format!("查看当前用户 {} 中的全局技能。", provider_global_paths(provider))
+        }
+        SkillsDirectoryScope::Bundled => "查看产品随包提供、可安装到项目的内置技能。".to_string(),
+        SkillsDirectoryScope::All => {
+            "结果包含当前项目、父级目录、全局目录以及内置技能，便于核对最终命中来源。".to_string()
+        }
+    }
+}
+
+fn active_scope_badge(scope: SkillsDirectoryScope) -> &'static str {
+    match scope {
+        SkillsDirectoryScope::Project => "当前筛选: 项目目录",
+        SkillsDirectoryScope::Ancestor => "当前筛选: 父级目录",
+        SkillsDirectoryScope::Global => "当前筛选: 全局目录",
+        SkillsDirectoryScope::Bundled => "当前筛选: 内置技能",
+        SkillsDirectoryScope::All => "当前筛选: 全部目录",
+    }
+}
+
+pub(super) fn discovery_order_text(app: &App) -> String {
     if let Some(project_path) = &app.project_path {
         return format!(
-            "{project_path}/.vibewindow/skills -> {project_path}/skills -> 父级 .vibewindow/skills -> ~/.vibewindow/skills"
+            "{project_path}/{} -> 父级 {} -> {}",
+            provider_project_paths(app.skills_settings.directory_provider),
+            provider_project_paths(app.skills_settings.directory_provider),
+            provider_global_paths(app.skills_settings.directory_provider)
         );
     }
 
-    "未打开项目时，仅显示 ~/.vibewindow/skills 与内置技能。".to_string()
+    format!(
+        "未打开项目时，仅显示 {} 与内置技能。",
+        provider_global_paths(app.skills_settings.directory_provider)
+    )
+}
+
+pub(super) fn discovery_order_view<'a>(app: &'a App) -> Element<'a, Message> {
+    let project_open = app.project_path.is_some();
+    let provider = app.skills_settings.directory_provider;
+    let order = if project_open {
+        vec![
+            (
+                "1",
+                format!("当前项目 {}", provider_project_paths(provider)),
+                "项目私有技能，优先级最高。".to_string(),
+            ),
+            (
+                "2",
+                format!("父级 {}", provider_project_paths(provider)),
+                "从项目父级向上发现，越近优先级越高。".to_string(),
+            ),
+            (
+                "3",
+                provider_global_paths(provider).to_string(),
+                "当前用户全局技能目录。".to_string(),
+            ),
+            ("4", "内置技能".to_string(), "产品随包提供，可安装到项目后覆盖。".to_string()),
+        ]
+    } else {
+        vec![
+            (
+                "1",
+                provider_global_paths(provider).to_string(),
+                "未打开项目时使用当前用户全局技能目录。".to_string(),
+            ),
+            ("2", "内置技能".to_string(), "产品随包提供，可安装到项目后覆盖。".to_string()),
+        ]
+    };
+
+    let rows = order.into_iter().fold(column![].spacing(10), |column, (index, title, desc)| {
+        column.push(
+            container(
+                row![
+                    settings_value_badge(index),
+                    column![
+                        text(title).size(14),
+                        text(desc).size(12).style(|theme: &iced::Theme| {
+                            iced::widget::text::Style {
+                                color: Some(theme.palette().text.scale_alpha(0.64)),
+                            }
+                        }),
+                    ]
+                    .spacing(3)
+                    .width(Length::Fill),
+                ]
+                .spacing(12)
+                .align_y(Alignment::Center),
+            )
+            .padding([12, 14])
+            .width(Length::Fill)
+            .style(section_card_style),
+        )
+    });
+
+    column![
+        container(
+            column![
+                row![
+                    column![
+                        text("发现顺序").size(22),
+                        text("同名技能只展示最先命中的目录，保持项目优先，避免列表重复。")
+                            .size(13)
+                            .style(|theme: &iced::Theme| iced::widget::text::Style {
+                                color: Some(theme.palette().text.scale_alpha(0.68)),
+                            }),
+                    ]
+                    .spacing(6)
+                    .width(Length::Fill),
+                    settings_value_badge(if project_open {
+                        "项目已打开"
+                    } else {
+                        "未打开项目"
+                    }),
+                ]
+                .spacing(12)
+                .align_y(Alignment::Center),
+                text(discovery_order_text(app))
+                    .size(12)
+                    .width(Length::Fill)
+                    .wrapping(iced::widget::text::Wrapping::Word)
+                    .style(|theme: &iced::Theme| iced::widget::text::Style {
+                        color: Some(theme.palette().text.scale_alpha(0.68)),
+                    }),
+            ]
+            .spacing(12),
+        )
+        .padding([18, 20])
+        .width(Length::Fill)
+        .style(header_panel_style),
+        container(rows).padding([18, 20]).width(Length::Fill).style(catalog_panel_style),
+    ]
+    .spacing(16)
+    .width(Length::Fill)
+    .into()
 }
 
 fn loading_banner<'a>() -> Element<'a, Message> {
@@ -430,40 +628,31 @@ pub(super) fn view<'a>(app: &'a App) -> Element<'a, Message> {
         .catalog
         .iter()
         .filter(|skill| catalog_matches_query(skill, s.query.trim()))
-        .filter(|skill| match s.directory_scope {
-            SkillsDirectoryScope::Project => skill.source == "workspace",
-            SkillsDirectoryScope::All => true,
-        })
+        .filter(|skill| scope_source_matches(s.directory_scope, &skill.source))
         .cloned()
         .collect::<Vec<_>>();
 
     let search_input = text_input("搜索技能", &s.query)
         .on_input(|value| Message::Settings(message::SettingsMessage::SkillsQueryChanged(value)))
-        .padding([10, 12])
+        .padding([8, 0])
         .size(13)
-        .style(settings_text_input_style)
+        .style(search_text_input_style)
         .width(Length::Fill);
 
     let header = container(
         column![
             row![
                 column![
-                    text("技能").size(28),
-                    text(match s.directory_scope {
-                        SkillsDirectoryScope::Project => {
-                            "按当前项目目录查看技能，适合只关心当前工程的本地技能。"
-                        }
-                        SkillsDirectoryScope::All => {
-                            "查看项目、父级、全局目录和内置技能的完整发现结果。"
-                        }
-                    })
-                    .size(13)
-                    .style(|theme: &iced::Theme| iced::widget::text::Style {
-                        color: Some(theme.palette().text.scale_alpha(0.68)),
-                    }),
+                    text("技能").size(22),
+                    text(scope_description(s.directory_scope, s.directory_provider))
+                        .size(13)
+                        .style(|theme: &iced::Theme| iced::widget::text::Style {
+                            color: Some(theme.palette().text.scale_alpha(0.68)),
+                        }),
                 ]
                 .spacing(6)
                 .width(Length::Fill),
+                refresh_button(s.loading),
                 skill_badge(format!("{} 项技能", skills.len()), true),
             ]
             .spacing(12)
@@ -483,35 +672,17 @@ pub(super) fn view<'a>(app: &'a App) -> Element<'a, Message> {
                     s.directory_scope,
                     project_open,
                 ),
-                scope_button("全部目录", SkillsDirectoryScope::All, s.directory_scope, true,),
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center),
-            container(
-                column![
-                    text("发现顺序").size(11).style(|theme: &iced::Theme| {
-                        iced::widget::text::Style {
-                            color: Some(theme.palette().text.scale_alpha(0.52)),
-                        }
-                    }),
-                    text(discovery_order_text(app))
-                        .size(12)
-                        .width(Length::Fill)
-                        .wrapping(iced::widget::text::Wrapping::Word)
-                        .style(|theme: &iced::Theme| iced::widget::text::Style {
-                            color: Some(theme.palette().text.scale_alpha(0.7)),
-                        }),
-                ]
-                .spacing(6),
-            )
-            .padding([14, 16])
-            .width(Length::Fill)
-            .style(section_card_style),
-            row![
-                settings_value_badge(match s.directory_scope {
-                    SkillsDirectoryScope::Project => "当前筛选: 项目目录",
-                    SkillsDirectoryScope::All => "当前筛选: 全部目录",
-                }),
+                scope_button(
+                    "父级目录",
+                    SkillsDirectoryScope::Ancestor,
+                    s.directory_scope,
+                    project_open,
+                ),
+                scope_button("全局目录", SkillsDirectoryScope::Global, s.directory_scope, true),
+                scope_button("内置技能", SkillsDirectoryScope::Bundled, s.directory_scope, true),
+                scope_button("全部目录", SkillsDirectoryScope::All, s.directory_scope, true),
+                Space::new().width(Length::Fill),
+                settings_value_badge(active_scope_badge(s.directory_scope)),
                 settings_value_badge(if project_open {
                     "项目已打开"
                 } else {
@@ -522,9 +693,9 @@ pub(super) fn view<'a>(app: &'a App) -> Element<'a, Message> {
             .spacing(8)
             .align_y(Alignment::Center),
         ]
-        .spacing(14),
+        .spacing(12),
     )
-    .padding([20, 22])
+    .padding([18, 20])
     .width(Length::Fill)
     .style(header_panel_style);
 
@@ -537,23 +708,14 @@ pub(super) fn view<'a>(app: &'a App) -> Element<'a, Message> {
     let mut catalog_panel = column![
         row![
             column![
-                text(match s.directory_scope {
-                    SkillsDirectoryScope::Project => "项目目录技能",
-                    SkillsDirectoryScope::All => "全部技能目录",
-                })
-                .size(18),
-                text(match s.directory_scope {
-                    SkillsDirectoryScope::Project => {
-                        "这里只显示当前项目目录命中的技能；切到全部目录可查看父级、全局和内置技能。"
+                text(scope_title(s.directory_scope)).size(18),
+                text(scope_description(s.directory_scope, s.directory_provider)).size(12).style(
+                    |theme: &iced::Theme| {
+                        iced::widget::text::Style {
+                            color: Some(theme.palette().text.scale_alpha(0.64)),
+                        }
                     }
-                    SkillsDirectoryScope::All => {
-                        "结果包含当前项目、父级目录、全局目录以及内置技能，便于核对最终命中来源。"
-                    }
-                })
-                .size(12)
-                .style(|theme: &iced::Theme| iced::widget::text::Style {
-                    color: Some(theme.palette().text.scale_alpha(0.64)),
-                }),
+                ),
             ]
             .spacing(4)
             .width(Length::Fill),
@@ -616,6 +778,18 @@ pub(super) fn view<'a>(app: &'a App) -> Element<'a, Message> {
                 "项目目录下没有技能",
                 "当前项目目录没有命中技能，可以切换到全部目录查看父级、全局和内置技能。",
             ),
+            (SkillsDirectoryScope::Ancestor, false) => {
+                ("未打开项目目录", "打开项目后可查看父级技能目录。")
+            }
+            (SkillsDirectoryScope::Ancestor, true) => {
+                ("父级目录下没有技能", "项目父级目录没有命中技能，可以切换到全局目录或内置技能。")
+            }
+            (SkillsDirectoryScope::Global, _) => {
+                ("全局目录下没有技能", "当前目录提供方的全局技能目录没有命中技能。")
+            }
+            (SkillsDirectoryScope::Bundled, _) => {
+                ("没有内置技能", "内置技能目录为空，或当前搜索关键字没有匹配结果。")
+            }
             (SkillsDirectoryScope::All, _) => {
                 ("没有匹配的技能", "试试清空搜索关键字，或稍后刷新技能目录。")
             }

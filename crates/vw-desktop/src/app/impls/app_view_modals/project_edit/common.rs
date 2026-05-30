@@ -38,16 +38,9 @@ pub(super) fn icon_image_handle(icon: &str) -> Option<iced::widget::image::Handl
         return None;
     }
 
-    let path = raw
-        .strip_prefix("file:///")
-        .or_else(|| raw.strip_prefix("file://"))
-        .unwrap_or(raw);
+    let path = raw.strip_prefix("file:///").or_else(|| raw.strip_prefix("file://")).unwrap_or(raw);
     let path = std::path::Path::new(path);
-    if path.exists() {
-        Some(iced::widget::image::Handle::from_path(path))
-    } else {
-        None
-    }
+    if path.exists() { Some(iced::widget::image::Handle::from_path(path)) } else { None }
 }
 
 /// 模块内可见函数，执行 tab_button 对应的应用流程。
@@ -89,11 +82,7 @@ pub(super) fn tab_button(
             };
             iced::widget::button::Style {
                 background,
-                text_color: if selected {
-                    theme.palette().primary
-                } else {
-                    theme.palette().text
-                },
+                text_color: if selected { theme.palette().primary } else { theme.palette().text },
                 border: iced::Border {
                     radius: 999.0.into(),
                     width: 1.0,
@@ -105,7 +94,11 @@ pub(super) fn tab_button(
                 },
                 shadow: if selected {
                     iced::Shadow {
-                        color: theme.palette().primary.scale_alpha(if is_dark { 0.18 } else { 0.08 }),
+                        color: theme.palette().primary.scale_alpha(if is_dark {
+                            0.18
+                        } else {
+                            0.08
+                        }),
                         offset: iced::Vector::new(0.0, 8.0),
                         blur_radius: 18.0,
                     }

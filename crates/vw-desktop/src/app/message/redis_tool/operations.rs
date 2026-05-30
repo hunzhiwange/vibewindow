@@ -1,16 +1,18 @@
 //! 处理 Redis 工具的保存、删除、测试、导入导出、创建键和命令执行操作。
 
-use super::{App, Message, RedisToolMessage, Task};
 use super::draft::{build_draft_uri, draft_to_upsert_body};
-use super::helpers::{clear_notification_task, current_default_load_count, current_history_query, notify_success};
+use super::helpers::{
+    clear_notification_task, current_default_load_count, current_history_query, notify_success,
+};
+use super::{App, Message, RedisToolMessage, Task};
+#[cfg(not(target_arch = "wasm32"))]
+use super::{GatewayRedisConfigBundle, redis_export_async, redis_import_async};
 use super::{
     RedisToolGatewaySnapshot, load_redis_tool_snapshot_async, redis_command_execute_async,
     redis_connection_create_async, redis_connection_delete_async,
-    redis_connection_key_create_async, redis_connection_test_async,
-    redis_connection_update_async, redis_settings_update_async,
+    redis_connection_key_create_async, redis_connection_test_async, redis_connection_update_async,
+    redis_settings_update_async,
 };
-#[cfg(not(target_arch = "wasm32"))]
-use super::{GatewayRedisConfigBundle, redis_export_async, redis_import_async};
 
 /// 处理 `save_draft` 对应的用户输入、异步结果或状态转换。
 ///
@@ -39,27 +41,45 @@ pub(super) fn save_draft(app: &mut App) -> Task<Message> {
     let query = current_history_query(app, Some(0));
     Task::perform(
         async move {
-            if let Some(connection_id) = selected_id {
-                redis_connection_update_async(&connection_id, &body)
-                    .await
-                    .map(|_| ())?;
+            let saved_connection_id = if let Some(connection_id) = selected_id {
+                redis_connection_update_async(&connection_id, &body).await?.id
             } else {
-                redis_connection_create_async(&body).await.map(|_| ())?;
-            }
-            load_redis_tool_snapshot_async(query).await
+                redis_connection_create_async(&body).await?.id
+            };
+            let mut snapshot = load_redis_tool_snapshot_async(query).await?;
+            snapshot.persisted_state.selected_connection_id = Some(saved_connection_id);
+            Ok(snapshot)
         },
-        |result| {
-            Message::RedisTool(RedisToolMessage::SnapshotLoaded {
-                success_message: Some("连接配置已保存".to_string()),
-                result,
-            })
-        },
+        |result| Message::RedisTool(RedisToolMessage::SaveDraftCompleted(result)),
     )
 }
 
 #[cfg(test)]
 #[path = "operations_tests.rs"]
 mod operations_tests;
+
+/// 处理 `save_draft_completed` 对应的用户输入、异步结果或状态转换。
+///
+/// 参数来自已匹配的消息载荷或当前设置状态，函数只在当前消息边界内产生状态变更。
+pub(super) fn save_draft_completed(
+    app: &mut App,
+    result: Result<RedisToolGatewaySnapshot, String>,
+) -> Task<Message> {
+    match result {
+        Ok(snapshot) => {
+            app.redis_tool.finish_gateway_request();
+            app.redis_tool.apply_gateway_snapshot(snapshot);
+            app.redis_tool.close_connection_modal();
+            app.redis_tool.connection_search_query.clear();
+            notify_success(app, "连接配置已保存");
+            Task::batch(vec![clear_notification_task()])
+        }
+        Err(error) => {
+            app.redis_tool.fail_gateway_request(error);
+            Task::none()
+        }
+    }
+}
 
 /// 处理 `delete_selected` 对应的用户输入、异步结果或状态转换。
 ///
@@ -185,9 +205,7 @@ pub(super) fn export_configs(app: &mut App) -> Task<Message> {
                 let bundle = redis_export_async().await?;
                 let content =
                     serde_json::to_string_pretty(&bundle).map_err(|error| error.to_string())?;
-                file.write(content.as_bytes())
-                    .await
-                    .map_err(|error| error.to_string())?;
+                file.write(content.as_bytes()).await.map_err(|error| error.to_string())?;
                 let snapshot = load_redis_tool_snapshot_async(query).await?;
                 Ok(Some(snapshot))
             }
@@ -242,10 +260,8 @@ pub(super) fn import_configs(app: &mut App) -> Task<Message> {
         async move {
             #[cfg(not(target_arch = "wasm32"))]
             {
-                let file = rfd::AsyncFileDialog::new()
-                    .add_filter("JSON", &["json"])
-                    .pick_file()
-                    .await;
+                let file =
+                    rfd::AsyncFileDialog::new().add_filter("JSON", &["json"]).pick_file().await;
 
                 let Some(file) = file else {
                     return Ok(None);
@@ -315,8 +331,7 @@ pub(super) fn save_default_load_count(app: &mut App) -> Task<Message> {
     let parsed = match app.redis_tool.default_load_count_input.trim().parse::<u32>() {
         Ok(value) => value.clamp(1, 10_000),
         Err(_) => {
-            app.redis_tool
-                .fail_gateway_request("默认加载数量必须是 1-10000 的整数".to_string());
+            app.redis_tool.fail_gateway_request("默认加载数量必须是 1-10000 的整数".to_string());
             return Task::none();
         }
     };

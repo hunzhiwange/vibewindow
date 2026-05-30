@@ -49,8 +49,8 @@ pub fn main_area(
         .style(content_panel_style)
         .padding(diff_panel_padding)
         .clip(true)
-    .width(Length::Fill)
-    .height(Length::Fill);
+        .width(Length::Fill)
+        .height(Length::Fill);
 
     if app.chat_panel_fullscreen {
         return chat_panel.into();
@@ -63,13 +63,13 @@ pub fn main_area(
             let file_manager_divider = mouse_area(HResizeHandle)
                 .on_press(Message::View(message::ViewMessage::FileManagerDragStarted));
             let file_manager_panel = container(file_tree::view_file_manager(app))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .style(content_panel_style)
-            .padding(content_pad)
-            .clip(true)
-            .width(Length::Fixed(app.file_manager_width))
-            .height(Length::Fill);
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(content_panel_style)
+                .padding(content_pad)
+                .clip(true)
+                .width(Length::Fixed(app.file_manager_width))
+                .height(Length::Fill);
             r = r.push(file_manager_divider).push(file_manager_panel);
         }
 
@@ -87,13 +87,13 @@ pub fn main_area(
             let file_manager_divider = mouse_area(HResizeHandle)
                 .on_press(Message::View(message::ViewMessage::FileManagerDragStarted));
             let file_manager_panel = container(file_tree::view_file_manager(app))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .style(content_panel_style)
-            .padding(content_pad)
-            .clip(true)
-            .width(Length::Fixed(app.file_manager_width))
-            .height(Length::Fill);
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(content_panel_style)
+                .padding(content_pad)
+                .clip(true)
+                .width(Length::Fixed(app.file_manager_width))
+                .height(Length::Fill);
             r = r.push(file_manager_divider).push(file_manager_panel);
         }
 
@@ -116,13 +116,13 @@ pub fn main_area(
         let file_manager_divider = mouse_area(HResizeHandle)
             .on_press(Message::View(message::ViewMessage::FileManagerDragStarted));
         let file_manager_panel = container(file_tree::view_file_manager(app))
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .style(content_panel_style)
-        .padding(content_pad)
-        .clip(true)
-        .width(Length::Fixed(app.file_manager_width))
-        .height(Length::Fill);
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(content_panel_style)
+            .padding(content_pad)
+            .clip(true)
+            .width(Length::Fixed(app.file_manager_width))
+            .height(Length::Fill);
         r = r.push(file_manager_divider).push(file_manager_panel);
     }
 

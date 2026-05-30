@@ -107,14 +107,11 @@ fn rebuild_active_session_message_meta_keeps_tool_outside_step_indexing() {
         },
         ChatMessage {
             role: ChatRole::Tool,
-            content: "tool grep\n{\"status\":\"completed\",\"output\":\"2 matches\"}\n"
-                .to_string(),
+            content: "tool grep\n{\"status\":\"completed\",\"output\":\"2 matches\"}\n".to_string(),
             think_timing: Vec::new(),
         },
         ChatMessage {
-            role: ChatRole::User,
-            content: "继续".to_string(),
-            think_timing: Vec::new(),
+            role: ChatRole::User, content: "继续".to_string(), think_timing: Vec::new()
         },
     ];
 
@@ -144,11 +141,15 @@ fn rebuild_active_session_message_meta_keeps_tool_outside_step_indexing() {
     app.rebuild_active_session_message_meta();
 
     assert_eq!(app.active_session_view_state.message_meta_texts.len(), 3);
-    assert!(app.active_session_view_state.message_meta_texts[0]
-        .as_deref()
-        .is_some_and(|text| text.contains("model-a")));
+    assert!(
+        app.active_session_view_state.message_meta_texts[0]
+            .as_deref()
+            .is_some_and(|text| text.contains("model-a"))
+    );
     assert_eq!(app.active_session_view_state.message_meta_texts[1], None);
-    assert!(app.active_session_view_state.message_meta_texts[2]
-        .as_deref()
-        .is_some_and(|text| text.contains("model-b")));
+    assert!(
+        app.active_session_view_state.message_meta_texts[2]
+            .as_deref()
+            .is_some_and(|text| text.contains("model-b"))
+    );
 }

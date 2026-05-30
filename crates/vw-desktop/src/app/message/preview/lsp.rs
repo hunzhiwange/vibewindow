@@ -131,7 +131,8 @@ pub(crate) fn sync_lsp_for_path(app: &mut App, path: &str) -> bool {
         } else {
             false
         }
-    }; if res {
+    };
+    if res {
         return true;
     }
 
@@ -844,4 +845,3 @@ pub(crate) fn completion_scroll_task(selected: usize) -> Task<Message> {
         scrollable::AbsoluteOffset { x: 0.0, y: scroll_y },
     )
 }
-

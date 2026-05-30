@@ -25,8 +25,11 @@ impl SqliteMemory {
         query: &str,
         limit: usize,
     ) -> anyhow::Result<Vec<(String, f32)>> {
-        let fts_query =
-            query.split_whitespace().map(|word| format!("\"{word}\"")).collect::<Vec<_>>().join(" OR ");
+        let fts_query = query
+            .split_whitespace()
+            .map(|word| format!("\"{word}\""))
+            .collect::<Vec<_>>()
+            .join(" OR ");
 
         if fts_query.is_empty() {
             return Ok(Vec::new());

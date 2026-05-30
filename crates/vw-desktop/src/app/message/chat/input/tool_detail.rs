@@ -60,11 +60,7 @@ pub(super) fn handle_tool_detail_editor_action(
 
 /// 模块内可见函数，执行 handle_tool_detail_open_context_menu 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
-pub(super) fn handle_tool_detail_open_context_menu(
-    app: &mut App,
-    x: f32,
-    y: f32,
-) -> Task<Message> {
+pub(super) fn handle_tool_detail_open_context_menu(app: &mut App, x: f32, y: f32) -> Task<Message> {
     if let Some(dialog) = app.tool_detail_dialog.as_mut() {
         dialog.context_menu_open = true;
         dialog.context_menu_pos = Some((x, y));

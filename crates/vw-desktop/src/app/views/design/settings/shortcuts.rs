@@ -6,9 +6,9 @@ use iced::widget::scrollable::{Direction, Scrollbar};
 use iced::widget::{Space, button, column, container, row, scrollable, svg, text};
 use iced::{Border, Color, Element, Length, Theme};
 
+use crate::app::Message;
 use crate::app::assets::{self, Icon};
 use crate::app::message::DesignMessage;
-use crate::app::Message;
 
 #[derive(Clone, Copy)]
 struct ShortcutItem {

@@ -28,8 +28,9 @@ use crate::app::components::text_editor_scroll_panel::{
 use crate::app::message::TaskBoardMessage;
 use crate::app::task::Task;
 use crate::app::{App, Message};
+use iced::widget::scrollable::{Direction, Scrollbar};
 use iced::widget::{
-    Space, button, column, container, responsive, row, text, text_editor, text_input,
+    Space, button, column, container, responsive, row, scrollable, text, text_editor, text_input,
 };
 use iced::{Alignment, Background, Border, Color, Element, Length, Size, Theme};
 
@@ -38,7 +39,27 @@ use super::super::common::{
 };
 use super::styles::{
     disabled_arrow_button_style, input_style, subtask_badge_style, subtask_card_style,
+    subtask_status_badge_style, subtask_status_icon, subtask_status_label,
+    subtask_status_pill_style, subtask_status_text_style,
 };
+
+const SUBTASK_LIST_MAX_HEIGHT: f32 = 260.0;
+const SUBTASK_SCROLLBAR_WIDTH: f32 = 4.0;
+const SUBTASK_SCROLLBAR_GUTTER: f32 = 12.0;
+
+fn format_subtask_started_at(ms: u64) -> String {
+    static FMT: once_cell::sync::Lazy<Vec<time::format_description::FormatItem<'static>>> =
+        once_cell::sync::Lazy::new(|| {
+            time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")
+                .unwrap_or_default()
+        });
+
+    let nanos = (ms as i128).saturating_mul(1_000_000);
+    time::OffsetDateTime::from_unix_timestamp_nanos(nanos)
+        .ok()
+        .and_then(|dt| dt.format(&FMT).ok())
+        .unwrap_or_else(|| "-".to_string())
+}
 
 /// 构建编辑模式下的子任务列表
 ///
@@ -70,13 +91,12 @@ pub fn build_edit_mode_subtasks<'a>(
 ) -> (Element<'a, Message>, Element<'a, Message>) {
     // 初始化子任务列容器，设置子元素间距为6像素
     let mut subtasks_col = column![].spacing(6);
+    let now_ms = crate::app::time::now_ms();
 
     // 遍历任务的所有子任务，为每个子任务构建UI组件
     for (idx, subtask) in task.subtasks.iter().enumerate() {
-        // 根据子任务完成状态确定徽章标签
-        // 已完成显示勾选标记，未完成显示序号
-        let badge_label =
-            if subtask.completed { "✓".to_string() } else { format!("{}", idx + 1) };
+        let status = subtask.status;
+        let badge_label = subtask_status_icon(status, now_ms);
 
         // 克隆任务ID和子任务ID，用于闭包捕获
         let task_id_for_toggle = task.id.clone();
@@ -85,11 +105,11 @@ pub fn build_edit_mode_subtasks<'a>(
         // 构建子任务序号徽章按钮
         // 点击徽章可切换子任务的完成状态
         let index_badge = button(
-            container(text(badge_label).size(10).style(|theme: &Theme| {
-                iced::widget::text::Style {
-                    color: Some(theme.extended_palette().background.base.text),
-                }
-            }))
+            container(
+                text(badge_label)
+                    .size(10)
+                    .style(move |theme: &Theme| subtask_status_text_style(theme, status)),
+            )
             .width(Length::Fixed(SUBTASK_BADGE_SIZE))
             .height(Length::Fixed(SUBTASK_BADGE_SIZE))
             .center_x(Length::Fill)
@@ -102,7 +122,9 @@ pub fn build_edit_mode_subtasks<'a>(
         .padding(0)
         .width(Length::Fixed(SUBTASK_BADGE_SIZE))
         .height(Length::Fixed(SUBTASK_BADGE_SIZE))
-        .style(subtask_badge_style);
+        .style(move |theme, button_status| {
+            subtask_status_badge_style(theme, button_status, status)
+        });
 
         // 克隆任务ID和子任务ID，用于输入框闭包捕获
         let task_id_for_update = task.id.clone();
@@ -139,16 +161,54 @@ pub fn build_edit_mode_subtasks<'a>(
         let delete_btn = build_delete_button(task, subtask.id.as_str(), true);
         subtask_row = subtask_row.push(delete_btn);
 
+        let timing_label = subtask
+            .display_execution_duration_ms(now_ms)
+            .map(|ms| format!("耗时 {}s", ms / 1000))
+            .unwrap_or_else(|| "耗时 -".to_string());
+        let started_label = subtask
+            .execution_started_at_ms
+            .map(|ms| format!("开始 {}", format_subtask_started_at(ms)))
+            .unwrap_or_else(|| "开始 -".to_string());
+        let status_pill = container(
+            text(subtask_status_label(status))
+                .size(10)
+                .style(move |theme: &Theme| subtask_status_text_style(theme, status)),
+        )
+        .padding([2, 6])
+        .style(move |theme: &Theme| subtask_status_pill_style(theme, status));
+        let meta_row =
+            row![status_pill, text(started_label).size(10), text(timing_label).size(10),]
+                .spacing(8)
+                .align_y(Alignment::Center);
+
         // 将子任务行包装在卡片容器中，添加到子任务列
-        let subtask_card =
-            container(subtask_row).padding([6, 10]).width(Length::Fill).style(subtask_card_style);
+        let subtask_card = container(column![subtask_row, meta_row].spacing(4))
+            .padding([6, 10])
+            .width(Length::Fill)
+            .style(subtask_card_style);
         subtasks_col = subtasks_col.push(subtask_card);
     }
 
     // 构建添加新子任务的输入区域
     let add_section = build_add_subtask_section(app, &task.id);
 
-    (subtasks_col.into(), add_section)
+    let subtasks_view = container(
+        scrollable(container(subtasks_col).width(Length::Fill).padding(iced::Padding {
+            top: 0.0,
+            right: SUBTASK_SCROLLBAR_GUTTER,
+            bottom: 0.0,
+            left: 0.0,
+        }))
+        .direction(Direction::Vertical(
+            Scrollbar::new().width(SUBTASK_SCROLLBAR_WIDTH).scroller_width(SUBTASK_SCROLLBAR_WIDTH),
+        ))
+        .height(Length::Shrink)
+        .width(Length::Fill),
+    )
+    .width(Length::Fill)
+    .max_height(SUBTASK_LIST_MAX_HEIGHT);
+
+    (subtasks_view.into(), add_section)
 }
 
 /// 构建草稿模式下的子任务列表

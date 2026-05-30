@@ -3,7 +3,9 @@
 //! 在浏览器中打开批准的 HTTPS URL（不执行抓取或 DOM 自动化）。
 //! 仅用于简单的 URL 打开操作。
 
-use super::traits::{Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec};
+use super::traits::{
+    Tool, ToolCallResult, ToolCallTelemetry, ToolRenderHint, ToolResult, ToolSpec,
+};
 use super::url_validation::{
     DomainPolicy, UrlSchemePolicy, normalize_allowed_domains, validate_url,
 };
@@ -171,11 +173,8 @@ impl Tool for BrowserOpenTool {
             return Ok(result);
         }
 
-        let requested_url = input
-            .get("url")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .unwrap_or_default();
+        let requested_url =
+            input.get("url").and_then(Value::as_str).map(str::trim).unwrap_or_default();
         let url = if requested_url.is_empty() {
             String::new()
         } else {

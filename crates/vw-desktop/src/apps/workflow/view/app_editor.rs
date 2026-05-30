@@ -51,15 +51,21 @@ pub(super) fn build_app_editor_modal(state: &WorkflowState) -> Element<'_, Messa
         ),
         build_editor_field(
             "应用描述",
-            workflow_text_input("描述这个 workflow 用来做什么", &editor.description, |value| {
-                Message::WorkflowTool(WorkflowMessage::AppEditorDescriptionChanged(value))
-            }),
+            workflow_text_input(
+                "描述这个 workflow 用来做什么",
+                &editor.description,
+                |value| {
+                    Message::WorkflowTool(WorkflowMessage::AppEditorDescriptionChanged(value))
+                }
+            ),
         ),
         build_editor_field(
             "使用 web app 图标替换 🤖",
             row![
                 toggler(editor.use_icon_as_answer_icon).on_toggle(|value| {
-                    Message::WorkflowTool(WorkflowMessage::AppEditorUseIconAsAnswerIconChanged(value))
+                    Message::WorkflowTool(WorkflowMessage::AppEditorUseIconAsAnswerIconChanged(
+                        value,
+                    ))
                 }),
                 text("在分享和 Explore 场景里用应用图标替换默认机器人图标")
                     .size(12)

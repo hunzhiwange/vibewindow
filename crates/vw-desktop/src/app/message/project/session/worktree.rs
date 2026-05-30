@@ -91,9 +91,7 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
             reset_new_session_picker_state(app);
             let project_path_clone = project_path.clone();
             Some(iced::Task::perform(
-                async move {
-                    create_gateway_worktree_session(project_path_clone, requested_name).await
-                },
+                async move { create_gateway_worktree_session(project_path_clone, requested_name).await },
                 |res| match res {
                     Ok(info) => Message::Project(ProjectMessage::SessionCreated(info)),
                     Err(e) => {

@@ -12,8 +12,10 @@ fn resolve_send_endpoints(recipient: &str) -> (String, String) {
         )
     } else {
         let raw_uid = recipient.strip_prefix("user:").unwrap_or(recipient);
-        let user_id: String =
-            raw_uid.chars().filter(|character| character.is_alphanumeric() || *character == '_').collect();
+        let user_id: String = raw_uid
+            .chars()
+            .filter(|character| character.is_alphanumeric() || *character == '_')
+            .collect();
         (
             format!("{}/v2/users/{user_id}/messages", super::QQ_API_BASE),
             format!("{}/v2/users/{user_id}/files", super::QQ_API_BASE),
@@ -23,7 +25,13 @@ fn resolve_send_endpoints(recipient: &str) -> (String, String) {
 
 impl QQChannel {
     /// 发送 JSON POST 请求。
-    async fn post_json(&self, token: &str, url: &str, body: &Value, op: &str) -> anyhow::Result<()> {
+    async fn post_json(
+        &self,
+        token: &str,
+        url: &str,
+        body: &Value,
+        op: &str,
+    ) -> anyhow::Result<()> {
         ensure_https(url)?;
 
         let resp = self

@@ -43,6 +43,7 @@
 //! 这些操作涉及原始文件描述符操作，需要谨慎使用。
 
 use anyhow::Result;
+#[cfg(unix)]
 use std::fs::{OpenOptions, create_dir_all};
 #[cfg(unix)]
 use std::os::fd::AsRawFd;

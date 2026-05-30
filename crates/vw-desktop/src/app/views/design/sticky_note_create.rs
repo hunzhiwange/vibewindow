@@ -35,9 +35,7 @@ pub fn render_sticky_note_create_dialog<'a>(
             text("创建便签")
                 .size(18)
                 .font(iced::font::Font { weight: iced::font::Weight::Bold, ..Default::default() }),
-            text("创建前先选择类型，行为与导入图片弹窗一致。")
-                .size(13)
-                .style(secondary_text_style),
+            text("创建前先选择类型，行为与导入图片弹窗一致。").size(13).style(secondary_text_style),
         ]
         .spacing(6),
         Space::new().width(Length::Fill),
@@ -59,9 +57,7 @@ pub fn render_sticky_note_create_dialog<'a>(
                 .size(13)
                 .font(iced::font::Font { weight: iced::font::Weight::Bold, ..Default::default() }),
             kind_cards.spacing(10),
-            text("选择后会直接在当前可视区域内创建便签。")
-                .size(12)
-                .style(secondary_hint_style),
+            text("选择后会直接在当前可视区域内创建便签。").size(12).style(secondary_hint_style),
             row![
                 Space::new().width(Length::Fill),
                 button(text("取消").size(13))
@@ -96,9 +92,9 @@ fn render_kind_card<'a>(kind: StickyNoteKind, is_default: bool) -> Element<'a, M
 
     let badge_label = if is_default { "默认" } else { "创建" };
     let badge = container(
-        text(badge_label).size(12).style(move |_theme: &Theme| iced::widget::text::Style {
-            color: Some(title_color),
-        }),
+        text(badge_label)
+            .size(12)
+            .style(move |_theme: &Theme| iced::widget::text::Style { color: Some(title_color) }),
     )
     .padding([6, 10])
     .style(move |_theme: &Theme| container::Style {

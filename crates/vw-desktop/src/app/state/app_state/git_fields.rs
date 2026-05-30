@@ -38,6 +38,10 @@
     pub(crate) git_commit_description_editor: text_editor::Content,
     /// Git 提交是否进行中
     pub(crate) git_commit_in_progress: bool,
+    /// 是否显示约定式提交帮助弹窗
+    pub(crate) show_git_commit_help_modal: bool,
+    /// 是否显示 Git 过滤帮助弹窗
+    pub(crate) show_git_filter_help_modal: bool,
     /// 已暂存的文件列表
     pub(crate) staged_files_selected: Vec<String>,
     /// 已暂存的差异块列表（文件路径，块索引）

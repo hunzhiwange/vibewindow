@@ -711,9 +711,7 @@ fn read_redirect_token(input: &str, start: usize, prefix: &str) -> (String, usiz
             break;
         }
         if matches!(token.as_str(), ">" | ">>" | "<" | "<<" | "<<<" | "2>" | "2>>" | "&>" | "&>>") {
-            if matches!(token.as_str(), "2>" | ">")
-                && input[index..].starts_with('&')
-            {
+            if matches!(token.as_str(), "2>" | ">") && input[index..].starts_with('&') {
                 continue;
             }
             break;

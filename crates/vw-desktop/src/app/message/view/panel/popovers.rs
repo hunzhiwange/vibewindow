@@ -4,7 +4,9 @@
 //! 不改变任何运行时行为。
 
 use super::ViewMessage;
-use crate::app::{App, Message, load_app_config, save_app_config};
+use crate::app::{App, Message};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::app::{load_app_config, save_app_config};
 use iced::Task;
 
 /// 执行 update 对应的领域操作。

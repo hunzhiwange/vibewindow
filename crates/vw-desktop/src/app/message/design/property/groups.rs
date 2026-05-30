@@ -67,10 +67,10 @@ pub(super) fn create_group(app: &mut App) -> Task<Message> {
             trimmed.to_string()
         }
     };
-    state.doc.groups.push(crate::app::views::design::models::DesignGroup {
-        id: group_id,
-        name: group_name,
-    });
+    state
+        .doc
+        .groups
+        .push(crate::app::views::design::models::DesignGroup { id: group_id, name: group_name });
     state.doc.normalize_groups();
     state.active_group_id = group_id;
     state.new_group_name.clear();
@@ -294,4 +294,3 @@ pub(super) fn cancel_page_rename(app: &mut App) -> Task<Message> {
     }
     Task::none()
 }
-

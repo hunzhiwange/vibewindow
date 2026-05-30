@@ -115,8 +115,7 @@ fn opencode_command_falls_back_to_bunx_package_when_binary_missing() {
         let mut perms =
             std::fs::metadata(&bunx_path).expect("bunx metadata should exist").permissions();
         perms.set_mode(0o755);
-        std::fs::set_permissions(&bunx_path, perms)
-            .expect("bunx permissions should be updated");
+        std::fs::set_permissions(&bunx_path, perms).expect("bunx permissions should be updated");
     }
 
     let _home_guard = EnvGuard::set_os("HOME", home.path().as_os_str());
@@ -126,10 +125,7 @@ fn opencode_command_falls_back_to_bunx_package_when_binary_missing() {
     let cmd = ExecutorCommand::for_opencode("/tmp/project", "auto", "hello");
 
     assert_eq!(cmd.program, bunx_path.to_string_lossy().to_string());
-    assert!(cmd.args.starts_with(&[
-        "opencode-ai@latest".to_string(),
-        "run".to_string(),
-    ]));
+    assert!(cmd.args.starts_with(&["opencode-ai@latest".to_string(), "run".to_string(),]));
 }
 
 #[test]

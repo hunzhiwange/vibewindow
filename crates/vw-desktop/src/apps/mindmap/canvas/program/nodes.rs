@@ -88,16 +88,12 @@ pub(super) fn draw_nodes(
             .get(&node_layout.path)
             .copied()
             .unwrap_or(canvas.node_border_style);
-        frame.stroke(
-            &node_path,
-            dashed_stroke(node_style, border_color, stroke_width, canvas.zoom),
-        );
+        frame
+            .stroke(&node_path, dashed_stroke(node_style, border_color, stroke_width, canvas.zoom));
 
         let has_priority = priority.filter(|value| (1..=10).contains(value)).is_some();
-        let has_url = canvas
-            .node_urls
-            .get(&node_layout.path)
-            .is_some_and(|url| !url.trim().is_empty());
+        let has_url =
+            canvas.node_urls.get(&node_layout.path).is_some_and(|url| !url.trim().is_empty());
         let (text_pos, text_align) = if has_priority || has_url {
             let pad = (8.0 * canvas.zoom).clamp(4.0, 10.0);
             let r = (9.0 * canvas.zoom).clamp(4.0, 12.0);
@@ -106,10 +102,7 @@ pub(super) fn draw_nodes(
             if has_priority {
                 x += r * 2.0 + after;
             }
-            (
-                Point::new(x, rect.y + rect.height / 2.0),
-                iced::widget::text::Alignment::Left,
-            )
+            (Point::new(x, rect.y + rect.height / 2.0), iced::widget::text::Alignment::Left)
         } else {
             (
                 Point::new(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0),
@@ -123,10 +116,7 @@ pub(super) fn draw_nodes(
             (14.0 * canvas.zoom).clamp(10.0, 24.0)
         };
         let font = if is_root {
-            iced::font::Font {
-                weight: iced::font::Weight::Bold,
-                ..Default::default()
-            }
+            iced::font::Font { weight: iced::font::Weight::Bold, ..Default::default() }
         } else {
             iced::font::Font::default()
         };
@@ -188,8 +178,7 @@ fn draw_priority_badge(
         let icon_size = (r * 1.15).clamp(6.0, 14.0);
         let origin = Point::new(center.x - icon_size / 2.0, center.y - icon_size / 2.0);
         let scale = icon_size / 16.0;
-        let check_geometry =
-            "M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z";
+        let check_geometry = "M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z";
         if let Some(path) = build_svg_path(check_geometry, origin, scale) {
             frame.fill(&path, Color::WHITE);
         }
@@ -212,8 +201,7 @@ fn draw_url_badge(frame: &mut Frame, canvas: &MindMapCanvas<'_>, rect: Rectangle
     let icon_size = (r * 1.25).clamp(7.0, 16.0);
     let origin = Point::new(center.x - icon_size / 2.0, center.y - icon_size / 2.0);
     let scale = icon_size / 16.0;
-    let link_geometry =
-        "M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H9q-.13 0-.25.031A2 2 0 0 1 7 10.5H4a2 2 0 1 1 0-4h1.535c.218-.376.495-.714.82-1z M9 5.5a3 3 0 0 0-2.83 4h1.098A2 2 0 0 1 9 6.5h3a2 2 0 1 1 0-4h-1.535a4 4 0 0 1-.82 1H12a3 3 0 1 0 0-6z";
+    let link_geometry = "M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H9q-.13 0-.25.031A2 2 0 0 1 7 10.5H4a2 2 0 1 1 0-4h1.535c.218-.376.495-.714.82-1z M9 5.5a3 3 0 0 0-2.83 4h1.098A2 2 0 0 1 9 6.5h3a2 2 0 1 1 0-4h-1.535a4 4 0 0 1-.82 1H12a3 3 0 1 0 0-6z";
     if let Some(path) = build_svg_path(link_geometry, origin, scale) {
         frame.fill(&path, Color::WHITE);
     }
@@ -298,11 +286,7 @@ fn draw_toggle_button(
 }
 
 fn dashed_stroke(style: EdgeStyle, color: Color, width: f32, zoom: f32) -> Stroke<'static> {
-    let mut stroke = Stroke {
-        style: color.into(),
-        width,
-        ..Stroke::default()
-    };
+    let mut stroke = Stroke { style: color.into(), width, ..Stroke::default() };
     let dash_segments = dash_segments_px(style, zoom);
     if let Some(segments) = dash_segments.as_ref() {
         stroke.line_dash = LineDash { segments, offset: 0 };

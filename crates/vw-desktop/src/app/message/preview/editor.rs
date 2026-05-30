@@ -689,4 +689,3 @@ pub fn update(app: &mut App, message: PreviewMessage) -> Task<Message> {
         _ => Task::none(),
     }
 }
-

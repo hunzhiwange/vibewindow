@@ -320,7 +320,7 @@ impl AcpClient {
 
         while runtime.event_rx.try_recv().is_ok() {}
 
-        let session_id = self
+        let mut session_id = self
             .resolve_session(
                 &runtime.conn,
                 &request.cwd,
@@ -358,12 +358,13 @@ impl AcpClient {
                             }
                         }
                         InternalEvent::SessionChanged { expected, actual } => {
-                            let _ = event_tx.send(PromptEvent::SessionChanged {
-                                expected: expected.clone(),
-                                actual: actual.clone(),
-                            });
-                            prompt_error = Some(AcpError::SessionChanged { expected, actual });
-                            break 'prompt_loop;
+                            self.accept_session_change(
+                                &mut session_id,
+                                expected,
+                                actual,
+                                &runtime.expected_session_id,
+                                &event_tx,
+                            );
                         }
                     }
                 }
@@ -406,12 +407,13 @@ impl AcpClient {
                             }
                         }
                         Some(InternalEvent::SessionChanged { expected, actual }) => {
-                            let _ = event_tx.send(PromptEvent::SessionChanged {
-                                expected: expected.clone(),
-                                actual: actual.clone(),
-                            });
-                            prompt_error = Some(AcpError::SessionChanged { expected, actual });
-                            break 'prompt_loop;
+                            self.accept_session_change(
+                                &mut session_id,
+                                expected,
+                                actual,
+                                &runtime.expected_session_id,
+                                &event_tx,
+                            );
                         }
                         None => {
                             if prompt_finished {
@@ -432,6 +434,24 @@ impl AcpClient {
         }
 
         Ok(PromptResult { session_id, deltas, finish_reason, usage })
+    }
+
+    fn accept_session_change(
+        &self,
+        session_id: &mut String,
+        expected: String,
+        actual: String,
+        expected_session_id: &Arc<Mutex<Option<String>>>,
+        event_tx: &mpsc::UnboundedSender<PromptEvent>,
+    ) {
+        let _ = event_tx.send(PromptEvent::SessionChanged {
+            expected: expected.clone(),
+            actual: actual.clone(),
+        });
+        *expected_session_id.lock() = Some(actual.clone());
+        self.update_active_prompt_session(&expected, actual.clone());
+        self.store_reusable_session(Some(actual.clone()));
+        *session_id = actual;
     }
 
     fn actor_runtime_restart_reason(
@@ -1003,6 +1023,14 @@ impl AcpClient {
             .is_some_and(|active_prompt| active_prompt.session_id == session_id);
         if should_clear {
             *self.active_prompt.lock() = None;
+        }
+    }
+
+    fn update_active_prompt_session(&self, expected: &str, actual: String) {
+        if let Some(active_prompt) = self.active_prompt.lock().as_mut()
+            && active_prompt.session_id == expected
+        {
+            active_prompt.session_id = actual;
         }
     }
 

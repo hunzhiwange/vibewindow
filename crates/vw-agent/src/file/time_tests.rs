@@ -1,4 +1,4 @@
-use super::{get, read, with_lock_sync, Error};
+use super::{Error, get, read, with_lock_sync};
 
 #[test]
 fn read_records_file_time_by_session() {

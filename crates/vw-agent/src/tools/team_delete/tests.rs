@@ -1,6 +1,6 @@
 use super::*;
-use crate::app::agent::tools::traits::Tool;
 use crate::app::agent::config::AgentsIpcConfig;
+use crate::app::agent::tools::traits::Tool;
 
 fn test_ipc_db() -> Arc<super::super::agents_ipc::IpcDb> {
     let root = tempfile::tempdir().expect("temp dir");
@@ -23,10 +23,7 @@ fn args_deserializes_required_id() {
 
 #[test]
 fn schema_marks_delete_as_destructive() {
-    let tool = TeamDeleteTool::new(
-        test_ipc_db(),
-        Arc::new(SecurityPolicy::default()),
-    );
+    let tool = TeamDeleteTool::new(test_ipc_db(), Arc::new(SecurityPolicy::default()));
 
     assert_eq!(tool.parameters_schema()["required"], json!(["id"]));
     assert!(tool.spec().destructive);

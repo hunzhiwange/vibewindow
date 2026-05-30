@@ -12,23 +12,21 @@
 //! - 不提前定义“为以后准备”的胖接口。
 //! - 只保留后续 slice 一定会复用的稳定入口。
 
+use super::stream_adapter::{UiRuntimeEvent, UiRuntimeTerminalEvent, adapt_gateway_stream_event};
 use crate::app::agent::config::Config;
+use std::fmt::Write as _;
+use std::future::Future;
 #[cfg(not(target_arch = "wasm32"))]
 use std::io::{Read, Write};
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::{TcpStream, ToSocketAddrs};
-use std::fmt::Write as _;
-use std::future::Future;
 use std::path::{Path, PathBuf};
 #[cfg(not(target_arch = "wasm32"))]
 use std::process::{Command, Stdio};
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::{Duration, Instant};
-use super::stream_adapter::{UiRuntimeEvent, UiRuntimeTerminalEvent, adapt_gateway_stream_event};
-use vw_gateway_client::{
-    GatewayAuth, GatewayChatStreamRequest, GatewayClient, GatewayEndpoint,
-};
 use vw_gateway_client::vw_api_types::id::SessionId;
+use vw_gateway_client::{GatewayAuth, GatewayChatStreamRequest, GatewayClient, GatewayEndpoint};
 
 #[cfg(not(target_arch = "wasm32"))]
 const GATEWAY_HEALTH_PATH: &str = "/v1/health";
@@ -196,12 +194,7 @@ pub(crate) struct GatewaySessionSeed {
 impl GatewaySessionSeed {
     /// 使用请求目录创建新的会话上下文。
     pub(crate) fn new(directory: PathBuf) -> Self {
-        Self {
-            id: None,
-            directory,
-            scope: None,
-            title: None,
-        }
+        Self { id: None, directory, scope: None, title: None }
     }
 
     /// 返回当前 runtime 绑定的会话 ID（如果已设置）。
@@ -264,7 +257,10 @@ impl GatewayUiRuntime {
     ///
     /// 这是 S1-1 的主要接线点：CLI 现在可以直接读取自身配置并构造 `GatewayClient`，
     /// 不必经过 legacy processor 或桌面端模块。
-    pub(crate) fn from_config(config: &Config, session: GatewaySessionSeed) -> Result<Self, String> {
+    pub(crate) fn from_config(
+        config: &Config,
+        session: GatewaySessionSeed,
+    ) -> Result<Self, String> {
         let client = gateway_client(config)?;
         Ok(Self::new(client, session))
     }
@@ -317,12 +313,7 @@ impl GatewayUiRuntime {
         scope: Option<String>,
         title: Option<String>,
     ) {
-        self.session = self
-            .session
-            .clone()
-            .with_id(session_id)
-            .with_scope(scope)
-            .with_title(title);
+        self.session = self.session.clone().with_id(session_id).with_scope(scope).with_title(title);
     }
 
     /// 将缺失 `session_id` 的流式请求补齐为当前 runtime 绑定的会话。
@@ -367,23 +358,24 @@ impl GatewayUiRuntime {
         let body = self.prepare_stream_request(body);
         let mut terminal = None;
 
-        let result = GatewayClient::stream_chat(self.endpoint(), directory.as_deref(), &body, |event| {
-            let runtime_event = adapt_gateway_stream_event(event);
-            if let UiRuntimeEvent::Terminal(runtime_terminal) = &runtime_event {
-                terminal = Some(runtime_terminal.clone());
-            }
-
-            if on_event(runtime_event) {
-                true
-            } else {
-                if terminal.is_none() {
-                    terminal = Some(cancelled_by_consumer_terminal());
+        let result =
+            GatewayClient::stream_chat(self.endpoint(), directory.as_deref(), &body, |event| {
+                let runtime_event = adapt_gateway_stream_event(event);
+                if let UiRuntimeEvent::Terminal(runtime_terminal) = &runtime_event {
+                    terminal = Some(runtime_terminal.clone());
                 }
-                false
-            }
-        })
-        .await
-        .map_err(|err| annotate_gateway_transport_error(err, self.endpoint()));
+
+                if on_event(runtime_event) {
+                    true
+                } else {
+                    if terminal.is_none() {
+                        terminal = Some(cancelled_by_consumer_terminal());
+                    }
+                    false
+                }
+            })
+            .await
+            .map_err(|err| annotate_gateway_transport_error(err, self.endpoint()));
 
         finalize_stream_terminal(result, terminal)
     }
@@ -522,9 +514,7 @@ fn gateway_optional_string(value: Option<&serde_json::Value>) -> Option<String> 
 
 /// 将外部传入的字符串归一化为“空白即无值”。
 fn normalize_optional_string(value: Option<String>) -> Option<String> {
-    value
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
+    value.map(|value| value.trim().to_string()).filter(|value| !value.is_empty())
 }
 
 fn looks_like_gateway_transport_error(message: &str) -> bool {
@@ -545,11 +535,7 @@ pub(crate) fn normalize_optional_str_ref(value: Option<&str>) -> Option<&str> {
 fn runtime_directory_value(directory: &Path) -> Option<String> {
     let directory = directory.to_string_lossy();
     let directory = directory.trim();
-    if directory.is_empty() {
-        None
-    } else {
-        Some(directory.to_string())
-    }
+    if directory.is_empty() { None } else { Some(directory.to_string()) }
 }
 /// 生成“调用方主动停止消费流”时的统一终态。
 fn cancelled_by_consumer_terminal() -> UiRuntimeTerminalEvent {
@@ -571,9 +557,9 @@ fn finalize_stream_terminal(
     }
 
     match result {
-        Ok(()) => UiRuntimeTerminalEvent::Error(
-            "gateway stream closed before terminal event".to_string(),
-        ),
+        Ok(()) => {
+            UiRuntimeTerminalEvent::Error("gateway stream closed before terminal event".to_string())
+        }
         Err(err) => UiRuntimeTerminalEvent::from_error_message(err),
     }
 }
@@ -655,8 +641,7 @@ fn gateway_health_ready(endpoint: &GatewayEndpoint) -> bool {
     };
 
     status_line.contains(" 200 ")
-        && (response.contains("\"status\":\"ok\"")
-            || response.contains("\"status\": \"ok\""))
+        && (response.contains("\"status\":\"ok\"") || response.contains("\"status\": \"ok\""))
 }
 
 #[cfg(not(target_arch = "wasm32"))]

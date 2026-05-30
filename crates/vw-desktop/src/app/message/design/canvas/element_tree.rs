@@ -2,11 +2,11 @@
 //!
 //! 注释聚焦模块职责、消息边界和失败处理方式，帮助维护者在不改变逻辑的前提下理解代码。
 
+use crate::app::Message;
 use crate::app::views::design::canvas::geometry::get_element_screen_bounds;
 use crate::app::views::design::canvas::layout::parse::parse_padding;
 use crate::app::views::design::models::DesignElement;
 use crate::app::views::design::state::DesignState;
-use crate::app::Message;
 use iced::Task;
 
 /// insert_into_parent 处理当前模块对应的消息或状态转换。
@@ -131,11 +131,8 @@ pub(super) fn reparent_elements(
 
                     if let Some(frame_element) = find_mut(&mut doc.children, parent_id) {
                         let theme_mode = doc.theme.as_ref().map(|theme| theme.mode.as_str());
-                        let padding = parse_padding(
-                            &frame_element.padding,
-                            &doc.variables,
-                            theme_mode,
-                        );
+                        let padding =
+                            parse_padding(&frame_element.padding, &doc.variables, theme_mode);
                         element.x = element_doc_x - frame_doc_x - padding.left;
                         element.y = element_doc_y - frame_doc_y - padding.top;
                         frame_element.children.push(element);
@@ -160,4 +157,3 @@ pub(super) fn reparent_elements(
     state.canvas_cache.clear();
     Task::none()
 }
-

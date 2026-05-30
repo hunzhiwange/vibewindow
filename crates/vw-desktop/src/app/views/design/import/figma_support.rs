@@ -22,7 +22,6 @@ pub(super) fn has_styled_frame_characteristics(object: &Map<String, Value>) -> b
         || object.get("effects").is_some()
 }
 
-
 /// 执行 first_visible_paint 对应的设计辅助逻辑。
 ///
 /// 返回值直接交给调用方继续渲染、导入或属性更新。
