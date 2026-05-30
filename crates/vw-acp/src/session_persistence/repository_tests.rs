@@ -19,9 +19,11 @@ fn session_file_path_percent_encodes_record_id() {
 
 #[test]
 fn absolute_path_removes_dot_and_parent_components() {
-    let absolute = absolute_path("/tmp/project/./src/../Cargo.toml");
+    let project_dir = temp_dir("absolute-path").join("project");
+    let input = project_dir.join(".").join("src").join("..").join("Cargo.toml");
+    let absolute = absolute_path(input.to_str().expect("temp path is utf-8"));
 
-    assert_eq!(absolute, PathBuf::from("/tmp/project/Cargo.toml"));
+    assert_eq!(absolute, project_dir.join("Cargo.toml"));
 }
 
 #[test]

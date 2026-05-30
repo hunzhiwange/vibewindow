@@ -139,6 +139,12 @@ build_rpm() {
   local spec="$WORK_DIR/$PACKAGE_NAME.spec"
   rm -rf "$rpm_topdir"
   mkdir -p "$rpm_topdir/BUILD" "$rpm_topdir/BUILDROOT" "$rpm_topdir/RPMS" "$rpm_topdir/SOURCES" "$rpm_topdir/SPECS" "$rpm_topdir/SRPMS"
+  local rpm_topdir_abs
+  local root_dir_abs
+  local spec_abs
+  rpm_topdir_abs="$(cd "$rpm_topdir" && pwd -P)"
+  root_dir_abs="$(cd "$ROOT_DIR" && pwd -P)"
+  spec_abs="$(cd "$(dirname "$spec")" && pwd -P)/$(basename "$spec")"
 
   cat > "$spec" <<EOF
 %global debug_package %{nil}
@@ -158,7 +164,7 @@ Rust-first autonomous agent runtime with CLI, ACP, desktop client, and webview h
 %install
 rm -rf %{buildroot}
 mkdir -p %{buildroot}
-cp -a $ROOT_DIR/. %{buildroot}/
+cp -a "$root_dir_abs/." %{buildroot}/
 
 %post
 if command -v update-desktop-database >/dev/null 2>&1; then
@@ -186,7 +192,7 @@ fi
 /usr/share/icons/hicolor/256x256/apps/vibewindow.png
 EOF
 
-  rpmbuild -bb "$spec" --define "_topdir $rpm_topdir"
+  rpmbuild -bb "$spec_abs" --define "_topdir $rpm_topdir_abs"
   find "$rpm_topdir/RPMS" -type f -name '*.rpm' -exec cp {} "$OUT_DIR/" \;
   find "$OUT_DIR" -maxdepth 1 -type f -name "$PACKAGE_NAME-$RPM_VERSION-1.$RPM_ARCH.rpm" -print
 }
