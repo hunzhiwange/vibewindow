@@ -236,6 +236,23 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             app.screen = Screen::JsonYamlTool;
             Task::none()
         }
+        ViewMessage::OpenKnowledge => {
+            let id = "knowledge".to_string();
+            if let Some(pos) = app.open_tabs.iter().position(|t| t.id == "apps") {
+                app.open_tabs.remove(pos);
+            }
+            if !app.open_tabs.iter().any(|t| t.id == id) {
+                app.open_tabs.push(crate::app::AppTab {
+                    id: id.clone(),
+                    title: "知识库".to_string(),
+                    screen: Screen::Knowledge,
+                    project_path: None,
+                });
+            }
+            app.active_tab_id = Some(id);
+            app.screen = Screen::Knowledge;
+            crate::app::message::knowledge_tool::ensure_loaded(app)
+        }
         ViewMessage::OpenSqlTool => {
             let id = "sql_tool".to_string();
             if let Some(pos) = app.open_tabs.iter().position(|t| t.id == "apps") {
@@ -337,7 +354,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             if !app.open_tabs.iter().any(|t| t.id == id) {
                 app.open_tabs.push(crate::app::AppTab {
                     id: id.clone(),
-                    title: "Dify工作流".to_string(),
+                    title: "工作流".to_string(),
                     screen: Screen::WorkflowTool,
                     project_path: None,
                 });

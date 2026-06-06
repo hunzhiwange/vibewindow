@@ -444,7 +444,7 @@ pub(super) async fn session_reset(
                     .await
                     .map_err(|e| ApiError::bad_request(e.to_string()))?
             } else {
-                agent_session::revert::cleanup_from_message(
+                agent_session::revert::cleanup_after_message(
                     &session_id_for_reset,
                     &body.message_id,
                 )

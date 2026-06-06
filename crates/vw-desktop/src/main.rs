@@ -42,10 +42,12 @@ fn main_window_settings() -> iced::window::Settings {
     window
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn task_pet_initial_position(window_size: iced::Size, monitor_size: iced::Size) -> iced::Point {
     iced::Point::new((monitor_size.width - window_size.width - 80.0).max(24.0), 96.0)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn task_pet_window_settings(size: iced::Size) -> iced::window::Settings {
     iced::window::Settings {
         size,
@@ -64,19 +66,33 @@ fn task_pet_window_settings(size: iced::Size) -> iced::window::Settings {
 fn boot_app() -> (app::App, iced::Task<app::Message>) {
     let (mut app, startup_task) = app::App::new();
     let (main_window_id, main_window_task) = iced::window::open(main_window_settings());
-    let (task_pet_window_id, task_pet_window_task) =
-        iced::window::open(task_pet_window_settings(app.task_pet_window_size()));
 
-    app.register_window_ids(main_window_id, task_pet_window_id);
+    #[cfg(target_arch = "wasm32")]
+    {
+        app.register_window_ids(main_window_id, None);
 
-    (
-        app,
-        iced::Task::batch([
-            startup_task,
-            main_window_task.map(|_| app::Message::None),
-            task_pet_window_task.map(|_| app::Message::None),
-        ]),
-    )
+        return (
+            app,
+            iced::Task::batch([startup_task, main_window_task.map(|_| app::Message::None)]),
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let (task_pet_window_id, task_pet_window_task) =
+            iced::window::open(task_pet_window_settings(app.task_pet_window_size()));
+
+        app.register_window_ids(main_window_id, Some(task_pet_window_id));
+
+        (
+            app,
+            iced::Task::batch([
+                startup_task,
+                main_window_task.map(|_| app::Message::None),
+                task_pet_window_task.map(|_| app::Message::None),
+            ]),
+        )
+    }
 }
 
 /// 启动桌面应用。

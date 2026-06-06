@@ -160,6 +160,40 @@ impl WorkflowState {
         Ok(())
     }
 
+    pub fn organize_active_app(&mut self, window_size: (f32, f32)) -> Result<(), String> {
+        if self.active_app_id.is_none() {
+            return Err("请先打开一个应用".to_string());
+        }
+        if self.document.nodes.is_empty() {
+            return Err("当前应用没有可整理的节点".to_string());
+        }
+
+        let positions = organized_node_positions(&self.document);
+        if positions.is_empty() {
+            return Ok(());
+        }
+
+        self.push_undo_snapshot();
+        for node in &mut self.document.nodes {
+            if let Some(position) = positions.get(&node.id) {
+                node.position = *position;
+            }
+        }
+
+        let (pan, zoom) = fitted_viewport(&self.document, window_size);
+        self.pan = pan;
+        self.zoom = zoom;
+        self.context_menu = None;
+        self.quick_insert_panel_open = false;
+        self.action_menu_open = false;
+        self.zoom_menu_open = false;
+        self.dragging_node_id = None;
+        self.drag_pending_snapshot = None;
+        self.refresh_dirty_state();
+        self.status_message = Some("已整理应用节点位置".to_string());
+        Ok(())
+    }
+
     pub fn persist_active_snapshot(&mut self) {
         let Some(active_id) = self.active_app_id.clone() else {
             return;
@@ -168,6 +202,7 @@ impl WorkflowState {
         let current_snapshot = self.current_history_snapshot();
 
         if let Some(app) = self.apps.iter_mut().find(|app| app.id == active_id) {
+            app.local_uuid = self.local_uuid.clone();
             app.source_path = self.source_path.clone();
             app.document = self.document.clone();
             app.environment_variables = self.environment_variables.clone();
@@ -196,4 +231,68 @@ impl WorkflowState {
         let active_id = self.active_app_id.as_deref()?;
         self.apps.iter().find(|app| app.id == active_id).cloned()
     }
+}
+
+fn organized_node_positions(document: &WorkflowDocument) -> HashMap<String, Point> {
+    let node_order = document.nodes.iter().map(|node| node.id.clone()).collect::<Vec<_>>();
+    let node_index = node_order
+        .iter()
+        .enumerate()
+        .map(|(index, id)| (id.clone(), index))
+        .collect::<HashMap<_, _>>();
+    let node_ids = node_order.iter().cloned().collect::<HashSet<_>>();
+    let mut layer_by_node =
+        node_order.iter().map(|id| (id.clone(), 0_usize)).collect::<HashMap<_, _>>();
+
+    for _ in 0..node_order.len() {
+        let mut changed = false;
+        for edge in &document.edges {
+            if !node_ids.contains(&edge.source) || !node_ids.contains(&edge.target) {
+                continue;
+            }
+            let source_layer = layer_by_node.get(&edge.source).copied().unwrap_or(0);
+            let target_layer = layer_by_node.get(&edge.target).copied().unwrap_or(0);
+            if target_layer <= source_layer {
+                layer_by_node.insert(edge.target.clone(), source_layer + 1);
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+
+    let mut layers = Vec::<Vec<String>>::new();
+    for id in &node_order {
+        let layer = layer_by_node.get(id).copied().unwrap_or(0);
+        if layers.len() <= layer {
+            layers.resize_with(layer + 1, Vec::new);
+        }
+        layers[layer].push(id.clone());
+    }
+    for layer in &mut layers {
+        layer.sort_by_key(|id| node_index.get(id).copied().unwrap_or(usize::MAX));
+    }
+
+    let mut positions = HashMap::new();
+    let mut x = -180.0;
+    for layer in layers {
+        if layer.is_empty() {
+            x += 360.0;
+            continue;
+        }
+
+        let mut y = 120.0;
+        let mut max_width = 0.0_f32;
+        for node_id in layer {
+            if let Some(node) = document.node(&node_id) {
+                positions.insert(node_id, Point::new(x, y));
+                y += node.size.height.max(120.0) + 80.0;
+                max_width = max_width.max(node.size.width);
+            }
+        }
+        x += max_width.max(240.0) + 140.0;
+    }
+
+    positions
 }

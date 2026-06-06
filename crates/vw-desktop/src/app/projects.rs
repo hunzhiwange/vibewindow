@@ -238,11 +238,25 @@ fn parse_recent_projects(content: &str) -> Option<Vec<String>> {
     Some(normalize_recent_projects(out))
 }
 
+fn recent_project_dir_name(path: &str) -> Option<&str> {
+    let path = path.trim().trim_end_matches(['/', '\\']);
+    if path.is_empty() {
+        return None;
+    }
+
+    path.rsplit(['/', '\\']).find(|part| !part.is_empty())
+}
+
+pub(crate) fn is_visible_recent_project_path(path: &str) -> bool {
+    recent_project_dir_name(path).is_some_and(|name| !name.starts_with('.'))
+}
+
 /// 规范化最近项目列表
 ///
 /// 处理逻辑：
 /// - 去除每项首尾空白
 /// - 过滤空字符串
+/// - 过滤隐藏目录项目
 /// - 去重（保留首次出现的顺序）
 ///
 /// # 参数
@@ -260,11 +274,32 @@ fn normalize_recent_projects(recent: Vec<String>) -> Vec<String> {
         if p.is_empty() {
             continue;
         }
+        // 隐藏目录通常是系统/运行时临时工作区，不展示为用户最近项目
+        if !is_visible_recent_project_path(&p) {
+            continue;
+        }
         // 跳过重复项（保持首次出现顺序）
         if out.iter().any(|x| x == &p) {
             continue;
         }
         out.push(p);
+    }
+    out
+}
+
+fn normalize_recent_projects_meta(recent: Vec<RecentProjectMeta>) -> Vec<RecentProjectMeta> {
+    let mut out: Vec<RecentProjectMeta> = Vec::with_capacity(recent.len());
+    for mut meta in recent {
+        let path = meta.path.trim().to_string();
+        if path.is_empty() || !is_visible_recent_project_path(&path) {
+            continue;
+        }
+        if out.iter().any(|item| item.path == path) {
+            continue;
+        }
+
+        meta.path = path;
+        out.push(meta);
     }
     out
 }
@@ -510,6 +545,12 @@ impl App {
         // 重置 Git 相关状态
         self.git_changed_files.clear();
         self.git_changed_files_loading = false;
+        self.git_changed_files_repo_path = None;
+        self.git_worktree_options.clear();
+        self.selected_git_worktree_directory = None;
+        self.git_worktree_options_loading = false;
+        self.git_worktree_options_project_path = None;
+        self.git_worktree_menu_open = false;
 
         // 将路径加入最近项目列表
         super::push_recent_project(&mut self.recent_projects, path.clone());
@@ -636,6 +677,7 @@ pub fn load_recent_projects_meta() -> Vec<RecentProjectMeta> {
         let Ok(v) = serde_json::from_str::<Vec<RecentProjectMeta>>(&content) else {
             continue;
         };
+        let v = normalize_recent_projects_meta(v);
 
         // 如果是从旧路径加载，则迁移到首选路径
         if path != dirs.data_local_dir().join("recent_projects_meta.json") {

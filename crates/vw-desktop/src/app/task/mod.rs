@@ -132,7 +132,7 @@ pub use executor::{
 
 pub use models::{
     CLAUDE_DEFAULT_MODEL_ALIAS, CLAUDE_SUPPORTED_MODEL_ALIASES, SubTask, SubTaskStatus,
-    TASK_MODEL_AUTO, Task, TaskBoardSettings, TaskDraft, TaskExecutorBackend,
+    TASK_AGENT_MAIN, TASK_MODEL_AUTO, Task, TaskBoardSettings, TaskDraft, TaskExecutorBackend,
     TaskImportPromptFormat, TaskIndex, TaskLogEntry, TaskStatus, claude_model_alias,
     legacy_executor_to_task_acp_agent, normalize_task_acp_agent_input, normalize_task_model_input,
 };

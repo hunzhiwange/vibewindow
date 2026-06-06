@@ -10,6 +10,7 @@ use vw_acp::{
     write_session_record,
 };
 
+use crate::app::agent::auth;
 use crate::app::agent::config;
 use crate::app::agent::provider::provider;
 use crate::app::agent::session::{message, ui_types};
@@ -36,6 +37,8 @@ use super::{Error, StreamEvent, is_acp_session_changed_error, to_api_error};
 /// `Error`。配置缺失、空 prompt、ACP 调用失败和取消都会作为错误返回。
 pub(crate) async fn do_stream_request_acp(
     model: &provider::Model,
+    provider_info: &provider::Info,
+    auth_info: Option<&auth::Info>,
     merged_options: &Value,
     chat_messages: &Value,
     session_id: &str,
@@ -70,7 +73,13 @@ pub(crate) async fn do_stream_request_acp(
                 message: format!("acp command not configured for model {}", model.api.id),
             })
         })?;
-    let normalized_acp_cfg = normalize_acp_agent_config(&acp_agent_name, &acp_cfg);
+    let normalized_acp_cfg = with_copilot_auth_environment(
+        model,
+        provider_info,
+        auth_info,
+        &acp_agent_name,
+        normalize_acp_agent_config(&acp_agent_name, &acp_cfg),
+    );
     let command = normalized_acp_cfg.command.trim();
     if command.is_empty() {
         tracing::warn!(
@@ -358,6 +367,75 @@ pub(crate) async fn do_stream_request_acp(
         );
         return Ok(());
     }
+}
+
+fn with_copilot_auth_environment(
+    model: &provider::Model,
+    provider_info: &provider::Info,
+    auth_info: Option<&auth::Info>,
+    acp_agent_name: &str,
+    mut acp_cfg: config::schema::AcpAgentConfig,
+) -> config::schema::AcpAgentConfig {
+    if !is_github_copilot_provider(&model.provider_id)
+        || !is_copilot_acp_agent(acp_agent_name, &acp_cfg)
+    {
+        return acp_cfg;
+    }
+
+    let Some(token) = copilot_auth_token(provider_info, auth_info) else {
+        return acp_cfg;
+    };
+
+    for key in ["GH_COPILOT_TOKEN", "GITHUB_COPILOT_TOKEN"] {
+        acp_cfg.env.entry(key.to_string()).or_insert_with(|| token.clone());
+    }
+    acp_cfg
+}
+
+fn is_github_copilot_provider(provider_id: &str) -> bool {
+    provider_id.trim().to_ascii_lowercase().starts_with("github-copilot")
+}
+
+fn is_copilot_acp_agent(acp_agent_name: &str, acp_cfg: &config::schema::AcpAgentConfig) -> bool {
+    let agent_name = acp_agent_name.trim().to_ascii_lowercase();
+    let command = acp_cfg.command.trim().to_ascii_lowercase();
+    let has_copilot_arg =
+        acp_cfg.args.iter().any(|arg| arg.trim().to_ascii_lowercase().contains("copilot"));
+
+    agent_name.contains("copilot") || command.contains("copilot") || has_copilot_arg
+}
+
+fn copilot_auth_token(
+    provider_info: &provider::Info,
+    auth_info: Option<&auth::Info>,
+) -> Option<String> {
+    provider_info
+        .key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| is_usable_copilot_token(value))
+        .map(ToString::to_string)
+        .or_else(|| {
+            for key in &provider_info.env {
+                if let Ok(value) = std::env::var(key) {
+                    let value = value.trim();
+                    if is_usable_copilot_token(value) {
+                        return Some(value.to_string());
+                    }
+                }
+            }
+            None
+        })
+        .or_else(|| match auth_info {
+            Some(auth::Info::Api(api)) if !api.key.trim().is_empty() => {
+                Some(api.key.trim().to_string())
+            }
+            _ => None,
+        })
+}
+
+fn is_usable_copilot_token(value: &str) -> bool {
+    !value.is_empty() && value != auth::OAUTH_DUMMY_KEY
 }
 #[cfg(test)]
 #[path = "request_tests.rs"]

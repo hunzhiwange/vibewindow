@@ -6,7 +6,7 @@ use super::{GitMessage, SelectedCommitRequest};
 use crate::app::message::project::ProjectMessage;
 use crate::app::{
     App, Message, set_config_field,
-    state::{ConventionalCommitType, GitDiffLineRange, GitDiffSelectedLine},
+    state::{ConventionalCommitType, GitDiffLineRange, GitDiffSelectedLine, GitWorktreeOption},
 };
 use iced::Font;
 use iced::Task;
@@ -44,6 +44,13 @@ pub(super) fn dismiss_preview_transient_ui(app: &mut App) {
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 变更范围限制在当前消息处理路径内，不引入额外的流程分支。
 pub(super) fn git_context_path_for_app(app: &App) -> Option<String> {
+    if let Some(dir) = app.selected_git_worktree_directory.as_ref() {
+        let dir = dir.trim();
+        if !dir.is_empty() {
+            return Some(dir.to_string());
+        }
+    }
+
     if let Some(active_id) = app.active_session_id.as_ref()
         && let Some(info) = app.sessions.iter().find(|session| &session.id == active_id)
     {
@@ -191,9 +198,74 @@ pub(super) fn text_too_large_for_code_editor(s: &str) -> bool {
 /// 失败会被转换为界面可展示的状态或消息，避免在处理链路中静默丢失。
 pub(super) fn refresh_git_panel_data_task() -> Task<Message> {
     Task::batch(vec![
+        Task::done(Message::Git(GitMessage::RefreshWorktreeOptions)),
         Task::done(Message::Git(GitMessage::RefreshChangedFiles)),
         Task::done(Message::Git(GitMessage::RefreshDiffFileMetas)),
     ])
+}
+
+fn normalize_path(value: &str) -> String {
+    value.replace('\\', "/").trim_end_matches('/').to_string()
+}
+
+fn worktree_label(name: &str, branch: &str, directory: &str) -> String {
+    let base = if name.trim().is_empty() {
+        std::path::Path::new(directory)
+            .file_name()
+            .and_then(|value| value.to_str())
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("工作树")
+            .to_string()
+    } else {
+        name.to_string()
+    };
+
+    if branch.trim().is_empty() { base } else { format!("{base} · {branch}") }
+}
+
+pub(super) async fn load_git_worktree_options(
+    project_path: String,
+) -> Result<Vec<GitWorktreeOption>, String> {
+    let client = crate::app::gateway_client()?;
+    let project =
+        crate::app::message::project::helpers::resolve_gateway_project(&project_path).await?;
+    let mut options = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let project_directory = normalize_path(&project.directory);
+    let main_branch = project.current_branch.clone().filter(|value| !value.trim().is_empty());
+    let main_label = main_branch
+        .as_ref()
+        .map(|branch| format!("主工作区 · {branch}"))
+        .unwrap_or_else(|| "主工作区".to_string());
+    seen.insert(project_directory);
+    options.push(GitWorktreeOption {
+        directory: project.directory.clone(),
+        label: main_label,
+        branch: main_branch,
+    });
+
+    let mut worktrees = client.project_worktrees(&project.id.0).await?.items;
+    worktrees.sort_by(|left, right| {
+        left.name
+            .cmp(&right.name)
+            .then(left.branch.cmp(&right.branch))
+            .then(left.directory.cmp(&right.directory))
+    });
+    for worktree in worktrees {
+        let key = normalize_path(&worktree.directory);
+        if seen.contains(&key) {
+            continue;
+        }
+        seen.insert(key);
+        let branch = (!worktree.branch.trim().is_empty()).then_some(worktree.branch.clone());
+        options.push(GitWorktreeOption {
+            directory: worktree.directory.clone(),
+            label: worktree_label(&worktree.name, &worktree.branch, &worktree.directory),
+            branch,
+        });
+    }
+
+    Ok(options)
 }
 
 /// take_diff_content_task 处理当前模块对应的消息或状态转换。
@@ -206,6 +278,10 @@ pub(super) fn take_diff_content_task(app: &mut App, file: String) -> Option<Task
     }
 
     let repo_path = crate::app::components::git_panel::git_repo_path_for_app(app)?;
+    if app.git_diff_file_metas_repo_path.as_deref() != Some(repo_path.as_str()) {
+        return Some(Task::done(Message::Git(GitMessage::RefreshDiffFileMetas)));
+    }
+
     let meta = app.git_diff_file_metas.iter().find(|meta| meta.path == file.as_str()).cloned()?;
 
     app.git_diff_contents_loading.insert(file.clone());
@@ -282,6 +358,17 @@ pub(super) fn configure_git_code_editor(
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 变更范围限制在当前消息处理路径内，不引入额外的流程分支。
 pub(super) fn git_repo_path_for_app(app: &App) -> Option<String> {
+    if let Some(dir) = app.selected_git_worktree_directory.as_ref() {
+        let dir = dir.trim();
+        if !dir.is_empty() {
+            let dir_path = std::path::Path::new(dir);
+            if dir_path.exists() && git2::Repository::open(dir).is_ok() {
+                return Some(dir.to_string());
+            }
+        }
+        return None;
+    }
+
     if let Some(active_id) = app.active_session_id.as_ref()
         && let Some(info) = app.sessions.iter().find(|s| &s.id == active_id)
     {

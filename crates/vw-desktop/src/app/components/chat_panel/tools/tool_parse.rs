@@ -318,7 +318,7 @@ pub fn tool_status(value: &Value) -> &str {
 }
 
 pub fn tool_input(value: &Value) -> &str {
-    value.get("input").and_then(Value::as_str).unwrap_or("")
+    value.get("input").or_else(|| value.get("rawInput")).and_then(Value::as_str).unwrap_or("")
 }
 
 pub fn tool_output_text(value: &Value) -> Option<String> {
@@ -580,8 +580,29 @@ pub fn tool_identity_from_raw(raw: &str) -> Option<String> {
         return Some(format!("grep:{}", ident));
     }
 
+    if let Some(path) = edit_tool_identity_path(tool_name, &v, input) {
+        let identity_tool = match tool_name {
+            "write" | "file_write" => "file_write",
+            _ => tool_name,
+        };
+        return Some(format!("{}:{}", identity_tool, path.trim()));
+    }
+
     // 默认标识符格式：工具名:输入内容
     Some(format!("{}:{}", tool_name, input))
+}
+
+fn edit_tool_identity_path(tool_name: &str, value: &Value, input: &str) -> Option<String> {
+    if !matches!(tool_name, "write" | "file_write" | "file_edit" | "notebook_edit") {
+        return None;
+    }
+
+    tool_input_path(input).or_else(|| {
+        value
+            .pointer("/metadata/path")
+            .and_then(Value::as_str)
+            .and_then(normalize_file_reference_to_path)
+    })
 }
 
 /// 判断是否应该隐藏工具块

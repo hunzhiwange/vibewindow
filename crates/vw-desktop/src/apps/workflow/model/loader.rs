@@ -17,7 +17,7 @@ pub fn load_document_from_value(
         source_path
             .as_deref()
             .and_then(file_stem_string)
-            .unwrap_or_else(|| "Dify工作流示例".to_string())
+            .unwrap_or_else(|| "工作流示例".to_string())
     } else {
         app_meta.name.clone()
     };
@@ -73,6 +73,7 @@ pub fn load_document_from_value(
         .map(|(index, edge)| {
             workflow_edge_from_dify(
                 edge,
+                index,
                 &node_types,
                 raw_edges.get(index).cloned().unwrap_or(Value::Null),
             )
@@ -117,6 +118,7 @@ pub fn load_document_from_value(
         .unwrap_or_default();
 
     Ok(LoadedWorkflow {
+        local_uuid: None,
         source_path,
         source_name: source_name.clone(),
         app_meta: WorkflowAppMeta { name: source_name.clone(), ..app_meta },
@@ -220,11 +222,18 @@ pub(super) fn workflow_node_from_dify(node: &DifyNode, raw_node: Value) -> Workf
 
 fn workflow_edge_from_dify(
     edge: &DifyEdge,
+    index: usize,
     node_types: &HashMap<&str, &str>,
     raw_edge: Value,
 ) -> WorkflowEdge {
     WorkflowEdge {
-        id: edge.id.clone(),
+        id: edge
+            .id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .unwrap_or_else(|| generated_edge_id(edge, index)),
         source: edge.source.clone(),
         target: edge.target.clone(),
         source_handle: edge.source_handle.clone(),
@@ -249,6 +258,12 @@ fn workflow_edge_from_dify(
         z_index: edge.z_index.unwrap_or(0.0),
         raw_edge,
     }
+}
+
+fn generated_edge_id(edge: &DifyEdge, index: usize) -> String {
+    let source_handle = edge.source_handle.as_deref().unwrap_or("source");
+    let target_handle = edge.target_handle.as_deref().unwrap_or("target");
+    format!("{}-{}-{}-{}-{}", edge.source, source_handle, edge.target, target_handle, index + 1)
 }
 
 fn parse_handle_side(value: Option<&str>, default: WorkflowHandleSide) -> WorkflowHandleSide {

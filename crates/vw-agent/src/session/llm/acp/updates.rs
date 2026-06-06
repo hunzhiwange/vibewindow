@@ -75,7 +75,7 @@ fn transcript_tool_title(update: &Map<String, Value>, tool_name: &str) -> String
 
 /// 将工具输入规范化成字符串。
 fn tool_input_string(update: &Map<String, Value>) -> String {
-    match update.get("rawInput") {
+    match update.get("rawInput").or_else(|| update.get("input")) {
         Some(Value::String(value)) => value.clone(),
         Some(Value::Null) | None => "{}".to_string(),
         Some(value) => serde_json::to_string(value).unwrap_or_else(|_| "{}".to_string()),
@@ -181,6 +181,7 @@ fn extract_tool_result_dto_text(result: &ToolResultDto) -> Option<String> {
 fn parse_tool_result_dto(update: &Map<String, Value>) -> Option<ToolResultDto> {
     update
         .get("rawOutput")
+        .or_else(|| update.get("result"))
         .cloned()
         .and_then(|value| serde_json::from_value::<ToolResultDto>(value).ok())
 }
@@ -236,9 +237,10 @@ fn output_from_tool_update(update: &Map<String, Value>, result: Option<&ToolResu
 
     update
         .get("rawOutput")
+        .or_else(|| update.get("output"))
         .and_then(extract_tool_result_text_value)
         .or_else(|| {
-            update.get("rawOutput").and_then(|value| {
+            update.get("rawOutput").or_else(|| update.get("output")).and_then(|value| {
                 serde_json::to_string(value).ok().filter(|text| !text.trim().is_empty())
             })
         })

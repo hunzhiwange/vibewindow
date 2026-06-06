@@ -41,10 +41,7 @@ pub(super) fn load_new_app_init() -> NewAppInit {
     let init_ms = now.as_millis();
     let init_utc = crate::app::message::timestamp_tool::format_utc(init_secs);
 
-    #[cfg(not(target_arch = "wasm32"))]
     let gateway_client_cfg = config::load_gateway_client_config();
-    #[cfg(target_arch = "wasm32")]
-    let gateway_client_cfg = system_settings_cfg.gateway_client.clone();
 
     #[cfg(not(target_arch = "wasm32"))]
     let full_agent_cfg = config::load_full_agent_config();
@@ -52,7 +49,7 @@ pub(super) fn load_new_app_init() -> NewAppInit {
     let full_agent_cfg = vw_config_types::config::Config::default();
 
     #[cfg(not(target_arch = "wasm32"))]
-    let global_acp_cfg = config::load_global_acp_config_result().unwrap_or_else(|err| {
+    let global_acp_cfg = config::load_enabled_acp_config_result().unwrap_or_else(|err| {
         tracing::warn!(target: "vw_desktop", error = %err, "failed to load ACP config via gateway");
         full_agent_cfg.acp.clone()
     });

@@ -116,8 +116,8 @@ mod tests {
         let project = project_data_dir(workspace.path()).unwrap();
         let worktree = workspace_data_dir(workspace.path()).unwrap();
 
-        assert!(project.to_string_lossy().contains("/projects/"));
-        assert!(worktree.to_string_lossy().contains("/workspaces/"));
+        assert!(project.components().any(|component| component.as_os_str() == "projects"));
+        assert!(worktree.components().any(|component| component.as_os_str() == "workspaces"));
         assert_ne!(project, worktree);
     }
 }

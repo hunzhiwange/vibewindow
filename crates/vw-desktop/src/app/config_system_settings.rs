@@ -40,15 +40,45 @@ fn normalize_system_settings_config(mut cfg: AppSystemSettingsConfig) -> AppSyst
     cfg
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn gateway_client_bootstrap_cache_path() -> Option<std::path::PathBuf> {
+    std::env::var_os("HOME")
+        .map(std::path::PathBuf::from)
+        .map(|home| home.join(".vibewindow").join("gateway-client-bootstrap.json"))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn legacy_gateway_client_bootstrap_cache_path() -> Option<std::path::PathBuf> {
     crate::app::project_dirs().map(|d| d.config_dir().join("gateway-client-bootstrap.json"))
 }
+
+#[cfg(target_arch = "wasm32")]
+const GATEWAY_CLIENT_BOOTSTRAP_STORAGE_KEY: &str = "vibe-window.gateway-client-bootstrap";
 
 /// 模块内可见函数，执行 load_gateway_client_bootstrap_config 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
 pub(super) fn load_gateway_client_bootstrap_config() -> GatewayClientSystemSettingsConfig {
+    #[cfg(target_arch = "wasm32")]
+    {
+        return web_sys::window()
+            .and_then(|window| window.local_storage().ok().flatten())
+            .and_then(|storage| {
+                storage.get_item(GATEWAY_CLIENT_BOOTSTRAP_STORAGE_KEY).ok().flatten()
+            })
+            .and_then(|content| {
+                serde_json::from_str::<GatewayClientSystemSettingsConfig>(&content).ok()
+            })
+            .or_else(|| Some(load_legacy_system_settings_config_local().gateway_client))
+            .unwrap_or_default();
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     gateway_client_bootstrap_cache_path()
         .and_then(|path| std::fs::read_to_string(path).ok())
+        .or_else(|| {
+            legacy_gateway_client_bootstrap_cache_path()
+                .and_then(|path| std::fs::read_to_string(path).ok())
+        })
         .and_then(|content| {
             serde_json::from_str::<GatewayClientSystemSettingsConfig>(&content).ok()
         })
@@ -59,21 +89,35 @@ pub(super) fn load_gateway_client_bootstrap_config() -> GatewayClientSystemSetti
 /// 模块内可见函数，执行 save_gateway_client_bootstrap_config 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
 pub(super) fn save_gateway_client_bootstrap_config(config: &GatewayClientSystemSettingsConfig) {
-    let Some(path) = gateway_client_bootstrap_cache_path() else {
+    #[cfg(target_arch = "wasm32")]
+    {
+        if let Some(storage) =
+            web_sys::window().and_then(|window| window.local_storage().ok().flatten())
+            && let Ok(content) = serde_json::to_string(config)
+        {
+            let _ = storage.set_item(GATEWAY_CLIENT_BOOTSTRAP_STORAGE_KEY, &content);
+        }
         return;
-    };
-    if let Some(dir) = path.parent() {
-        let _ = std::fs::create_dir_all(dir);
     }
-    if let Ok(content) = serde_json::to_string(config) {
-        let _ = std::fs::write(path, content);
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let Some(path) = gateway_client_bootstrap_cache_path() else {
+            return;
+        };
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        if let Ok(content) = serde_json::to_string(config) {
+            let _ = std::fs::write(path, content);
+        }
     }
 }
 
 /// 公开函数，执行 load_gateway_client_config 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
 pub fn load_gateway_client_config() -> GatewayClientSystemSettingsConfig {
-    load_system_settings_config().gateway_client
+    load_gateway_client_bootstrap_config()
 }
 
 /// 公开函数，执行 update_gateway_client_config 对应的应用流程。
@@ -81,8 +125,11 @@ pub fn load_gateway_client_config() -> GatewayClientSystemSettingsConfig {
 pub fn update_gateway_client_config(
     update: impl FnOnce(&mut GatewayClientSystemSettingsConfig) + Send,
 ) {
-    update_system_settings_config(|system| {
-        update(&mut system.gateway_client);
+    let mut gateway_client = load_gateway_client_bootstrap_config();
+    update(&mut gateway_client);
+    save_gateway_client_bootstrap_config(&gateway_client);
+    update_system_settings_config(move |system| {
+        system.gateway_client = gateway_client;
     });
 }
 
@@ -91,13 +138,14 @@ pub fn update_gateway_client_config(
 pub async fn load_system_settings_config_async() -> Result<AppSystemSettingsConfig, String> {
     match fetch_desktop_system_settings_via_gateway().await {
         Ok(Some(config)) => {
-            let config = normalize_system_settings_config(config);
-            save_gateway_client_bootstrap_config(&config.gateway_client);
+            let mut config = normalize_system_settings_config(config);
+            config.gateway_client = load_gateway_client_bootstrap_config();
             Ok(config)
         }
         Ok(None) => {
-            let legacy =
+            let mut legacy =
                 normalize_system_settings_config(load_legacy_system_settings_config_local());
+            legacy.gateway_client = load_gateway_client_bootstrap_config();
             if legacy != AppSystemSettingsConfig::default()
                 && let Err(err) = patch_desktop_system_settings_via_gateway(&legacy).await
             {
@@ -108,9 +156,9 @@ pub async fn load_system_settings_config_async() -> Result<AppSystemSettingsConf
         }
         Err(err) => {
             tracing::warn!(target: "vw_desktop", error = %err, "failed to load desktop system settings via gateway");
-            let legacy =
+            let mut legacy =
                 normalize_system_settings_config(load_legacy_system_settings_config_local());
-            save_gateway_client_bootstrap_config(&legacy.gateway_client);
+            legacy.gateway_client = load_gateway_client_bootstrap_config();
             Ok(legacy)
         }
     }

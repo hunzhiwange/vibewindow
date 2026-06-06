@@ -170,6 +170,13 @@ where
             shell,
             viewport,
         );
+
+        if self.show
+            && matches!(event, Event::Mouse(_))
+            && cursor.position().is_some_and(|position| !layout.bounds().contains(position))
+        {
+            shell.capture_event();
+        }
     }
 
     fn mouse_interaction(
@@ -358,7 +365,7 @@ where
             );
         }
 
-        if matches!(event, Event::Mouse(_)) && !is_over_target {
+        if matches!(event, Event::Mouse(_)) && (is_over_overlay || !is_over_target) {
             shell.capture_event();
         }
     }

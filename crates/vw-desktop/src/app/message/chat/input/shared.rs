@@ -69,6 +69,7 @@ pub(super) fn permission_target_tool_anchor_fraction(
     message: &models::ChatMessage,
     request: Option<&vw_gateway_client::PendingPermissionRequestDto>,
     message_id: Option<&str>,
+    show_reasoning_summary: bool,
 ) -> Option<f32> {
     if !pending_permission_targets_message(request, message_id) {
         return None;
@@ -83,7 +84,8 @@ pub(super) fn permission_target_tool_anchor_fraction(
     }
 
     let (_, visible_for_copy, _) = crate::app::ui::chat::split_think(&message.content);
-    let render_cache = build_render_cache_entry(&message.content, &visible_for_copy, 0);
+    let render_cache =
+        build_render_cache_entry(&message.content, &visible_for_copy, 0, show_reasoning_summary);
     let tool_last = deduped_tool_last_indices(&render_cache.blocks);
     let mut visible_tools: Vec<Vec<usize>> = Vec::new();
     let mut pending_explore_group: Vec<usize> = Vec::new();
@@ -171,6 +173,7 @@ fn locate_chat_message_idx(
                 message,
                 app.permission_modal_request.as_ref(),
                 message_id,
+                app.dialogue_flow_show_reasoning_summary,
             )
         })
         .unwrap_or(0.50);
@@ -192,6 +195,7 @@ fn locate_chat_message_idx(
                     app.active_shared_chat_messages(),
                     target_chunk_start,
                     false,
+                    app.dialogue_flow_show_reasoning_summary,
                 )
             } else {
                 Task::none()

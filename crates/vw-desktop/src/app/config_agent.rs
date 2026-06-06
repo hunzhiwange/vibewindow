@@ -5,7 +5,7 @@
 
 use crate::app::Message;
 use iced::Task;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use vw_config_types::{
     agent::{AgentConfig, AgentsIpcConfig, CoordinationConfig, DelegateAgentConfig},
     automation::{
@@ -32,6 +32,31 @@ use super::gateway::{
     apply_main_agent_overrides, gateway_client, load_config_value_at_path, run_gateway_call,
     set_config_value_at_path, spawn_gateway_task,
 };
+
+#[derive(Debug, Clone)]
+pub struct AcpSettingsSnapshot {
+    pub catalog: BTreeMap<String, AcpAgentConfig>,
+    pub enabled: BTreeMap<String, AcpAgentConfig>,
+}
+
+const DEFAULT_ENABLED_ACP_AGENTS: &[&str] =
+    &["claude", "gemini", "opencode", "codex", "openclaw", "copilot"];
+
+fn default_enabled_acp_config(
+    catalog: &HashMap<String, AcpAgentConfig>,
+) -> HashMap<String, AcpAgentConfig> {
+    DEFAULT_ENABLED_ACP_AGENTS
+        .iter()
+        .filter_map(|name| catalog.get(*name).cloned().map(|config| ((*name).to_string(), config)))
+        .collect()
+}
+
+fn resolve_enabled_acp_config(
+    catalog: &HashMap<String, AcpAgentConfig>,
+    enabled: HashMap<String, AcpAgentConfig>,
+) -> HashMap<String, AcpAgentConfig> {
+    if enabled.is_empty() { default_enabled_acp_config(catalog) } else { enabled }
+}
 
 async fn fetch_agent_config_via_gateway() -> Result<Config, String> {
     let client = gateway_client()?;
@@ -171,6 +196,85 @@ pub fn load_global_acp_config_result() -> Result<HashMap<String, AcpAgentConfig>
 /// 当底层配置、文件或运行时调用失败时，错误会通过 `Result` 返回给上层统一处理。
 pub async fn load_global_acp_config_async() -> Result<HashMap<String, AcpAgentConfig>, String> {
     fetch_global_acp_config_via_gateway().await
+}
+
+pub fn load_enabled_acp_config_result() -> Result<HashMap<String, AcpAgentConfig>, String> {
+    run_gateway_call(async {
+        let catalog = fetch_global_acp_config_via_gateway().await?;
+        let enabled = fetch_global_agent_config_via_gateway().await?.acp;
+        Ok(resolve_enabled_acp_config(&catalog, enabled))
+    })
+}
+
+pub async fn load_enabled_acp_config_async() -> Result<HashMap<String, AcpAgentConfig>, String> {
+    let catalog = fetch_global_acp_config_via_gateway().await?;
+    let enabled = fetch_global_agent_config_via_gateway().await?.acp;
+    Ok(resolve_enabled_acp_config(&catalog, enabled))
+}
+
+pub async fn load_acp_settings_snapshot_async() -> Result<AcpSettingsSnapshot, String> {
+    let catalog = fetch_global_acp_config_via_gateway().await?;
+    let enabled = fetch_global_agent_config_via_gateway().await?.acp;
+    let enabled = resolve_enabled_acp_config(&catalog, enabled);
+
+    Ok(AcpSettingsSnapshot {
+        catalog: catalog.into_iter().collect(),
+        enabled: enabled.into_iter().collect(),
+    })
+}
+
+pub async fn set_global_acp_agent_enabled_async(
+    agent_name: String,
+    enabled: bool,
+    spec: Option<AcpAgentConfig>,
+) -> Result<AcpSettingsSnapshot, String> {
+    let agent_name = agent_name.trim().to_string();
+    if agent_name.is_empty() {
+        return Err("acp agent name must not be empty".to_string());
+    }
+
+    let catalog = fetch_global_acp_config_via_gateway().await?;
+    let configured = fetch_global_agent_config_via_gateway().await?.acp;
+    let mut effective = resolve_enabled_acp_config(&catalog, configured.clone());
+    let spec = match spec {
+        Some(spec) => spec,
+        None => catalog
+            .get(&agent_name)
+            .cloned()
+            .ok_or_else(|| format!("unknown acp agent: {agent_name}"))?,
+    };
+
+    let mut acp_patch = serde_json::Map::new();
+    if enabled {
+        effective.insert(agent_name.clone(), spec);
+        if configured.is_empty() {
+            for (name, config) in effective {
+                acp_patch
+                    .insert(name, serde_json::to_value(config).map_err(|err| err.to_string())?);
+            }
+        } else {
+            let config = effective
+                .remove(&agent_name)
+                .ok_or_else(|| format!("unknown acp agent: {agent_name}"))?;
+            acp_patch
+                .insert(agent_name, serde_json::to_value(config).map_err(|err| err.to_string())?);
+        }
+    } else {
+        effective.remove(&agent_name);
+        if configured.is_empty() {
+            for (name, config) in effective {
+                acp_patch
+                    .insert(name, serde_json::to_value(config).map_err(|err| err.to_string())?);
+            }
+        }
+        acp_patch.insert(agent_name, serde_json::Value::Null);
+    }
+    let mut root_patch = serde_json::Map::new();
+    root_patch.insert("acp".to_string(), serde_json::Value::Object(acp_patch));
+
+    patch_agent_config_via_gateway(&serde_json::Value::Object(root_patch)).await?;
+
+    load_acp_settings_snapshot_async().await
 }
 
 /// 读取、保存或转换 `patch_full_agent_config_async` 对应的配置数据与运行时状态。

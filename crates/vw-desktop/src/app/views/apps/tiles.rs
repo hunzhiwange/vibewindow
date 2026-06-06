@@ -199,6 +199,16 @@ pub(super) fn render_tiles_grid(app: &App, blocked: bool) -> Element<'_, Message
         ));
     }
 
+    if matches("知识库") || matches("Knowledge") {
+        tiles.push(ui::tile(
+            Icon::Journals,
+            "知识库".to_string(),
+            Color::from_rgb8(0x35, 0x85, 0xD6),
+            vec![("打开", msg(Message::View(ViewMessage::OpenKnowledge)))],
+            msg(Message::View(ViewMessage::OpenKnowledge)),
+        ));
+    }
+
     // SQL 美化工具瓦片
     if matches("SQL美化工具") {
         tiles.push(ui::tile(
@@ -243,10 +253,10 @@ pub(super) fn render_tiles_grid(app: &App, blocked: bool) -> Element<'_, Message
     }
 
     // Dify 工作流瓦片
-    if matches("Dify工作流") {
+    if matches("工作流") {
         tiles.push(ui::tile(
             Icon::GitBranch,
-            "Dify工作流".to_string(),
+            "工作流".to_string(),
             Color::from_rgb8(0x15, 0x8E, 0xA5),
             vec![("打开", msg(Message::View(ViewMessage::OpenWorkflowTool)))],
             msg(Message::View(ViewMessage::OpenWorkflowTool)),

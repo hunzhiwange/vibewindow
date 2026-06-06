@@ -23,6 +23,15 @@ fn intersect_tools(left: &[String], right: &[String]) -> Vec<String> {
     left.iter().filter(|tool| right.iter().any(|candidate| candidate == *tool)).cloned().collect()
 }
 
+pub(crate) fn request_allowed_tools_from_inventory(
+    runtime: &SessionRuntimeState,
+    inventory: &SessionToolInventory,
+) -> Option<Vec<String>> {
+    let allowed_tools =
+        sorted_unique_tools(runtime.tool_selector.filter_tools(&inventory.base_tools));
+    (!allowed_tools.is_empty()).then_some(allowed_tools)
+}
+
 impl App {
     fn selected_static_allowed_tools(&self, runtime: &SessionRuntimeState) -> Option<Vec<String>> {
         let selected_key = runtime.agent.as_deref().unwrap_or(MAIN_AGENT_KEY);
@@ -162,6 +171,14 @@ impl App {
         };
 
         SessionToolInventory { base_tools }
+    }
+
+    pub(crate) fn session_allowed_tools_for_request(
+        &self,
+        runtime: &SessionRuntimeState,
+    ) -> Option<Vec<String>> {
+        let inventory = self.session_tool_inventory(runtime);
+        request_allowed_tools_from_inventory(runtime, &inventory)
     }
 
     /// 执行 mark_active_session_viewed 对应的领域操作。

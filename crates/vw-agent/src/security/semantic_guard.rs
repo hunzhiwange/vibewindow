@@ -34,9 +34,8 @@ use std::sync::Arc;
 const BUILTIN_SOURCE: &str = "builtin";
 
 /// 内置攻击语料库（JSONL 格式）
-/// 编译时从 `assets/security/attack-corpus-v1.jsonl` 加载
-const BUILTIN_CORPUS_JSONL: &str =
-    include_str!("../../../../assets/security/attack-corpus-v1.jsonl");
+/// 编译时从 crate 内的 `assets/security/attack-corpus-v1.jsonl` 加载
+const BUILTIN_CORPUS_JSONL: &str = include_str!("../../assets/security/attack-corpus-v1.jsonl");
 
 /// 语义防护守卫
 ///

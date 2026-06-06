@@ -109,17 +109,18 @@ fn should_attempt_tools_list_request(endpoint: &GatewayEndpoint) -> bool {
 fn maybe_auto_pair_gateway_client(
     cfg: &mut vw_config_types::ui::GatewayClientSystemSettingsConfig,
 ) {
-    if !cfg.bearer_token.trim().is_empty()
-        || !cfg.username.trim().is_empty()
-        || !cfg.password.trim().is_empty()
-        || !cfg.skey.trim().is_empty()
-        || !is_loopback_host(&cfg.host)
+    let mut active = cfg.active_server();
+    if !active.bearer_token.trim().is_empty()
+        || !active.username.trim().is_empty()
+        || !active.password.trim().is_empty()
+        || !active.skey.trim().is_empty()
+        || !is_loopback_host(&active.host)
     {
         return;
     }
 
-    let host = normalize_gateway_host(&cfg.host);
-    let endpoint = GatewayEndpoint::new(host, cfg.port.clamp(1, u16::MAX));
+    let host = normalize_gateway_host(&active.host);
+    let endpoint = GatewayEndpoint::new(host, active.port.clamp(1, u16::MAX));
     let pair_code_response = match fetch_gateway_pair_code_response(&endpoint) {
         Ok(response) => response,
         Err(err) => {
@@ -167,7 +168,14 @@ fn maybe_auto_pair_gateway_client(
         return;
     };
 
-    cfg.bearer_token = token;
+    active.bearer_token = token;
+    let mut servers = cfg.normalized_servers();
+    for server in &mut servers {
+        if server.id == active.id {
+            *server = active.clone();
+        }
+    }
+    cfg.set_servers(servers, active.id.clone());
     save_gateway_client_bootstrap_config(cfg);
 }
 
@@ -338,14 +346,16 @@ pub fn gateway_client_endpoint() -> GatewayEndpoint {
     let cfg = load_gateway_client_bootstrap_config();
     #[cfg(not(target_arch = "wasm32"))]
     maybe_auto_pair_gateway_client(&mut cfg);
-    let host = normalize_gateway_host(&cfg.host);
+    let active = cfg.active_server();
+    let host = normalize_gateway_host(&active.host);
     let auth = vw_gateway_client::GatewayAuth {
-        bearer_token: Some(cfg.bearer_token.trim().to_string()).filter(|value| !value.is_empty()),
-        username: Some(cfg.username.trim().to_string()).filter(|value| !value.is_empty()),
-        password: Some(cfg.password.trim().to_string()).filter(|value| !value.is_empty()),
-        skey: Some(cfg.skey.trim().to_string()).filter(|value| !value.is_empty()),
+        bearer_token: Some(active.bearer_token.trim().to_string())
+            .filter(|value| !value.is_empty()),
+        username: Some(active.username.trim().to_string()).filter(|value| !value.is_empty()),
+        password: Some(active.password.trim().to_string()).filter(|value| !value.is_empty()),
+        skey: Some(active.skey.trim().to_string()).filter(|value| !value.is_empty()),
     };
-    GatewayEndpoint::new(host, cfg.port.clamp(1, u16::MAX)).with_auth(auth)
+    GatewayEndpoint::new(host, active.port.clamp(1, u16::MAX)).with_auth(auth)
 }
 
 pub fn gateway_client() -> Result<GatewayClient, String> {

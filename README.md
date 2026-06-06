@@ -1,39 +1,222 @@
-## Vapor window
+# VibeWindow
 
-You can run the native version with `cargo run`:
+VibeWindow 是一个 Rust-first 的自主代理运行时，目标是在桌面端、CLI、网关服务和长驻守护进程之间提供同一套高性能、可扩展、可审计的 Agent 能力。
 
+项目当前包含桌面应用、命令行入口、HTTP/WebSocket 网关、任务与记忆管理、通信通道、模型/提供商解析、ACP 桥接、Figma 解析工具和跨平台 WebView helper。
+
+## 主要能力
+
+- `vibewindow` CLI：交互式 Agent、单次消息、网关、守护进程、任务、记忆、技能、集成、计划任务和安全维护。
+- `vibe-window` 桌面端：基于 Iced 的本地桌面应用。
+- `vw-webview` helper：跨平台 WebView 窗口，用于桌面打包场景。
+- `acp`：Agent Client Protocol 桥接入口。
+- `vw-fig2json`：Figma `.fig` 文件到 JSON 的转换工具。
+- 共享 crate：API 类型、配置类型、网关客户端、运行时核心、提供商解析和通用工具。
+
+## 仓库结构
+
+```text
+crates/
+  vw-cli/               # vibewindow CLI 和 vibe-agent 兼容入口
+  vw-desktop/           # Iced 桌面应用
+  vw-agent/             # Agent 运行时核心
+  vw-acp/               # Agent Client Protocol 桥接
+  vw-api-types/         # API 数据结构
+  vw-config-types/      # 配置数据结构
+  vw-gateway-client/    # 网关客户端
+  vw-provider-resolver/ # 提供商和模型解析
+  vw-shared/            # 跨 crate 共享工具
+  vw-webview/           # WebView helper
+  vw-figma-json/        # Figma 解析与转换
+docs/                   # 使用文档、OpenAPI 和参考资料
+scripts/                # 构建、安装和打包脚本
+release/                # 发布说明与发布辅助文件
+skills/                 # 本地技能说明
 ```
-cargo run 
-cargo build --verbose
-cargo clippy --verbose --all-targets
-cargo test --verbose
-cargo fmt -- --check
-cargo doc
-```
 
-## CLI
+## 环境要求
 
-- `vw_server`: 本地 HTTP API server（Axum），文档见 [src/bin/vw_server.md](file:///Users/xiongjiaojiao/code/vibe-window2/src/bin/vw_server.md)
-- `vw_mcp`: MCP CLI，文档见 [src/bin/vw_mcp.md](file:///Users/xiongjiaojiao/code/vibe-window2/src/bin/vw_mcp.md)
-- `vibe-agent`: Vibe Window AI Agent，文档见 [docs/vibe-agent-usage.md](docs/vibe-agent-usage.md)
+- Rust toolchain 使用仓库内 `rust-toolchain.toml` 指定的 `1.93.0`。
+- 推荐通过 `rustup` 安装 Rust，并确保 `clippy` 组件可用。
+- macOS 打包需要 `cargo-bundle`。
+- Windows 交叉编译可选 `cargo-xwin`，Linux 交叉编译可选 `cross`。
 
-The web version can be run with [`trunk`]:
+## 快速开始
 
-```
-rustup target add wasm32-unknown-unknown
-cargo install trunk
-cd crates/vw-desktop
-trunk serve ../../index.html
-```
-
-`trunk` 需要在 `vw-desktop` 包上下文中运行，目标 HTML 使用仓库根目录的 `index.html`。
-
-[`trunk`]: https://trunkrs.dev/
-
-## release
-
-Run the bundling script to create a macOS application bundle containing both the main app and the webview helper:
+查看 CLI 帮助：
 
 ```bash
+cargo run -p vw-cli --bin vibewindow -- --help
+```
+
+启动交互式 Agent：
+
+```bash
+cargo run -p vw-cli --bin vibewindow -- agent
+```
+
+发送单条消息：
+
+```bash
+cargo run -p vw-cli --bin vibewindow -- agent -m "总结这个仓库的主要模块"
+```
+
+启动桌面应用：
+
+```bash
+cargo run -p vw-desktop --bin vibe-window
+```
+
+启动网关：
+
+```bash
+cargo run -p vw-cli --bin vibewindow -- gateway --host 127.0.0.1 --port 8080
+```
+
+启动长驻运行时：
+
+```bash
+cargo run -p vw-cli --bin vibewindow -- daemon
+```
+
+## 常用 CLI 命令
+
+```bash
+# 查看运行状态
+cargo run -p vw-cli --bin vibewindow -- status
+
+# 诊断模型提供商
+cargo run -p vw-cli --bin vibewindow -- doctor models
+
+# 导出配置 JSON Schema
+cargo run -p vw-cli --bin vibewindow -- config schema
+
+# 查看支持的提供商
+cargo run -p vw-cli --bin vibewindow -- providers
+
+# 创建项目任务
+cargo run -p vw-cli --bin vibewindow -- task create --prompt "检查 OAuth 回调并修复"
+
+# 读取项目任务
+cargo run -p vw-cli --bin vibewindow -- task read --limit 20
+
+# 查看计划任务
+cargo run -p vw-cli --bin vibewindow -- cron list
+
+# 生成 shell 补全
+cargo run -p vw-cli --bin vibewindow -- completions zsh
+```
+
+本地安装或 release 构建后，可将上面的 `cargo run -p vw-cli --bin vibewindow --` 替换为 `vibewindow`。
+
+## 构建
+
+构建 CLI：
+
+```bash
+cargo build -p vw-cli --bin vibewindow --release
+```
+
+构建桌面应用：
+
+```bash
+cargo build -p vw-desktop --bin vibe-window --release
+```
+
+构建 WebView helper：
+
+```bash
+cargo build -p vw-webview --bin vw-webview --release
+```
+
+构建 ACP 桥接：
+
+```bash
+cargo build -p vw-acp --bin acp --release
+```
+
+构建 Figma 转换工具：
+
+```bash
+cargo build -p vw-fig2json --bin vw-fig2json --release
+```
+
+## 打包
+
+macOS `.app` 打包：
+
+```bash
+cargo install cargo-bundle
 ./scripts/bundle_macos.sh
 ```
+
+Windows 打包：
+
+```bash
+bash scripts/bundle_windows.sh
+```
+
+Linux 打包：
+
+```bash
+bash scripts/bundle_linux.sh
+```
+
+CLI 多平台构建脚本示例：
+
+```bash
+./scripts/build-cli.sh --target x86_64-apple-darwin
+./scripts/build-cli.sh --target x86_64-unknown-linux-gnu --use-cross
+./scripts/build-cli.sh --target x86_64-pc-windows-msvc --use-xwin
+```
+
+更多平台构建说明见 [`scripts/BUILDING.md`](scripts/BUILDING.md)。
+
+## 配置与数据
+
+CLI 支持通过全局参数指定配置目录：
+
+```bash
+vibewindow --config-dir /path/to/config status
+```
+
+项目任务默认写入目标项目下的 `.vibewindow/tasks`。可以通过 `--project-dir` 指向其他仓库：
+
+```bash
+vibewindow task --project-dir /path/to/repo read
+```
+
+完整配置键请以当前代码生成的 Schema 为准：
+
+```bash
+vibewindow config schema > vibewindow.schema.json
+```
+
+## 开发检查
+
+基础静态检查：
+
+```bash
+cargo clippy --all-targets --all-features -- -D warnings
+```
+
+按需运行更聚焦的包级检查：
+
+```bash
+cargo clippy -p vw-cli --all-targets -- -D warnings
+cargo clippy -p vw-desktop --all-targets -- -D warnings
+```
+
+测试命令可按变更范围选择具体 package 或测试目标运行。
+
+## 相关文档
+
+- [`docs/vibe-agent-usage.md`](docs/vibe-agent-usage.md)：Vibe Agent 使用指南。
+- [`docs/openapi.json`](docs/openapi.json)：网关 OpenAPI 描述。
+- [`scripts/BUILDING.md`](scripts/BUILDING.md)：macOS / Windows 构建与打包说明。
+- [`release/README.md`](release/README.md)：发布相关说明。
+- [`skills/README.md`](skills/README.md)：本地技能说明。
+
+## 许可证
+
+本项目使用 MIT License，见 [`LICENSE`](LICENSE)。

@@ -4,7 +4,7 @@ use crate::app::{App, Message, components::system_settings::SystemTab};
 use iced::Task;
 
 use super::messages::{
-    AgentsMessage, BrowserMessage, ChannelsMessage, GatewayMessage, HttpRequestMessage,
+    AcpMessage, AgentsMessage, BrowserMessage, ChannelsMessage, GatewayMessage, HttpRequestMessage,
     MemoryMessage, ModelRoutesMessage, QueryClassificationMessage, RuntimeMessage, SettingsMessage,
     WebSearchMessage,
 };
@@ -54,6 +54,13 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             } else if tab == SystemTab::GoalLoop {
                 app.goal_loop_settings.save_error = None;
                 Task::none()
+            } else if tab == SystemTab::Cron {
+                app.cron_settings.save_error = None;
+                app.agents_settings.loading = true;
+                Task::batch(vec![
+                    Task::done(Message::Settings(SettingsMessage::CronJobsRefresh)),
+                    Task::done(Message::Settings(SettingsMessage::Agents(AgentsMessage::Refresh))),
+                ])
             } else if tab == SystemTab::Runtime {
                 app.runtime_settings.save_error = None;
                 Task::done(Message::Settings(SettingsMessage::Runtime(RuntimeMessage::Refresh)))
@@ -85,6 +92,10 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             } else if tab == SystemTab::Multimodal {
                 app.multimodal_settings.save_error = None;
                 Task::none()
+            } else if tab == SystemTab::Acp {
+                app.acp_settings.loading = true;
+                app.acp_settings.save_error = None;
+                Task::done(Message::Settings(SettingsMessage::Acp(AcpMessage::Refresh)))
             } else if tab == SystemTab::Gateway {
                 app.gateway_settings.save_error = None;
                 Task::done(Message::Settings(SettingsMessage::Gateway(GatewayMessage::Refresh)))

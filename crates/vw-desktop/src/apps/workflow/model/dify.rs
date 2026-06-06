@@ -88,7 +88,7 @@ pub(super) struct DifyCase {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct DifyEdge {
-    pub(super) id: String,
+    pub(super) id: Option<String>,
     pub(super) source: String,
     pub(super) target: String,
     pub(super) source_handle: Option<String>,

@@ -3,7 +3,7 @@
 //! 本模块只负责视图组合与样式适配，不持有业务状态，也不扩大外部能力边界。
 
 use crate::app::components::system_settings_common::{
-    primary_action_btn_style, rounded_action_btn_style, settings_divider,
+    primary_action_btn_style, rounded_action_btn_style, settings_checkbox_style, settings_divider,
 };
 use crate::app::message::RedisToolMessage;
 use crate::app::state::RedisConnectionTab;
@@ -166,6 +166,7 @@ fn build_ssh_tab<'a>(app: &'a App, compact: bool) -> Element<'a, Message> {
                 .on_toggle(|value| Message::RedisTool(RedisToolMessage::DraftSshEnabledToggled(
                     value
                 )))
+                .style(settings_checkbox_style)
                 .into(),
             compact,
         ),
@@ -262,6 +263,7 @@ fn build_tls_tab<'a>(app: &'a App, compact: bool) -> Element<'a, Message> {
             checkbox(app.redis_tool.draft.use_tls)
                 .label("启用 SSL/TLS")
                 .on_toggle(|value| Message::RedisTool(RedisToolMessage::DraftTlsToggled(value)))
+                .style(settings_checkbox_style)
                 .into(),
             compact,
         ),
@@ -319,6 +321,7 @@ fn build_sentinel_tab<'a>(app: &'a App, compact: bool) -> Element<'a, Message> {
                 .on_toggle(|value| {
                     Message::RedisTool(RedisToolMessage::DraftSentinelEnabledToggled(value))
                 })
+                .style(settings_checkbox_style)
                 .into(),
             compact,
         ),
@@ -357,6 +360,7 @@ fn build_cluster_tab<'a>(app: &'a App, compact: bool) -> Element<'a, Message> {
             checkbox(app.redis_tool.draft.use_cluster)
                 .label("启用 Cluster")
                 .on_toggle(|value| Message::RedisTool(RedisToolMessage::DraftClusterToggled(value)))
+                .style(settings_checkbox_style)
                 .into(),
             compact,
         ),
@@ -369,6 +373,7 @@ fn build_cluster_tab<'a>(app: &'a App, compact: bool) -> Element<'a, Message> {
                 .on_toggle(|value| Message::RedisTool(RedisToolMessage::DraftReadOnlyToggled(
                     value
                 )))
+                .style(settings_checkbox_style)
                 .into(),
             compact,
         ),

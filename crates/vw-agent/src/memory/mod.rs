@@ -281,13 +281,13 @@ pub fn is_assistant_autosave_key(key: &str) -> bool {
 /// 此结构体包含经过解析和验证的嵌入模型配置信息，
 /// 用于创建嵌入向量提供者实例。配置可能来自默认设置或路由规则。
 #[derive(Clone, PartialEq, Eq)]
-struct ResolvedEmbeddingConfig {
+pub struct ResolvedEmbeddingConfig {
     /// 嵌入提供者名称，如 "openai"、"cohere" 等
-    provider: String,
+    pub provider: String,
     /// 嵌入模型名称，如 "text-embedding-3-small"
-    model: String,
+    pub model: String,
     /// 嵌入向量维度
-    dimensions: usize,
+    pub dimensions: usize,
     /// API 密钥（可选）
     api_key: Option<String>,
 }
@@ -329,7 +329,7 @@ impl std::fmt::Debug for ResolvedEmbeddingConfig {
 /// config.embedding_model = "hint:high-dimensional".to_string();
 /// // 将查找 embedding_routes 中 hint 为 "high-dimensional" 的配置
 /// ```
-fn resolve_embedding_config(
+pub fn resolve_embedding_config(
     config: &MemoryConfig,
     embedding_routes: &[EmbeddingRouteConfig],
     api_key: Option<&str>,
@@ -392,6 +392,23 @@ fn resolve_embedding_config(
         dimensions,
         api_key: routed_api_key.or(fallback_api_key),
     }
+}
+
+/// 使用 memory 配置和 embedding routes 创建 embedding provider。
+pub fn create_embedding_provider_with_routes(
+    config: &MemoryConfig,
+    embedding_routes: &[EmbeddingRouteConfig],
+    api_key: Option<&str>,
+) -> (Arc<dyn embeddings::EmbeddingProvider>, ResolvedEmbeddingConfig) {
+    let resolved = resolve_embedding_config(config, embedding_routes, api_key);
+    let embedder: Arc<dyn embeddings::EmbeddingProvider> =
+        Arc::from(embeddings::create_embedding_provider(
+            &resolved.provider,
+            resolved.api_key.as_deref(),
+            &resolved.model,
+            resolved.dimensions,
+        ));
+    (embedder, resolved)
 }
 
 /// 工厂函数：根据配置创建记忆后端

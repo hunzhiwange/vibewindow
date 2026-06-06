@@ -4,6 +4,8 @@
 use super::message;
 use super::{App, Message};
 
+mod chat_fork;
+mod chat_reset;
 mod git_diff;
 mod permission_modal;
 mod project_edit;
@@ -24,6 +26,8 @@ pub(super) const PRESET_COLORS: [(&str, &str); 10] = [
     ("Indigo", "#6366f1"),
 ];
 
+pub(crate) use chat_fork::with_chat_fork_dialog;
+pub(crate) use chat_reset::with_chat_reset_dialog;
 pub(crate) use git_diff::with_git_diff_overlays;
 pub(crate) use permission_modal::with_permission_modal;
 pub(crate) use project_edit::with_project_edit;

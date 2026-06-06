@@ -3,9 +3,9 @@
 //! 本模块只负责视图组合与样式适配，不持有业务状态，也不扩大外部能力边界。
 
 use crate::app::components::system_settings_common::{
-    primary_action_btn_style, rounded_action_btn_style, settings_muted_text_style, settings_panel,
-    settings_pick_list_menu_style, settings_pick_list_style, settings_text_input_style,
-    settings_value_badge,
+    primary_action_btn_style, rounded_action_btn_style, settings_checkbox_style,
+    settings_muted_text_style, settings_panel, settings_pick_list_menu_style,
+    settings_pick_list_style, settings_text_input_style, settings_value_badge,
 };
 use crate::app::message::RedisToolMessage;
 use crate::app::state::RedisKeyValueKind;
@@ -20,6 +20,8 @@ use super::common::{
     modal_shell, redis_scroll_direction,
 };
 use super::detail::build_connection_form_panel;
+
+const SETTINGS_MODAL_WIDTH: f32 = 600.0;
 
 /// 构建对应界面片段。
 ///
@@ -111,7 +113,7 @@ pub(super) fn build_settings_modal<'a>(app: &'a App) -> Element<'a, Message> {
         ),
     ]
     .spacing(14)
-    .width(Length::Fixed(520.0));
+    .width(Length::Fixed(SETTINGS_MODAL_WIDTH));
 
     modal_shell(content.into()).into()
 }
@@ -215,9 +217,12 @@ pub(super) fn build_history_modal<'a>(app: &'a App) -> Element<'a, Message> {
                 .size(13)
                 .width(Length::FillPortion(2))
                 .style(settings_text_input_style),
-            checkbox(app.redis_tool.history_only_write).label("Only Write").on_toggle(|value| {
-                Message::RedisTool(RedisToolMessage::HistoryOnlyWriteToggled(value))
-            }),
+            checkbox(app.redis_tool.history_only_write)
+                .label("Only Write")
+                .on_toggle(|value| {
+                    Message::RedisTool(RedisToolMessage::HistoryOnlyWriteToggled(value))
+                })
+                .style(settings_checkbox_style),
         ]
         .spacing(12)
         .align_y(Alignment::Center),

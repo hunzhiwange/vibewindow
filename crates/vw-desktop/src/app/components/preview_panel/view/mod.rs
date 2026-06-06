@@ -33,6 +33,8 @@ use crate::app::components::editor_toolbar;
 use crate::app::{App, Message, message};
 /// 重新导出 use iced::widget::svg，让上层模块通过稳定路径访问。
 use iced::widget::svg;
+/// 重新导出 use iced::widget::tooltip::{Position as TooltipPosition, Tooltip}，让上层模块通过稳定路径访问。
+use iced::widget::tooltip::{Position as TooltipPosition, Tooltip};
 /// 重新导出 use iced::widget::{Space, button, column, container, row, text}，让上层模块通过稳定路径访问。
 use iced::widget::{Space, button, column, container, row, text};
 /// 重新导出 use iced::{Background, Border, Color, Element, Length, Padding, Theme}，让上层模块通过稳定路径访问。
@@ -504,36 +506,90 @@ fn overlay_icon_button_style(theme: &Theme, status: button::Status) -> button::S
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
 fn fullscreen_controls<'a>(app: &'a App) -> Element<'a, Message> {
-    let half_button: Element<'a, Message> = button(
-        svg::Svg::new(crate::app::assets::get_icon(Icon::LayoutTextWindow))
-            .width(Length::Fixed(11.0))
-            .height(Length::Fixed(11.0))
-            .style(move |theme: &Theme, _status| fullscreen_icon_style(theme)),
-    )
-    .padding(4)
-    .width(Length::Fixed(21.0))
-    .height(Length::Fixed(21.0))
-    .style(overlay_icon_button_style)
-    .on_press(Message::Git(message::GitMessage::ToggleHalfFullscreen))
-    .into();
+    let half_button: Element<'a, Message> = fullscreen_control_tooltip(
+        button(
+            svg::Svg::new(crate::app::assets::get_icon(Icon::LayoutTextWindow))
+                .width(Length::Fixed(11.0))
+                .height(Length::Fixed(11.0))
+                .style(move |theme: &Theme, _status| fullscreen_icon_style(theme)),
+        )
+        .padding(4)
+        .width(Length::Fixed(21.0))
+        .height(Length::Fixed(21.0))
+        .style(overlay_icon_button_style)
+        .on_press(Message::Git(message::GitMessage::ToggleHalfFullscreen))
+        .into(),
+        "半屏",
+    );
 
     let fullscreen_icon =
         if app.git_diff_fullscreen { Icon::FullscreenExit } else { Icon::Fullscreen };
+    let fullscreen_label = if app.git_diff_fullscreen { "退出全屏" } else { "全屏" };
 
-    let fullscreen_button: Element<'a, Message> = button(
-        svg::Svg::new(crate::app::assets::get_icon(fullscreen_icon))
-            .width(Length::Fixed(11.0))
-            .height(Length::Fixed(11.0))
-            .style(move |theme: &Theme, _status| fullscreen_icon_style(theme)),
-    )
-    .padding(4)
-    .width(Length::Fixed(21.0))
-    .height(Length::Fixed(21.0))
-    .style(overlay_icon_button_style)
-    .on_press(Message::Git(message::GitMessage::ToggleFullscreen))
-    .into();
+    let fullscreen_button: Element<'a, Message> = fullscreen_control_tooltip(
+        button(
+            svg::Svg::new(crate::app::assets::get_icon(fullscreen_icon))
+                .width(Length::Fixed(11.0))
+                .height(Length::Fixed(11.0))
+                .style(move |theme: &Theme, _status| fullscreen_icon_style(theme)),
+        )
+        .padding(4)
+        .width(Length::Fixed(21.0))
+        .height(Length::Fixed(21.0))
+        .style(overlay_icon_button_style)
+        .on_press(Message::Git(message::GitMessage::ToggleFullscreen))
+        .into(),
+        fullscreen_label,
+    );
 
     row![half_button, fullscreen_button].spacing(4).align_y(iced::Alignment::Center).into()
+}
+
+fn fullscreen_control_tooltip<'a>(
+    content: Element<'a, Message>,
+    label: &'a str,
+) -> Element<'a, Message> {
+    let tip_content =
+        container(text(label).size(12)).padding([4, 8]).style(fullscreen_tooltip_style);
+
+    Tooltip::new(content, tip_content, TooltipPosition::Bottom).gap(6.0).into()
+}
+
+fn fullscreen_tooltip_style(theme: &Theme) -> iced::widget::container::Style {
+    let palette = theme.extended_palette();
+    let is_dark =
+        theme.palette().background.r + theme.palette().background.g + theme.palette().background.b
+            < 1.5;
+
+    if is_dark {
+        iced::widget::container::Style {
+            text_color: Some(palette.background.strong.text),
+            background: Some(Background::Color(palette.background.base.color)),
+            border: Border {
+                width: 1.0,
+                color: palette.background.strong.color,
+                radius: 4.0.into(),
+            },
+            shadow: iced::Shadow::default(),
+            snap: false,
+        }
+    } else {
+        iced::widget::container::Style {
+            text_color: Some(Color::WHITE),
+            background: Some(Background::Color(Color::from_rgba8(12, 13, 15, 0.97))),
+            border: Border {
+                width: 1.0,
+                color: Color::from_rgba8(255, 255, 255, 0.08),
+                radius: 10.0.into(),
+            },
+            shadow: iced::Shadow {
+                color: Color::BLACK.scale_alpha(0.32),
+                offset: iced::Vector::new(0.0, 6.0),
+                blur_radius: 20.0,
+            },
+            snap: false,
+        }
+    }
 }
 
 fn fullscreen_icon_style(theme: &Theme) -> svg::Style {

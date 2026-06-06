@@ -83,6 +83,18 @@ pub enum ClipboardPastePayload {
     Error(String),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ForkSessionTarget {
+    Local,
+    NewWorktree,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MessageIndexedSessionAction {
+    Fork(ForkSessionTarget),
+    Reset { revert_code: bool },
+}
+
 /// 聊天消息枚举
 ///
 /// 定义了聊天界面中所有可能的消息类型，用于在不同组件间传递状态变化和用户操作。
@@ -368,6 +380,26 @@ pub enum ChatMessage {
     /// 对主输入框文本编辑器执行的操作
     InputEditorAction(text_editor::Action),
 
+    /// wasm IME 已提交文本
+    ///
+    /// 隐藏 textarea 的 input 事件提交的最终文本。
+    WasmImeCommit(String),
+
+    /// wasm 输入桥请求聚焦隐藏 textarea。
+    WasmImeFocus,
+
+    /// wasm 输入桥请求删除前一个字符。
+    WasmImeBackspace,
+
+    /// wasm 输入桥请求删除后一个字符。
+    WasmImeDelete,
+
+    /// wasm 输入桥请求移动或选择文本。
+    WasmImeMove {
+        motion: text_editor::Motion,
+        select: bool,
+    },
+
     /// 打开输入框右键菜单
     OpenInputContextMenu {
         /// 菜单锚点 X 坐标
@@ -552,13 +584,27 @@ pub enum ChatMessage {
 
     CloseResetMenu,
 
-    ForkSessionAt(usize),
+    OpenForkSessionDialog(usize),
+
+    CloseForkSessionDialog,
+
+    ForkSessionAt {
+        msg_idx: usize,
+        target: ForkSessionTarget,
+    },
+
+    MessageIdsRecoveredForAction {
+        session_id: String,
+        msg_idx: usize,
+        action: MessageIndexedSessionAction,
+        result: Result<Vec<Option<String>>, String>,
+    },
 
     ForkSessionFinished {
-        result: Result<vw_shared::session::info::Info, String>,
+        result: Result<(vw_shared::session::info::Info, Option<String>), String>,
         base_chat: Vec<crate::app::models::ChatMessage>,
         base_message_ids: Vec<Option<String>>,
-        root: Option<String>,
+        branch_query: String,
         model: Option<String>,
     },
 
@@ -570,6 +616,9 @@ pub enum ChatMessage {
     ResetSessionFinished {
         result: Result<vw_shared::session::info::Info, String>,
         session_id: String,
+        retained_chat: Vec<crate::app::models::ChatMessage>,
+        retained_message_ids: Vec<Option<String>>,
+        directory: Option<String>,
     },
 
     /// 插入位置选择
@@ -702,6 +751,11 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         // 输入相关消息：文本编辑、悬停状态、滚动、文件搜索、任务模式输入等
         ChatMessage::InputChanged(_)
         | ChatMessage::InputEditorAction(_)
+        | ChatMessage::WasmImeCommit(_)
+        | ChatMessage::WasmImeFocus
+        | ChatMessage::WasmImeBackspace
+        | ChatMessage::WasmImeDelete
+        | ChatMessage::WasmImeMove { .. }
         | ChatMessage::OpenInputContextMenu { .. }
         | ChatMessage::CloseInputContextMenu
         | ChatMessage::CopyInputSelection
@@ -771,6 +825,8 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         | ChatMessage::TaskModeRemoveSubtask(_)
         | ChatMessage::TaskModeMoveSubtaskUp(_)
         | ChatMessage::TaskModeMoveSubtaskDown(_)
+        | ChatMessage::OpenForkSessionDialog(_)
+        | ChatMessage::CloseForkSessionDialog
         | ChatMessage::ToggleResetMenu(_)
         | ChatMessage::CloseResetMenu
         | ChatMessage::SetTodoPanelPlacement(_) => input::update(app, message),
@@ -840,7 +896,8 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         | ChatMessage::QueueUp(_)
         | ChatMessage::QueueDown(_)
         | ChatMessage::SubmitTick
-        | ChatMessage::ForkSessionAt(_)
+        | ChatMessage::ForkSessionAt { .. }
+        | ChatMessage::MessageIdsRecoveredForAction { .. }
         | ChatMessage::ForkSessionFinished { .. }
         | ChatMessage::ResetSessionToMessage { .. }
         | ChatMessage::ResetSessionFinished { .. } => session::update(app, message),

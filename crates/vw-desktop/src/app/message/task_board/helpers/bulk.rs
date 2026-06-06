@@ -116,6 +116,11 @@ pub(crate) fn reset_bulk_operation_inputs(app: &mut crate::app::App) {
     app.task_board_bulk_priority_input =
         parse_priority_or_default(&app.task_board_draft.priority, 999).to_string();
     app.task_board_bulk_model_input = normalized_bulk_model_input(&app.task_board_last_model);
+    app.task_board_bulk_agent = app
+        .task_board_draft
+        .agent
+        .clone()
+        .unwrap_or_else(|| crate::app::task::TASK_AGENT_MAIN.to_string());
     app.task_board_bulk_acp_agent = app.task_board_last_acp_agent.clone();
 }
 

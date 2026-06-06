@@ -213,10 +213,7 @@ impl App {
             cfg.get("show_settings").and_then(|v: &serde_json::Value| v.as_bool()).unwrap_or(true);
         // 项目worktree功能开关
         let cfg_project_worktree_enabled = system_settings_cfg.project_worktree_enabled.clone();
-        #[cfg(not(target_arch = "wasm32"))]
         let gateway_client_cfg = config::load_gateway_client_config();
-        #[cfg(target_arch = "wasm32")]
-        let gateway_client_cfg = system_settings_cfg.gateway_client.clone();
 
         // 加载各子系统的配置文件
         #[cfg(not(target_arch = "wasm32"))]
@@ -224,7 +221,7 @@ impl App {
         #[cfg(target_arch = "wasm32")]
         let full_agent_cfg = vw_config_types::config::Config::default();
         #[cfg(not(target_arch = "wasm32"))]
-        let global_acp_cfg = config::load_global_acp_config_result().unwrap_or_else(|err| {
+        let global_acp_cfg = config::load_enabled_acp_config_result().unwrap_or_else(|err| {
             tracing::warn!(target: "vw_desktop", error = %err, "failed to load ACP config via gateway");
             full_agent_cfg.acp.clone()
         });
@@ -332,6 +329,7 @@ impl App {
             acp_history_mode: cfg_acp_history_mode,
             acp_recent_count: cfg_acp_recent_count,
             acp_agents,
+            acp_settings: super::state::AcpSettingsState::default(),
             file_url_input: String::new(),
             files: vec![],
 
@@ -369,6 +367,7 @@ impl App {
             input_context_menu_open: false,
             input_context_menu_pos: None,
             chat_reset_menu_idx: None,
+            chat_fork_dialog_idx: None,
             chat_todo_expanded: true,
             chat_todo_anim: 1.0,
             chat_todo_placement: TodoPanelPlacement::ChatTopRight,
@@ -389,6 +388,11 @@ impl App {
             context_expansions: HashMap::new(),
             branches: vec![],
             selected_branch: None,
+            git_worktree_options: vec![],
+            selected_git_worktree_directory: None,
+            git_worktree_options_loading: false,
+            git_worktree_options_project_path: None,
+            git_worktree_menu_open: false,
             project_updated_at_ms: None,
             recent_projects: load_recent_projects(),
 
@@ -680,6 +684,7 @@ impl App {
             git_panel_header_hovered: false,
             git_changed_files: vec![],
             git_changed_files_loading: false,
+            git_changed_files_repo_path: None,
             git_diff_file_metas: vec![],
             git_diff_file_metas_loading: false,
             git_diff_file_metas_repo_path: None,
@@ -693,6 +698,7 @@ impl App {
             system_settings_tab: components::system_settings::SystemTab::General,
             system_settings_query: String::new(),
             system_settings_help_tab: None,
+            top_bar_gateway_tab: super::state::TopBarGatewayTab::default(),
             provider_settings: super::state::ProviderSettingsState::default(),
             model_settings: super::state::ModelSettingsState::default(),
             embedding_routes_settings: super::state::EmbeddingRoutesSettingsState {
@@ -780,8 +786,21 @@ impl App {
             cron_settings: super::state::CronSettingsState {
                 enabled: cron_cfg.enabled,
                 max_run_history: cron_cfg.max_run_history.clamp(1, 10_000),
+                active_tab: super::state::CronSettingsTab::default(),
+                jobs_loading: false,
+                jobs: Vec::new(),
+                selected_job_ids: Vec::new(),
+                editing_job_id: None,
+                edit_draft: super::state::CronJobDraft::default(),
+                add_draft: super::state::CronJobDraft::default(),
+                runs_modal_job_id: None,
+                runs_modal_loading: false,
+                runs_modal_error: None,
+                runs_modal: Vec::new(),
+                runs_modal_editor: iced::widget::text_editor::Content::new(),
                 show_help_modal: false,
                 save_error: None,
+                action_status: None,
             },
 
             // ========== SOP 设置 ==========
@@ -1053,15 +1072,24 @@ impl App {
             },
 
             gateway_client_settings: super::state::GatewayClientSettingsState {
+                selected_server_id: gateway_client_cfg.active_server().id.clone(),
+                name_input: gateway_client_cfg.active_server().name.clone(),
+                servers: gateway_client_cfg
+                    .normalized_servers()
+                    .iter()
+                    .map(super::state::GatewayClientServerDraft::from_config)
+                    .collect(),
+                health: HashMap::new(),
                 host_input: {
-                    let value = gateway_client_cfg.host.trim().to_string();
+                    let value = gateway_client_cfg.active_server().host.trim().to_string();
                     if value.is_empty() { "127.0.0.1".to_string() } else { value }
                 },
-                port: gateway_client_cfg.port.clamp(1, u16::MAX),
-                bearer_token_input: gateway_client_cfg.bearer_token,
-                username_input: gateway_client_cfg.username,
-                password_input: gateway_client_cfg.password,
-                skey_input: gateway_client_cfg.skey,
+                port: gateway_client_cfg.active_server().port.clamp(1, u16::MAX),
+                bearer_token_input: gateway_client_cfg.active_server().bearer_token,
+                username_input: gateway_client_cfg.active_server().username,
+                password_input: gateway_client_cfg.active_server().password,
+                skey_input: gateway_client_cfg.active_server().skey,
+                pending_remove_server_id: None,
                 show_help_modal: false,
                 save_error: None,
             },
@@ -1706,6 +1734,7 @@ impl App {
             sql_tool_scroll_remainder: 0.0,
             sql_tool_viewport_height: 0.0,
             redis_tool: super::state::RedisToolUiState::from_persisted(redis_tool_persisted),
+            knowledge: super::state::KnowledgeUiState::default(),
 
             // ========== HTML工具 ==========
             html_tool_editor: {
@@ -1883,6 +1912,7 @@ impl App {
             large_file_total_files: 0,
             large_file_selected_entries: std::collections::HashSet::new(),
             large_file_deleting: false,
+            large_file_scan_job_id: None,
             large_file_cancel_flag: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             large_file_progress_state: std::sync::Arc::new(std::sync::Mutex::new(
                 crate::app::message::large_file_tool::LargeFileScanProgress::default(),
@@ -1948,6 +1978,7 @@ impl App {
             task_board_bulk_active_status: None,
             task_board_bulk_priority_input: "999".to_string(),
             task_board_bulk_model_input: "auto".to_string(),
+            task_board_bulk_agent: crate::app::task::TASK_AGENT_MAIN.to_string(),
             task_board_bulk_acp_agent: cfg_acp_agent.clone(),
             task_board_selected_task: None,
             task_board_viewing_logs: None,

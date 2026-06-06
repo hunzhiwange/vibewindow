@@ -39,6 +39,20 @@ pub struct AppTab {
     pub project_path: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TopBarGatewayTab {
+    Gateway,
+    Mcp,
+    Lsp,
+    Plugins,
+}
+
+impl Default for TopBarGatewayTab {
+    fn default() -> Self {
+        Self::Gateway
+    }
+}
+
 /// 外部打开应用枚举
 ///
 /// 定义可以使用外部打开功能的应用程序类型，

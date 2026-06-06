@@ -19,10 +19,7 @@ pub(super) fn build_embedding_routes_settings(
                 pattern: route.hint.clone(),
                 provider: route.provider.clone(),
                 model: route.model.clone(),
-                dimensions: route
-                    .dimensions
-                    .map(|value| value.to_string())
-                    .unwrap_or_default(),
+                dimensions: route.dimensions.map(|value| value.to_string()).unwrap_or_default(),
             })
             .collect(),
         save_error: gateway_cfg_result
@@ -63,6 +60,8 @@ pub(super) fn build_model_routes_settings(
     }
 }
 
+pub(super) fn build_query_classification_settings(
+    full_agent_cfg: &vw_config_types::config::Config,
 ) -> crate::app::state::QueryClassificationSettingsState {
     let query_classification_cfg = &full_agent_cfg.query_classification;
 
@@ -132,8 +131,21 @@ pub(super) fn build_cron_settings(
     crate::app::state::CronSettingsState {
         enabled: cron_cfg.enabled,
         max_run_history: cron_cfg.max_run_history.clamp(1, 10_000),
+        active_tab: crate::app::state::CronSettingsTab::default(),
+        jobs_loading: false,
+        jobs: Vec::new(),
+        selected_job_ids: Vec::new(),
+        editing_job_id: None,
+        edit_draft: crate::app::state::CronJobDraft::default(),
+        add_draft: crate::app::state::CronJobDraft::default(),
+        runs_modal_job_id: None,
+        runs_modal_loading: false,
+        runs_modal_error: None,
+        runs_modal: Vec::new(),
+        runs_modal_editor: iced::widget::text_editor::Content::new(),
         show_help_modal: false,
         save_error: None,
+        action_status: None,
     }
 }
 
@@ -241,7 +253,8 @@ pub(super) fn build_runtime_settings(
         wasm_reject_symlink_modules: runtime_cfg.wasm.security.reject_symlink_modules,
         wasm_reject_symlink_tools_dir: runtime_cfg.wasm.security.reject_symlink_tools_dir,
         wasm_strict_host_validation: runtime_cfg.wasm.security.strict_host_validation,
-        wasm_capability_escalation_mode: match runtime_cfg.wasm.security.capability_escalation_mode {
+        wasm_capability_escalation_mode: match runtime_cfg.wasm.security.capability_escalation_mode
+        {
             vw_config_types::runtime::WasmCapabilityEscalationMode::Deny => "deny".to_string(),
             vw_config_types::runtime::WasmCapabilityEscalationMode::Clamp => "clamp".to_string(),
         },
@@ -450,16 +463,28 @@ pub(super) fn build_gateway_settings(
 pub(super) fn build_gateway_client_settings(
     gateway_client_cfg: &vw_config_types::ui::GatewayClientSystemSettingsConfig,
 ) -> crate::app::state::GatewayClientSettingsState {
+    let servers = gateway_client_cfg
+        .normalized_servers()
+        .iter()
+        .map(crate::app::state::GatewayClientServerDraft::from_config)
+        .collect::<Vec<_>>();
+    let active = gateway_client_cfg.active_server();
+
     crate::app::state::GatewayClientSettingsState {
+        selected_server_id: active.id.clone(),
+        name_input: active.name.clone(),
+        servers,
+        health: std::collections::HashMap::new(),
         host_input: {
-            let value = gateway_client_cfg.host.trim().to_string();
+            let value = active.host.trim().to_string();
             if value.is_empty() { "127.0.0.1".to_string() } else { value }
         },
-        port: gateway_client_cfg.port.clamp(1, u16::MAX),
-        bearer_token_input: gateway_client_cfg.bearer_token.clone(),
-        username_input: gateway_client_cfg.username.clone(),
-        password_input: gateway_client_cfg.password.clone(),
-        skey_input: gateway_client_cfg.skey.clone(),
+        port: active.port.clamp(1, u16::MAX),
+        bearer_token_input: active.bearer_token.clone(),
+        username_input: active.username.clone(),
+        password_input: active.password.clone(),
+        skey_input: active.skey.clone(),
+        pending_remove_server_id: None,
         show_help_modal: false,
         save_error: None,
     }
@@ -541,7 +566,8 @@ pub(super) fn build_agents_settings(
                     crate::app::state::DelegateAgentSettingsEntry::from_config(&key, Some(entry));
                 ui_entry.compact_context = agent_cfg.compact_context;
                 ui_entry.max_tool_iterations = agent_cfg.max_tool_iterations.clamp(1, 200) as u32;
-                ui_entry.max_history_messages = agent_cfg.max_history_messages.clamp(1, 1000) as u32;
+                ui_entry.max_history_messages =
+                    agent_cfg.max_history_messages.clamp(1, 1000) as u32;
                 ui_entry.parallel_tools = agent_cfg.parallel_tools;
                 ui_entry.tool_dispatcher = {
                     let value = agent_cfg.tool_dispatcher.trim().to_string();
@@ -634,8 +660,10 @@ pub(super) fn build_memory_settings(
         snapshot_enabled: memory_cfg.snapshot_enabled,
         snapshot_on_hygiene: memory_cfg.snapshot_on_hygiene,
         auto_hydrate: memory_cfg.auto_hydrate,
-        sqlite_open_timeout_secs: memory_cfg.sqlite_open_timeout_secs.unwrap_or_default().min(u32::MAX as u64)
-            as u32,
+        sqlite_open_timeout_secs: memory_cfg
+            .sqlite_open_timeout_secs
+            .unwrap_or_default()
+            .min(u32::MAX as u64) as u32,
         qdrant_url_input: memory_cfg.qdrant.url.clone().unwrap_or_default(),
         qdrant_collection: {
             let value = memory_cfg.qdrant.collection.trim().to_string();
@@ -703,7 +731,10 @@ pub(super) fn build_security_settings(
         },
         sandbox_firejail_args_input: security_cfg.sandbox.firejail_args.join(", "),
         resources_max_memory_mb: security_cfg.resources.max_memory_mb.clamp(32, 65_536),
-        resources_max_cpu_time_seconds: security_cfg.resources.max_cpu_time_seconds.clamp(1, 86_400),
+        resources_max_cpu_time_seconds: security_cfg
+            .resources
+            .max_cpu_time_seconds
+            .clamp(1, 86_400),
         resources_max_subprocesses: security_cfg.resources.max_subprocesses.clamp(1, 10_000),
         resources_memory_monitoring: security_cfg.resources.memory_monitoring,
         audit_enabled: security_cfg.audit.enabled,
@@ -732,7 +763,9 @@ pub(super) fn build_security_settings(
         estop_require_otp_to_resume: security_cfg.estop.require_otp_to_resume,
         syscall_anomaly_enabled: security_cfg.syscall_anomaly.enabled,
         syscall_anomaly_strict_mode: security_cfg.syscall_anomaly.strict_mode,
-        syscall_anomaly_alert_on_unknown_syscall: security_cfg.syscall_anomaly.alert_on_unknown_syscall,
+        syscall_anomaly_alert_on_unknown_syscall: security_cfg
+            .syscall_anomaly
+            .alert_on_unknown_syscall,
         syscall_anomaly_max_denied_events_per_minute: security_cfg
             .syscall_anomaly
             .max_denied_events_per_minute
@@ -753,7 +786,10 @@ pub(super) fn build_security_settings(
             let value = security_cfg.syscall_anomaly.log_path.trim().to_string();
             if value.is_empty() { "syscall-anomalies.log".to_string() } else { value }
         },
-        syscall_anomaly_baseline_syscalls_input: security_cfg.syscall_anomaly.baseline_syscalls.join(", "),
+        syscall_anomaly_baseline_syscalls_input: security_cfg
+            .syscall_anomaly
+            .baseline_syscalls
+            .join(", "),
         canary_tokens: security_cfg.canary_tokens.clone(),
         semantic_guard: security_cfg.semantic_guard,
         semantic_guard_collection: {
@@ -983,7 +1019,9 @@ pub(super) fn build_transcription_settings(
 
 /// 模块内可见函数，执行 build_task_board_settings 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
-pub(super) fn build_task_board_settings(cfg: &serde_json::Value) -> crate::app::task::TaskBoardSettings {
+pub(super) fn build_task_board_settings(
+    cfg: &serde_json::Value,
+) -> crate::app::task::TaskBoardSettings {
     let mut settings = crate::app::task::TaskBoardSettings::new();
     settings.code_review_enabled = cfg
         .get("task_board_code_review_enabled")

@@ -82,6 +82,7 @@ fn streaming_assistant_rebuilds_special_text_blocks_when_cache_is_stale() {
         content,
         hash_chat_content(content),
         true,
+        true,
     );
 
     assert!(matches!(live_cache.blocks.first(), Some(ParsedChatBlock::Tool { .. })));
@@ -99,6 +100,7 @@ fn non_streaming_assistant_rebuilds_special_text_blocks_when_cache_is_stale() {
         content,
         hash_chat_content(content),
         false,
+        true,
     );
 
     assert!(matches!(live_cache.blocks.first(), Some(ParsedChatBlock::Tool { .. })));
@@ -154,6 +156,25 @@ fn deduped_tool_last_indices_keeps_all_explore_tools() {
     assert_eq!(tool_last.len(), 1);
     assert_eq!(tool_last.get("bash:echo 1"), Some(&3));
     assert!(!tool_last.keys().any(|key| key.starts_with("read:")));
+}
+
+#[test]
+fn deduped_tool_last_indices_collapses_write_tools_by_path() {
+    let blocks = vec![
+        ParsedChatBlock::Tool {
+            raw: "tool write\n{\"input\":\"{\\\"path\\\":\\\"docs/iced/adding_widgets.md\\\",\\\"content\\\":\\\"<omitted 812 chars>\\\"}\",\"status\":\"completed\",\"output\":\"Updated\"}"
+                .to_string(),
+        },
+        ParsedChatBlock::Tool {
+            raw: "tool file_write\n{\"input\":\"{\\\"path\\\":\\\"docs/iced/adding_widgets.md\\\",\\\"content\\\":\\\"real content\\\"}\",\"status\":\"completed\",\"output\":\"Updated\",\"result\":{\"content\":[{\"type\":\"structured_patch\",\"hunks\":[{\"path\":\"docs/iced/adding_widgets.md\",\"header\":\"@@ -1 +1 @@\",\"lines\":[\"-old\",\"+new\"]}]}]}}"
+                .to_string(),
+        },
+    ];
+
+    let tool_last = deduped_tool_last_indices(&blocks);
+
+    assert_eq!(tool_last.len(), 1);
+    assert_eq!(tool_last.get("file_write:docs/iced/adding_widgets.md"), Some(&1));
 }
 
 #[test]
@@ -241,6 +262,7 @@ fn trailing_tool_tail_text_source_block_idx_ignores_blank_tail_after_tools() {
         content,
         hash_chat_content(content),
         true,
+        true,
     );
 
     assert_eq!(live_cache.special_text_blocks, vec!["项目概览".to_string()]);
@@ -257,6 +279,7 @@ fn trailing_tool_tail_text_source_block_idx_skips_when_text_already_follows_tool
         &render_cache,
         content,
         hash_chat_content(content),
+        true,
         true,
     );
 
@@ -280,6 +303,7 @@ fn trailing_tool_tail_text_source_block_idx_handles_non_explore_tool_before_expl
         content,
         hash_chat_content(content),
         true,
+        true,
     );
 
     assert_eq!(trailing_tool_tail_text_source_block_idx(&live_cache.blocks), Some(0));
@@ -299,6 +323,7 @@ fn trailing_tool_tail_text_source_block_idx_skips_non_explore_tool_suffix() {
         &render_cache,
         content,
         hash_chat_content(content),
+        true,
         true,
     );
 
@@ -372,7 +397,7 @@ fn summarize_explore_items_uses_running_slot_when_forced() {
 }
 
 #[test]
-fn explore_summary_text_blocks_split_on_hidden_think_boundary() {
+fn explore_summary_text_blocks_merge_on_hidden_think_boundary() {
     let raw = concat!(
         "tool read\n",
         "{\"tool_call_id\":\"call-1\",\"input\":\"{\\\"filePath\\\":\\\"/tmp/a.rs\\\"}\",\"status\":\"completed\"}\n",
@@ -381,7 +406,23 @@ fn explore_summary_text_blocks_split_on_hidden_think_boundary() {
         "{\"tool_call_id\":\"call-2\",\"input\":\"{\\\"filePath\\\":\\\"/tmp/b.rs\\\"}\",\"status\":\"completed\"}\n"
     );
 
-    let summaries = explore_summary_text_blocks(raw);
+    let summaries = explore_summary_text_blocks(raw, false);
+
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].1, "2 次读取");
+}
+
+#[test]
+fn explore_summary_text_blocks_split_on_visible_think_boundary() {
+    let raw = concat!(
+        "tool read\n",
+        "{\"tool_call_id\":\"call-1\",\"input\":\"{\\\"filePath\\\":\\\"/tmp/a.rs\\\"}\",\"status\":\"completed\"}\n",
+        "<think>done</think>\n",
+        "tool read\n",
+        "{\"tool_call_id\":\"call-2\",\"input\":\"{\\\"filePath\\\":\\\"/tmp/b.rs\\\"}\",\"status\":\"completed\"}\n"
+    );
+
+    let summaries = explore_summary_text_blocks(raw, true);
 
     assert_eq!(summaries.len(), 2);
     assert_eq!(summaries[0].1, "1 次读取");

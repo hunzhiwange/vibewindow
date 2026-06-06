@@ -337,20 +337,19 @@ pub(super) fn render_assistant_body<'a>(
                         timing,
                     );
 
-                    body = push_explore_summary(
-                        body,
-                        app,
-                        idx,
-                        explore_group_idx,
-                        &explore_items,
-                        explore_group_force_running,
-                        true,
-                    );
-                    explore_items.clear();
-                    explore_group_force_running = false;
-                    explore_group_idx = explore_group_idx.saturating_add(1);
-
                     if should_render {
+                        body = push_explore_summary(
+                            body,
+                            app,
+                            idx,
+                            explore_group_idx,
+                            &explore_items,
+                            explore_group_force_running,
+                            true,
+                        );
+                        explore_items.clear();
+                        explore_group_force_running = false;
+                        explore_group_idx = explore_group_idx.saturating_add(1);
                         body = body.push(think_block_view(
                             app,
                             idx,

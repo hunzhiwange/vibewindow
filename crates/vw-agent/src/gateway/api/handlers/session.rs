@@ -10,7 +10,7 @@
 mod message_ops;
 mod session_ops;
 mod shared;
-mod stream;
+pub(crate) mod stream;
 mod ui_ops;
 
 use axum::Router;

@@ -15,12 +15,8 @@ use agent_client_protocol::{
     ReadTextFileRequest, ReadTextFileResponse, WriteTextFileRequest, WriteTextFileResponse,
 };
 
-use crate::errors::{
-    AcpxErrorOptions, ErrorSource, PermissionDeniedError, PermissionPromptUnavailableError,
-};
-use crate::permission_prompt::{
-    PermissionPromptOptions, can_prompt_for_permission, prompt_for_permission,
-};
+use crate::errors::{AcpxErrorOptions, ErrorSource, PermissionDeniedError};
+use crate::permission_prompt::{PermissionPromptOptions, prompt_for_permission};
 use crate::types::{
     ClientOperation, ClientOperationMethod, ClientOperationStatus, NonInteractivePermissionPolicy,
     OutputErrorCode, OutputErrorOrigin, PermissionMode,
@@ -48,7 +44,6 @@ pub struct FileSystemHandlersOptions {
 pub struct FileSystemHandlers {
     root_dir: PathBuf,
     permission_mode: PermissionMode,
-    non_interactive_permissions: NonInteractivePermissionPolicy,
     on_operation: Option<FileSystemOperationCallback>,
     uses_default_confirm_write: bool,
     confirm_write: FileSystemConfirmWriteFn,
@@ -61,9 +56,6 @@ impl FileSystemHandlers {
         Self {
             root_dir,
             permission_mode: options.permission_mode,
-            non_interactive_permissions: options
-                .non_interactive_permissions
-                .unwrap_or(NonInteractivePermissionPolicy::Deny),
             on_operation: options.on_operation,
             uses_default_confirm_write,
             confirm_write: options.confirm_write.unwrap_or_else(|| Arc::new(default_confirm_write)),
@@ -73,11 +65,9 @@ impl FileSystemHandlers {
     pub fn update_permission_policy(
         &mut self,
         permission_mode: PermissionMode,
-        non_interactive_permissions: Option<NonInteractivePermissionPolicy>,
+        _non_interactive_permissions: Option<NonInteractivePermissionPolicy>,
     ) {
         self.permission_mode = permission_mode;
-        self.non_interactive_permissions =
-            non_interactive_permissions.unwrap_or(NonInteractivePermissionPolicy::Deny);
     }
 
     pub async fn read_text_file(
@@ -164,11 +154,8 @@ impl FileSystemHandlers {
             PermissionMode::ApproveAll => Ok(true),
             PermissionMode::DenyAll => Ok(false),
             PermissionMode::ApproveReads => {
-                if self.uses_default_confirm_write
-                    && self.non_interactive_permissions == NonInteractivePermissionPolicy::Fail
-                    && !can_prompt_for_permission()
-                {
-                    return Err(Box::new(PermissionPromptUnavailableError::new()));
+                if self.uses_default_confirm_write {
+                    return Ok(true);
                 }
                 (self.confirm_write)(file_path.to_path_buf(), preview.to_string()).await
             }

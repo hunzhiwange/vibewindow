@@ -276,19 +276,25 @@ mod tests {
     fn warn_if_binary_in_home_detects_home_path() {
         use std::path::PathBuf;
 
+        fn path_has_component(path: &std::path::Path, expected: &str) -> bool {
+            path.components().any(|component| component.as_os_str() == expected)
+        }
+
         // 测试典型的主目录路径
         let home_path = PathBuf::from("/home/user/.cargo/bin/vibewindow");
-        assert!(home_path.to_string_lossy().contains("/home/"));
-        assert!(home_path.to_string_lossy().contains(".cargo/bin"));
+        assert!(path_has_component(&home_path, "home"));
+        assert!(path_has_component(&home_path, ".cargo"));
+        assert!(path_has_component(&home_path, "bin"));
 
         // 测试 Cargo 默认安装路径
         let cargo_path = PathBuf::from("/home/user/.cargo/bin/vibewindow");
-        assert!(cargo_path.to_string_lossy().contains(".cargo/bin"));
+        assert!(path_has_component(&cargo_path, ".cargo"));
+        assert!(path_has_component(&cargo_path, "bin"));
 
         // 测试系统路径（不应被检测为 home 路径）
         let system_path = PathBuf::from("/usr/local/bin/vibewindow");
-        assert!(!system_path.to_string_lossy().contains("/home/"));
-        assert!(!system_path.to_string_lossy().contains(".cargo/bin"));
+        assert!(!path_has_component(&system_path, "home"));
+        assert!(!path_has_component(&system_path, ".cargo"));
     }
 
     /// 测试 shell 单引号转义

@@ -9,12 +9,12 @@ use crate::app::components::system_settings_common::{
 use crate::app::message::RedisToolMessage;
 use crate::app::state::{RedisDetailTab, RedisRuntimeOverview};
 use crate::app::{App, Message};
-use iced::widget::{Space, button, column, container, row, scrollable, text};
+use iced::widget::{Space, button, column, container, row, text};
 use iced::{Alignment, Element, Length};
 
 use super::common::{
     advanced_execution_note, build_detail_action_button, connection_mode_label, current_load_count,
-    enabled_feature_summary, masked_connection_preview, overview_row, redis_scroll_direction,
+    enabled_feature_summary, masked_connection_preview, overview_row,
 };
 
 mod analysis;
@@ -117,28 +117,25 @@ pub(super) fn build_detail_panel<'a>(app: &'a App, compact: bool) -> Element<'a,
     .spacing(10)
     .align_y(Alignment::Center);
 
-    scrollable(
-        column![
-            container(
-                row![
-                    column![
-                        text(title).size(18),
-                        text(subtitle).size(12).style(settings_muted_text_style),
-                    ]
-                    .spacing(4),
-                    Space::new().width(Length::Fill),
-                    actions,
+    column![
+        container(
+            row![
+                column![
+                    text(title).size(18),
+                    text(subtitle).size(12).style(settings_muted_text_style),
                 ]
-                .spacing(16)
-                .align_y(Alignment::Center),
-            )
-            .padding([18, 20])
-            .style(settings_panel_style),
-            build_detail_workspace(app, compact, is_busy),
-        ]
-        .spacing(12),
-    )
-    .direction(redis_scroll_direction())
+                .spacing(4),
+                Space::new().width(Length::Fill),
+                actions,
+            ]
+            .spacing(16)
+            .align_y(Alignment::Center),
+        )
+        .padding([18, 20])
+        .style(settings_panel_style),
+        build_detail_workspace(app, compact, is_busy),
+    ]
+    .spacing(12)
     .width(Length::Fill)
     .height(Length::Fill)
     .into()
@@ -269,10 +266,13 @@ fn build_detail_workspace<'a>(app: &'a App, compact: bool, is_busy: bool) -> Ele
         .align_y(Alignment::Center),
         settings_divider(),
         build_detail_tab_bar(app, is_busy),
-        build_active_detail_tab(app, compact, is_busy, runtime),
+        container(build_active_detail_tab(app, compact, is_busy, runtime))
+            .width(Length::Fill)
+            .height(Length::Fill),
     ]
     .spacing(12)
     .width(Length::Fill)
+    .height(Length::Fill)
     .into()
 }
 

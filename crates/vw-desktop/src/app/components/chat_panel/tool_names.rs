@@ -7,7 +7,7 @@ pub fn canonical_tool_name(tool_name: &str) -> &str {
 
     match normalized.as_str() {
         "agent" | "agenttool" | "agent_tool" => "AgentTool",
-        "bash" | "shell" => "bash",
+        "bash" | "shell" | "execute" | "tool_execute" | "terminal" => "bash",
         "brief" => "brief",
         "edit" | "file_edit" | "edit_file" | "editfile" => "file_edit",
         "notebook_edit" | "edit_notebook" | "notebookedit" => "notebook_edit",
@@ -51,6 +51,9 @@ pub fn is_known_tool_name(tool_name: &str) -> bool {
             | "ls"
             | "list_dir"
             | "bash"
+            | "execute"
+            | "tool_execute"
+            | "terminal"
             | "batch"
             | "todoread"
             | "todowrite"

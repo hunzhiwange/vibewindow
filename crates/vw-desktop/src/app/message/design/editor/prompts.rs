@@ -180,6 +180,7 @@ pub(super) fn execute_design_generation_with_streaming(
             project_path,
             model,
             prompt,
+            None,
             acp_agent,
             Some(&sender),
         );

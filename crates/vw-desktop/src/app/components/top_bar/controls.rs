@@ -47,7 +47,7 @@ pub(super) fn settings_button() -> Element<'static, Message> {
 /// 本函数不直接返回错误；无法交互或缺省状态会在控件状态中显式表达。
 pub(super) fn project_view_tools(app: &App) -> Element<'_, Message> {
     if matches!(app.screen, Screen::Project) {
-        row![
+        let tools = row![
             icon_toggle_button(
                 Icon::LayoutSidebar,
                 "切换左侧面板",
@@ -84,16 +84,19 @@ pub(super) fn project_view_tools(app: &App) -> Element<'_, Message> {
                 TooltipPosition::Bottom,
                 Message::Search(message::SearchMessage::InputChanged("/".to_string())),
             ),
-            icon_toggle_button(
-                Icon::Robot,
-                "切换小宠物",
-                TooltipPosition::Bottom,
-                app.task_pet_window_id.is_some(),
-                Message::View(message::ViewMessage::TaskPetToggleWindow),
-            ),
         ]
-        .spacing(2)
-        .into()
+        .spacing(2);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let tools = tools.push(icon_toggle_button(
+            Icon::Robot,
+            "切换小宠物",
+            TooltipPosition::Bottom,
+            app.task_pet_window_id.is_some(),
+            Message::View(message::ViewMessage::TaskPetToggleWindow),
+        ));
+
+        tools.into()
     } else {
         Space::new().into()
     }

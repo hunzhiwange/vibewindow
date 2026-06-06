@@ -10,7 +10,7 @@ use super::model::{
 };
 use iced::{Point, Vector, widget::text_editor};
 use serde_yaml::{Mapping, Value};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 mod app_ui;
@@ -85,6 +85,7 @@ pub struct WorkflowHistorySnapshot {
 #[derive(Debug, Clone)]
 pub struct WorkflowAppEntry {
     pub id: String,
+    pub local_uuid: Option<String>,
     pub meta: WorkflowAppMeta,
     pub source_path: Option<String>,
     pub raw_root: Value,
@@ -100,6 +101,15 @@ pub struct WorkflowAppEntry {
     pub undo_stack: Vec<WorkflowHistorySnapshot>,
     pub redo_stack: Vec<WorkflowHistorySnapshot>,
     pub saved_snapshot: WorkflowHistorySnapshot,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkflowSavedAppSummary {
+    pub uuid: String,
+    pub name: String,
+    pub description: String,
+    pub created_at_ms: u64,
+    pub updated_at_ms: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -355,6 +365,16 @@ pub struct WorkflowCanvasContextMenu {
 pub struct WorkflowState {
     pub apps: Vec<WorkflowAppEntry>,
     pub active_app_id: Option<String>,
+    pub saved_apps: Vec<WorkflowSavedAppSummary>,
+    pub saved_apps_loading: bool,
+    pub saved_apps_loaded: bool,
+    pub saved_apps_error: Option<String>,
+    pub opening_saved_app_uuid: Option<String>,
+    pub deleting_saved_app_uuid: Option<String>,
+    pub confirm_delete_saved_app_uuid: Option<String>,
+    pub saved_app_actions_menu_uuid: Option<String>,
+    pub saved_app_search_query: String,
+    pub copied_saved_app_uuid: Option<String>,
     pub active_is_dirty: bool,
     pub app_editor: Option<WorkflowAppEditorDraft>,
     pub node_editor: Option<WorkflowNodeEditorDraft>,
@@ -365,6 +385,7 @@ pub struct WorkflowState {
     pub action_menu_open: bool,
     pub zoom_menu_open: bool,
     pub source_name: String,
+    pub local_uuid: Option<String>,
     pub source_path: Option<String>,
     pub document: WorkflowDocument,
     pub environment_variables: Vec<WorkflowEnvironmentVariable>,

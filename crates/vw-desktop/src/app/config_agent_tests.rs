@@ -34,6 +34,11 @@ fn config_agent_tests_keeps_planned_coverage_targets() {
         "load_browser_config_async",
         "load_gateway_config_result",
         "load_global_acp_config_result",
+        "load_enabled_acp_config_result",
+        "load_enabled_acp_config_async",
+        "load_acp_settings_snapshot_async",
+        "set_global_acp_agent_enabled_async",
+        "DEFAULT_ENABLED_ACP_AGENTS",
     ] {
         assert!(source_declares_symbol(name), "expected source to declare coverage target {name}");
     }

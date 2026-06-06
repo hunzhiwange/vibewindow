@@ -423,9 +423,7 @@ pub fn update(app: &mut App, message: PreviewMessage) -> Task<Message> {
                 }
                 if notify { app.show_success_toast("已保存") } else { Task::none() }
             }
-            Err(error) => {
-                app.show_toast(crate::app::state::ToastKind::Error, format!("保存失败: {error}"))
-            }
+            Err(error) => app.show_error_toast(format!("保存失败: {error}")),
         },
         PreviewMessage::AutoSaveDelayElapsed { path, revision } => {
             if !matches!(

@@ -105,12 +105,13 @@ impl App {
             Screen::Usage => "Vibe Window 氛围视窗 - 用量".to_string(),
             Screen::JsonTool => "Vibe Window 氛围视窗 - JSON工具".to_string(),
             Screen::JsonYamlTool => "Vibe Window 氛围视窗 - JSON/YAML互转工具".to_string(),
+            Screen::Knowledge => "Vibe Window 氛围视窗 - 知识库".to_string(),
             Screen::SqlTool => "Vibe Window 氛围视窗 - SQL美化工具".to_string(),
             Screen::RedisTool => "Vibe Window 氛围视窗 - Redis客户端".to_string(),
             Screen::HtmlTool => "Vibe Window 氛围视窗 - HTML美化工具".to_string(),
             Screen::JsonDiffTool => "Vibe Window 氛围视窗 - JSON比对工具".to_string(),
             Screen::MarkdownTool => "Vibe Window 氛围视窗 - Markdown编辑器".to_string(),
-            Screen::WorkflowTool => "Vibe Window 氛围视窗 - Dify工作流".to_string(),
+            Screen::WorkflowTool => "Vibe Window 氛围视窗 - 工作流".to_string(),
             Screen::MindMapTool => "Vibe Window 氛围视窗 - 思维导图".to_string(),
             Screen::PasswordTool => "Vibe Window 氛围视窗 - 随机密码生成器".to_string(),
             Screen::BaseTool => "Vibe Window 氛围视窗 - 进制转换器".to_string(),
@@ -280,6 +281,29 @@ impl App {
         message: impl Into<String>,
     ) -> iced::Task<crate::app::Message> {
         self.show_toast(ToastKind::Success, message)
+    }
+
+    /// 公开函数，执行 show_error_toast 对应的应用流程。
+    /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+    pub fn show_error_toast(
+        &mut self,
+        message: impl Into<String>,
+    ) -> iced::Task<crate::app::Message> {
+        self.show_toast(ToastKind::Error, message)
+    }
+
+    pub fn show_info_toast(
+        &mut self,
+        message: impl Into<String>,
+    ) -> iced::Task<crate::app::Message> {
+        self.show_toast(ToastKind::Info, message)
+    }
+
+    pub fn show_warning_toast(
+        &mut self,
+        message: impl Into<String>,
+    ) -> iced::Task<crate::app::Message> {
+        self.show_toast(ToastKind::Warning, message)
     }
 
     /// 公开函数，执行 active_design_state 对应的应用流程。

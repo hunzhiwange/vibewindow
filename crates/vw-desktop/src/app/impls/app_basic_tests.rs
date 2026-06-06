@@ -31,6 +31,7 @@ fn app_basic_tests_keeps_planned_coverage_targets() {
         "replace_expanded_files",
         "clear_expanded_files",
         "set_single_expanded_file",
+        "show_error_toast",
         "is_file_tree_dir_expanded",
         "toggle_file_tree_dir_expanded",
         "ensure_file_tree_dir_expanded",

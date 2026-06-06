@@ -6,7 +6,10 @@ use serde::de::DeserializeOwned;
 use super::GatewayClient;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::endpoint::GatewayEndpoint;
-use crate::http::{apply_auth, log_request, parse_json_response, response_error, transport_error};
+use crate::http::{
+    apply_auth, log_request, log_request_succeeded, parse_json_response, response_error,
+    transport_error,
+};
 
 impl GatewayClient {
     /// 提供 get json 功能。
@@ -110,13 +113,7 @@ impl GatewayClient {
         if !response.status().is_success() {
             return Err(response_error("DELETE", &self.endpoint, path, response).await);
         }
-        tracing::info!(
-            target: "vw_gateway_client",
-            method = "DELETE",
-            endpoint = %self.endpoint.describe(),
-            path = path,
-            "gateway request succeeded"
-        );
+        log_request_succeeded("DELETE", &self.endpoint, path);
         Ok(())
     }
 
@@ -201,13 +198,7 @@ pub(super) fn get_json_blocking<T: DeserializeOwned>(
     if !response.status().is_success() {
         return Err(response_error_blocking("GET", endpoint, path, response));
     }
-    tracing::info!(
-        target: "vw_gateway_client",
-        method = "GET",
-        endpoint = %endpoint.describe(),
-        path = path,
-        "gateway request succeeded"
-    );
+    log_request_succeeded("GET", endpoint, path);
     response.json().map_err(|err| {
         let msg = err.to_string();
         tracing::error!(

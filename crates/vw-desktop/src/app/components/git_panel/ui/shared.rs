@@ -127,27 +127,45 @@ pub(super) fn with_tooltip<'a>(
     let padding = if compact { [4, 8] } else { [6, 10] };
     let tip_content = container(tip_text).padding(padding).style(move |theme: &iced::Theme| {
         let palette = theme.extended_palette();
-        iced::widget::container::Style {
-            // text_color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-            text_color: Some(palette.background.strong.text),
-            // background 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-            background: Some(Background::Color(palette.background.base.color)),
-            // border 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-            border: Border {
-                // width 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                width: 1.0,
-                // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                color: palette.background.strong.color,
-                // radius 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-                radius: radius.into(),
-            },
-            // shadow 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-            shadow: iced::Shadow::default(),
-            // snap 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-            snap: false,
+        if is_dark_theme(theme) {
+            iced::widget::container::Style {
+                // text_color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                text_color: Some(palette.background.strong.text),
+                // background 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                background: Some(Background::Color(palette.background.base.color)),
+                // border 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                border: Border {
+                    // width 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                    width: 1.0,
+                    // color 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                    color: palette.background.strong.color,
+                    // radius 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                    radius: radius.into(),
+                },
+                // shadow 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                shadow: iced::Shadow::default(),
+                // snap 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
+                snap: false,
+            }
+        } else {
+            iced::widget::container::Style {
+                text_color: Some(Color::WHITE),
+                background: Some(Background::Color(Color::from_rgba8(12, 13, 15, 0.97))),
+                border: Border {
+                    width: 1.0,
+                    color: Color::from_rgba8(255, 255, 255, 0.08),
+                    radius: 10.0.into(),
+                },
+                shadow: iced::Shadow {
+                    color: Color::BLACK.scale_alpha(0.32),
+                    offset: iced::Vector::new(0.0, 6.0),
+                    blur_radius: 20.0,
+                },
+                snap: false,
+            }
         }
     });
-    Tooltip::new(content, tip_content, TooltipPosition::Top).gap(gap).into()
+    Tooltip::new(content, tip_content, TooltipPosition::Bottom).gap(gap).into()
 }
 
 /// 构建 outlined button style 控件，并绑定既有消息或样式。

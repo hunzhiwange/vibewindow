@@ -189,6 +189,7 @@ fn migrate_tasks_table_to_acp_agent_only(conn: &mut Connection) -> io::Result<()
              priority INTEGER NOT NULL,
              assignee TEXT NOT NULL,
              model TEXT NOT NULL,
+             agent TEXT,
              acp_agent TEXT,
              description TEXT NOT NULL,
              prompt TEXT NOT NULL,
@@ -215,14 +216,14 @@ fn migrate_tasks_table_to_acp_agent_only(conn: &mut Connection) -> io::Result<()
 
     let copy_sql = if has_acp_agent {
         "INSERT INTO tasks (
-            id, priority, assignee, model, acp_agent, description, prompt, status_key,
+            id, priority, assignee, model, agent, acp_agent, description, prompt, status_key,
             created_at_ms, updated_at_ms, order_no, deleted, archived, subtasks_json,
             auto_promote_delay_ms, last_error, pause_reason, retry_count, last_active_at_ms,
             execution_started_at_ms, last_execution_duration_ms, merge_source_branch,
             merge_target_branch, selected_worktree_path
         )
         SELECT
-            id, priority, assignee, model, acp_agent, description, prompt, status_key,
+            id, priority, assignee, model, NULL, acp_agent, description, prompt, status_key,
             created_at_ms, updated_at_ms, order_no, deleted, archived, subtasks_json,
             auto_promote_delay_ms, last_error, pause_reason, retry_count, last_active_at_ms,
             execution_started_at_ms, last_execution_duration_ms, merge_source_branch,
@@ -230,14 +231,14 @@ fn migrate_tasks_table_to_acp_agent_only(conn: &mut Connection) -> io::Result<()
         FROM tasks_legacy_executor"
     } else {
         "INSERT INTO tasks (
-            id, priority, assignee, model, acp_agent, description, prompt, status_key,
+            id, priority, assignee, model, agent, acp_agent, description, prompt, status_key,
             created_at_ms, updated_at_ms, order_no, deleted, archived, subtasks_json,
             auto_promote_delay_ms, last_error, pause_reason, retry_count, last_active_at_ms,
             execution_started_at_ms, last_execution_duration_ms, merge_source_branch,
             merge_target_branch, selected_worktree_path
         )
         SELECT
-            id, priority, assignee, model, NULL, description, prompt, status_key,
+            id, priority, assignee, model, NULL, NULL, description, prompt, status_key,
             created_at_ms, updated_at_ms, order_no, deleted, archived, subtasks_json,
             auto_promote_delay_ms, last_error, pause_reason, retry_count, last_active_at_ms,
             execution_started_at_ms, last_execution_duration_ms, merge_source_branch,
@@ -251,6 +252,16 @@ fn migrate_tasks_table_to_acp_agent_only(conn: &mut Connection) -> io::Result<()
     )
     .map_err(sqlite_to_io_error)?;
     tx.commit().map_err(sqlite_to_io_error)?;
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn migrate_tasks_table_to_agent(conn: &Connection) -> io::Result<()> {
+    if table_has_column(conn, "tasks", "agent")? {
+        return Ok(());
+    }
+
+    conn.execute("ALTER TABLE tasks ADD COLUMN agent TEXT", []).map_err(sqlite_to_io_error)?;
     Ok(())
 }
 
@@ -322,6 +333,7 @@ pub(super) fn open_index_connection(project_path: &str) -> io::Result<Connection
              priority INTEGER NOT NULL,
              assignee TEXT NOT NULL,
              model TEXT NOT NULL,
+             agent TEXT,
              acp_agent TEXT,
              description TEXT NOT NULL,
              prompt TEXT NOT NULL,
@@ -374,6 +386,7 @@ pub(super) fn open_index_connection(project_path: &str) -> io::Result<Connection
     )
     .map_err(sqlite_to_io_error)?;
     migrate_tasks_table_to_acp_agent_only(&mut conn)?;
+    migrate_tasks_table_to_agent(&conn)?;
     migrate_task_raw_artifacts_table_to_acp_agent(&mut conn)?;
     Ok(conn)
 }
@@ -493,23 +506,24 @@ pub(super) fn save_task_with_tx(tx: &Transaction<'_>, task: &Task) -> io::Result
     let subtasks_json = serde_json::to_string(&task.subtasks).map_err(json_to_io_error)?;
     tx.execute(
         "INSERT OR REPLACE INTO tasks (
-            id, priority, assignee, model, acp_agent, description, prompt, status_key,
+            id, priority, assignee, model, agent, acp_agent, description, prompt, status_key,
             created_at_ms, updated_at_ms, order_no, deleted, archived, subtasks_json,
             auto_promote_delay_ms, last_error, pause_reason, retry_count, last_active_at_ms,
             execution_started_at_ms, last_execution_duration_ms, merge_source_branch,
             merge_target_branch, selected_worktree_path
         ) VALUES (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
-            ?9, ?10, ?11, ?12, ?13, ?14,
-            ?15, ?16, ?17, ?18, ?19,
-            ?20, ?21, ?22,
-            ?23, ?24
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9,
+            ?10, ?11, ?12, ?13, ?14, ?15,
+            ?16, ?17, ?18, ?19, ?20,
+            ?21, ?22, ?23,
+            ?24, ?25
         )",
         params![
             task.id,
             task.priority as i64,
             task.assignee,
             task.model,
+            task.agent,
             task.acp_agent,
             task.description,
             task.prompt,
@@ -593,7 +607,7 @@ pub(super) fn load_task_from_sqlite(conn: &Connection, task_id: &str) -> io::Res
     let task_row = conn
         .query_row(
             "SELECT
-                id, priority, assignee, model, acp_agent, description, prompt, status_key,
+                id, priority, assignee, model, agent, acp_agent, description, prompt, status_key,
                 created_at_ms, updated_at_ms, order_no, deleted, archived, subtasks_json,
                 auto_promote_delay_ms, last_error, pause_reason, retry_count, last_active_at_ms,
                 execution_started_at_ms, last_execution_duration_ms, merge_source_branch,
@@ -603,12 +617,12 @@ pub(super) fn load_task_from_sqlite(conn: &Connection, task_id: &str) -> io::Res
              LIMIT 1",
             params![task_id],
             |row| {
-                let status_key = row.get::<_, String>(7)?;
-                let subtasks_json = row.get::<_, String>(13)?;
+                let status_key = row.get::<_, String>(8)?;
+                let subtasks_json = row.get::<_, String>(14)?;
                 let mut subtasks =
                     serde_json::from_str::<Vec<SubTask>>(&subtasks_json).map_err(|err| {
                         rusqlite::Error::FromSqlConversionFailure(
-                            13,
+                            14,
                             rusqlite::types::Type::Text,
                             Box::new(err),
                         )
@@ -626,33 +640,36 @@ pub(super) fn load_task_from_sqlite(conn: &Connection, task_id: &str) -> io::Res
                     priority: row.get::<_, i64>(1)?.max(0) as u32,
                     assignee: row.get::<_, String>(2)?,
                     model: row.get::<_, String>(3)?,
-                    acp_agent: row.get::<_, Option<String>>(4)?,
-                    description: row.get::<_, String>(5)?,
-                    prompt: row.get::<_, String>(6)?,
+                    agent: row
+                        .get::<_, Option<String>>(4)?
+                        .or_else(|| Some(crate::app::task::TASK_AGENT_MAIN.to_string())),
+                    acp_agent: row.get::<_, Option<String>>(5)?,
+                    description: row.get::<_, String>(6)?,
+                    prompt: row.get::<_, String>(7)?,
                     status: TaskStatus::parse_key(&status_key).unwrap_or(TaskStatus::Pool),
-                    created_at_ms: row.get::<_, i64>(8)?.max(0) as u64,
-                    updated_at_ms: row.get::<_, i64>(9)?.max(0) as u64,
+                    created_at_ms: row.get::<_, i64>(9)?.max(0) as u64,
+                    updated_at_ms: row.get::<_, i64>(10)?.max(0) as u64,
                     logs: Vec::new(),
-                    order: row.get::<_, i64>(10)?.max(0) as u32,
-                    deleted: row.get::<_, bool>(11)?,
-                    archived: row.get::<_, bool>(12)?,
+                    order: row.get::<_, i64>(11)?.max(0) as u32,
+                    deleted: row.get::<_, bool>(12)?,
+                    archived: row.get::<_, bool>(13)?,
                     subtasks,
                     auto_promote_delay_ms: row
-                        .get::<_, Option<i64>>(14)?
+                        .get::<_, Option<i64>>(15)?
                         .map(|value| value.max(0) as u64),
-                    last_error: row.get::<_, Option<String>>(15)?,
-                    pause_reason: row.get::<_, Option<String>>(16)?,
-                    retry_count: row.get::<_, i64>(17)?.max(0) as u32,
-                    last_active_at_ms: row.get::<_, i64>(18)?.max(0) as u64,
+                    last_error: row.get::<_, Option<String>>(16)?,
+                    pause_reason: row.get::<_, Option<String>>(17)?,
+                    retry_count: row.get::<_, i64>(18)?.max(0) as u32,
+                    last_active_at_ms: row.get::<_, i64>(19)?.max(0) as u64,
                     execution_started_at_ms: row
-                        .get::<_, Option<i64>>(19)?
-                        .map(|value| value.max(0) as u64),
-                    last_execution_duration_ms: row
                         .get::<_, Option<i64>>(20)?
                         .map(|value| value.max(0) as u64),
-                    merge_source_branch: row.get::<_, Option<String>>(21)?,
-                    merge_target_branch: row.get::<_, Option<String>>(22)?,
-                    selected_worktree_path: row.get::<_, Option<String>>(23)?,
+                    last_execution_duration_ms: row
+                        .get::<_, Option<i64>>(21)?
+                        .map(|value| value.max(0) as u64),
+                    merge_source_branch: row.get::<_, Option<String>>(22)?,
+                    merge_target_branch: row.get::<_, Option<String>>(23)?,
+                    selected_worktree_path: row.get::<_, Option<String>>(24)?,
                 })
             },
         )

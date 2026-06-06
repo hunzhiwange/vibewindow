@@ -183,6 +183,8 @@
     pub(crate) system_settings_query: String,
     /// 当前打开的系统设置帮助标签页
     pub(crate) system_settings_help_tab: Option<crate::app::components::system_settings::SystemTab>,
+    /// 顶栏网关服务弹窗的当前标签页
+    pub(crate) top_bar_gateway_tab: TopBarGatewayTab,
     /// 提供者设置状态
     pub(crate) provider_settings: ProviderSettingsState,
     /// 模型设置状态

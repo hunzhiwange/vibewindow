@@ -7,6 +7,34 @@ use super::ViewMessage;
 use crate::app::{App, FocusArea, Message, set_config_field};
 use iced::Task;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WindowClosedOutcome {
+    Continue,
+    Exit,
+}
+
+pub(crate) fn mark_window_closed(
+    main_window_id: &mut Option<iced::window::Id>,
+    task_pet_window_id: &mut Option<iced::window::Id>,
+    closed_window_id: iced::window::Id,
+) -> WindowClosedOutcome {
+    if *main_window_id == Some(closed_window_id) {
+        *main_window_id = None;
+        *task_pet_window_id = None;
+        return WindowClosedOutcome::Exit;
+    }
+
+    if *task_pet_window_id == Some(closed_window_id) {
+        *task_pet_window_id = None;
+    }
+
+    if main_window_id.is_none() && task_pet_window_id.is_none() {
+        WindowClosedOutcome::Exit
+    } else {
+        WindowClosedOutcome::Continue
+    }
+}
+
 /// 执行 update 对应的领域操作。
 ///
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
@@ -22,13 +50,9 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             Task::none()
         }
         ViewMessage::WindowClosed(window_id) => {
-            if app.main_window_id == Some(window_id) {
-                app.main_window_id = None;
-            }
-            if app.task_pet_window_id == Some(window_id) {
-                app.task_pet_window_id = None;
-            }
-            if app.main_window_id.is_none() && app.task_pet_window_id.is_none() {
+            if mark_window_closed(&mut app.main_window_id, &mut app.task_pet_window_id, window_id)
+                == WindowClosedOutcome::Exit
+            {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     for child in app.independent_webview_children.iter_mut() {

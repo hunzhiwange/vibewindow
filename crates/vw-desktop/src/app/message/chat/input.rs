@@ -45,6 +45,13 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         ChatMessage::InputEditorAction(action) => {
             file_search::handle_input_editor_action(app, action)
         }
+        ChatMessage::WasmImeCommit(value) => file_search::handle_input_editor_commit(app, value),
+        ChatMessage::WasmImeFocus => handle_wasm_ime_focus(),
+        ChatMessage::WasmImeBackspace => file_search::handle_input_editor_backspace(app),
+        ChatMessage::WasmImeDelete => file_search::handle_input_editor_delete(app),
+        ChatMessage::WasmImeMove { motion, select } => {
+            file_search::handle_input_editor_motion(app, motion, select)
+        }
         ChatMessage::MessageEditorAction(idx, action) => {
             editor_actions::handle_message_editor_action(app, idx, action)
         }
@@ -93,6 +100,7 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
                     app.active_shared_chat_messages(),
                     pending_chunk_starts,
                     None,
+                    app.dialogue_flow_show_reasoning_summary,
                 );
             }
 
@@ -320,6 +328,10 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         ChatMessage::CloseMessageContextMenu => {
             context_menus::handle_close_message_context_menu(app)
         }
+        ChatMessage::OpenForkSessionDialog(msg_idx) => {
+            context_menus::handle_open_fork_session_dialog(app, msg_idx)
+        }
+        ChatMessage::CloseForkSessionDialog => context_menus::handle_close_fork_session_dialog(app),
         ChatMessage::ToggleResetMenu(msg_idx) => {
             context_menus::handle_toggle_reset_menu(app, msg_idx)
         }
@@ -337,4 +349,15 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         }
         _ => Task::none(),
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn handle_wasm_ime_focus() -> Task<Message> {
+    crate::app::wasm_ime::focus_textarea();
+    Task::none()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn handle_wasm_ime_focus() -> Task<Message> {
+    Task::none()
 }

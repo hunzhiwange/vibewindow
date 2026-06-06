@@ -19,7 +19,9 @@ use super::common::{
     button_style_success, provider_logo_handle,
 };
 use super::modals::build_context_menu;
-use super::panel::{build_bulk_executor_selector, build_bulk_model_selector};
+use super::panel::{
+    build_bulk_agent_selector, build_bulk_executor_selector, build_bulk_model_selector,
+};
 
 const CARD_CONTENT_PREVIEW_MAX_CHARS: usize = 180;
 
@@ -252,6 +254,19 @@ fn build_status_column<'a>(app: &'a App, status: TaskStatus, now_ms: u64) -> Ele
         ]
         .spacing(6);
 
+        let agent_actions = column![
+            build_bulk_agent_selector(app),
+            row![
+                button(text("应用").size(10))
+                    .padding([5, 8])
+                    .style(button_style_success)
+                    .on_press(Message::TaskBoard(TaskBoardMessage::BulkSetAgentInStatus(status))),
+            ]
+            .spacing(6)
+            .align_y(Alignment::Center)
+        ]
+        .spacing(6);
+
         let executor_rows = column![
             build_bulk_executor_selector(app),
             row![
@@ -283,6 +298,10 @@ fn build_status_column<'a>(app: &'a App, status: TaskStatus, now_ms: u64) -> Ele
             .push(text("批量模型").size(10))
             .push(Space::new().height(4.0))
             .push(model_actions)
+            .push(Space::new().height(6.0))
+            .push(text("批量代理").size(10))
+            .push(Space::new().height(4.0))
+            .push(agent_actions)
             .push(Space::new().height(6.0))
             .push(text("批量 ACP 智能体").size(10))
             .push(Space::new().height(4.0))

@@ -70,7 +70,8 @@ fn permission_target_tool_anchor_fraction_prefers_later_tool_card() {
         }),
     };
 
-    let fraction = permission_target_tool_anchor_fraction(&message, Some(&request), Some("msg-1"));
+    let fraction =
+        permission_target_tool_anchor_fraction(&message, Some(&request), Some("msg-1"), false);
 
     assert_eq!(fraction, Some(2.0 / 3.0));
 }
@@ -96,7 +97,7 @@ fn permission_target_tool_anchor_fraction_uses_tool_row_anchor() {
     };
 
     assert_eq!(
-        permission_target_tool_anchor_fraction(&message, Some(&request), Some("msg-1")),
+        permission_target_tool_anchor_fraction(&message, Some(&request), Some("msg-1"), false),
         Some(0.30)
     );
 }

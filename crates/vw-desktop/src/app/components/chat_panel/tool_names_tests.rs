@@ -3,6 +3,8 @@ use super::tool_names::{canonical_tool_name, is_compact_tool_call_trace, is_know
 #[test]
 fn canonical_tool_name_normalizes_common_aliases() {
     assert_eq!(canonical_tool_name(" shell "), "bash");
+    assert_eq!(canonical_tool_name("execute"), "bash");
+    assert_eq!(canonical_tool_name("Terminal"), "bash");
     assert_eq!(canonical_tool_name("ask_user_question"), "question");
     assert_eq!(canonical_tool_name("plan_enter"), "enter_plan_mode");
 }
@@ -10,6 +12,7 @@ fn canonical_tool_name_normalizes_common_aliases() {
 #[test]
 fn known_tool_name_uses_canonical_name() {
     assert!(is_known_tool_name("shell"));
+    assert!(is_known_tool_name("execute"));
     assert!(is_known_tool_name("todo_write"));
     assert!(!is_known_tool_name("unknown_tool"));
 }

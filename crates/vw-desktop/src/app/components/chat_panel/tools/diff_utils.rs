@@ -236,17 +236,32 @@ pub fn file_preview(tool_name: &str, input: &str, output: &str) -> Option<String
     }
     let vv = serde_json::from_str::<serde_json::Value>(input.trim()).ok()?;
     match tool_name {
-        "write" | "file_write" => vv.get("content").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        "write" | "file_write" => vv
+            .get("content")
+            .and_then(|v| v.as_str())
+            .filter(|s| !is_omitted_placeholder(s))
+            .map(|s| s.to_string()),
         "file_edit" => vv
             .get("new_string")
             .or_else(|| vv.get("newString"))
             .and_then(|v| v.as_str())
+            .filter(|s| !is_omitted_placeholder(s))
             .map(|s| s.to_string()),
         "notebook_edit" => {
             vv.get("new_code").or_else(|| vv.get("newCode")).and_then(string_or_string_array)
         }
         _ => None,
     }
+}
+
+fn is_omitted_placeholder(value: &str) -> bool {
+    let Some(rest) = value.trim().strip_prefix("<omitted ") else {
+        return false;
+    };
+    let Some(count) = rest.strip_suffix(" chars>") else {
+        return false;
+    };
+    !count.is_empty() && count.chars().all(|ch| ch.is_ascii_digit())
 }
 
 /// 处理 string or string array 对应的局部职责。

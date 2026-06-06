@@ -360,7 +360,7 @@ pub async fn cleanup(session: &super::session::Info) -> Result<(), Error> {
         return Ok(());
     };
 
-    cleanup_from_message(session.id.as_str(), &revert.message_id).await?;
+    cleanup_after_message(session.id.as_str(), &revert.message_id).await?;
 
     if let Some(part_id) = revert.part_id.as_deref() {
         let session_id = session.id.as_str();
@@ -391,6 +391,18 @@ pub async fn cleanup(session: &super::session::Info) -> Result<(), Error> {
 }
 
 pub async fn cleanup_from_message(session_id: &str, message_id: &str) -> Result<(), Error> {
+    cleanup_message_range(session_id, message_id, true).await
+}
+
+pub async fn cleanup_after_message(session_id: &str, message_id: &str) -> Result<(), Error> {
+    cleanup_message_range(session_id, message_id, false).await
+}
+
+async fn cleanup_message_range(
+    session_id: &str,
+    message_id: &str,
+    include_target: bool,
+) -> Result<(), Error> {
     let mut msgs = super::message::messages(session_id, None).await?;
     msgs.sort_by(|a, b| a.info.id().cmp(b.info.id()));
     let mut remove: Vec<super::message::WithParts> = Vec::new();
@@ -399,6 +411,9 @@ pub async fn cleanup_from_message(session_id: &str, message_id: &str) -> Result<
     for msg in msgs {
         if !hit && msg.info.id() == message_id {
             hit = true;
+            if !include_target {
+                continue;
+            }
         }
         if hit {
             remove.push(msg);
@@ -406,7 +421,11 @@ pub async fn cleanup_from_message(session_id: &str, message_id: &str) -> Result<
     }
 
     for msg in remove {
-        super::message::remove_message(session_id, msg.info.id()).await?;
+        let message_id = msg.info.id().to_string();
+        for part in msg.parts {
+            super::message::remove_part(session_id, &message_id, part.id()).await?;
+        }
+        super::message::remove_message(session_id, &message_id).await?;
     }
 
     Ok(())

@@ -8,8 +8,7 @@ use iced::widget::{column, row};
 /// 参数由当前工作流状态或编辑草稿提供；返回值是可直接嵌入 iced 视图树的元素。
 #[allow(dead_code)]
 pub(super) fn build_header(state: &WorkflowState) -> Element<'_, Message> {
-    let reload_label =
-        if state.source_path.is_some() { "重新载入" } else { "重新载入示例" };
+    let reload_label = "重新载入";
     let description = if !state.has_apps() {
         String::new()
     } else if let Some(path) = state.source_path.as_deref() {
@@ -17,7 +16,7 @@ pub(super) fn build_header(state: &WorkflowState) -> Element<'_, Message> {
     } else if state.active_is_dirty {
         "当前为未保存草稿，保存后会落到本地 yml。".to_string()
     } else {
-        "当前使用内置示例，可继续编辑并另存为新的 Dify DSL。".to_string()
+        "当前应用来自本地数据库，可继续编辑并保存。".to_string()
     };
     let app_switcher = build_app_switcher(state);
 
@@ -253,7 +252,7 @@ pub(super) fn build_action_bar(state: &WorkflowState) -> Element<'static, Messag
             ),
             icon_button(
                 Icon::ArrowRepeat,
-                if state.source_path.is_some() { "重新载入" } else { "重新载入示例" },
+                "重新载入",
                 state.active_app_id.as_ref().map(|_| WorkflowMessage::Reload),
                 false,
             ),
@@ -343,6 +342,7 @@ pub(super) fn build_action_menu_overlay(state: &WorkflowState) -> Element<'stati
 
     container(
         column![
+            menu_item(Icon::Grid1x2, "应用列表", Some(WorkflowMessage::ShowSavedApps)),
             menu_item(
                 Icon::FileEarmarkPlus,
                 "新增应用",

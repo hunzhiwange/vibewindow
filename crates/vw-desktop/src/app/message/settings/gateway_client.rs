@@ -1,7 +1,9 @@
 //! 处理系统设置页面中对应功能区的消息、校验和配置持久化。
 
+use crate::app::state::GatewayClientServerDraft;
 use crate::app::{App, Message, update_gateway_client_config};
 use iced::Task;
+use vw_config_types::ui::GatewayClientSystemSettingsConfig;
 
 use super::messages::{GatewayClientMessage, SettingsMessage};
 
@@ -10,25 +12,81 @@ fn normalize_host(raw: &str) -> String {
     if trimmed.is_empty() { "127.0.0.1".to_string() } else { trimmed.to_string() }
 }
 
+fn normalize_name(raw: &str, index: usize) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() { format!("网关 {}", index + 1) } else { trimmed.to_string() }
+}
+
 #[cfg(test)]
 #[path = "gateway_client_tests.rs"]
 mod gateway_client_tests;
 
-fn persist_gateway_client_settings(app: &mut App) {
+fn selected_index(app: &App) -> Option<usize> {
+    app.gateway_client_settings
+        .servers
+        .iter()
+        .position(|server| server.id == app.gateway_client_settings.selected_server_id)
+}
+
+fn sync_selected_server_from_inputs(app: &mut App) {
+    let Some(index) = selected_index(app) else {
+        return;
+    };
     let settings = &app.gateway_client_settings;
-    let host = normalize_host(&settings.host_input);
-    let bearer_token = settings.bearer_token_input.trim().to_string();
-    let username = settings.username_input.trim().to_string();
-    let password = settings.password_input.trim().to_string();
-    let skey = settings.skey_input.trim().to_string();
+    let draft = GatewayClientServerDraft {
+        id: settings.selected_server_id.clone(),
+        name: normalize_name(&settings.name_input, index),
+        host: normalize_host(&settings.host_input),
+        port: settings.port.clamp(1, u16::MAX),
+        bearer_token: settings.bearer_token_input.trim().to_string(),
+        username: settings.username_input.trim().to_string(),
+        password: settings.password_input.trim().to_string(),
+        skey: settings.skey_input.trim().to_string(),
+    };
+    app.gateway_client_settings.servers[index] = draft;
+}
+
+fn load_selected_server_into_inputs(app: &mut App) {
+    let Some(index) = selected_index(app) else {
+        return;
+    };
+    let draft = app.gateway_client_settings.servers[index].clone();
+    app.gateway_client_settings.name_input = draft.name;
+    app.gateway_client_settings.host_input = normalize_host(&draft.host);
+    app.gateway_client_settings.port = draft.port.clamp(1, u16::MAX);
+    app.gateway_client_settings.bearer_token_input = draft.bearer_token;
+    app.gateway_client_settings.username_input = draft.username;
+    app.gateway_client_settings.password_input = draft.password;
+    app.gateway_client_settings.skey_input = draft.skey;
+}
+
+fn next_server_id(config: &GatewayClientSystemSettingsConfig) -> String {
+    let existing = config
+        .normalized_servers()
+        .into_iter()
+        .map(|server| server.id)
+        .collect::<std::collections::HashSet<_>>();
+    for index in 1..=10_000 {
+        let candidate = if index == 1 { "local".to_string() } else { format!("gateway-{index}") };
+        if !existing.contains(&candidate) {
+            return candidate;
+        }
+    }
+    "gateway-new".to_string()
+}
+
+fn persist_gateway_client_settings(app: &mut App) {
+    sync_selected_server_from_inputs(app);
+    let servers = app
+        .gateway_client_settings
+        .servers
+        .iter()
+        .map(GatewayClientServerDraft::to_config)
+        .collect::<Vec<_>>();
+    let active_server_id = app.gateway_client_settings.selected_server_id.clone();
 
     update_gateway_client_config(|cfg| {
-        cfg.host = host;
-        cfg.port = settings.port.clamp(1, u16::MAX);
-        cfg.bearer_token = bearer_token;
-        cfg.username = username;
-        cfg.password = password;
-        cfg.skey = skey;
+        cfg.set_servers(servers, active_server_id);
     });
 }
 
@@ -40,11 +98,96 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
     let SettingsMessage::GatewayClient(message) = message else {
         return Task::none();
     };
+    let refresh_health = matches!(
+        &message,
+        GatewayClientMessage::SelectServer(_)
+            | GatewayClientMessage::AddServer
+            | GatewayClientMessage::RemoveServerConfirmed(_)
+            | GatewayClientMessage::HostChanged(_)
+            | GatewayClientMessage::PortChanged(_)
+    );
 
     match message {
-        GatewayClientMessage::HostChanged(value) => app.gateway_client_settings.host_input = value,
+        GatewayClientMessage::SelectServer(server_id) => {
+            sync_selected_server_from_inputs(app);
+            if app.gateway_client_settings.servers.iter().any(|server| server.id == server_id) {
+                app.gateway_client_settings.selected_server_id = server_id;
+                load_selected_server_into_inputs(app);
+            }
+        }
+        GatewayClientMessage::AddServer => {
+            sync_selected_server_from_inputs(app);
+            let id = {
+                let mut cfg = GatewayClientSystemSettingsConfig::default();
+                cfg.set_servers(
+                    app.gateway_client_settings
+                        .servers
+                        .iter()
+                        .map(GatewayClientServerDraft::to_config)
+                        .collect(),
+                    app.gateway_client_settings.selected_server_id.clone(),
+                );
+                next_server_id(&cfg)
+            };
+            let index = app.gateway_client_settings.servers.len();
+            let draft = GatewayClientServerDraft {
+                id: id.clone(),
+                name: format!("网关 {}", index + 1),
+                host: "127.0.0.1".to_string(),
+                port: 42617,
+                bearer_token: String::new(),
+                username: String::new(),
+                password: String::new(),
+                skey: String::new(),
+            };
+            app.gateway_client_settings.servers.push(draft);
+            app.gateway_client_settings.selected_server_id = id;
+            load_selected_server_into_inputs(app);
+        }
+        GatewayClientMessage::RemoveServerRequested(server_id) => {
+            if app.gateway_client_settings.servers.len() > 1
+                && app.gateway_client_settings.servers.iter().any(|server| server.id == server_id)
+            {
+                app.gateway_client_settings.pending_remove_server_id = Some(server_id);
+            }
+            return Task::none();
+        }
+        GatewayClientMessage::RemoveServerConfirmed(server_id) => {
+            let pending_matches = app.gateway_client_settings.pending_remove_server_id.as_deref()
+                == Some(server_id.as_str());
+            app.gateway_client_settings.pending_remove_server_id = None;
+            if !pending_matches {
+                return Task::none();
+            }
+            if app.gateway_client_settings.servers.len() > 1 {
+                let removed_health_key = app
+                    .gateway_client_settings
+                    .servers
+                    .iter()
+                    .find(|server| server.id == server_id)
+                    .and_then(crate::app::message::gateway_health::server_health_key);
+                app.gateway_client_settings.servers.retain(|server| server.id != server_id);
+                if let Some(key) = removed_health_key {
+                    app.gateway_client_settings.health.remove(&key);
+                }
+                if app.gateway_client_settings.selected_server_id == server_id
+                    && let Some(first) = app.gateway_client_settings.servers.first()
+                {
+                    app.gateway_client_settings.selected_server_id = first.id.clone();
+                }
+                load_selected_server_into_inputs(app);
+            }
+        }
+        GatewayClientMessage::RemoveServerCanceled => {
+            app.gateway_client_settings.pending_remove_server_id = None;
+            return Task::none();
+        }
+        GatewayClientMessage::NameChanged(value) => app.gateway_client_settings.name_input = value,
+        GatewayClientMessage::HostChanged(value) => {
+            app.gateway_client_settings.host_input = value;
+        }
         GatewayClientMessage::PortChanged(value) => {
-            app.gateway_client_settings.port = value.clamp(1, u16::MAX)
+            app.gateway_client_settings.port = value.clamp(1, u16::MAX);
         }
         GatewayClientMessage::BearerTokenChanged(value) => {
             app.gateway_client_settings.bearer_token_input = value
@@ -67,8 +210,9 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
     }
 
     persist_gateway_client_settings(app);
+    load_selected_server_into_inputs(app);
     app.gateway_client_settings.host_input =
         normalize_host(&app.gateway_client_settings.host_input);
     app.gateway_client_settings.save_error = None;
-    Task::none()
+    if refresh_health { Task::done(Message::GatewayHealthTick) } else { Task::none() }
 }

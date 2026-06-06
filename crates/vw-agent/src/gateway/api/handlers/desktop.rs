@@ -43,6 +43,7 @@ where
         )
         .route("/desktop/skills/set-enabled", post(super::desktop_skills::set_enabled_post))
         .route("/desktop/skills/delete", post(super::desktop_skills::delete_post))
+        .merge(super::desktop_cleaner::router())
         .route("/desktop/external-apps", get(external_apps_get))
         .route("/desktop/external-apps/open", post(external_apps_open_post))
         .route("/desktop/external-path/reveal", post(external_path_reveal_post))

@@ -16,7 +16,7 @@ use std::collections::HashSet;
 
 use crate::app::assets::{self, Icon};
 use crate::app::components::animated_text::neutral_sweep_text_color;
-use crate::app::components::chat_panel::tool_text_support::chat_text_font;
+use crate::app::components::chat_panel::tool_text_support::{chat_text_font, tool_text_key};
 use crate::app::components::chat_panel::utils::{
     bold_font, chat_secondary_subtle_text_color, chat_secondary_text_color, eye_icon_svg_style,
     icon_svg, truncate_chars,
@@ -539,14 +539,23 @@ pub fn tool_explore_summary_view<'a>(
     let title = if has_running { "正在探索" } else { "已探索" };
     let summary_slot: Element<'a, Message> =
         animated_summary_slot(app, msg_idx, group_idx, &summary_text).unwrap_or_else(|| {
-            tool_inline_text_editor(
-                app,
-                ToolTextTarget::ToolCardText { msg_idx, tool_idx: group_tool_idx, text_idx: 0 },
-                crate::app::components::chat_panel::tool_text_support::chat_text_font_name(),
-                13.0,
-                chat_secondary_subtle_text_color,
-            )
-            .unwrap_or_else(|| plain_summary_text(&summary_text))
+            let cached_summary_matches = app
+                .chat_tool_text_editors
+                .get(&tool_text_key(msg_idx, group_tool_idx, 0))
+                .is_some_and(|editor| editor.text() == summary_text);
+
+            if cached_summary_matches {
+                tool_inline_text_editor(
+                    app,
+                    ToolTextTarget::ToolCardText { msg_idx, tool_idx: group_tool_idx, text_idx: 0 },
+                    crate::app::components::chat_panel::tool_text_support::chat_text_font_name(),
+                    13.0,
+                    chat_secondary_subtle_text_color,
+                )
+                .unwrap_or_else(|| plain_summary_text(&summary_text))
+            } else {
+                plain_summary_text(&summary_text)
+            }
         });
     let title_view = if has_running {
         running_explore_title(title, now_ms, app.status_animation_frame)

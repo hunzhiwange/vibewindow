@@ -86,16 +86,18 @@ pub mod types;
 /// 调用方可通过 `crate::app::agent::gateway::api::handle_api_*` 直接访问。
 pub use handlers::{
     handle_api_cli_tools, handle_api_config_get, handle_api_config_put, handle_api_cron_add,
-    handle_api_cron_delete, handle_api_cron_list, handle_api_doctor, handle_api_health,
-    handle_api_integration_credentials_put, handle_api_integrations,
-    handle_api_integrations_settings, handle_api_memory_delete, handle_api_memory_list,
-    handle_api_memory_store, handle_api_status, handle_api_tools,
+    handle_api_cron_delete, handle_api_cron_list, handle_api_cron_runs, handle_api_cron_update,
+    handle_api_doctor, handle_api_health, handle_api_integration_credentials_put,
+    handle_api_integrations, handle_api_integrations_settings, handle_api_memory_delete,
+    handle_api_memory_list, handle_api_memory_store, handle_api_status, handle_api_tools,
 };
 
 /// 重新导出 API 数据类型
 ///
 /// 导出请求体结构体，供路由处理器和客户端代码使用。
-pub use types::{CronAddBody, IntegrationCredentialsUpdateBody, MemoryQuery, MemoryStoreBody};
+pub use types::{
+    CronAddBody, CronUpdateBody, IntegrationCredentialsUpdateBody, MemoryQuery, MemoryStoreBody,
+};
 
 /// 单元测试模块
 ///

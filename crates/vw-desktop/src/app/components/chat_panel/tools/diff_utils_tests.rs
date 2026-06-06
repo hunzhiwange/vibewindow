@@ -1,5 +1,5 @@
 use super::diff_utils::{
-    count_apply_patch_format_changes, count_unified_diff_changes, extract_diff_block,
+    count_apply_patch_format_changes, count_unified_diff_changes, extract_diff_block, file_preview,
     is_likely_file_path, looks_like_unified_diff, parse_apply_patch_line_changes,
     parse_apply_patch_summary, string_or_string_array,
 };
@@ -31,4 +31,11 @@ fn diff_helpers_extract_code_blocks_and_paths() {
     assert_eq!(extract_diff_block("<diff>\n+new\n</diff>"), Some("+new".to_string()));
     assert!(is_likely_file_path("src/main.rs"));
     assert_eq!(string_or_string_array(&json!(["a", "b"])), Some("a\nb".to_string()));
+}
+
+#[test]
+fn file_preview_ignores_omitted_write_placeholder() {
+    let input = r#"{"path":"docs/demo.md","content":"<omitted 812 chars>"}"#;
+
+    assert_eq!(file_preview("file_write", input, ""), None);
 }

@@ -13,6 +13,7 @@ use crate::app::state::{RedisConnectionConfig, RedisConnectionDraft, RedisHistor
 use crate::app::{App, Message};
 use chrono::{Local, TimeZone};
 use iced::widget::scrollable::{Direction, Scrollbar};
+use iced::widget::svg::{self, Svg};
 use iced::widget::{Space, button, column, container, row, text, text_input};
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
@@ -130,7 +131,7 @@ pub(super) fn build_round_icon_action<'a>(
     message: Message,
     enabled: bool,
 ) -> Element<'a, Message> {
-    button(icon_svg(icon, 14.0))
+    button(themed_icon_svg(icon, 14.0))
         .on_press_maybe(enabled.then_some(message))
         .padding(10)
         .style(round_icon_btn_style)
@@ -316,39 +317,6 @@ pub(super) fn empty_sidebar_hint<'a>(title: &'a str, description: &'a str) -> El
     .into()
 }
 
-/// 生成主题相关样式。
-///
-/// # 参数
-/// - `theme`: 当前视图构建所需的状态、配置或消息。
-/// - `selected`: 当前视图构建所需的状态、配置或消息。
-///
-/// # 返回
-/// 返回值遵循函数签名约定，调用方据此继续组装界面或更新状态。
-///
-/// # 错误
-/// 此函数不返回 `Result`；不可用状态会通过空视图、禁用控件或回退文案表达。
-pub(super) fn connection_item_style(
-    theme: &Theme,
-    selected: bool,
-) -> iced::widget::container::Style {
-    let palette = theme.extended_palette();
-    if selected {
-        iced::widget::container::Style {
-            background: Some(Background::Color(palette.primary.base.color.scale_alpha(0.14))),
-            border: Border {
-                width: 1.0,
-                color: palette.primary.base.color.scale_alpha(0.34),
-                radius: 16.0.into(),
-            },
-            ..Default::default()
-        }
-    } else {
-        let mut style = settings_panel_style(theme);
-        style.border.radius = 16.0.into();
-        style
-    }
-}
-
 /// 构建弹窗界面。
 ///
 /// # 参数
@@ -389,7 +357,7 @@ pub(super) fn modal_header<'a>(title: &'a str, close_message: Message) -> Elemen
     row![
         text(title).size(20),
         Space::new().width(Length::Fill),
-        button(icon_svg(Icon::X, 14.0))
+        button(themed_icon_svg(Icon::X, 14.0))
             .on_press(close_message)
             .padding(8)
             .style(round_icon_btn_style),
@@ -397,6 +365,37 @@ pub(super) fn modal_header<'a>(title: &'a str, close_message: Message) -> Elemen
     .spacing(12)
     .align_y(Alignment::Center)
     .into()
+}
+
+/// 构建 Redis 工具界面。
+///
+/// # 参数
+/// - `icon`: 当前视图构建所需的图标。
+/// - `size`: 图标边长，单位像素。
+///
+/// # 返回
+/// 返回跟随主题文字色渲染的 SVG 图标。
+///
+/// # 错误
+/// 此函数不返回 `Result`；缺失图标由资产层保持显式 panic。
+pub(super) fn themed_icon_svg(icon: Icon, size: f32) -> Svg<'static> {
+    icon_svg(icon, size)
+        .style(|theme: &Theme, _status| svg::Style { color: Some(theme.palette().text) })
+}
+
+/// 构建 Redis 工具界面。
+///
+/// # 参数
+/// - `icon`: 当前视图构建所需的图标。
+/// - `size`: 图标边长，单位像素。
+///
+/// # 返回
+/// 返回用于主按钮的白色 SVG 图标。
+///
+/// # 错误
+/// 此函数不返回 `Result`；缺失图标由资产层保持显式 panic。
+pub(super) fn primary_icon_svg(icon: Icon, size: f32) -> Svg<'static> {
+    icon_svg(icon, size).style(|_theme: &Theme, _status| svg::Style { color: Some(Color::WHITE) })
 }
 
 /// 构建 Redis 工具界面。
@@ -657,36 +656,6 @@ pub(super) fn advanced_execution_note(draft: &RedisConnectionDraft) -> Option<St
     }
 
     None
-}
-
-/// 构建 Redis 工具界面。
-///
-/// # 参数
-/// - `connection`: 当前视图构建所需的状态、配置或消息。
-///
-/// # 返回
-/// 返回按当前状态生成的列表，供调用方继续渲染或选择。
-///
-/// # 错误
-/// 此函数不返回 `Result`；不可用状态会通过空视图、禁用控件或回退文案表达。
-pub(super) fn connection_badge_labels(connection: &RedisConnectionConfig) -> Vec<&'static str> {
-    let mut labels = Vec::new();
-    if connection.use_tls {
-        labels.push("TLS");
-    }
-    if connection.ssh_tunnel.enabled {
-        labels.push("SSH");
-    }
-    if connection.sentinel.enabled {
-        labels.push("Sentinel");
-    }
-    if connection.use_cluster {
-        labels.push("Cluster");
-    }
-    if connection.read_only {
-        labels.push("RO");
-    }
-    labels
 }
 
 /// 构建 Redis 工具界面。

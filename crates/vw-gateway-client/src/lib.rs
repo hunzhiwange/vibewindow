@@ -39,6 +39,7 @@ pub use client::GatewayClient;
 ///
 /// 包含全部 provider、默认路由与已连接 provider 三部分信息。
 pub use client::ProviderListResponse;
+pub use client::{CronAddRequest, CronJobDto, CronRunDto, CronUpdateRequest};
 /// 桌面端可用外部应用状态的精简传输对象。
 ///
 /// 该结构会把原始 JSON 响应规整为更适合 UI 层消费的字段。
@@ -86,6 +87,16 @@ pub use stream::{
 ///
 /// 方便上层从单一依赖入口访问完整的接口类型集合。
 pub use vw_api_types;
+pub use vw_api_types::cleaner::{
+    CleanerCleanupRequest, CleanerInfoResponse, CleanerRunResponse, CleanerScanDetail,
+    CleanerScanGroup, CleanerScanItem, CleanerScanReport, CleanerStatusResponse,
+};
+pub use vw_api_types::knowledge::{
+    KnowledgeChunkDto, KnowledgeDatasetCreateRequest, KnowledgeDatasetDto,
+    KnowledgeDocumentCreateRequest, KnowledgeDocumentDto, KnowledgeIndexingMode,
+    KnowledgeRetrievalMode, KnowledgeRetrieveRequest, KnowledgeRetrieveResponse,
+    KnowledgeRuntimeStatus,
+};
 pub use vw_api_types::project::{
     ListProjectChangeRecordsRequest, ListProjectChangeRecordsResponse, ProjectChangeRecordDto,
 };
@@ -100,6 +111,7 @@ pub use vw_api_types::tool::{
     GatewayRedisSettingsUpdateBody, GatewayRedisToolState,
 };
 pub use vw_api_types::workflow::{
-    WorkflowNodeRunDto, WorkflowNodeRunStatus, WorkflowRunRequest, WorkflowRunResponse,
+    WorkflowNodeRunDto, WorkflowNodeRunStatus, WorkflowRecord, WorkflowRecordDeleteResponse,
+    WorkflowRecordSummary, WorkflowRecordUpsertBody, WorkflowRunRequest, WorkflowRunResponse,
     WorkflowRunStatus,
 };

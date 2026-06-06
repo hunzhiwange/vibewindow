@@ -91,6 +91,11 @@ pub mod json_tool;
 /// 提供 JSON 和 YAML 格式之间的相互转换功能视图。
 pub mod json_yaml_tool;
 
+/// 知识库工作台视图模块
+///
+/// 提供知识库列表、文档管理与召回测试功能视图。
+pub mod knowledge;
+
 /// Markdown 工具视图模块
 ///
 /// 提供 Markdown 文本的编辑、预览、转换等处理功能的视图。

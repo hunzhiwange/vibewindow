@@ -135,6 +135,8 @@
     pub task_board_bulk_priority_input: String,
     /// 任务看板批量设置模型输入
     pub task_board_bulk_model_input: String,
+    /// 任务看板批量设置代理
+    pub task_board_bulk_agent: String,
     /// 任务看板批量设置 ACP 智能体
     pub task_board_bulk_acp_agent: Option<String>,
     /// 任务看板选中的任务 ID

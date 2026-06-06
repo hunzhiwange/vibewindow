@@ -1,5 +1,6 @@
 //! 处理系统设置页面中对应功能区的消息、校验和配置持久化。
 
+mod acp;
 mod agents;
 mod agents_ipc;
 mod autonomy;
@@ -47,10 +48,10 @@ use crate::app::{App, Message};
 use iced::Task;
 
 pub(crate) use messages::{
-    AgentsMessage, BrowserMessage, ChannelsMessage, EmbeddingRoutesMessage, GatewayClientMessage,
-    GatewayMessage, GoalLoopMessage, HooksMessage, HttpRequestMessage, MemoryMessage,
-    ModelRoutesMessage, MultimodalMessage, QueryClassificationMessage, RuntimeMessage,
-    SettingsMessage, SopMessage, StorageMessage, TunnelMessage, WebSearchMessage,
+    AcpMessage, AgentsMessage, BrowserMessage, ChannelsMessage, EmbeddingRoutesMessage,
+    GatewayClientMessage, GatewayMessage, GoalLoopMessage, HooksMessage, HttpRequestMessage,
+    MemoryMessage, ModelRoutesMessage, MultimodalMessage, QueryClassificationMessage,
+    RuntimeMessage, SettingsMessage, SopMessage, StorageMessage, TunnelMessage, WebSearchMessage,
 };
 
 fn apply_agent_config_saved(app: &mut App, tag: &'static str, result: Result<(), String>) {
@@ -119,6 +120,7 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         SettingsMessage::Memory(_) => memory::update(app, message),
         SettingsMessage::Channels(_) => channels::update(app, message),
         SettingsMessage::Multimodal(_) => multimodal::update(app, message),
+        SettingsMessage::Acp(_) => acp::update(app, message),
         SettingsMessage::GatewayClient(_) => gateway_client::update(app, message),
         SettingsMessage::Gateway(_) => gateway::update(app, message),
         SettingsMessage::Tunnel(_) => tunnel::update(app, message),
@@ -231,6 +233,74 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         | SettingsMessage::HeartbeatHelpClose => heartbeat::update(app, message),
         SettingsMessage::CronEnabledToggled(_)
         | SettingsMessage::CronMaxRunHistoryChanged(_)
+        | SettingsMessage::CronTabSelected(_)
+        | SettingsMessage::CronJobsRefresh
+        | SettingsMessage::CronJobsLoaded(_)
+        | SettingsMessage::CronJobSelectionToggled(_, _)
+        | SettingsMessage::CronJobsSelectAllToggled(_)
+        | SettingsMessage::CronJobRunsOpen(_)
+        | SettingsMessage::CronJobRunsLoaded(_, _)
+        | SettingsMessage::CronJobRunsEditorAction(_)
+        | SettingsMessage::CronJobRunsClose
+        | SettingsMessage::CronJobEditStarted(_)
+        | SettingsMessage::CronJobEditCanceled
+        | SettingsMessage::CronJobEditNameChanged(_)
+        | SettingsMessage::CronJobEditJobTypeChanged(_)
+        | SettingsMessage::CronJobEditScheduleKindChanged(_)
+        | SettingsMessage::CronJobEditScheduleChanged(_)
+        | SettingsMessage::CronJobEditAtChanged(_)
+        | SettingsMessage::CronJobEditEveryMsChanged(_)
+        | SettingsMessage::CronJobEditCommandChanged(_)
+        | SettingsMessage::CronJobEditCommandEditorAction(_)
+        | SettingsMessage::CronJobEditPromptChanged(_)
+        | SettingsMessage::CronJobEditPromptEditorAction(_)
+        | SettingsMessage::CronJobEditAgentChanged(_)
+        | SettingsMessage::CronJobEditAcpAgentChanged(_)
+        | SettingsMessage::CronJobEditProjectPathChanged(_)
+        | SettingsMessage::CronJobEditModelProviderChanged(_)
+        | SettingsMessage::CronJobEditModelChanged(_)
+        | SettingsMessage::CronJobEditWakeToggled(_)
+        | SettingsMessage::CronJobEditFallbacksChanged(_)
+        | SettingsMessage::CronJobEditFullAccessToggled(_)
+        | SettingsMessage::CronJobEditTaskPoolToggled(_)
+        | SettingsMessage::CronJobEditDeliveryEnabledToggled(_)
+        | SettingsMessage::CronJobEditDeliveryChannelChanged(_)
+        | SettingsMessage::CronJobEditDeliveryToChanged(_)
+        | SettingsMessage::CronJobEditDeliveryBestEffortToggled(_)
+        | SettingsMessage::CronJobEditDeleteAfterRunToggled(_)
+        | SettingsMessage::CronJobEditSave
+        | SettingsMessage::CronJobEnabledChanged(_, _)
+        | SettingsMessage::CronJobDelete(_)
+        | SettingsMessage::CronSelectedJobsEnable
+        | SettingsMessage::CronSelectedJobsDisable
+        | SettingsMessage::CronSelectedJobsDelete
+        | SettingsMessage::CronAddNameChanged(_)
+        | SettingsMessage::CronAddJobTypeChanged(_)
+        | SettingsMessage::CronAddScheduleKindChanged(_)
+        | SettingsMessage::CronAddScheduleChanged(_)
+        | SettingsMessage::CronAddAtChanged(_)
+        | SettingsMessage::CronAddEveryMsChanged(_)
+        | SettingsMessage::CronAddCommandChanged(_)
+        | SettingsMessage::CronAddCommandEditorAction(_)
+        | SettingsMessage::CronAddPromptChanged(_)
+        | SettingsMessage::CronAddPromptEditorAction(_)
+        | SettingsMessage::CronAddSessionTargetChanged(_)
+        | SettingsMessage::CronAddAgentChanged(_)
+        | SettingsMessage::CronAddAcpAgentChanged(_)
+        | SettingsMessage::CronAddProjectPathChanged(_)
+        | SettingsMessage::CronAddModelProviderChanged(_)
+        | SettingsMessage::CronAddModelChanged(_)
+        | SettingsMessage::CronAddWakeToggled(_)
+        | SettingsMessage::CronAddFallbacksChanged(_)
+        | SettingsMessage::CronAddFullAccessToggled(_)
+        | SettingsMessage::CronAddTaskPoolToggled(_)
+        | SettingsMessage::CronAddDeliveryEnabledToggled(_)
+        | SettingsMessage::CronAddDeliveryChannelChanged(_)
+        | SettingsMessage::CronAddDeliveryToChanged(_)
+        | SettingsMessage::CronAddDeliveryBestEffortToggled(_)
+        | SettingsMessage::CronAddDeleteAfterRunToggled(_)
+        | SettingsMessage::CronAddSubmit
+        | SettingsMessage::CronJobMutationCompleted(_)
         | SettingsMessage::CronSave
         | SettingsMessage::CronHelpOpen
         | SettingsMessage::CronHelpClose => cron::update(app, message),

@@ -4,17 +4,16 @@
 
 use crate::app::assets::Icon;
 use crate::app::components::system_settings_common::{
-    primary_action_btn_style, settings_muted_text_style, settings_text_input_style,
-    settings_value_badge,
+    primary_action_btn_style, rounded_action_btn_style, settings_muted_text_style,
+    settings_text_input_style,
 };
 use crate::app::message::RedisToolMessage;
 use crate::app::{App, Message};
-use iced::widget::{Space, button, column, container, row, scrollable, text, text_input};
-use iced::{Alignment, Element, Length, Theme};
+use iced::widget::{Space, button, column, row, text, text_input};
+use iced::{Alignment, Element, Length};
 
 use super::common::{
-    build_round_icon_action, connection_badge_labels, connection_item_style,
-    connection_mode_summary, empty_sidebar_hint, format_timestamp, redis_scroll_direction,
+    build_round_icon_action, connection_mode_summary, empty_sidebar_hint, primary_icon_svg,
 };
 
 /// 构建对应界面片段。
@@ -37,12 +36,9 @@ pub(super) fn build_sidebar<'a>(app: &'a App) -> Element<'a, Message> {
 
     let action_bar = row![
         button(
-            row![
-                crate::app::components::system_settings_common::icon_svg(Icon::Plus, 14.0),
-                text("新建连接").size(13)
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center),
+            row![primary_icon_svg(Icon::Plus, 14.0), text("新建连接").size(13)]
+                .spacing(8)
+                .align_y(Alignment::Center),
         )
         .on_press_maybe((!is_busy).then_some(Message::RedisTool(RedisToolMessage::NewConnection)))
         .padding([10, 14])
@@ -62,16 +58,21 @@ pub(super) fn build_sidebar<'a>(app: &'a App) -> Element<'a, Message> {
     .spacing(10)
     .align_y(Alignment::Center);
 
-    let query = app.redis_tool.connection_search_query.trim().to_ascii_lowercase();
-    let mut list = column![].spacing(10).width(Length::Fill);
-    let mut matched_connections = 0usize;
+    let mut plain_connection_names = column![
+        text(format!("全部连接: {}", app.redis_tool.connections.len()))
+            .size(12)
+            .style(settings_muted_text_style)
+    ]
+    .spacing(4)
+    .width(Length::Fill);
+    for (index, connection) in app.redis_tool.connections.iter().enumerate() {
+        plain_connection_names = plain_connection_names
+            .push(text(format!("连接 {}: {}", index + 1, connection.name)).size(13));
+    }
 
-    for connection in app.redis_tool.connections.iter().filter(|connection| {
-        query.is_empty()
-            || connection.name.to_ascii_lowercase().contains(&query)
-            || connection.host.to_ascii_lowercase().contains(&query)
-    }) {
-        matched_connections += 1;
+    let mut list = column![].spacing(10).width(Length::Fill);
+
+    for connection in &app.redis_tool.connections {
         let selected =
             app.redis_tool.selected_connection_id.as_deref() == Some(connection.id.as_str());
         let runtime_loaded = app
@@ -79,53 +80,42 @@ pub(super) fn build_sidebar<'a>(app: &'a App) -> Element<'a, Message> {
             .runtime_overview
             .as_ref()
             .is_some_and(|overview| overview.connection_id == connection.id);
-        let last_used =
-            connection.last_used_ms.map(format_timestamp).unwrap_or_else(|| "未进入".to_string());
+        let status: Element<'a, Message> = if selected {
+            text(if runtime_loaded { "已加载" } else { "已选中" })
+                .size(11)
+                .style(settings_muted_text_style)
+                .into()
+        } else {
+            Space::new().width(Length::Shrink).into()
+        };
 
-        let badges = build_badges(connection);
-        let mut content = column![
-            row![text(&connection.name).size(14), Space::new().width(Length::Fill), badges,]
-                .align_y(Alignment::Center),
-            text(format!("{}:{}  /  DB {}", connection.host, connection.port, connection.db))
-                .size(12)
+        let content = row![
+            column![
+                text(&connection.name).size(14),
+                text(format!(
+                    "{}:{} / DB {} / {}",
+                    connection.host,
+                    connection.port,
+                    connection.db,
+                    connection_mode_summary(connection)
+                ))
+                .size(11)
                 .style(settings_muted_text_style),
-            text(connection_mode_summary(connection)).size(11).style(settings_muted_text_style),
-            text(format!("最近使用：{last_used}")).size(11).style(settings_muted_text_style),
+            ]
+            .spacing(4)
+            .width(Length::Fill),
+            status,
         ]
-        .spacing(6);
+        .spacing(10)
+        .align_y(Alignment::Center);
 
-        if selected {
-            content = content.push(
-                row![
-                    settings_value_badge("已展开"),
-                    settings_value_badge(if runtime_loaded {
-                        "信息已加载"
-                    } else {
-                        "待加载"
-                    }),
-                ]
-                .spacing(6)
-                .align_y(Alignment::Center),
-            );
-            content = content.push(
-                text("右侧已显示该连接的 Redis 信息与命令控制台，其它连接会自动折叠。")
-                    .size(11)
-                    .style(settings_muted_text_style),
-            );
-        }
-
-        let item = button(
-            container(content)
-                .padding([14, 14])
-                .width(Length::Fill)
-                .style(move |theme: &Theme| connection_item_style(theme, selected)),
-        )
-        .padding(0)
-        .width(Length::Fill)
-        .style(button::text)
-        .on_press_maybe((!is_busy).then_some(Message::RedisTool(
-            RedisToolMessage::SelectConnection(connection.id.clone()),
-        )));
+        let item = button(content)
+            .padding([10, 12])
+            .width(Length::Fill)
+            .style(if selected { primary_action_btn_style } else { rounded_action_btn_style })
+            .on_press_maybe((!is_busy).then_some(Message::RedisTool(
+                RedisToolMessage::SelectConnection(connection.id.clone()),
+            )));
 
         list = list.push(item);
     }
@@ -135,35 +125,19 @@ pub(super) fn build_sidebar<'a>(app: &'a App) -> Element<'a, Message> {
             "还没有保存的连接",
             "点击“新建连接”创建第一个 Redis 连接配置。",
         ));
-    } else if !query.is_empty() && matched_connections == 0 {
-        list = list.push(empty_sidebar_hint("没有匹配结果", "调整搜索关键字后重试。"));
     }
 
     column![
         action_bar,
         search,
-        container(scrollable(list).direction(redis_scroll_direction()).height(Length::Fill),)
-            .height(Length::Fill),
+        plain_connection_names,
+        text("连接模块列表").size(12).style(settings_muted_text_style),
+        list,
     ]
     .spacing(12)
     .width(Length::Fill)
     .height(Length::Fill)
     .into()
-}
-
-fn build_badges<'a>(
-    connection: &'a crate::app::state::RedisConnectionConfig,
-) -> Element<'a, Message> {
-    let labels = connection_badge_labels(connection);
-    if labels.is_empty() {
-        return Space::new().width(Length::Shrink).into();
-    }
-
-    let mut row_widget = row![].spacing(6).align_y(Alignment::Center);
-    for label in labels {
-        row_widget = row_widget.push(settings_value_badge(label));
-    }
-    row_widget.into()
 }
 
 #[cfg(test)]

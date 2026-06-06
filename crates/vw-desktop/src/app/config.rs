@@ -10,6 +10,8 @@
 
 #[path = "config_agent.rs"]
 mod agent;
+#[path = "config_cron_jobs.rs"]
+mod cron_jobs;
 #[path = "config_desktop.rs"]
 mod desktop;
 #[path = "config_gateway.rs"]
@@ -23,6 +25,7 @@ mod system_settings;
 ///
 /// 调用方通过该入口使用配置或组件能力，无需依赖内部文件布局。
 pub use agent::*;
+pub use cron_jobs::*;
 /// 重新导出 `desktop::*`，作为本模块对外暴露的稳定入口。
 ///
 /// 调用方通过该入口使用配置或组件能力，无需依赖内部文件布局。

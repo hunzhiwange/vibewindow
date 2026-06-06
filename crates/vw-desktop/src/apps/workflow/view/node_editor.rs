@@ -45,6 +45,13 @@ pub(super) fn build_node_editor_modal(state: &WorkflowState) -> Element<'_, Mess
         }
     }
 
+    let scroll_content = container(content).width(Length::Fill).padding(iced::Padding {
+        top: 0.0,
+        right: 4.0,
+        bottom: 0.0,
+        left: 0.0,
+    });
+
     settings_modal_overlay(
         None,
         Message::None,
@@ -52,7 +59,7 @@ pub(super) fn build_node_editor_modal(state: &WorkflowState) -> Element<'_, Mess
             column![
                 build_node_editor_header(editor),
                 build_node_editor_tabs(has_visual_tab, active_tab),
-                scrollable(content)
+                scrollable(scroll_content)
                     .direction(Direction::Vertical(Scrollbar::new().width(4).scroller_width(4)))
                     .height(Length::Fixed(548.0)),
             ]

@@ -5,6 +5,12 @@
 
 use super::*;
 
+impl AcpClient {
+    pub(super) fn make_message_tap(&self, direction: AcpMessageDirection) -> MessageTap {
+        MessageTap::new(direction, self.on_acp_message.clone(), self.on_acp_output_message.clone())
+    }
+}
+
 impl MessageTap {
     /// 创建一个消息监听器。
     ///

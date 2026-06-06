@@ -37,6 +37,45 @@ fn select_case_handle_supports_dify_common_operators() {
 }
 
 #[test]
+fn select_case_handle_supports_nested_selector_paths() {
+    let mut pool = VariablePool::default();
+    pool.insert_selector(
+        &["code".to_string(), "payload".to_string()],
+        json!({
+            "orders": [
+                {
+                    "status": "paid",
+                    "amount": 128
+                }
+            ]
+        }),
+    );
+
+    let cases = json!([
+        {
+            "case_id": "paid-order",
+            "conditions": [
+                {
+                    "comparison_operator": "=",
+                    "variable_selector": ["code", "payload", "orders[0]", "status"],
+                    "value": "paid"
+                },
+                {
+                    "comparison_operator": ">=",
+                    "variable_selector": ["code", "payload", "orders[0].amount"],
+                    "value": 100
+                }
+            ]
+        }
+    ]);
+
+    assert_eq!(
+        select_case_handle(cases.as_array().expect("cases"), &pool).expect("selected"),
+        "paid-order"
+    );
+}
+
+#[test]
 fn select_case_handle_rejects_unsupported_operator() {
     let pool = VariablePool::default();
     let cases = json!([

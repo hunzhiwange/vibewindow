@@ -156,6 +156,7 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
                     app.active_shared_chat_messages(),
                     base_chunk_start,
                     true,
+                    app.dialogue_flow_show_reasoning_summary,
                 )
             };
 

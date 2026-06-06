@@ -131,6 +131,7 @@ pub fn message_view<'a>(
         visible_for_copy.as_ref(),
         visible_content_hash,
         is_streaming_assistant,
+        app.dialogue_flow_show_reasoning_summary,
     );
     let (assistant_blocks, has_special_assistant_blocks) =
         assistant_render_blocks(content, render_cache.as_ref(), false);
@@ -177,56 +178,7 @@ pub fn message_view<'a>(
             )
         })
     };
-    let has_message_id =
-        app.chat_message_ids.get(idx).and_then(|message_id| message_id.as_ref()).is_some();
-    let can_branch_or_reset = is_user && app.active_session_id.is_some() && has_message_id;
-    let show_reset_actions =
-        can_branch_or_reset && has_message_id && app.chat_reset_menu_idx == Some(idx);
-
-    let action_btn = |label: &'static str, on_press: Message| -> Element<'a, Message> {
-        button(iced_text(label).size(13))
-            .padding([4, 10])
-            .style(|theme: &Theme, status| {
-                let (idle_bg, idle_border) = neutral_card_surface(theme);
-                let (bg, border_color) = match status {
-                    iced::widget::button::Status::Pressed => {
-                        if is_dark_theme(theme) {
-                            (
-                                Color::from_rgba8(36, 38, 44, 0.98),
-                                Color::from_rgba8(63, 67, 75, 0.94),
-                            )
-                        } else {
-                            (
-                                Color::from_rgba8(232, 236, 241, 1.0),
-                                Color::from_rgba8(210, 216, 224, 1.0),
-                            )
-                        }
-                    }
-                    iced::widget::button::Status::Hovered => {
-                        if is_dark_theme(theme) {
-                            (
-                                Color::from_rgba8(31, 33, 38, 0.96),
-                                Color::from_rgba8(52, 56, 63, 0.92),
-                            )
-                        } else {
-                            (
-                                Color::from_rgba8(241, 243, 246, 1.0),
-                                Color::from_rgba8(218, 223, 230, 1.0),
-                            )
-                        }
-                    }
-                    _ => (idle_bg, idle_border),
-                };
-                iced::widget::button::Style {
-                    background: Some(Background::Color(bg)),
-                    border: Border { width: 1.0, color: border_color, radius: 999.0.into() },
-                    text_color: chat_secondary_muted_text_color(theme),
-                    ..Default::default()
-                }
-            })
-            .on_press(on_press)
-            .into()
-    };
+    let can_branch_or_reset = is_user && app.active_session_id.is_some();
 
     let icon_action_btn = |icon: Icon,
                            label: &'static str,
@@ -359,16 +311,8 @@ pub fn message_view<'a>(
 
     let copy_message = Message::CopyCode(visible_for_copy.to_string());
 
-    let fork_press = Message::Chat(message::ChatMessage::ForkSessionAt(idx));
+    let fork_press = Message::Chat(message::ChatMessage::OpenForkSessionDialog(idx));
     let reset_press = Message::Chat(message::ChatMessage::ToggleResetMenu(idx));
-    let reset_revert_press = Message::Chat(message::ChatMessage::ResetSessionToMessage {
-        msg_idx: idx,
-        revert_code: true,
-    });
-    let reset_keep_press = Message::Chat(message::ChatMessage::ResetSessionToMessage {
-        msg_idx: idx,
-        revert_code: false,
-    });
 
     let body = if assistant_like && !prefer_attachment_card_render {
         render_assistant_body(
@@ -522,32 +466,6 @@ pub fn message_view<'a>(
     let footer_element: Element<'a, Message> = {
         let mut footer_col = column![].spacing(6);
 
-        if show_reset_actions {
-            let reset_confirm_row: Element<'a, Message> = if is_user {
-                row![
-                    container(Space::new()).width(Length::Fill),
-                    row![
-                        action_btn("回滚代码", reset_revert_press),
-                        action_btn("不回滚代码", reset_keep_press),
-                    ]
-                    .spacing(6)
-                    .align_y(Alignment::Center)
-                ]
-                .spacing(8)
-                .align_y(Alignment::Center)
-                .into()
-            } else {
-                row![
-                    action_btn("回滚代码", reset_revert_press),
-                    action_btn("不回滚代码", reset_keep_press),
-                ]
-                .spacing(6)
-                .align_y(Alignment::Center)
-                .into()
-            };
-            footer_col = footer_col.push(reset_confirm_row);
-        }
-
         let meta_row: Element<'a, Message> = if let Some(meta_text) = message_meta {
             let meta_view = iced_text(meta_text)
                 .size(MESSAGE_META_TEXT_SIZE)
@@ -572,14 +490,14 @@ pub fn message_view<'a>(
                         "分叉到新会话",
                         fork_press.clone(),
                         false,
-                        false,
+                        true,
                     ));
                     row = row.push(icon_action_btn(
                         Icon::ArrowCounterClockwise,
                         "重置到此点",
                         reset_press.clone(),
                         false,
-                        false,
+                        true,
                     ));
                 }
                 row.push(icon_action_btn(
@@ -601,14 +519,14 @@ pub fn message_view<'a>(
                         "分叉到新会话",
                         fork_press.clone(),
                         false,
-                        false,
+                        true,
                     ));
                     row = row.push(icon_action_btn(
                         Icon::ArrowCounterClockwise,
                         "重置到此点",
                         reset_press.clone(),
                         false,
-                        false,
+                        true,
                     ));
                 }
                 row.push(icon_action_btn(
@@ -633,14 +551,14 @@ pub fn message_view<'a>(
                     "分叉到新会话",
                     fork_press.clone(),
                     false,
-                    false,
+                    true,
                 ));
                 row = row.push(icon_action_btn(
                     Icon::ArrowCounterClockwise,
                     "重置到此点",
                     reset_press.clone(),
                     false,
-                    false,
+                    true,
                 ));
             }
             row.push(icon_action_btn(
@@ -662,14 +580,14 @@ pub fn message_view<'a>(
                     "分叉到新会话",
                     fork_press.clone(),
                     false,
-                    false,
+                    true,
                 ));
                 row = row.push(icon_action_btn(
                     Icon::ArrowCounterClockwise,
                     "重置到此点",
                     reset_press.clone(),
                     false,
-                    false,
+                    true,
                 ));
             }
             row.push(icon_action_btn(

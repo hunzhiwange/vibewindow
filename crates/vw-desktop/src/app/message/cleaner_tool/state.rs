@@ -2,10 +2,10 @@
 //!
 //! 注释聚焦模块职责、消息边界和失败处理方式，帮助维护者在不改变逻辑的前提下理解代码。
 
-use super::run::execute_cleanup;
+use super::format_bytes;
+use super::run::{cancel_cleanup, cleaner_info, cleanup_status, execute_cleanup};
 use super::scan::scan_cleanup_targets;
-use super::types::{CleanerPlatform, CleanerScanReport, CleanerToolMessage, CleanupRequest};
-use super::{current_platform, format_bytes};
+use super::types::{CleanerCleanupRequest, CleanerScanReport, CleanerToolMessage};
 use crate::app::{App, Message};
 use iced::Task;
 use iced::widget::text_editor;
@@ -96,6 +96,7 @@ pub fn update(app: &mut App, message: CleanerToolMessage) -> Task<Message> {
             app.cleaner_clear_mail = value;
             Task::none()
         }
+        CleanerToolMessage::InfoLoaded(result) => finish_info(app, result),
         CleanerToolMessage::Scan => start_scan(app),
         CleanerToolMessage::ScanFinished(result) => finish_scan(app, result),
         CleanerToolMessage::ToggleTreeNode(id) => {
@@ -106,6 +107,13 @@ pub fn update(app: &mut App, message: CleanerToolMessage) -> Task<Message> {
         }
         CleanerToolMessage::Run => start_run(app),
         CleanerToolMessage::Cancel => cancel_run(app),
+        CleanerToolMessage::CancelFinished(result) => {
+            if let Err(error) = result {
+                tracing::warn!(target: "vw_desktop", error = %error, "failed to cancel cleaner via gateway");
+            }
+            Task::none()
+        }
+        CleanerToolMessage::StatusLoaded(result) => refresh_run_status(app, result),
         CleanerToolMessage::RunFinished(result) => finish_run(app, result),
         CleanerToolMessage::Tick => tick(app),
         CleanerToolMessage::Clear => {
@@ -136,15 +144,13 @@ fn start_scan(app: &mut App) -> Task<Message> {
     app.cleaner_output_editor = text_editor::Content::with_text(&initial_scan_log());
 
     Task::batch(vec![
+        Task::perform(async move { cleaner_info().await }, |result| {
+            Message::CleanerTool(CleanerToolMessage::InfoLoaded(result))
+        }),
         // 耗时或平台相关操作交给异步任务，避免阻塞界面消息循环。
-        Task::perform(
-            async move {
-                crate::app::message::spawn_blocking_opt(scan_cleanup_targets)
-                    .await
-                    .unwrap_or_else(|| Err("扫描任务执行失败或被取消".to_string()))
-            },
-            |result| Message::CleanerTool(CleanerToolMessage::ScanFinished(result)),
-        ),
+        Task::perform(async move { scan_cleanup_targets().await }, |result| {
+            Message::CleanerTool(CleanerToolMessage::ScanFinished(result))
+        }),
         crate::app::message::after(
             std::time::Duration::from_millis(CLEANER_TICK_MS),
             Message::CleanerTool(CleanerToolMessage::Tick),
@@ -211,25 +217,35 @@ fn start_run(app: &mut App) -> Task<Message> {
     app.cleaner_output_editor = text_editor::Content::with_text(&initial_log(app));
     app.cleaner_cancel_flag.store(false, Ordering::Relaxed);
 
-    let request = CleanupRequest::from_app(app);
-    let cancel_flag = app.cleaner_cancel_flag.clone();
+    let request = cleanup_request_from_app(app);
 
     Task::batch(vec![
-        Task::perform(
-            async move {
-                crate::app::message::spawn_blocking_opt(move || {
-                    execute_cleanup(request, cancel_flag)
-                })
-                .await
-                .unwrap_or_else(|| Err("清理任务执行失败或被取消".to_string()))
-            },
-            |result| Message::CleanerTool(CleanerToolMessage::RunFinished(result)),
-        ),
+        Task::perform(async move { cleaner_info().await }, |result| {
+            Message::CleanerTool(CleanerToolMessage::InfoLoaded(result))
+        }),
+        Task::perform(async move { execute_cleanup(request).await }, |result| {
+            Message::CleanerTool(CleanerToolMessage::RunFinished(result))
+        }),
         crate::app::message::after(
             std::time::Duration::from_millis(CLEANER_TICK_MS),
             Message::CleanerTool(CleanerToolMessage::Tick),
         ),
     ])
+}
+
+fn finish_info(
+    app: &mut App,
+    result: Result<vw_gateway_client::CleanerInfoResponse, String>,
+) -> Task<Message> {
+    let Ok(info) = result else {
+        return Task::none();
+    };
+    if let Some(platform) =
+        crate::app::state::RuntimePlatform::from_gateway_str(info.platform.as_str())
+    {
+        app.open_external_platform = Some(platform);
+    }
+    Task::none()
 }
 
 fn cancel_run(app: &mut App) -> Task<Message> {
@@ -252,7 +268,9 @@ fn cancel_run(app: &mut App) -> Task<Message> {
     app.cleaner_cancelling = true;
     app.cleaner_notification = Some("正在取消清理，请稍候…".to_string());
     app.cleaner_cancel_flag.store(true, Ordering::Relaxed);
-    Task::none()
+    Task::perform(async move { cancel_cleanup().await }, |result| {
+        Message::CleanerTool(CleanerToolMessage::CancelFinished(result))
+    })
 }
 
 fn finish_run(app: &mut App, result: Result<String, String>) -> Task<Message> {
@@ -302,18 +320,37 @@ fn tick(app: &mut App) -> Task<Message> {
     }
 
     app.cleaner_animation_frame = app.cleaner_animation_frame.wrapping_add(1);
-    crate::app::message::after(
+    let next_tick = crate::app::message::after(
         std::time::Duration::from_millis(CLEANER_TICK_MS),
         Message::CleanerTool(CleanerToolMessage::Tick),
-    )
+    );
+    if app.cleaner_running {
+        Task::batch(vec![
+            Task::perform(async move { cleanup_status().await }, |result| {
+                Message::CleanerTool(CleanerToolMessage::StatusLoaded(result))
+            }),
+            next_tick,
+        ])
+    } else {
+        next_tick
+    }
+}
+
+fn refresh_run_status(
+    app: &mut App,
+    result: Result<super::types::CleanerStatusResponse, String>,
+) -> Task<Message> {
+    let Ok(status) = result else {
+        return Task::none();
+    };
+    if app.cleaner_running && !status.output.trim().is_empty() {
+        app.cleaner_output_editor = text_editor::Content::with_text(&status.output);
+    }
+    Task::none()
 }
 
 fn initial_log(app: &App) -> String {
-    let platform = match current_platform() {
-        Some(CleanerPlatform::MacOs) => "macOS",
-        Some(CleanerPlatform::Windows) => "Windows",
-        None => "Unsupported",
-    };
+    let platform = cleaner_platform_label(app);
 
     let mut lines = vec![
         format!("准备开始清理 {platform} 垃圾文件"),
@@ -334,6 +371,15 @@ fn initial_log(app: &App) -> String {
     }
 
     lines.join("\n")
+}
+
+fn cleaner_platform_label(app: &App) -> &'static str {
+    match app.open_external_platform {
+        Some(crate::app::state::RuntimePlatform::MacOs) => "macOS",
+        Some(crate::app::state::RuntimePlatform::Windows) => "Windows",
+        Some(crate::app::state::RuntimePlatform::Linux) => "Linux",
+        None => "Gateway",
+    }
 }
 
 fn initial_scan_log() -> String {
@@ -428,6 +474,29 @@ fn has_selected_items(app: &App) -> bool {
         || app.cleaner_clear_edge
         || app.cleaner_clear_firefox
         || app.cleaner_clear_mail
+}
+
+fn cleanup_request_from_app(app: &App) -> CleanerCleanupRequest {
+    CleanerCleanupRequest {
+        clear_system_temp: app.cleaner_clear_system_temp,
+        clear_app_cache: app.cleaner_clear_app_cache,
+        clear_logs: app.cleaner_clear_logs,
+        clear_package_cache: app.cleaner_clear_package_cache,
+        clear_downloads: app.cleaner_clear_downloads,
+        empty_trash: app.cleaner_empty_trash,
+        clear_installers: app.cleaner_clear_installers,
+        clear_other_apps: app.cleaner_clear_other_apps,
+        clear_wechat_work: app.cleaner_clear_wechat_work,
+        clear_wechat: app.cleaner_clear_wechat,
+        clear_qq: app.cleaner_clear_qq,
+        clear_dingtalk: app.cleaner_clear_dingtalk,
+        clear_feishu: app.cleaner_clear_feishu,
+        clear_safari: app.cleaner_clear_safari,
+        clear_chrome: app.cleaner_clear_chrome,
+        clear_edge: app.cleaner_clear_edge,
+        clear_firefox: app.cleaner_clear_firefox,
+        clear_mail: app.cleaner_clear_mail,
+    }
 }
 
 /// selected_scan_totals 处理当前模块对应的消息或状态转换。

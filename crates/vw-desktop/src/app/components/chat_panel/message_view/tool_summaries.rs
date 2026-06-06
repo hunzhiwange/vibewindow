@@ -910,7 +910,10 @@ fn flush_explore_summary<'a>(
 }
 
 #[allow(dead_code)]
-pub(crate) fn explore_summary_text_blocks(raw: &str) -> Vec<(usize, String)> {
+pub(crate) fn explore_summary_text_blocks(
+    raw: &str,
+    show_reasoning_summary: bool,
+) -> Vec<(usize, String)> {
     let mut out = Vec::new();
     let mut group_idx = 0usize;
     let mut explore_items: Vec<&str> = Vec::new();
@@ -936,17 +939,19 @@ pub(crate) fn explore_summary_text_blocks(raw: &str) -> Vec<(usize, String)> {
                 group_idx = group_idx.saturating_add(1);
             }
             RenderBlock::Think { open, .. } => {
-                if open {
-                    explore_group_force_running = true;
+                if open || show_reasoning_summary {
+                    if open {
+                        explore_group_force_running = true;
+                    }
+                    flush_explore_summary(
+                        &mut out,
+                        &mut explore_items,
+                        group_idx,
+                        explore_group_force_running,
+                    );
+                    explore_group_force_running = open;
+                    group_idx = group_idx.saturating_add(1);
                 }
-                flush_explore_summary(
-                    &mut out,
-                    &mut explore_items,
-                    group_idx,
-                    explore_group_force_running,
-                );
-                explore_group_force_running = open;
-                group_idx = group_idx.saturating_add(1);
             }
             RenderBlock::Text { content } => {
                 if normalized_visible_text(content).is_none() {

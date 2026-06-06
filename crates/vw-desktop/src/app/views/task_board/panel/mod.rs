@@ -2,6 +2,8 @@
 //!
 //! 本模块只负责视图组合与样式适配，不持有业务状态，也不扩大外部能力边界。
 
+use std::fmt;
+
 use iced::widget::{
     Space, button, checkbox, column, container, pick_list, row, scrollable, text, text_editor,
     text_input,
@@ -13,6 +15,7 @@ use crate::app::components::system_settings_common::{
     settings_panel, settings_pick_list_menu_style, settings_pick_list_style,
 };
 use crate::app::message::TaskBoardMessage;
+use crate::app::state::MAIN_AGENT_KEY;
 use crate::app::task::Task;
 use crate::app::{App, Message};
 
@@ -35,6 +38,18 @@ use subtask_editor::{build_draft_mode_subtasks, build_edit_mode_subtasks, build_
 
 const TASK_PANEL_SCROLLBAR_WIDTH: f32 = 4.0;
 const TASK_PANEL_SCROLLBAR_GUTTER: f32 = 12.0;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TaskBoardAgentOption {
+    key: String,
+    label: String,
+}
+
+impl fmt::Display for TaskBoardAgentOption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.label)
+    }
+}
 
 fn task_status_tag_colors(status: crate::app::task::TaskStatus) -> (Color, Color) {
     match status {
@@ -237,18 +252,23 @@ pub fn build_task_panel<'a>(app: &'a App, is_edit_mode: bool) -> Element<'a, Mes
     if is_edit_mode {
         let priority_field = build_priority_field(app, true);
         let model_field = build_model_selector(app, true);
+        let agent_field = build_agent_field(app, true);
         let executor_field = build_executor_selector(app, true);
         let prompt_field = build_prompt_field(app);
 
         main_col = main_col.push(section_block(
             "任务配置",
-            "编辑提示词、模型、执行器与优先级。",
+            "编辑提示词、模型、代理、执行器与优先级。",
             column![
                 prompt_field,
                 settings_divider(),
                 row![
-                    container(model_field).width(Length::FillPortion(1)),
+                    container(agent_field).width(Length::FillPortion(1)),
                     container(executor_field).width(Length::FillPortion(1)),
+                ]
+                .spacing(12),
+                row![
+                    container(model_field).width(Length::FillPortion(1)),
                     container(priority_field).width(Length::FillPortion(1)),
                 ]
                 .spacing(12),
@@ -270,17 +290,22 @@ pub fn build_task_panel<'a>(app: &'a App, is_edit_mode: bool) -> Element<'a, Mes
         } else {
             let priority_field = build_priority_field(app, false);
             let model_field = build_model_selector(app, false);
+            let agent_field = build_agent_field(app, false);
             let executor_field = build_executor_selector(app, false);
             let prompt_field = build_prompt_field(app);
             main_col = main_col.push(section_block(
                 "任务配置",
-                "填写提示词并选择模型、执行器与优先级。",
+                "填写提示词并选择模型、代理、执行器与优先级。",
                 column![
                     prompt_field,
                     settings_divider(),
                     row![
-                        container(model_field).width(Length::FillPortion(1)),
+                        container(agent_field).width(Length::FillPortion(1)),
                         container(executor_field).width(Length::FillPortion(1)),
+                    ]
+                    .spacing(12),
+                    row![
+                        container(model_field).width(Length::FillPortion(1)),
                         container(priority_field).width(Length::FillPortion(1)),
                     ]
                     .spacing(12),
@@ -533,6 +558,86 @@ fn build_priority_field<'a>(app: &'a App, is_edit_mode: bool) -> iced::Element<'
         .width(Length::Fill)
         .style(input_style)
         .into()
+}
+
+fn build_agent_field(app: &App, is_edit_mode: bool) -> iced::Element<'_, Message> {
+    let selected_key =
+        app.task_board_draft.agent.clone().unwrap_or_else(|| MAIN_AGENT_KEY.to_string());
+    let options = build_agent_options(app, &selected_key);
+
+    let selected = options
+        .iter()
+        .find(|option| option.key == selected_key)
+        .cloned()
+        .or_else(|| options.iter().find(|option| option.key == MAIN_AGENT_KEY).cloned());
+
+    pick_list(options, selected, move |option| {
+        Message::TaskBoard(if is_edit_mode {
+            TaskBoardMessage::UpdateEditingTaskAgent(Some(option.key))
+        } else {
+            TaskBoardMessage::UpdateDraftAgent(Some(option.key))
+        })
+    })
+    .placeholder("选择代理")
+    .padding([6, 10])
+    .text_size(14)
+    .style(settings_pick_list_style)
+    .menu_style(settings_pick_list_menu_style)
+    .width(Length::Fill)
+    .into()
+}
+
+pub(crate) fn build_bulk_agent_selector(app: &App) -> iced::Element<'_, Message> {
+    let selected_key = if app.task_board_bulk_agent.trim().is_empty() {
+        MAIN_AGENT_KEY.to_string()
+    } else {
+        app.task_board_bulk_agent.trim().to_string()
+    };
+    let options = build_agent_options(app, &selected_key);
+    let selected = options
+        .iter()
+        .find(|option| option.key == selected_key)
+        .cloned()
+        .or_else(|| options.iter().find(|option| option.key == MAIN_AGENT_KEY).cloned());
+
+    pick_list(options, selected, |option| {
+        Message::TaskBoard(TaskBoardMessage::BulkAgentSelected(option.key))
+    })
+    .placeholder("选择代理")
+    .padding([6, 10])
+    .text_size(14)
+    .style(settings_pick_list_style)
+    .menu_style(settings_pick_list_menu_style)
+    .width(Length::Fill)
+    .into()
+}
+
+fn build_agent_options(app: &App, selected_key: &str) -> Vec<TaskBoardAgentOption> {
+    let mut options = Vec::new();
+
+    for entry in &app.agents_settings.entries {
+        if entry.key != MAIN_AGENT_KEY && !entry.enabled && selected_key != entry.key {
+            continue;
+        }
+
+        options.push(TaskBoardAgentOption {
+            key: entry.key.clone(),
+            label: if entry.key == MAIN_AGENT_KEY {
+                "Main".to_string()
+            } else {
+                entry.label.clone()
+            },
+        });
+    }
+
+    if !options.iter().any(|option| option.key == MAIN_AGENT_KEY) {
+        options.insert(
+            0,
+            TaskBoardAgentOption { key: MAIN_AGENT_KEY.to_string(), label: "Main".to_string() },
+        );
+    }
+
+    options
 }
 
 fn build_prompt_field<'a>(app: &'a App) -> iced::Element<'a, Message> {

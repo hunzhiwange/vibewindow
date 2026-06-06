@@ -6,7 +6,11 @@ use super::*;
 
 impl WorkflowState {
     pub fn title(&self) -> &str {
-        if self.source_name.trim().is_empty() { "Dify工作流" } else { self.source_name.as_str() }
+        if self.active_app_id.is_none() {
+            return "工作流";
+        }
+
+        if self.source_name.trim().is_empty() { "工作流" } else { self.source_name.as_str() }
     }
 
     pub fn active_app(&self) -> Option<&WorkflowAppEntry> {
@@ -16,6 +20,138 @@ impl WorkflowState {
 
     pub fn has_apps(&self) -> bool {
         !self.apps.is_empty()
+    }
+
+    pub fn begin_saved_apps_load(&mut self) {
+        self.saved_apps_loading = true;
+        self.saved_apps_error = None;
+        self.saved_app_actions_menu_uuid = None;
+    }
+
+    pub fn finish_saved_apps_load(&mut self, result: Result<Vec<WorkflowSavedAppSummary>, String>) {
+        self.saved_apps_loading = false;
+        self.saved_apps_loaded = true;
+
+        match result {
+            Ok(apps) => {
+                self.saved_apps = apps;
+                self.saved_apps_error = None;
+            }
+            Err(error) => {
+                self.saved_apps_error = Some(error);
+            }
+        }
+    }
+
+    pub fn begin_saved_app_open(&mut self, uuid: String) {
+        self.opening_saved_app_uuid = Some(uuid);
+        self.saved_apps_error = None;
+        self.saved_app_actions_menu_uuid = None;
+        self.close_floating_panels();
+    }
+
+    pub fn finish_saved_app_open(&mut self) {
+        self.opening_saved_app_uuid = None;
+    }
+
+    pub fn begin_saved_app_delete(&mut self, uuid: String) {
+        self.deleting_saved_app_uuid = Some(uuid);
+        self.confirm_delete_saved_app_uuid = None;
+        self.saved_app_actions_menu_uuid = None;
+        self.saved_apps_error = None;
+    }
+
+    pub fn finish_saved_app_delete(&mut self) {
+        self.deleting_saved_app_uuid = None;
+    }
+
+    pub fn open_saved_app_delete_confirm(&mut self, uuid: String) {
+        self.confirm_delete_saved_app_uuid = Some(uuid);
+        self.saved_app_actions_menu_uuid = None;
+        self.saved_apps_error = None;
+    }
+
+    pub fn close_saved_app_delete_confirm(&mut self) {
+        self.confirm_delete_saved_app_uuid = None;
+    }
+
+    pub fn remove_saved_app(&mut self, uuid: &str) -> bool {
+        self.saved_apps.retain(|app| app.uuid != uuid);
+        self.apps.retain(|app| app.local_uuid.as_deref() != Some(uuid));
+        if self.confirm_delete_saved_app_uuid.as_deref() == Some(uuid) {
+            self.confirm_delete_saved_app_uuid = None;
+        }
+
+        if self.saved_app_actions_menu_uuid.as_deref() == Some(uuid) {
+            self.saved_app_actions_menu_uuid = None;
+        }
+
+        if self.copied_saved_app_uuid.as_deref() == Some(uuid) {
+            self.copied_saved_app_uuid = None;
+        }
+
+        let removed_active = self.local_uuid.as_deref() == Some(uuid);
+        if removed_active {
+            self.active_app_id = None;
+            self.active_is_dirty = false;
+            self.source_name.clear();
+            self.local_uuid = None;
+            self.source_path = None;
+            self.document = WorkflowDocument::default();
+            self.environment_variables.clear();
+            self.conversation_variables.clear();
+            self.selected_node_id = None;
+            self.selected_edge_id = None;
+            self.connection_draft = None;
+            self.undo_stack.clear();
+            self.redo_stack.clear();
+            self.saved_snapshot = None;
+        }
+
+        removed_active
+    }
+
+    pub fn show_saved_apps(&mut self) {
+        self.persist_active_snapshot();
+        self.active_app_id = None;
+        self.close_floating_panels();
+        self.context_menu = None;
+        self.quick_insert_panel_open = false;
+        self.zoom_menu_open = false;
+        self.app_editor = None;
+        self.node_editor = None;
+        self.variable_panel = None;
+        self.variable_editor = None;
+        self.error_message = None;
+        self.saved_app_actions_menu_uuid = None;
+    }
+
+    pub fn set_saved_app_search_query(&mut self, query: String) {
+        self.saved_app_search_query = query;
+        self.saved_app_actions_menu_uuid = None;
+    }
+
+    pub fn toggle_saved_app_actions(&mut self, uuid: String) {
+        if self.saved_app_actions_menu_uuid.as_deref() == Some(uuid.as_str()) {
+            self.saved_app_actions_menu_uuid = None;
+        } else {
+            self.saved_app_actions_menu_uuid = Some(uuid);
+        }
+    }
+
+    pub fn close_saved_app_actions(&mut self) {
+        self.saved_app_actions_menu_uuid = None;
+    }
+
+    pub fn mark_saved_app_uuid_copied(&mut self, uuid: String) {
+        self.copied_saved_app_uuid = Some(uuid);
+        self.saved_app_actions_menu_uuid = None;
+    }
+
+    pub fn clear_saved_app_uuid_copied(&mut self, uuid: &str) {
+        if self.copied_saved_app_uuid.as_deref() == Some(uuid) {
+            self.copied_saved_app_uuid = None;
+        }
     }
 
     pub fn has_start_node(&self) -> bool {
@@ -176,6 +312,7 @@ impl WorkflowState {
 
         self.apps.push(WorkflowAppEntry {
             id: app_id.clone(),
+            local_uuid: loaded.local_uuid.clone(),
             meta: loaded.app_meta.clone(),
             source_path: loaded.source_path.clone(),
             raw_root: loaded.raw_root.clone(),
@@ -197,6 +334,7 @@ impl WorkflowState {
         self.active_is_dirty = false;
 
         self.source_name = loaded.source_name.clone();
+        self.local_uuid = loaded.local_uuid.clone();
         self.source_path = loaded.source_path.clone();
         self.document = loaded.document;
         self.environment_variables = loaded.environment_variables;
@@ -222,7 +360,7 @@ impl WorkflowState {
 
         self.status_message = Some(match self.source_path.as_deref() {
             Some(path) => format!("已加载 {}", path),
-            None => format!("已加载内置示例: {}", self.title()),
+            None => format!("已加载 {}", self.title()),
         });
         self.sync_selection_flags();
     }
@@ -258,6 +396,7 @@ impl WorkflowState {
 
         if let Some(app) = self.apps.iter_mut().find(|app| app.id == active_id) {
             app.meta = loaded.app_meta.clone();
+            app.local_uuid = loaded.local_uuid.clone();
             app.source_path = loaded.source_path.clone();
             app.raw_root = loaded.raw_root.clone();
             app.document = loaded.document.clone();
@@ -276,6 +415,7 @@ impl WorkflowState {
 
         self.active_is_dirty = false;
         self.source_name = loaded.source_name.clone();
+        self.local_uuid = loaded.local_uuid.clone();
         self.source_path = loaded.source_path.clone();
         self.document = loaded.document;
         self.environment_variables = loaded.environment_variables;
@@ -319,6 +459,19 @@ impl WorkflowState {
         self.load_entry_into_current(&app);
         self.status_message = Some(format!("已切换到 {}", self.title()));
         true
+    }
+
+    pub fn select_app_by_local_uuid(&mut self, uuid: &str) -> bool {
+        let Some(app_id) = self
+            .apps
+            .iter()
+            .find(|app| app.local_uuid.as_deref() == Some(uuid))
+            .map(|app| app.id.clone())
+        else {
+            return false;
+        };
+
+        self.select_app(&app_id)
     }
 
     pub fn open_create_editor(&mut self) {
@@ -421,6 +574,28 @@ impl WorkflowState {
         }
     }
 
+    pub fn update_active_local_uuid(&mut self, uuid: String) {
+        self.local_uuid = Some(uuid.clone());
+
+        if let Some(active_id) = self.active_app_id.clone()
+            && let Some(app) = self.apps.iter_mut().find(|app| app.id == active_id)
+        {
+            app.local_uuid = Some(uuid);
+        }
+
+        if let Some(snapshot) = self.current_history_snapshot() {
+            self.saved_snapshot = Some(snapshot.clone());
+            self.active_is_dirty = false;
+
+            if let Some(active_id) = self.active_app_id.clone()
+                && let Some(app) = self.apps.iter_mut().find(|app| app.id == active_id)
+            {
+                app.saved_snapshot = snapshot;
+                app.is_dirty = false;
+            }
+        }
+    }
+
     pub(super) fn sync_selection_flags(&mut self) {
         let selected_node_id = self.selected_node_id.as_deref();
         for node in &mut self.document.nodes {
@@ -435,6 +610,7 @@ impl WorkflowState {
 
     fn load_entry_into_current(&mut self, app: &WorkflowAppEntry) {
         self.source_name = app.meta.name.clone();
+        self.local_uuid = app.local_uuid.clone();
         self.source_path = app.source_path.clone();
         self.document = app.document.clone();
         self.environment_variables = app.environment_variables.clone();

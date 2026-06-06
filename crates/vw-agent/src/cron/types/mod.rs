@@ -278,6 +278,18 @@ fn default_true() -> bool {
     true
 }
 
+/// 解析并清理模型回退列表。
+pub(crate) fn normalize_fallbacks(fallbacks: Vec<String>) -> Vec<String> {
+    let mut out = Vec::new();
+    for fallback in fallbacks {
+        let value = fallback.trim();
+        if !value.is_empty() && !out.iter().any(|existing: &String| existing == value) {
+            out.push(value.to_string());
+        }
+    }
+    out
+}
+
 /// 计划任务完整定义
 ///
 /// 描述一个计划任务的所有配置信息、调度规则、执行状态和历史记录。
@@ -328,6 +340,20 @@ pub struct CronJob {
     pub session_target: SessionTarget,
     /// Agent 类型任务的可选模型标识
     pub model: Option<String>,
+    /// 可选的委托代理标识，用于套用代理的 provider/model/温度配置。
+    pub agent: Option<String>,
+    /// 可选的 ACP 智能体标识；为空时使用普通 Agent 执行链路。
+    pub acp_agent: Option<String>,
+    /// 可选的项目工作目录；设置后任务在该项目下执行。
+    pub project_path: Option<String>,
+    /// 是否在桌面端唤醒/提示用户关注该任务。
+    pub wake: bool,
+    /// Agent 模型失败时依次尝试的回退模型列表。
+    pub fallbacks: Vec<String>,
+    /// Agent 任务是否以完全访问权限执行。
+    pub full_access: bool,
+    /// Agent 任务是否投递到项目任务池，而不是立即执行。
+    pub task_pool: bool,
     /// 是否启用该任务
     pub enabled: bool,
     /// 投递配置
@@ -388,6 +414,8 @@ pub struct CronRun {
 /// 仅更新明确指定的字段。
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CronJobPatch {
+    /// 新的任务类型
+    pub job_type: Option<JobType>,
     /// 新的调度配置
     pub schedule: Option<Schedule>,
     /// 新的命令或指令
@@ -406,6 +434,20 @@ pub struct CronJobPatch {
     pub session_target: Option<SessionTarget>,
     /// 新的执行后删除标志
     pub delete_after_run: Option<bool>,
+    /// 新的委托代理标识
+    pub agent: Option<String>,
+    /// 新的 ACP 智能体标识
+    pub acp_agent: Option<String>,
+    /// 新的项目工作目录
+    pub project_path: Option<String>,
+    /// 新的唤醒标志
+    pub wake: Option<bool>,
+    /// 新的模型回退列表
+    pub fallbacks: Option<Vec<String>>,
+    /// 新的完全访问权限标志
+    pub full_access: Option<bool>,
+    /// 新的任务池投递标志
+    pub task_pool: Option<bool>,
 }
 
 #[cfg(test)]

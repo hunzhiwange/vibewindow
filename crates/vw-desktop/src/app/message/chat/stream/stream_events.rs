@@ -190,6 +190,7 @@ pub(super) fn handle_agent_stream_delta(app: &mut App, id: u64, delta: String) -
                 app.active_shared_chat_messages(),
                 tail_chunk_start,
                 false,
+                app.dialogue_flow_show_reasoning_summary,
             );
         }
     }
@@ -392,6 +393,7 @@ pub(super) fn handle_agent_post_tool_round(
         model: active_request.model.clone(),
         acp_test: active_request.acp_test,
         acp_agent: active_request.acp_agent.clone(),
+        acp_allowed_tools: active_request.acp_allowed_tools.clone(),
         agent: active_request.agent.clone(),
         allowed_tools: active_request.allowed_tools.clone(),
         acp_force_new_session: false,

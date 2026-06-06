@@ -12,8 +12,22 @@ use crate::app::components::system_settings_common::{
 use crate::app::message::settings::{GatewayMessage, SettingsMessage};
 use crate::app::views::design::properties::number_input::NumberInput;
 use crate::app::{App, Message};
-use iced::widget::{button, checkbox, column, container, row, text, text_input};
+use iced::widget::scrollable::{Direction, Scrollbar};
+use iced::widget::{button, checkbox, column, container, row, scrollable, text, text_input};
 use iced::{Alignment, Element, Length};
+
+pub(super) const GATEWAY_PAIRED_TOKEN_VISIBLE_ROWS: usize = 10;
+pub(super) const GATEWAY_PAIRED_TOKEN_ROW_HEIGHT: f32 = 36.0;
+pub(super) const GATEWAY_PAIRED_TOKEN_ROW_SPACING: f32 = 10.0;
+pub(super) const GATEWAY_PAIRED_TOKEN_SCROLLBAR_WIDTH: u32 = 4;
+
+pub(super) fn paired_token_list_max_height(token_count: usize) -> f32 {
+    let visible_rows = token_count.min(GATEWAY_PAIRED_TOKEN_VISIBLE_ROWS);
+    let row_spacing_count = visible_rows.saturating_sub(1);
+
+    visible_rows as f32 * GATEWAY_PAIRED_TOKEN_ROW_HEIGHT
+        + row_spacing_count as f32 * GATEWAY_PAIRED_TOKEN_ROW_SPACING
+}
 
 fn field_row<'a>(
     label: &'static str,
@@ -92,12 +106,16 @@ fn bool_row<'a>(
 }
 
 fn hint_row<'a>(message: &'a str) -> Element<'a, Message> {
-    row![
-        container(text("")).width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
-        text(message).size(12).style(settings_muted_text_style),
-    ]
-    .spacing(16)
-    .align_y(Alignment::Center)
+    container(
+        row![
+            container(text("")).width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
+            container(text(message).size(12).style(settings_muted_text_style)).width(Length::Fill),
+        ]
+        .spacing(22)
+        .align_y(Alignment::Center),
+    )
+    .padding([14, 0])
+    .width(Length::Fill)
     .into()
 }
 
@@ -238,7 +256,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .into()
     } else {
         let list = s.paired_tokens.iter().enumerate().fold(
-            column![].spacing(10),
+            column![].spacing(GATEWAY_PAIRED_TOKEN_ROW_SPACING),
             |column, (index, token)| {
                 let masked = if token.len() <= 8 {
                     "*".repeat(token.len().max(1))
@@ -247,25 +265,47 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 };
 
                 column.push(
-                    row![
-                        text(format!("令牌 #{}", index + 1))
-                            .size(13)
-                            .width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
-                        text(masked).width(Length::Fill),
-                        button(text("删除"))
-                            .padding([6, 12])
-                            .on_press(Message::Settings(SettingsMessage::Gateway(
-                                GatewayMessage::RemovePairedToken(index),
-                            )))
-                            .style(rounded_action_btn_style),
-                    ]
-                    .spacing(20)
-                    .align_y(Alignment::Center),
+                    container(
+                        row![
+                            text(format!("令牌 #{}", index + 1))
+                                .size(13)
+                                .width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
+                            text(masked).width(Length::Fill),
+                            button(text("删除"))
+                                .padding([6, 12])
+                                .on_press(Message::Settings(SettingsMessage::Gateway(
+                                    GatewayMessage::RemovePairedToken(index),
+                                )))
+                                .style(rounded_action_btn_style),
+                        ]
+                        .spacing(20)
+                        .align_y(Alignment::Center),
+                    )
+                    .height(Length::Fixed(GATEWAY_PAIRED_TOKEN_ROW_HEIGHT)),
                 )
             },
         );
 
-        settings_panel(list).into()
+        let list_height = paired_token_list_max_height(s.paired_tokens.len());
+        let scrollable_list = container(
+            scrollable(
+                container(list)
+                    .padding(
+                        iced::Padding::default().right(GATEWAY_PAIRED_TOKEN_SCROLLBAR_WIDTH as f32),
+                    )
+                    .width(Length::Fill),
+            )
+            .direction(Direction::Vertical(
+                Scrollbar::new()
+                    .width(GATEWAY_PAIRED_TOKEN_SCROLLBAR_WIDTH)
+                    .scroller_width(GATEWAY_PAIRED_TOKEN_SCROLLBAR_WIDTH),
+            ))
+            .height(Length::Shrink),
+        )
+        .width(Length::Fill)
+        .max_height(list_height);
+
+        settings_panel(scrollable_list).into()
     };
 
     let pair_rate_row = number_row(
@@ -376,15 +416,25 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 "配置 Gateway 的监听地址、配对安全、限流和实验性 node-control 行为。",
             ))
             .width(Length::Fill),
-            help_btn
+            container(help_btn).width(Length::Shrink),
         ]
-        .align_y(Alignment::Start),
+        .spacing(12)
+        .align_y(Alignment::Start)
+        .width(Length::Fill),
         settings_section_card(
             "监听地址",
             "控制网关监听 host / port。默认仅绑定回环地址，避免意外暴露到公网。"
         ),
-        settings_panel(column![port_row, settings_divider(), host_row].spacing(0)),
-        hint_row("若 host 非本地地址，建议仅在可信反向代理或隧道环境下使用。"),
+        settings_panel(
+            column![
+                port_row,
+                settings_divider(),
+                host_row,
+                settings_divider(),
+                hint_row("若 host 非本地地址，建议仅在可信反向代理或隧道环境下使用。")
+            ]
+            .spacing(0)
+        ),
         settings_section_card("安全开关", "控制配对要求、公网绑定与反向代理头信任策略。"),
         settings_panel(
             column![
@@ -393,10 +443,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 allow_public_bind_row,
                 settings_divider(),
                 trust_forwarded_headers_row,
+                settings_divider(),
+                hint_row("仅在你完全信任前置代理时开启 forwarded headers。"),
             ]
             .spacing(0),
         ),
-        hint_row("仅在你完全信任前置代理时开启 forwarded headers。"),
         settings_section_card(
             "配对令牌",
             "维护 gateway.paired_tokens 列表。此列表会被写入加密配置存储，用于已配对客户端访问。",
@@ -432,10 +483,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 node_control_auth_token_row,
                 settings_divider(),
                 node_control_allowed_ids_row,
+                settings_divider(),
+                hint_row("allowed_node_ids 留空表示不设置显式 allowlist；可使用 * 允许所有节点。"),
             ]
             .spacing(0),
         ),
-        hint_row("allowed_node_ids 留空表示不设置显式 allowlist；可使用 * 允许所有节点。"),
     ]
     .spacing(16)
     .width(Length::Fill);

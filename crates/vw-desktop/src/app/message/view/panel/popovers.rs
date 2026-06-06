@@ -95,7 +95,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
                 if app.acp_agents.is_empty() {
                     return Task::perform(
                         async {
-                            crate::app::config::load_global_acp_config_async().await.map(|cfg| {
+                            crate::app::config::load_enabled_acp_config_async().await.map(|cfg| {
                                 let mut acp_agents = cfg.keys().cloned().collect::<Vec<_>>();
                                 acp_agents.sort_by(|left, right| {
                                     let left_key = (left != "codex", left.as_str());

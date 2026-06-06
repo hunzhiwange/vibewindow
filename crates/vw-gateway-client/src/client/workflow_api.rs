@@ -1,16 +1,46 @@
 //! Workflow 网关客户端。
 
-use vw_api_types::workflow::{WorkflowRunRequest, WorkflowRunResponse};
+use vw_api_types::workflow::{
+    WorkflowRecord, WorkflowRecordDeleteResponse, WorkflowRecordSummary, WorkflowRecordUpsertBody,
+};
 
 use super::GatewayClient;
 
 impl GatewayClient {
-    /// 执行 Dify Workflow。
-    pub async fn workflow_run(
+    /// 列出本地保存的 Dify Workflow。
+    pub async fn workflow_applications_list(&self) -> Result<Vec<WorkflowRecordSummary>, String> {
+        self.get_json("/v1/workflow/applications", &[]).await
+    }
+
+    /// 读取本地保存的 Dify Workflow。
+    pub async fn workflow_application_get(&self, uuid: &str) -> Result<WorkflowRecord, String> {
+        self.get_json(&format!("/v1/workflow/applications/{uuid}"), &[]).await
+    }
+
+    /// 新增本地 Dify Workflow。
+    pub async fn workflow_application_create(
         &self,
-        body: &WorkflowRunRequest,
-    ) -> Result<WorkflowRunResponse, String> {
-        self.post_json("/v1/workflow/run", &[], body).await
+        body: &WorkflowRecordUpsertBody,
+    ) -> Result<WorkflowRecord, String> {
+        self.post_json("/v1/workflow/applications", &[], body).await
+    }
+
+    /// 更新本地 Dify Workflow。
+    pub async fn workflow_application_update(
+        &self,
+        uuid: &str,
+        body: &WorkflowRecordUpsertBody,
+    ) -> Result<WorkflowRecord, String> {
+        self.put_json(&format!("/v1/workflow/applications/{uuid}"), &[], body).await
+    }
+
+    /// 删除本地 Dify Workflow。
+    pub async fn workflow_application_delete(
+        &self,
+        uuid: &str,
+    ) -> Result<WorkflowRecordDeleteResponse, String> {
+        self.delete_json(&format!("/v1/workflow/applications/{uuid}"), &[], &serde_json::json!({}))
+            .await
     }
 }
 

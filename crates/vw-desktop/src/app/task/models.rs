@@ -9,6 +9,7 @@ use time::OffsetDateTime;
 
 /// 公开的 TASK_MODEL_AUTO 常量，集中保存该模块复用的稳定取值。
 pub const TASK_MODEL_AUTO: &str = "auto";
+pub const TASK_AGENT_MAIN: &str = "main";
 /// 公开的 CLAUDE_DEFAULT_MODEL_ALIAS 常量，集中保存该模块复用的稳定取值。
 pub const CLAUDE_DEFAULT_MODEL_ALIAS: &str = "default";
 /// 公开的 CLAUDE_SUPPORTED_MODEL_ALIASES 常量，集中保存该模块复用的稳定取值。
@@ -401,6 +402,8 @@ pub struct Task {
     pub assignee: String,
     pub model: String,
     #[serde(default)]
+    pub agent: Option<String>,
+    #[serde(default)]
     pub acp_agent: Option<String>,
     pub description: String,
     pub prompt: String,
@@ -440,6 +443,7 @@ impl Default for Task {
             priority: 999,
             assignee: "VibeWindow".to_string(),
             model: TASK_MODEL_AUTO.to_string(),
+            agent: Some(TASK_AGENT_MAIN.to_string()),
             acp_agent: None,
             description: String::new(),
             prompt: String::new(),
@@ -476,6 +480,7 @@ impl Task {
             priority,
             assignee: "VibeWindow".to_string(),
             model: TASK_MODEL_AUTO.to_string(),
+            agent: Some(TASK_AGENT_MAIN.to_string()),
             acp_agent: None,
             description: String::new(),
             prompt: String::new(),
@@ -762,6 +767,7 @@ pub struct TaskDraft {
     pub priority: String,
     pub assignee: String,
     pub model: String,
+    pub agent: Option<String>,
     pub acp_agent: Option<String>,
     pub description: String,
     pub prompt: String,
@@ -775,6 +781,7 @@ impl Default for TaskDraft {
             priority: "999".to_string(),
             assignee: "VibeWindow".to_string(),
             model: TASK_MODEL_AUTO.to_string(),
+            agent: Some(TASK_AGENT_MAIN.to_string()),
             acp_agent: None,
             description: String::new(),
             prompt: String::new(),

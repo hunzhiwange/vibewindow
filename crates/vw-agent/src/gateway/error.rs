@@ -65,6 +65,13 @@ impl ApiError {
     pub fn internal(message: impl Into<String>) -> Self {
         Self { status: StatusCode::INTERNAL_SERVER_ERROR, message: message.into() }
     }
+
+    /// 构造 `501 Not Implemented` 错误。
+    ///
+    /// 用于对外协议已预留但当前运行时尚未实现的能力。
+    pub fn not_implemented(message: impl Into<String>) -> Self {
+        Self { status: StatusCode::NOT_IMPLEMENTED, message: message.into() }
+    }
 }
 
 impl IntoResponse for ApiError {

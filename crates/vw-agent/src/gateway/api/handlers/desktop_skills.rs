@@ -22,7 +22,7 @@ use crate::app::agent::skills::{
 };
 use vw_config_types::skills::SkillsDirectoryProvider;
 
-static BUILT_IN_SKILLS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../skills");
+static BUILT_IN_SKILLS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/assets/skills");
 static RECOMMENDED_SKILL_IDS: &[&str] = &["find-skills", "skill-creator"];
 static BUILT_IN_SKILLS: Lazy<Vec<BuiltInSkillMeta>> = Lazy::new(discover_built_in_skills);
 

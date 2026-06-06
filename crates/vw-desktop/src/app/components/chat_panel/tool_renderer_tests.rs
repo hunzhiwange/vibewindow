@@ -39,6 +39,7 @@ fn shared_tool_render_kind_routes_structured_tool_cards() {
 #[test]
 fn shared_tool_render_kind_keeps_existing_specialized_routes() {
     assert_eq!(shared_tool_render_kind("tool shell\n{}"), Some(SharedToolRenderKind::Bash));
+    assert_eq!(shared_tool_render_kind("tool execute\n{}"), Some(SharedToolRenderKind::Bash));
     assert_eq!(
         shared_tool_render_kind("tool AskUserQuestion\n{}"),
         Some(SharedToolRenderKind::Question)

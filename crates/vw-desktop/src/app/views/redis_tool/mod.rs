@@ -23,8 +23,6 @@ use modal::{
 };
 use sidebar::build_sidebar;
 
-const REDIS_TOOL_MAX_WIDTH: f32 = 1400.0;
-
 /// 渲染 Redis 工具视图。
 pub fn view(app: &App) -> Element<'_, Message> {
     let hero = container(
@@ -67,7 +65,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
         container(content.padding([18, 24]))
             .width(Length::Fill)
             .height(Length::Fill)
-            .max_width(REDIS_TOOL_MAX_WIDTH)
             .center_x(Length::Fill),
     )
     .width(Length::Fill)

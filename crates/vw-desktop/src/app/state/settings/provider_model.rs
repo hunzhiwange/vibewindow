@@ -426,21 +426,183 @@ impl Default for GoalLoopSettingsState {
 /// 定时任务设置面板状态
 ///
 /// 管理 Cron 定时任务功能的配置。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CronSettingsTab {
+    Jobs,
+    Config,
+    Add,
+}
+
+impl Default for CronSettingsTab {
+    fn default() -> Self {
+        Self::Jobs
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CronAddJobType {
+    Shell,
+    Agent,
+}
+
+impl CronAddJobType {
+    pub(crate) fn as_api_value(self) -> &'static str {
+        match self {
+            Self::Shell => "shell",
+            Self::Agent => "agent",
+        }
+    }
+}
+
+impl Default for CronAddJobType {
+    fn default() -> Self {
+        Self::Shell
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CronAddScheduleKind {
+    Cron,
+    At,
+    Every,
+}
+
+impl CronAddScheduleKind {
+    pub(crate) fn as_api_value(self) -> &'static str {
+        match self {
+            Self::Cron => "cron",
+            Self::At => "at",
+            Self::Every => "every",
+        }
+    }
+}
+
+impl Default for CronAddScheduleKind {
+    fn default() -> Self {
+        Self::Cron
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct CronJobDraft {
+    pub(crate) name: String,
+    pub(crate) job_type: CronAddJobType,
+    pub(crate) schedule_kind: CronAddScheduleKind,
+    pub(crate) schedule: String,
+    pub(crate) at: String,
+    pub(crate) every_ms: String,
+    pub(crate) command: String,
+    pub(crate) command_editor: text_editor::Content,
+    pub(crate) prompt: String,
+    pub(crate) prompt_editor: text_editor::Content,
+    pub(crate) session_target: String,
+    pub(crate) agent: String,
+    pub(crate) acp_agent: String,
+    pub(crate) project_path: String,
+    pub(crate) model_provider: String,
+    pub(crate) model: String,
+    pub(crate) wake: bool,
+    pub(crate) fallbacks: String,
+    pub(crate) full_access: bool,
+    pub(crate) task_pool: bool,
+    pub(crate) delivery_enabled: bool,
+    pub(crate) delivery_channel: String,
+    pub(crate) delivery_to: String,
+    pub(crate) delivery_best_effort: bool,
+    pub(crate) delete_after_run: bool,
+}
+
+impl Default for CronJobDraft {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            job_type: CronAddJobType::default(),
+            schedule_kind: CronAddScheduleKind::default(),
+            schedule: String::new(),
+            at: String::new(),
+            every_ms: String::new(),
+            command: String::new(),
+            command_editor: text_editor::Content::new(),
+            prompt: String::new(),
+            prompt_editor: text_editor::Content::new(),
+            session_target: "isolated".to_string(),
+            agent: "main".to_string(),
+            acp_agent: String::new(),
+            project_path: String::new(),
+            model_provider: String::new(),
+            model: String::new(),
+            wake: false,
+            fallbacks: String::new(),
+            full_access: false,
+            task_pool: false,
+            delivery_enabled: false,
+            delivery_channel: String::new(),
+            delivery_to: String::new(),
+            delivery_best_effort: true,
+            delete_after_run: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct CronSettingsState {
     /// 是否启用定时任务
     pub(crate) enabled: bool,
     /// 最大运行历史记录数
     pub(crate) max_run_history: u32,
+    /// 当前 Cron 设置页签。
+    pub(crate) active_tab: CronSettingsTab,
+    /// 当前任务列表加载状态。
+    pub(crate) jobs_loading: bool,
+    /// 当前任务列表。
+    pub(crate) jobs: Vec<vw_gateway_client::CronJobDto>,
+    /// 被批量操作选中的任务 ID。
+    pub(crate) selected_job_ids: Vec<String>,
+    /// 当前正在编辑的任务 ID。
+    pub(crate) editing_job_id: Option<String>,
+    /// 编辑表单草稿。
+    pub(crate) edit_draft: CronJobDraft,
+    /// 新增表单草稿。
+    pub(crate) add_draft: CronJobDraft,
+    /// 正在查看历史记录的任务 ID。
+    pub(crate) runs_modal_job_id: Option<String>,
+    /// 历史记录加载状态。
+    pub(crate) runs_modal_loading: bool,
+    /// 历史记录加载错误。
+    pub(crate) runs_modal_error: Option<String>,
+    /// 当前弹窗展示的历史记录。
+    pub(crate) runs_modal: Vec<vw_gateway_client::CronRunDto>,
+    /// 当前弹窗中用于选择复制的完整历史文本。
+    pub(crate) runs_modal_editor: text_editor::Content,
     /// 是否显示帮助对话框
     pub(crate) show_help_modal: bool,
     /// 保存错误信息
     pub(crate) save_error: Option<String>,
+    /// 最近一次任务操作提示。
+    pub(crate) action_status: Option<String>,
 }
 
 impl Default for CronSettingsState {
     fn default() -> Self {
-        Self { enabled: true, max_run_history: 50, show_help_modal: false, save_error: None }
+        Self {
+            enabled: true,
+            max_run_history: 50,
+            active_tab: CronSettingsTab::default(),
+            jobs_loading: false,
+            jobs: Vec::new(),
+            selected_job_ids: Vec::new(),
+            editing_job_id: None,
+            edit_draft: CronJobDraft::default(),
+            add_draft: CronJobDraft::default(),
+            runs_modal_job_id: None,
+            runs_modal_loading: false,
+            runs_modal_error: None,
+            runs_modal: Vec::new(),
+            runs_modal_editor: text_editor::Content::new(),
+            show_help_modal: false,
+            save_error: None,
+            action_status: None,
+        }
     }
 }
 

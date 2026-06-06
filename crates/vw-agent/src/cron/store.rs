@@ -1,6 +1,6 @@
 use super::{
     CronJob, CronJobPatch, CronRun, DeliveryConfig, JobType, Schedule, SessionTarget,
-    next_run_for_schedule, schedule_cron_expression, validate_schedule,
+    next_run_for_schedule, normalize_fallbacks, schedule_cron_expression, validate_schedule,
 };
 use crate::app::agent::config::Config;
 use anyhow::{Context, Result};
@@ -47,8 +47,9 @@ pub fn add_shell_job(
         conn.execute(
             "INSERT INTO cron_jobs (
                 id, expression, command, schedule, job_type, prompt, name, session_target, model,
-                enabled, delivery, delete_after_run, created_at, next_run
-             ) VALUES (?1, ?2, ?3, ?4, 'shell', NULL, ?5, 'isolated', NULL, 1, ?6, ?7, ?8, ?9)",
+                enabled, delivery, delete_after_run, created_at, next_run, agent, acp_agent,
+                project_path, wake, fallbacks, full_access, task_pool
+             ) VALUES (?1, ?2, ?3, ?4, 'shell', NULL, ?5, 'isolated', NULL, 1, ?6, ?7, ?8, ?9, NULL, NULL, NULL, 0, ?10, 0, 0)",
             params![
                 id,
                 expression,
@@ -59,13 +60,16 @@ pub fn add_shell_job(
                 if delete_after_run { 1 } else { 0 },
                 now.to_rfc3339(),
                 next_run.to_rfc3339(),
+                serde_json::to_string(&Vec::<String>::new())?,
             ],
         )
         .context("Failed to insert cron shell job")?;
         Ok(())
     })?;
 
-    get_job(config, &id)
+    let job = get_job(config, &id)?;
+    super::scheduler::notify_schedule_changed();
+    Ok(job)
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -102,8 +106,9 @@ pub fn add_agent_job(
         conn.execute(
             "INSERT INTO cron_jobs (
                 id, expression, command, schedule, job_type, prompt, name, session_target, model,
-                enabled, delivery, delete_after_run, created_at, next_run
-             ) VALUES (?1, ?2, '', ?3, 'agent', ?4, ?5, ?6, ?7, 1, ?8, ?9, ?10, ?11)",
+                enabled, delivery, delete_after_run, created_at, next_run, agent, acp_agent,
+                project_path, wake, fallbacks, full_access, task_pool
+             ) VALUES (?1, ?2, '', ?3, 'agent', ?4, ?5, ?6, ?7, 1, ?8, ?9, ?10, ?11, NULL, NULL, NULL, 0, ?12, 0, 0)",
             params![
                 id,
                 expression,
@@ -116,13 +121,16 @@ pub fn add_agent_job(
                 if delete_after_run { 1 } else { 0 },
                 now.to_rfc3339(),
                 next_run.to_rfc3339(),
+                serde_json::to_string(&Vec::<String>::new())?,
             ],
         )
         .context("Failed to insert cron agent job")?;
         Ok(())
     })?;
 
-    get_job(config, &id)
+    let job = get_job(config, &id)?;
+    super::scheduler::notify_schedule_changed();
+    Ok(job)
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -144,7 +152,8 @@ pub fn list_jobs(config: &Config) -> Result<Vec<CronJob>> {
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT id, expression, command, schedule, job_type, prompt, name, session_target, model,
-                    enabled, delivery, delete_after_run, created_at, next_run, last_run, last_status, last_output
+                    enabled, delivery, delete_after_run, created_at, next_run, last_run, last_status, last_output,
+                    agent, acp_agent, project_path, wake, fallbacks, full_access, task_pool
              FROM cron_jobs ORDER BY next_run ASC",
         )?;
 
@@ -168,7 +177,8 @@ pub fn get_job(config: &Config, job_id: &str) -> Result<CronJob> {
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT id, expression, command, schedule, job_type, prompt, name, session_target, model,
-                    enabled, delivery, delete_after_run, created_at, next_run, last_run, last_status, last_output
+                    enabled, delivery, delete_after_run, created_at, next_run, last_run, last_status, last_output,
+                    agent, acp_agent, project_path, wake, fallbacks, full_access, task_pool
              FROM cron_jobs WHERE id = ?1",
         )?;
 
@@ -198,6 +208,7 @@ pub fn remove_job(config: &Config, id: &str) -> Result<()> {
     }
 
     println!("✅ Removed cron job {id}");
+    super::scheduler::notify_schedule_changed();
     Ok(())
 }
 
@@ -213,7 +224,8 @@ pub fn due_jobs(config: &Config, now: DateTime<Utc>) -> Result<Vec<CronJob>> {
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
             "SELECT id, expression, command, schedule, job_type, prompt, name, session_target, model,
-                    enabled, delivery, delete_after_run, created_at, next_run, last_run, last_status, last_output
+                    enabled, delivery, delete_after_run, created_at, next_run, last_run, last_status, last_output,
+                    agent, acp_agent, project_path, wake, fallbacks, full_access, task_pool
              FROM cron_jobs
              WHERE enabled = 1 AND next_run <= ?1
              ORDER BY next_run ASC
@@ -246,6 +258,9 @@ pub fn update_job(config: &Config, job_id: &str, patch: CronJobPatch) -> Result<
         job.expression = schedule_cron_expression(&job.schedule).unwrap_or_default();
         schedule_changed = true;
     }
+    if let Some(job_type) = patch.job_type {
+        job.job_type = job_type;
+    }
     if let Some(command) = patch.command {
         job.command = command;
     }
@@ -270,6 +285,27 @@ pub fn update_job(config: &Config, job_id: &str, patch: CronJobPatch) -> Result<
     if let Some(delete_after_run) = patch.delete_after_run {
         job.delete_after_run = delete_after_run;
     }
+    if let Some(agent) = patch.agent {
+        job.agent = Some(agent);
+    }
+    if let Some(acp_agent) = patch.acp_agent {
+        job.acp_agent = Some(acp_agent);
+    }
+    if let Some(project_path) = patch.project_path {
+        job.project_path = Some(project_path);
+    }
+    if let Some(wake) = patch.wake {
+        job.wake = wake;
+    }
+    if let Some(fallbacks) = patch.fallbacks {
+        job.fallbacks = normalize_fallbacks(fallbacks);
+    }
+    if let Some(full_access) = patch.full_access {
+        job.full_access = full_access;
+    }
+    if let Some(task_pool) = patch.task_pool {
+        job.task_pool = task_pool;
+    }
 
     if schedule_changed {
         job.next_run = next_run_for_schedule(&job.schedule, Utc::now())?;
@@ -280,8 +316,9 @@ pub fn update_job(config: &Config, job_id: &str, patch: CronJobPatch) -> Result<
             "UPDATE cron_jobs
              SET expression = ?1, command = ?2, schedule = ?3, job_type = ?4, prompt = ?5, name = ?6,
                  session_target = ?7, model = ?8, enabled = ?9, delivery = ?10, delete_after_run = ?11,
-                 next_run = ?12
-             WHERE id = ?13",
+                 agent = ?12, acp_agent = ?13, project_path = ?14, wake = ?15, fallbacks = ?16,
+                 full_access = ?17, task_pool = ?18, next_run = ?19
+             WHERE id = ?20",
             params![
                 job.expression,
                 job.command,
@@ -294,6 +331,13 @@ pub fn update_job(config: &Config, job_id: &str, patch: CronJobPatch) -> Result<
                 if job.enabled { 1 } else { 0 },
                 serde_json::to_string(&job.delivery)?,
                 if job.delete_after_run { 1 } else { 0 },
+                job.agent,
+                job.acp_agent,
+                job.project_path,
+                if job.wake { 1 } else { 0 },
+                serde_json::to_string(&job.fallbacks)?,
+                if job.full_access { 1 } else { 0 },
+                if job.task_pool { 1 } else { 0 },
                 job.next_run.to_rfc3339(),
                 job.id,
             ],
@@ -302,7 +346,9 @@ pub fn update_job(config: &Config, job_id: &str, patch: CronJobPatch) -> Result<
         Ok(())
     })?;
 
-    get_job(config, job_id)
+    let job = get_job(config, job_id)?;
+    super::scheduler::notify_schedule_changed();
+    Ok(job)
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -519,6 +565,10 @@ fn map_cron_job_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CronJob> {
 
     let delivery_raw: Option<String> = row.get(10)?;
     let delivery = decode_delivery(delivery_raw.as_deref()).map_err(sql_conversion_error)?;
+    let fallbacks_raw: Option<String> = row.get(21)?;
+    let fallbacks = decode_fallbacks(fallbacks_raw.as_deref()).map_err(sql_conversion_error)?;
+    let full_access = row.get::<_, i64>(22)? != 0;
+    let task_pool = row.get::<_, i64>(23)? != 0;
 
     let next_run_raw: String = row.get(13)?;
     let last_run_raw: Option<String> = row.get(14)?;
@@ -534,6 +584,13 @@ fn map_cron_job_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CronJob> {
         name: row.get(6)?,
         session_target: SessionTarget::parse(&row.get::<_, String>(7)?),
         model: row.get(8)?,
+        agent: row.get(17)?,
+        acp_agent: row.get(18)?,
+        project_path: row.get(19)?,
+        wake: row.get::<_, i64>(20)? != 0,
+        fallbacks,
+        full_access,
+        task_pool,
         enabled: row.get::<_, i64>(9)? != 0,
         delivery,
         delete_after_run: row.get::<_, i64>(11)? != 0,
@@ -575,6 +632,19 @@ fn decode_delivery(delivery_raw: Option<&str>) -> Result<DeliveryConfig> {
         }
     }
     Ok(DeliveryConfig::default())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn decode_fallbacks(fallbacks_raw: Option<&str>) -> Result<Vec<String>> {
+    if let Some(raw) = fallbacks_raw {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            let parsed: Vec<String> = serde_json::from_str(trimmed)
+                .with_context(|| format!("Failed to parse cron fallbacks JSON: {trimmed}"))?;
+            return Ok(normalize_fallbacks(parsed));
+        }
+    }
+    Ok(Vec::new())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -638,7 +708,14 @@ pub(crate) fn with_connection<T>(
             next_run         TEXT NOT NULL,
             last_run         TEXT,
             last_status      TEXT,
-            last_output      TEXT
+            last_output      TEXT,
+            agent            TEXT,
+            acp_agent        TEXT,
+            project_path     TEXT,
+            wake             INTEGER NOT NULL DEFAULT 0,
+            fallbacks        TEXT,
+            full_access      INTEGER NOT NULL DEFAULT 0,
+            task_pool        INTEGER NOT NULL DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS idx_cron_jobs_next_run ON cron_jobs(next_run);
 
@@ -667,6 +744,13 @@ pub(crate) fn with_connection<T>(
     add_column_if_missing(&conn, "enabled", "INTEGER NOT NULL DEFAULT 1")?;
     add_column_if_missing(&conn, "delivery", "TEXT")?;
     add_column_if_missing(&conn, "delete_after_run", "INTEGER NOT NULL DEFAULT 0")?;
+    add_column_if_missing(&conn, "agent", "TEXT")?;
+    add_column_if_missing(&conn, "acp_agent", "TEXT")?;
+    add_column_if_missing(&conn, "project_path", "TEXT")?;
+    add_column_if_missing(&conn, "wake", "INTEGER NOT NULL DEFAULT 0")?;
+    add_column_if_missing(&conn, "fallbacks", "TEXT")?;
+    add_column_if_missing(&conn, "full_access", "INTEGER NOT NULL DEFAULT 0")?;
+    add_column_if_missing(&conn, "task_pool", "INTEGER NOT NULL DEFAULT 0")?;
 
     f(&conn)
 }

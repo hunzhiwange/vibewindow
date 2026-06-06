@@ -116,7 +116,11 @@ pub struct AppSystemSettingsConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
-pub struct GatewayClientSystemSettingsConfig {
+pub struct GatewayClientServerConfig {
+    #[serde(default = "default_gateway_client_server_id")]
+    pub id: String,
+    #[serde(default = "default_gateway_client_server_name")]
+    pub name: String,
     #[serde(default = "default_gateway_client_host")]
     pub host: String,
     #[serde(default = "default_gateway_client_port")]
@@ -131,6 +135,26 @@ pub struct GatewayClientSystemSettingsConfig {
     pub skey: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct GatewayClientSystemSettingsConfig {
+    #[serde(default = "default_gateway_client_host")]
+    pub host: String,
+    #[serde(default = "default_gateway_client_port")]
+    pub port: u16,
+    #[serde(default)]
+    pub bearer_token: String,
+    #[serde(default)]
+    pub username: String,
+    #[serde(default)]
+    pub password: String,
+    #[serde(default)]
+    pub skey: String,
+    #[serde(default)]
+    pub active_server_id: String,
+    #[serde(default)]
+    pub servers: Vec<GatewayClientServerConfig>,
+}
+
 fn default_app_theme_name() -> String {
     "Light".to_string()
 }
@@ -141,6 +165,14 @@ fn default_gateway_client_host() -> String {
 
 fn default_gateway_client_port() -> u16 {
     42617
+}
+
+fn default_gateway_client_server_id() -> String {
+    "local".to_string()
+}
+
+fn default_gateway_client_server_name() -> String {
+    "本地网关".to_string()
 }
 
 fn default_terminal_shell() -> String {
@@ -208,7 +240,98 @@ impl Default for GatewayClientSystemSettingsConfig {
             username: String::new(),
             password: String::new(),
             skey: String::new(),
+            active_server_id: default_gateway_client_server_id(),
+            servers: vec![GatewayClientServerConfig::default()],
         }
+    }
+}
+
+impl Default for GatewayClientServerConfig {
+    fn default() -> Self {
+        Self {
+            id: default_gateway_client_server_id(),
+            name: default_gateway_client_server_name(),
+            host: default_gateway_client_host(),
+            port: default_gateway_client_port(),
+            bearer_token: String::new(),
+            username: String::new(),
+            password: String::new(),
+            skey: String::new(),
+        }
+    }
+}
+
+impl GatewayClientSystemSettingsConfig {
+    pub fn normalized_servers(&self) -> Vec<GatewayClientServerConfig> {
+        if self.servers.is_empty() {
+            return vec![GatewayClientServerConfig {
+                id: default_gateway_client_server_id(),
+                name: default_gateway_client_server_name(),
+                host: self.host.clone(),
+                port: self.port,
+                bearer_token: self.bearer_token.clone(),
+                username: self.username.clone(),
+                password: self.password.clone(),
+                skey: self.skey.clone(),
+            }];
+        }
+
+        self.servers
+            .iter()
+            .enumerate()
+            .map(|(index, server)| {
+                let mut server = server.clone();
+                if server.id.trim().is_empty() {
+                    server.id = if index == 0 {
+                        default_gateway_client_server_id()
+                    } else {
+                        format!("gateway-{}", index + 1)
+                    };
+                }
+                if server.name.trim().is_empty() {
+                    server.name = if index == 0 {
+                        default_gateway_client_server_name()
+                    } else {
+                        format!("网关 {}", index + 1)
+                    };
+                }
+                server
+            })
+            .collect()
+    }
+
+    pub fn active_server(&self) -> GatewayClientServerConfig {
+        let servers = self.normalized_servers();
+        servers
+            .iter()
+            .find(|server| server.id == self.active_server_id)
+            .cloned()
+            .or_else(|| servers.first().cloned())
+            .unwrap_or_default()
+    }
+
+    pub fn set_servers(
+        &mut self,
+        servers: Vec<GatewayClientServerConfig>,
+        active_server_id: String,
+    ) {
+        let servers =
+            if servers.is_empty() { vec![GatewayClientServerConfig::default()] } else { servers };
+        let active = servers
+            .iter()
+            .find(|server| server.id == active_server_id)
+            .or_else(|| servers.first())
+            .cloned()
+            .unwrap_or_default();
+
+        self.active_server_id = active.id.clone();
+        self.host = active.host.clone();
+        self.port = active.port;
+        self.bearer_token = active.bearer_token.clone();
+        self.username = active.username.clone();
+        self.password = active.password.clone();
+        self.skey = active.skey.clone();
+        self.servers = servers;
     }
 }
 #[cfg(test)]

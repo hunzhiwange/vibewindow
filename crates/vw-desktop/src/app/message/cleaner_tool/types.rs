@@ -2,8 +2,11 @@
 //!
 //! 注释聚焦模块职责、消息边界和失败处理方式，帮助维护者在不改变逻辑的前提下理解代码。
 
-use crate::app::App;
 use iced::widget::text_editor;
+pub use vw_gateway_client::{
+    CleanerCleanupRequest, CleanerScanDetail, CleanerScanGroup, CleanerScanItem, CleanerScanReport,
+    CleanerStatusResponse,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// CleanerPlatform 表示该流程中可枚举的状态或用户动作。
@@ -12,51 +15,6 @@ use iced::widget::text_editor;
 pub enum CleanerPlatform {
     MacOs,
     Windows,
-}
-
-#[derive(Debug, Clone)]
-/// CleanerScanReport 保存该流程中跨函数传递的结构化数据。
-///
-/// 使用具名字段保留领域含义，避免在消息链路中传递松散的动态数据。
-pub struct CleanerScanReport {
-    pub total_bytes: u64,
-    pub matched_items: usize,
-    pub groups: Vec<CleanerScanGroup>,
-}
-
-#[derive(Debug, Clone)]
-/// CleanerScanGroup 保存该流程中跨函数传递的结构化数据。
-///
-/// 使用具名字段保留领域含义，避免在消息链路中传递松散的动态数据。
-pub struct CleanerScanGroup {
-    pub id: String,
-    pub title: String,
-    pub subtitle: String,
-    pub total_bytes: u64,
-    pub items: Vec<CleanerScanItem>,
-}
-
-#[derive(Debug, Clone)]
-/// CleanerScanItem 保存该流程中跨函数传递的结构化数据。
-///
-/// 使用具名字段保留领域含义，避免在消息链路中传递松散的动态数据。
-pub struct CleanerScanItem {
-    pub id: String,
-    pub title: String,
-    pub subtitle: String,
-    pub sensitive: bool,
-    pub total_bytes: u64,
-    pub details: Vec<CleanerScanDetail>,
-}
-
-#[derive(Debug, Clone)]
-/// CleanerScanDetail 保存该流程中跨函数传递的结构化数据。
-///
-/// 使用具名字段保留领域含义，避免在消息链路中传递松散的动态数据。
-pub struct CleanerScanDetail {
-    pub label: String,
-    pub path: String,
-    pub total_bytes: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -83,70 +41,18 @@ pub enum CleanerToolMessage {
     ToggleEdge(bool),
     ToggleFirefox(bool),
     ToggleMail(bool),
+    InfoLoaded(Result<vw_gateway_client::CleanerInfoResponse, String>),
     Scan,
     ScanFinished(Result<CleanerScanReport, String>),
     ToggleTreeNode(String),
     Run,
     Cancel,
+    CancelFinished(Result<(), String>),
+    StatusLoaded(Result<CleanerStatusResponse, String>),
     RunFinished(Result<String, String>),
     Tick,
     Clear,
     ClearNotification,
-}
-
-#[derive(Clone)]
-#[allow(dead_code)]
-/// CleanupRequest 保存该流程中跨函数传递的结构化数据。
-///
-/// 使用具名字段保留领域含义，避免在消息链路中传递松散的动态数据。
-pub(super) struct CleanupRequest {
-    pub(super) clear_system_temp: bool,
-    pub(super) clear_app_cache: bool,
-    pub(super) clear_logs: bool,
-    pub(super) clear_package_cache: bool,
-    pub(super) clear_downloads: bool,
-    pub(super) empty_trash: bool,
-    pub(super) clear_installers: bool,
-    pub(super) clear_other_apps: bool,
-    pub(super) clear_wechat_work: bool,
-    pub(super) clear_wechat: bool,
-    pub(super) clear_qq: bool,
-    pub(super) clear_dingtalk: bool,
-    pub(super) clear_feishu: bool,
-    pub(super) clear_safari: bool,
-    pub(super) clear_chrome: bool,
-    pub(super) clear_edge: bool,
-    pub(super) clear_firefox: bool,
-    pub(super) clear_mail: bool,
-}
-
-impl CleanupRequest {
-    /// from_app 处理当前模块对应的消息或状态转换。
-    ///
-    /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
-    /// 变更范围限制在当前消息处理路径内，不引入额外的流程分支。
-    pub(super) fn from_app(app: &App) -> Self {
-        Self {
-            clear_system_temp: app.cleaner_clear_system_temp,
-            clear_app_cache: app.cleaner_clear_app_cache,
-            clear_logs: app.cleaner_clear_logs,
-            clear_package_cache: app.cleaner_clear_package_cache,
-            clear_downloads: app.cleaner_clear_downloads,
-            empty_trash: app.cleaner_empty_trash,
-            clear_installers: app.cleaner_clear_installers,
-            clear_other_apps: app.cleaner_clear_other_apps,
-            clear_wechat_work: app.cleaner_clear_wechat_work,
-            clear_wechat: app.cleaner_clear_wechat,
-            clear_qq: app.cleaner_clear_qq,
-            clear_dingtalk: app.cleaner_clear_dingtalk,
-            clear_feishu: app.cleaner_clear_feishu,
-            clear_safari: app.cleaner_clear_safari,
-            clear_chrome: app.cleaner_clear_chrome,
-            clear_edge: app.cleaner_clear_edge,
-            clear_firefox: app.cleaner_clear_firefox,
-            clear_mail: app.cleaner_clear_mail,
-        }
-    }
 }
 
 /// current_platform 处理当前模块对应的消息或状态转换。

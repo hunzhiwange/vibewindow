@@ -85,11 +85,18 @@ pub fn view(app: &App) -> Element<'_, Message> {
         // 创建圆形"+"按钮
         let add_btn = container(
             button(
-                container(text("+").size(16))
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .align_x(iced::alignment::Horizontal::Center)
-                    .align_y(iced::alignment::Vertical::Center),
+                container(
+                    Svg::new(assets::get_icon(Icon::Plus))
+                        .width(Length::Fixed(14.0))
+                        .height(Length::Fixed(14.0))
+                        .style(|theme: &Theme, _status| iced::widget::svg::Style {
+                            color: Some(theme.palette().text),
+                        }),
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .align_x(iced::alignment::Horizontal::Center)
+                .align_y(iced::alignment::Vertical::Center),
             )
             .on_press(Message::View(ViewMessage::OpenApps))
             .style(move |theme: &Theme, status| {

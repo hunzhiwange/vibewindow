@@ -35,6 +35,7 @@ use iced::widget::{
 use iced::{Alignment, Background, Border, Color, Element, Length, Point, Shadow, Theme, Vector};
 
 mod app_editor;
+mod app_list;
 mod canvas_shell;
 mod header;
 mod if_else;
@@ -51,6 +52,7 @@ mod toolbar;
 mod variables;
 
 use app_editor::*;
+use app_list::*;
 use canvas_shell::*;
 use header::*;
 use if_else::*;
@@ -222,6 +224,13 @@ fn section_card<'a>(title: &'a str, description: &'a str) -> Element<'a, Message
 struct WorkflowAppSwitchOption {
     id: String,
     label: String,
+    source: WorkflowAppSwitchSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum WorkflowAppSwitchSource {
+    SavedUuid(String),
+    OpenApp(String),
 }
 
 impl std::fmt::Display for WorkflowAppSwitchOption {
@@ -235,42 +244,85 @@ fn workflow_app_display_name(name: &str) -> String {
 }
 
 fn workflow_app_switch_options(state: &WorkflowState) -> Vec<WorkflowAppSwitchOption> {
-    state
-        .apps
+    let mut options = state
+        .saved_apps
         .iter()
         .map(|app| {
-            let is_active = state.active_app_id.as_deref() == Some(app.id.as_str());
-            let name = if is_active {
-                workflow_app_display_name(&state.source_name)
-            } else {
-                workflow_app_display_name(&app.meta.name)
-            };
-            let dirty = if is_active { state.active_is_dirty } else { app.is_dirty };
+            let is_active = state.local_uuid.as_deref() == Some(app.uuid.as_str());
+            let dirty = is_active && state.active_is_dirty;
             let label = if dirty {
-                format!("{} {} *", app.meta.icon, name)
+                format!("🤖 {} *", workflow_app_display_name(&app.name))
             } else {
-                format!("{} {}", app.meta.icon, name)
+                format!("🤖 {}", workflow_app_display_name(&app.name))
             };
 
-            WorkflowAppSwitchOption { id: app.id.clone(), label }
+            WorkflowAppSwitchOption {
+                id: app.uuid.clone(),
+                label,
+                source: WorkflowAppSwitchSource::SavedUuid(app.uuid.clone()),
+            }
         })
-        .collect()
+        .collect::<Vec<_>>();
+
+    for app in state.apps.iter().filter(|app| {
+        app.local_uuid
+            .as_deref()
+            .is_none_or(|uuid| !state.saved_apps.iter().any(|saved| saved.uuid == uuid))
+    }) {
+        let is_active = state.active_app_id.as_deref() == Some(app.id.as_str());
+        let name = if is_active {
+            workflow_app_display_name(&state.source_name)
+        } else {
+            workflow_app_display_name(&app.meta.name)
+        };
+        let dirty = if is_active { state.active_is_dirty } else { app.is_dirty };
+        let label = if dirty {
+            format!("{} {} *", app.meta.icon, name)
+        } else {
+            format!("{} {}", app.meta.icon, name)
+        };
+
+        options.push(WorkflowAppSwitchOption {
+            id: app.id.clone(),
+            label,
+            source: WorkflowAppSwitchSource::OpenApp(app.id.clone()),
+        });
+    }
+
+    options
 }
 
 fn build_app_switcher(state: &WorkflowState) -> Element<'static, Message> {
     let options = workflow_app_switch_options(state);
     let selected = state
-        .active_app_id
+        .local_uuid
         .as_ref()
-        .and_then(|active_id| options.iter().find(|option| option.id == *active_id).cloned());
+        .and_then(|uuid| {
+            options.iter().find(|option| {
+                matches!(&option.source, WorkflowAppSwitchSource::SavedUuid(saved_uuid) if saved_uuid == uuid)
+            })
+        })
+        .or_else(|| {
+            state.active_app_id.as_ref().and_then(|active_id| {
+                options.iter().find(|option| {
+                    matches!(&option.source, WorkflowAppSwitchSource::OpenApp(app_id) if app_id == active_id)
+                })
+            })
+        })
+        .cloned();
 
     if options.is_empty() {
         container(Space::new().width(Length::Shrink).height(Length::Fixed(0.0)))
             .width(Length::Fill)
             .into()
     } else {
-        pick_list(options, selected, |option| {
-            Message::WorkflowTool(WorkflowMessage::SelectApp(option.id))
+        pick_list(options, selected, |option| match option.source {
+            WorkflowAppSwitchSource::SavedUuid(uuid) => {
+                Message::WorkflowTool(WorkflowMessage::OpenSavedApp(uuid))
+            }
+            WorkflowAppSwitchSource::OpenApp(id) => {
+                Message::WorkflowTool(WorkflowMessage::SelectApp(id))
+            }
         })
         .padding([10, 14])
         .text_size(13)
@@ -282,6 +334,38 @@ fn build_app_switcher(state: &WorkflowState) -> Element<'static, Message> {
 }
 
 pub fn view(state: &WorkflowState) -> Element<'_, Message> {
+    if state.active_app_id.is_none() {
+        let mut layers: Vec<Element<'_, Message>> = vec![
+            container(build_saved_apps_view(state)).width(Length::Fill).height(Length::Fill).into(),
+        ];
+
+        if let Some(error) = &state.error_message {
+            layers.push(
+                container(error_banner(error))
+                    .padding(iced::Padding {
+                        top: FLOATING_MARGIN,
+                        right: FLOATING_MARGIN,
+                        bottom: 0.0,
+                        left: FLOATING_MARGIN,
+                    })
+                    .align_x(iced::alignment::Horizontal::Center)
+                    .align_y(iced::alignment::Vertical::Top)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .into(),
+            );
+        }
+
+        if state.app_editor.is_some() {
+            layers.push(build_app_editor_modal(state));
+        }
+        if let Some(confirm_dialog) = build_saved_app_delete_confirm_dialog(state) {
+            layers.push(confirm_dialog);
+        }
+
+        return stack(layers).width(Length::Fill).height(Length::Fill).into();
+    }
+
     let canvas_base: Element<'_, Message> = if !state.has_apps() || state.document.nodes.is_empty()
     {
         container(Space::new().width(Length::Fill).height(Length::Fill))

@@ -33,6 +33,31 @@ fn execution_tick_dispatches_merge_when_no_pending_task() {
 }
 
 #[test]
+fn toggle_board_without_project_keeps_current_screen() {
+    let (mut app, _task) = crate::app::App::new();
+    app.project_path = None;
+    app.screen = crate::app::Screen::Home;
+
+    let _task = super::update(&mut app, super::TaskBoardMessage::ToggleBoard);
+
+    assert_eq!(app.screen, crate::app::Screen::Home);
+    assert!(!app.show_task_board);
+}
+
+#[test]
+fn close_board_without_project_returns_home() {
+    let (mut app, _task) = crate::app::App::new();
+    app.project_path = None;
+    app.screen = crate::app::Screen::TaskBoard;
+    app.show_task_board = true;
+
+    let _task = super::update(&mut app, super::TaskBoardMessage::CloseBoard);
+
+    assert_eq!(app.screen, crate::app::Screen::Home);
+    assert!(!app.show_task_board);
+}
+
+#[test]
 fn loaded_tasks_preserve_running_subtask_state() {
     use crate::app::task::{SubTask, SubTaskStatus, Task, TaskStatus};
 
@@ -57,4 +82,17 @@ fn loaded_tasks_preserve_running_subtask_state() {
 
     assert_eq!(merged[0].subtasks[0].status, SubTaskStatus::Running);
     assert!(merged[0].subtasks[0].execution_started_at_ms.is_some());
+}
+
+#[test]
+fn loaded_tasks_does_not_rebootstrap_running_executor() {
+    let (mut app, _task) = crate::app::App::new();
+    app.task_board_settings.auto_execute = true;
+    app.task_board_executor_running = true;
+    app.task_board_next_auto_promote_tick_at_ms = 12_345;
+
+    let _task = super::update(&mut app, super::TaskBoardMessage::TasksLoaded(Vec::new()));
+
+    assert!(app.task_board_executor_running);
+    assert_eq!(app.task_board_next_auto_promote_tick_at_ms, 12_345);
 }

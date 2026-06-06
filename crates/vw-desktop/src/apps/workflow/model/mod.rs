@@ -40,8 +40,8 @@ use loader::*;
 use save::*;
 
 pub use creation::{
-    create_blank_workflow, create_node_from_type, default_node_data_yaml, load_builtin_workflow,
-    load_document_from_path, load_document_from_text, node_data_yaml, rebuild_node_from_parts,
+    create_blank_workflow, create_node_from_type, default_node_data_yaml, load_document_from_path,
+    load_document_from_text, node_data_yaml, rebuild_node_from_parts,
 };
 pub use loader::{load_document_from_value, serialize_workflow_yaml, suggested_workflow_file_name};
 pub use registry::{
@@ -53,9 +53,6 @@ pub(crate) use save::yaml_map;
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
-
-const BUILTIN_SAMPLE: &str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/app/dify-workflow.yml"));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorkflowHandleSide {
@@ -523,6 +520,7 @@ impl WorkflowDocument {
 
 #[derive(Debug, Clone)]
 pub struct LoadedWorkflow {
+    pub local_uuid: Option<String>,
     pub source_path: Option<String>,
     pub source_name: String,
     pub app_meta: WorkflowAppMeta,

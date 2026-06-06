@@ -50,6 +50,7 @@ use vw_config_types::tools::HttpRequestConfig;
 
 mod agent;
 mod app_state;
+mod knowledge;
 mod pet;
 mod presentation;
 mod redis;
@@ -66,10 +67,11 @@ pub(crate) use app_state::{
     Notification, Toast, ToastKind, default_recent_project_session_auto_refresh,
     default_recent_project_session_refresh_interval_seconds,
 };
+pub(crate) use knowledge::*;
 pub(crate) use pet::*;
 pub use presentation::AppTab;
 pub(crate) use presentation::{
-    ConventionalCommitType, ExternalOpenApp, ModelPopoverHover, RuntimePlatform,
+    ConventionalCommitType, ExternalOpenApp, ModelPopoverHover, RuntimePlatform, TopBarGatewayTab,
 };
 pub(crate) use redis::*;
 pub(crate) use runtime_tools::*;

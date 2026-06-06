@@ -10,7 +10,8 @@ use crate::app::components::system_settings_common::settings_panel_style;
 use crate::app::{App, Message, message};
 
 use super::common::{
-    is_dark_theme, parse_hex_color, primary_button, project_accent_color, project_avatar,
+    home_cjk_emphasis_font, home_emphasis_font, is_dark_theme, parse_hex_color, primary_button,
+    project_accent_color, project_avatar,
 };
 
 /// 渲染对应界面。
@@ -100,14 +101,16 @@ fn render_recent_projects_body(app: &App) -> Element<'_, Message> {
         row![
             hero_logo,
             column![
-                text("Vibe Window 氛围视窗").size(22).style(|theme: &Theme| {
-                    let color = if is_dark_theme(theme) {
-                        theme.extended_palette().background.base.text
-                    } else {
-                        theme.palette().text
-                    };
-                    text::Style { color: Some(color) }
-                }),
+                text("Vibe Window 氛围视窗").size(22).font(home_cjk_emphasis_font()).style(
+                    |theme: &Theme| {
+                        let color = if is_dark_theme(theme) {
+                            theme.extended_palette().background.base.text
+                        } else {
+                            theme.palette().text
+                        };
+                        text::Style { color: Some(color) }
+                    }
+                ),
                 text("选择文件夹开始一个项目，或从下方最近项目继续。").size(12).style(
                     |theme: &Theme| {
                         let color = if is_dark_theme(theme) {
@@ -171,9 +174,7 @@ fn render_recent_projects_body(app: &App) -> Element<'_, Message> {
         hero,
         row![
             column![
-                text("最近项目")
-                    .size(15)
-                    .font(iced::Font { weight: iced::font::Weight::Bold, ..Default::default() }),
+                text("最近项目").size(15).font(home_cjk_emphasis_font()),
                 text("继续最近的工作区入口，并直接处理常用操作。").size(12).style(
                     |theme: &Theme| iced::widget::text::Style {
                         color: Some(theme.palette().text.scale_alpha(0.62)),
@@ -222,9 +223,14 @@ fn recent_project_row<'a>(app: &App, index: usize, path: &str) -> Element<'a, Me
 
     let meta = column![
         row![
-            text(name.clone())
-                .size(14)
-                .font(iced::Font { weight: iced::font::Weight::Bold, ..Default::default() }),
+            text(name.clone()).size(14).font(home_emphasis_font()).style(|theme: &Theme| {
+                let color = if is_dark_theme(theme) {
+                    theme.extended_palette().background.base.text
+                } else {
+                    theme.palette().text
+                };
+                text::Style { color: Some(color) }
+            }),
             status_badge,
         ]
         .spacing(8)
@@ -324,17 +330,34 @@ fn recent_project_row<'a>(app: &App, index: usize, path: &str) -> Element<'a, Me
 }
 
 fn recent_project_name(app: &App, index: usize, path: &str) -> String {
-    if let Some(name) = app.recent_projects_edits.get(index) {
-        name.as_str().to_owned()
-    } else if let Some(meta) = app.recent_projects_meta.iter().find(|meta| meta.path == path) {
-        meta.name.clone()
-    } else {
-        std::path::Path::new(path)
-            .file_name()
-            .and_then(|segment| segment.to_str())
-            .unwrap_or(path)
-            .to_string()
+    if let Some(name) = app.recent_projects_edits.get(index).map(|name| name.trim()) {
+        if !name.is_empty() {
+            return name.to_owned();
+        }
     }
+
+    if let Some(meta) = app.recent_projects_meta.iter().find(|meta| meta.path == path) {
+        let name = meta.name.trim();
+        if !name.is_empty() {
+            return name.to_owned();
+        }
+    }
+
+    project_name_from_path(path)
+}
+
+fn project_name_from_path(path: &str) -> String {
+    let trimmed = path.trim();
+    let without_trailing_separator = trimmed.trim_end_matches(|ch| ch == '/' || ch == '\\');
+    let display_path =
+        if without_trailing_separator.is_empty() { trimmed } else { without_trailing_separator };
+
+    std::path::Path::new(display_path)
+        .file_name()
+        .and_then(|segment| segment.to_str())
+        .filter(|segment| !segment.trim().is_empty())
+        .unwrap_or(display_path)
+        .to_string()
 }
 #[cfg(test)]
 #[path = "recent_tests.rs"]

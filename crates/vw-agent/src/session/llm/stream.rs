@@ -458,6 +458,8 @@ pub async fn stream(
             let res = if is_acp_adapter {
                 do_stream_request_acp(
                     &input.model,
+                    &provider_info,
+                    auth_info.as_ref(),
                     &aisdk_options,
                     &chat_messages,
                     &input.session_id,

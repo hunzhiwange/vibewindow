@@ -101,6 +101,8 @@ pub enum Icon {
     Gear,
     /// 宽齿轮连接图标
     GearWideConnected,
+    /// 网关/网络存储图标
+    HddNetwork,
     /// 花括号/代码块图标
     Braces,
     /// 盒子/组件图标

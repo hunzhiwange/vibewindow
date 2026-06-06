@@ -400,6 +400,16 @@ pub fn maintain_worktree_pool(
 ///
 /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
 pub fn worktree_pool_needs_maintenance(project_path: &str, running_tasks: usize) -> bool {
+    let normalized_project_path = normalize_path(project_path);
+    if let Ok(pools) = worktree_pools().lock()
+        && let Some(pool) = pools
+            .iter()
+            .find(|(repo_root, _)| path_matches_repo_root(&normalized_project_path, repo_root))
+            .map(|(_, pool)| pool)
+    {
+        return pool_needs_maintenance(pool, running_tasks);
+    }
+
     let Some(repo_root) = normalized_repo_root(project_path) else {
         return false;
     };
@@ -409,11 +419,19 @@ pub fn worktree_pool_needs_maintenance(project_path: &str, running_tasks: usize)
     let Some(pool) = pools.get(&repo_root) else {
         return true;
     };
+    pool_needs_maintenance(pool, running_tasks)
+}
+
+fn pool_needs_maintenance(pool: &RepoWorktreePool, running_tasks: usize) -> bool {
     let desired_capacity = running_tasks.max(1);
     let target_idle = desired_capacity;
     let max_worktrees = desired_capacity.saturating_mul(2);
     let idle_count = pool.slots.iter().filter(|slot| slot.state == WorktreeState::Idle).count();
     idle_count < target_idle && pool.slots.len() < max_worktrees
+}
+
+fn path_matches_repo_root(path: &str, repo_root: &str) -> bool {
+    path == repo_root || path.strip_prefix(repo_root).is_some_and(|suffix| suffix.starts_with('/'))
 }
 
 /// 模块内部可见的 acquire_task_worktree 函数。

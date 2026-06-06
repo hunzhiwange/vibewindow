@@ -44,19 +44,20 @@ use super::super::channels::{
     Channel, DiscordChannel, EmailChannel, MattermostChannel, QQChannel, SendMessage, SlackChannel,
     TelegramChannel,
 };
-use super::super::security::SecurityPolicy;
+use super::super::security::{AutonomyLevel, SecurityPolicy};
 use super::{
-    CronJob, CronJobPatch, DeliveryConfig, JobType, Schedule, SessionTarget, due_jobs,
-    next_run_for_schedule, record_last_run, record_run, remove_job, reschedule_after_run,
-    update_job,
+    CronJob, CronJobPatch, DeliveryConfig, JobType, Schedule, due_jobs, next_run_for_schedule,
+    record_last_run, record_run, remove_job, reschedule_after_run, update_job,
 };
 use crate::app::agent::config::Config;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use futures_util::{StreamExt, stream};
+use serde_json::json;
+use std::path::PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
 use std::process::Stdio;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::process::Command;
 use tokio::time::{self, Duration};
@@ -73,6 +74,26 @@ const SHELL_JOB_TIMEOUT_SECS: u64 = 120;
 
 /// 调度器组件在健康检查系统中的标识名称
 const SCHEDULER_COMPONENT: &str = "scheduler";
+
+const CRON_AUTOMATION_SYSTEM_PROMPT: &str =
+    "我是自动化脚本，无法回答你的问题，你可以自己作出你认为最好的决定。";
+
+static SCHEDULER_REFRESH: OnceLock<tokio::sync::Notify> = OnceLock::new();
+
+fn scheduler_refresh() -> &'static tokio::sync::Notify {
+    SCHEDULER_REFRESH.get_or_init(tokio::sync::Notify::new)
+}
+
+pub(crate) fn notify_schedule_changed() {
+    scheduler_refresh().notify_one();
+}
+
+pub(crate) async fn wait_for_schedule_scan(interval: &mut time::Interval) {
+    tokio::select! {
+        _ = interval.tick() => {}
+        _ = scheduler_refresh().notified() => {}
+    }
+}
 
 /// 启动定时任务调度器的主循环
 ///
@@ -122,7 +143,7 @@ pub async fn run(config: Config) -> Result<()> {
     crate::app::agent::health::mark_component_ok(SCHEDULER_COMPONENT);
 
     loop {
-        interval.tick().await;
+        wait_for_schedule_scan(&mut interval).await;
         // Keep scheduler liveness fresh even when there are no due jobs.
         crate::app::agent::health::mark_component_ok(SCHEDULER_COMPONENT);
 
@@ -216,17 +237,26 @@ async fn execute_job_with_retry(
     security: &SecurityPolicy,
     job: &CronJob,
 ) -> (bool, String) {
+    let run_config = effective_job_config(config, job);
+    let run_security;
+    let security = if run_config.workspace_dir != config.workspace_dir {
+        run_security = SecurityPolicy::from_config(&run_config.autonomy, &run_config.workspace_dir);
+        &run_security
+    } else {
+        security
+    };
+
     let mut last_output = String::new();
-    let retries = config.reliability.scheduler_retries;
+    let retries = run_config.reliability.scheduler_retries;
     // 初始退避时间，确保最小值为 200ms
-    let mut backoff_ms = config.reliability.provider_backoff_ms.max(200);
+    let mut backoff_ms = run_config.reliability.provider_backoff_ms.max(200);
 
     // 执行重试循环：0 表示首次尝试，1..=retries 表示重试
     for attempt in 0..=retries {
         // 根据任务类型选择执行器
-        let (success, output) = match job.job_type {
-            JobType::Shell => run_job_command(config, security, job).await,
-            JobType::Agent => run_agent_job(config, security, job).await,
+        let (success, output) = match effective_job_type(job) {
+            JobType::Shell => run_job_command(&run_config, security, job).await,
+            JobType::Agent => run_agent_job(&run_config, security, job).await,
         };
         last_output = output;
 
@@ -251,6 +281,58 @@ async fn execute_job_with_retry(
     }
 
     (false, last_output)
+}
+
+fn effective_job_config(config: &Config, job: &CronJob) -> Config {
+    let Some(project_path) =
+        job.project_path.as_deref().map(str::trim).filter(|value| !value.is_empty())
+    else {
+        return config.clone();
+    };
+
+    let mut next = config.clone();
+    next.workspace_dir = PathBuf::from(project_path);
+    next
+}
+
+fn effective_job_type(job: &CronJob) -> JobType {
+    if matches!(job.job_type, JobType::Shell)
+        && job.command.trim().is_empty()
+        && job.prompt.as_deref().map(str::trim).is_some_and(|value| !value.is_empty())
+    {
+        return JobType::Agent;
+    }
+    job.job_type.clone()
+}
+
+fn invalid_job_payload(job: &CronJob) -> Option<String> {
+    match effective_job_type(job) {
+        JobType::Shell if job.command.trim().is_empty() => {
+            Some("invalid cron job: shell command is empty; job disabled".to_string())
+        }
+        JobType::Agent
+            if job.prompt.as_deref().map(str::trim).is_none_or(|value| value.is_empty()) =>
+        {
+            Some("invalid cron job: agent prompt is empty; job disabled".to_string())
+        }
+        _ => None,
+    }
+}
+
+fn disable_invalid_job(config: &Config, job: &CronJob, output: &str, timestamp: DateTime<Utc>) {
+    if let Err(err) = record_run(config, &job.id, timestamp, timestamp, "error", Some(output), 0) {
+        tracing::warn!("Failed to record invalid cron job run: {err}");
+    }
+    if let Err(err) = record_last_run(config, &job.id, timestamp, false, output) {
+        tracing::warn!("Failed to record invalid cron job status: {err}");
+    }
+    if let Err(err) = update_job(
+        config,
+        &job.id,
+        CronJobPatch { enabled: Some(false), ..CronJobPatch::default() },
+    ) {
+        tracing::warn!("Failed to disable invalid cron job: {err}");
+    }
 }
 
 /// 并发处理所有到期的定时任务
@@ -348,6 +430,10 @@ async fn execute_and_persist_job(
 ) -> (String, bool, String) {
     // 更新健康检查状态
     crate::app::agent::health::mark_component_ok(component);
+    if let Some(output) = invalid_job_payload(job) {
+        disable_invalid_job(config, job, &output, Utc::now());
+        return (job.id.clone(), false, output);
+    }
     // 检查并警告高频 Agent 任务
     warn_if_high_frequency_agent_job(job);
 
@@ -399,50 +485,103 @@ async fn run_agent_job(
     security: &SecurityPolicy,
     job: &CronJob,
 ) -> (bool, String) {
-    // 安全策略检查：是否允许自主操作
-    if !security.can_act() {
-        return (false, "blocked by security policy: autonomy is read-only".to_string());
+    if !job.full_access {
+        // 安全策略检查：是否允许自主操作
+        if !security.can_act() {
+            return (false, "blocked by security policy: autonomy is read-only".to_string());
+        }
+
+        // 安全策略检查：是否超出速率限制
+        if security.is_rate_limited() {
+            return (false, "blocked by security policy: rate limit exceeded".to_string());
+        }
+
+        // 安全策略检查：是否还有操作配额
+        if !security.record_action() {
+            return (false, "blocked by security policy: action budget exhausted".to_string());
+        }
     }
 
-    // 安全策略检查：是否超出速率限制
-    if security.is_rate_limited() {
-        return (false, "blocked by security policy: rate limit exceeded".to_string());
-    }
-
-    // 安全策略检查：是否还有操作配额
-    if !security.record_action() {
-        return (false, "blocked by security policy: action budget exhausted".to_string());
-    }
-
+    let run_config = if job.full_access { cron_full_access_config(config) } else { config.clone() };
     // 准备任务参数
     let name = job.name.clone().unwrap_or_else(|| "cron-job".to_string());
     let prompt = job.prompt.clone().unwrap_or_default();
     // 添加任务标识前缀，便于追踪
-    let prefixed_prompt = format!("[cron:{} {name}] {prompt}", job.id);
-    let model_override = job.model.clone();
+    let prefixed_prompt = cron_agent_prompt(job, &name, &prompt);
+    let primary_model = job.model.clone();
 
-    // 根据 session_target 执行代理任务
-    let run_result: anyhow::Result<()> = match job.session_target {
-        SessionTarget::Main | SessionTarget::Isolated => {
+    let delegate_agent_key = job.agent.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    if let Some(agent_key) = delegate_agent_key {
+        let Some(agent_config) = run_config.agents.get(agent_key) else {
+            return (false, format!("agent job failed: delegate agent '{agent_key}' not found"));
+        };
+        if !agent_config.enabled {
+            return (false, format!("agent job failed: delegate agent '{agent_key}' is disabled"));
+        }
+    }
+
+    if job.task_pool {
+        let model = primary_model
+            .clone()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| "auto".to_string());
+        return match deliver_agent_job_to_task_pool(&run_config, job, &prefixed_prompt, model).await
+        {
+            Ok(output) => (true, output),
+            Err(err) => (false, format!("agent task pool delivery failed: {err}")),
+        };
+    }
+
+    let mut model_candidates = Vec::new();
+    if let Some(model) = primary_model.filter(|value| !value.trim().is_empty()) {
+        model_candidates.push(Some(model));
+    } else {
+        model_candidates.push(None);
+    }
+    for fallback in &job.fallbacks {
+        let fallback = fallback.trim();
+        if !fallback.is_empty()
+            && !model_candidates.iter().any(|candidate| candidate.as_deref() == Some(fallback))
+        {
+            model_candidates.push(Some(fallback.to_string()));
+        }
+    }
+
+    let mut last_error = None;
+    for model_override in model_candidates {
+        let run_result: anyhow::Result<String> = {
             #[cfg(not(target_arch = "wasm32"))]
             {
-                // 调用代理核心执行任务
-                crate::app::agent::agent::run(
-                    config.clone(),
-                    Some(prefixed_prompt),
-                    None,
-                    model_override,
-                    config.default_temperature,
-                )
-                .await
-                .map(|_| ())
+                run_gateway_agent_job(&run_config, job, &prefixed_prompt, model_override).await
             }
             #[cfg(target_arch = "wasm32")]
             {
+                let _ = model_override;
                 // WASM 平台不支持 Agent 任务
-                Ok(())
+                Ok("agent job executed".to_string())
+            }
+        };
+
+        match run_result {
+            Ok(output) => {
+                let output = output.trim();
+                let output = if output.is_empty() {
+                    "agent job executed".to_string()
+                } else {
+                    output.to_string()
+                };
+                return (true, output);
+            }
+            Err(err) => {
+                last_error = Some(err);
+                continue;
             }
         }
+    }
+
+    let run_result: anyhow::Result<()> = match last_error {
+        Some(err) => Err(err),
+        None => Ok(()),
     };
 
     // 返回执行结果
@@ -450,6 +589,143 @@ async fn run_agent_job(
         Ok(_) => (true, "agent job executed".to_string()),
         Err(e) => (false, format!("agent job failed: {e}")),
     }
+}
+
+async fn deliver_agent_job_to_task_pool(
+    config: &Config,
+    job: &CronJob,
+    prompt: &str,
+    model: String,
+) -> anyhow::Result<String> {
+    let project_path = config.workspace_dir.to_string_lossy().to_string();
+    let prompt = prompt.to_string();
+    let agent = job
+        .agent
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("main")
+        .to_string();
+    let acp_agent = job
+        .acp_agent
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+
+    let task = tokio::task::spawn_blocking(move || {
+        let mut task = crate::app::task::Task::new(999);
+        task.prompt = prompt;
+        task.model = model;
+        task.agent = Some(agent);
+        task.acp_agent = acp_agent;
+        crate::app::task::create_task(&project_path, task)
+    })
+    .await
+    .map_err(|err| anyhow::anyhow!("task pool create task join failed: {err}"))??;
+
+    Ok(format!("agent job delivered to task pool: {}", task.id))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn run_gateway_agent_job(
+    config: &Config,
+    job: &CronJob,
+    prompt: &str,
+    model_override: Option<String>,
+) -> anyhow::Result<String> {
+    let agent = job
+        .agent
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("main")
+        .to_string();
+    let acp_agent = job
+        .acp_agent
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let session_id = format!("cron-{}", job.id);
+
+    let mut options = serde_json::Map::new();
+    if job.full_access {
+        options.insert("full_access".to_string(), serde_json::Value::Bool(true));
+    }
+    if let Some(acp_agent) = acp_agent.as_ref() {
+        options.insert("acp_test".to_string(), serde_json::Value::Bool(true));
+        options.insert("acp_agent".to_string(), serde_json::Value::String(acp_agent.clone()));
+        options.insert("acp_force_new_session".to_string(), serde_json::Value::Bool(true));
+        options.insert(
+            "cwd".to_string(),
+            serde_json::Value::String(config.workspace_dir.to_string_lossy().to_string()),
+        );
+        if job.full_access {
+            options.insert(
+                "acp_permission_mode".to_string(),
+                serde_json::Value::String("approve-all".to_string()),
+            );
+        }
+    }
+
+    let request = vw_api_types::chat::GatewayChatStreamRequest {
+        session_id: Some(session_id.clone().into()),
+        messages: vec![json!({ "role": "user", "content": prompt })],
+        system: None,
+        model: model_override,
+        agent: Some(agent),
+        allowed_tools: None,
+        acp_agent,
+        acp_allowed_tools: None,
+        options: (!options.is_empty()).then_some(serde_json::Value::Object(options)),
+    };
+
+    let collected =
+        crate::app::agent::gateway::api::handlers::session::stream::collect_gateway_chat_stream(
+            config.workspace_dir.to_string_lossy().to_string(),
+            request,
+        )
+        .await
+        .map_err(|err| anyhow::anyhow!("{err}"))?;
+
+    let mut output = collected.output.trim().to_string();
+    if output.is_empty() {
+        output = "agent job executed".to_string();
+    }
+    if let Some(message_id) = collected.message_id.as_deref() {
+        output.push_str(&format!("\n[session:{session_id} message:{message_id}]"));
+    } else if let Some(parent_message_id) = collected.parent_message_id.as_deref() {
+        output.push_str(&format!("\n[session:{session_id} parent:{parent_message_id}]"));
+    } else {
+        output.push_str(&format!("\n[session:{session_id}]"));
+    }
+    Ok(output)
+}
+
+fn cron_agent_prompt(job: &CronJob, name: &str, prompt: &str) -> String {
+    if job.full_access {
+        format!("[cron:{} {name}]\n{CRON_AUTOMATION_SYSTEM_PROMPT}\n\n{prompt}", job.id)
+    } else {
+        format!("[cron:{} {name}] {prompt}", job.id)
+    }
+}
+
+fn cron_full_access_config(config: &Config) -> Config {
+    let mut run_config = config.clone();
+    run_config.autonomy.level = AutonomyLevel::Full;
+    run_config.autonomy.workspace_only = false;
+    run_config.autonomy.allowed_commands = vec!["*".to_string()];
+    run_config.autonomy.forbidden_paths.clear();
+    run_config.autonomy.max_actions_per_hour = u32::MAX;
+    run_config.autonomy.require_approval_for_medium_risk = false;
+    run_config.autonomy.block_high_risk_commands = false;
+    run_config.autonomy.auto_approve = vec!["*".to_string()];
+    run_config.autonomy.always_ask.clear();
+    run_config.autonomy.allowed_roots = vec!["/".to_string()];
+    run_config.autonomy.non_cli_excluded_tools.clear();
+    run_config.autonomy.allow_unsafe_shell_patterns = true;
+    run_config
 }
 
 /// 持久化任务执行结果到数据库
@@ -589,7 +865,7 @@ fn is_one_shot_auto_delete(job: &CronJob) -> bool {
 /// - `Schedule::At`: 一次性任务，不算高频
 fn warn_if_high_frequency_agent_job(job: &CronJob) {
     // 只检查 Agent 类型任务
-    if !matches!(job.job_type, JobType::Agent) {
+    if !matches!(effective_job_type(job), JobType::Agent) {
         return;
     }
 

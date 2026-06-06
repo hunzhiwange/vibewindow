@@ -65,6 +65,25 @@ async fn write_text_file_denies_paths_outside_root() {
 }
 
 #[tokio::test]
+async fn approve_reads_auto_approves_default_write_inside_root() {
+    let root = temp_root("auto-write");
+    let target = root.join("auto.txt");
+    let handlers = FileSystemHandlers::new(FileSystemHandlersOptions {
+        cwd: root,
+        permission_mode: PermissionMode::ApproveReads,
+        non_interactive_permissions: Some(NonInteractivePermissionPolicy::Fail),
+        ..FileSystemHandlersOptions::default()
+    });
+
+    handlers
+        .write_text_file(&WriteTextFileRequest::new("session-1", &target, "content"))
+        .await
+        .expect("workspace write should not prompt");
+
+    assert_eq!(std::fs::read_to_string(target).expect("read file"), "content");
+}
+
+#[tokio::test]
 async fn approve_reads_uses_confirmation_for_writes() {
     let root = temp_root("confirm");
     let target = root.join("approved.txt");

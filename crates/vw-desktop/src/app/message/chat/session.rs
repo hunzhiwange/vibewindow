@@ -2,18 +2,22 @@
 //! 本模块协调用户输入、会话缓存和网关持久化。
 
 use super::ChatMessage;
+use super::ForkSessionTarget;
+use super::MessageIndexedSessionAction;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::app::config::{save_project_chat_preferences, set_config_field};
 use crate::app::message::TaskBoardMessage;
 use crate::app::message::chat::stream;
-use crate::app::message::project::ProjectMessage;
 use crate::app::state::{ChatSendBehavior, MAIN_AGENT_KEY, SessionToolSelectorTab};
 use crate::app::{AgentRequest, App, Message, QueueItem, message, models};
 use iced::Task;
 use std::path::Path;
 use std::time::Duration;
 use tracing::{debug, info};
+use vw_gateway_client::vw_api_types::project::ResolveProjectRequest;
+use vw_gateway_client::vw_api_types::worktree::CreateWorktreeRequest;
 use vw_shared::id;
+use vw_shared::message::types as agent_message;
 use vw_shared::session::info as session;
 use vw_shared::session::session_utils::create_slug;
 
@@ -49,6 +53,33 @@ fn gateway_endpoint(app: &App) -> (String, u16) {
     let host = app.gateway_settings.host_input.trim();
     let host = if host.is_empty() { "127.0.0.1" } else { host };
     (host.to_string(), app.gateway_settings.port)
+}
+
+async fn create_fork_worktree_directory(
+    client: &vw_gateway_client::GatewayClient,
+    project_directory: &str,
+) -> Result<String, String> {
+    let project = client
+        .project_resolve(&ResolveProjectRequest {
+            directory: project_directory.to_string(),
+            create_if_missing: true,
+        })
+        .await?
+        .project;
+    let requested_name = format!("fork-{}", create_slug().to_ascii_lowercase());
+    let worktree = client
+        .project_worktree_create(
+            &project.id.0,
+            &CreateWorktreeRequest {
+                name: requested_name.clone(),
+                branch: format!("vibewindow/{requested_name}"),
+                from_ref: None,
+                checkout: true,
+            },
+        )
+        .await?
+        .worktree;
+    Ok(worktree.directory)
 }
 
 fn current_session_directory(app: &App) -> Option<String> {
@@ -334,6 +365,122 @@ fn message_id_for_index(app: &App, msg_idx: usize) -> Option<String> {
     app.chat_message_ids.get(msg_idx).and_then(|id| id.clone())
 }
 
+fn push_recovered_message_id(
+    ids: &mut Vec<Option<String>>,
+    has_content: &mut bool,
+    message_id: &Option<String>,
+) {
+    if *has_content {
+        ids.push(message_id.clone());
+        *has_content = false;
+    }
+}
+
+fn recovered_message_ids_from_gateway_messages(
+    msgs: Vec<agent_message::WithParts>,
+) -> Vec<Option<String>> {
+    let mut ids = Vec::new();
+
+    for message in msgs {
+        let message_id = Some(message.info.id().to_string());
+        let mut has_content = false;
+
+        for part in message.parts {
+            match part {
+                agent_message::Part::Text(part) => {
+                    has_content = has_content || !part.text.trim().is_empty();
+                }
+                agent_message::Part::Reasoning(part) => {
+                    has_content = has_content || !part.text.trim().is_empty();
+                }
+                agent_message::Part::Tool(_) => {
+                    push_recovered_message_id(&mut ids, &mut has_content, &message_id);
+                    ids.push(message_id.clone());
+                }
+                agent_message::Part::File(_) => {
+                    has_content = true;
+                }
+                _ => {}
+            }
+        }
+
+        push_recovered_message_id(&mut ids, &mut has_content, &message_id);
+    }
+
+    ids
+}
+
+fn recover_message_ids_for_action_task(
+    endpoint: (String, u16),
+    session_id: String,
+    directory: Option<String>,
+    msg_idx: usize,
+    action: MessageIndexedSessionAction,
+) -> Task<Message> {
+    Task::perform(
+        async move {
+            let result = async {
+                let client = vw_gateway_client::GatewayClient::new(
+                    vw_gateway_client::GatewayEndpoint::new(endpoint.0, endpoint.1),
+                )?;
+                let msgs = client
+                    .session_messages::<Vec<agent_message::WithParts>>(
+                        &session_id,
+                        directory.as_deref(),
+                    )
+                    .await?;
+                Ok(recovered_message_ids_from_gateway_messages(msgs))
+            }
+            .await;
+            ChatMessage::MessageIdsRecoveredForAction { session_id, msg_idx, action, result }
+        },
+        Message::Chat,
+    )
+}
+
+fn reset_session_locally(app: &mut App, session_id: String, msg_idx: usize) -> Task<Message> {
+    let root = current_session_directory(app).or_else(|| app.project_path.clone());
+    let retain_end = msg_idx.saturating_add(1);
+    let retained_chat = app.chat.get(..retain_end).map(|slice| slice.to_vec()).unwrap_or_default();
+    let retained_message_ids =
+        app.chat_message_ids.get(..retain_end).map(|slice| slice.to_vec()).unwrap_or_default();
+    let local_title = app
+        .sessions
+        .iter()
+        .find(|session| session.id == session_id)
+        .map(|session| session.title.clone())
+        .unwrap_or_else(|| "重置会话".to_string());
+
+    app.chat_reset_menu_idx = None;
+    app.chat_fork_dialog_idx = None;
+    app.mark_session_acp_rebuild_required(&session_id);
+    app.active_session_id = Some(session_id.clone());
+    app.chat = retained_chat;
+    app.chat_message_ids = retained_message_ids;
+    app.invalidate_chat_ui_state();
+    app.sync_active_session_preferences();
+    app.rebuild_active_session_message_meta();
+    app.store_session_chat_snapshot(
+        session_id.clone(),
+        crate::app::session::shared_chat_messages(app.chat.clone()),
+        app.chat_message_ids.clone(),
+    );
+    app.sync_active_session_from_chat();
+
+    let now = crate::app::time::now_ms();
+    let local = models::ChatSession {
+        id: session_id,
+        title: local_title,
+        messages: app.chat.clone(),
+        message_ids: app.chat_message_ids.clone(),
+        calls: Vec::new(),
+        steps: Vec::new(),
+        created_ms: now,
+        updated_ms: now,
+    };
+    save_session_task(local, root)
+}
+
 #[cfg(target_arch = "wasm32")]
 fn save_session_task(session: models::ChatSession, directory: Option<String>) -> Task<Message> {
     Task::perform(
@@ -490,9 +637,10 @@ fn send_current_session_input(app: &mut App) -> Task<Message> {
         .or_else(|| app.project_path.clone());
     let model = if runtime.auto_model { None } else { Some(runtime.model.clone()) };
     let acp_agent = resolve_acp_agent(app, runtime.acp_agent.clone());
-    let allowed_tools: Option<Vec<String>> = None;
+    let allowed_tools = app.session_allowed_tools_for_request(&runtime);
     let agent = request_delegate_agent(runtime.agent.clone());
     let acp_test = acp_agent.is_some();
+    let acp_allowed_tools = acp_test.then(|| allowed_tools.clone()).flatten();
     let acp_history_mode = runtime.acp_history_mode;
     let acp_recent_count = runtime.acp_recent_count.clamp(1, 20);
     let full_access_enabled = runtime.full_access_enabled;
@@ -523,6 +671,7 @@ fn send_current_session_input(app: &mut App) -> Task<Message> {
         model,
         acp_test,
         acp_agent,
+        acp_allowed_tools,
         agent,
         allowed_tools,
         acp_force_new_session,
@@ -801,33 +950,51 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
             runtime.submit_anim = (runtime.submit_anim + 1) % 3;
             message::after(Duration::from_millis(200), Message::Chat(ChatMessage::SubmitTick))
         }
-        ChatMessage::ForkSessionAt(msg_idx) => {
+        ChatMessage::ForkSessionAt { msg_idx, target } => {
             let Some(session_id) = app.active_session_id.clone() else {
                 return Task::none();
             };
             let Some(message_id) = message_id_for_index(app, msg_idx) else {
-                app.push_notification("当前消息暂不支持分叉".to_string());
+                let root = current_session_directory(app).or_else(|| app.project_path.clone());
+                return recover_message_ids_for_action_task(
+                    gateway_endpoint(app),
+                    session_id,
+                    root,
+                    msg_idx,
+                    MessageIndexedSessionAction::Fork(target),
+                );
+            };
+            let Some(branch_query) = app.chat.get(msg_idx).map(|message| message.content.clone())
+            else {
                 return Task::none();
             };
-            let Some(base_chat) = app.chat.get(..=msg_idx).map(|slice| slice.to_vec()) else {
+            if branch_query.trim().is_empty() {
+                app.push_notification("当前消息内容为空，无法分叉".to_string());
                 return Task::none();
             };
+            let base_chat = app.chat.get(..msg_idx).map(|slice| slice.to_vec()).unwrap_or_default();
             let Some(base_message_ids) =
-                app.chat_message_ids.get(..=msg_idx).map(|slice| slice.to_vec())
+                app.chat_message_ids.get(..msg_idx).map(|slice| slice.to_vec())
             else {
                 return Task::none();
             };
             let root = current_session_directory(app).or_else(|| app.project_path.clone());
+            if target == ForkSessionTarget::NewWorktree && root.is_none() {
+                app.push_notification("当前项目目录为空，无法创建新 worktree".to_string());
+                return Task::none();
+            }
             let runtime = app.current_session_runtime();
             let model = if runtime.auto_model { None } else { Some(runtime.model.clone()) };
             let endpoint = gateway_endpoint(app);
+            app.chat_fork_dialog_idx = None;
             Task::perform(
                 async move {
-                    let result = match vw_gateway_client::GatewayClient::new(
-                        vw_gateway_client::GatewayEndpoint::new(endpoint.0, endpoint.1),
-                    ) {
-                        Ok(client) => {
-                            client
+                    let result = async {
+                        let client = vw_gateway_client::GatewayClient::new(
+                            vw_gateway_client::GatewayEndpoint::new(endpoint.0, endpoint.1),
+                        )?;
+                        match target {
+                            ForkSessionTarget::Local => client
                                 .session_fork::<session::Info>(
                                     &session_id,
                                     root.as_deref(),
@@ -836,77 +1003,163 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
                                     }),
                                 )
                                 .await
+                                .map(|info| (info, root.clone())),
+                            ForkSessionTarget::NewWorktree => {
+                                let project_directory = root.as_deref().ok_or_else(|| {
+                                    "当前项目目录为空，无法创建新 worktree".to_string()
+                                })?;
+                                let worktree_directory =
+                                    create_fork_worktree_directory(&client, project_directory)
+                                        .await?;
+                                client
+                                    .session_fork::<session::Info>(
+                                        &session_id,
+                                        Some(worktree_directory.as_str()),
+                                        &Some(vw_gateway_client::GatewaySessionForkBody {
+                                            message_id: Some(message_id),
+                                        }),
+                                    )
+                                    .await
+                                    .map(|info| (info, Some(worktree_directory)))
+                            }
                         }
-                        Err(err) => Err(err),
-                    };
+                    }
+                    .await;
                     ChatMessage::ForkSessionFinished {
                         result,
                         base_chat,
                         base_message_ids,
-                        root,
+                        branch_query,
                         model,
                     }
                 },
                 Message::Chat,
             )
         }
-        ChatMessage::ForkSessionFinished { result, base_chat, base_message_ids, root, model } => {
+        ChatMessage::ForkSessionFinished {
+            result,
+            base_chat,
+            base_message_ids,
+            branch_query,
+            model,
+        } => match result {
+            Ok((info, root)) => {
+                app.cache_active_session_chat();
+                if !app.sessions.iter().any(|session| session.id == info.id) {
+                    app.sessions.insert(0, info.clone());
+                }
+                if let Some(list) = app.project_sessions.get_mut(&info.directory) {
+                    if !list.iter().any(|session| session.id == info.id) {
+                        list.insert(0, info.clone());
+                    }
+                } else {
+                    app.project_sessions.insert(info.directory.clone(), vec![info.clone()]);
+                }
+                app.active_session_id = Some(info.id.clone());
+                app.chat = base_chat;
+                app.chat_message_ids = base_message_ids;
+                app.chat_reset_menu_idx = None;
+                app.invalidate_chat_ui_state();
+                app.sync_active_session_preferences();
+                app.store_session_chat_snapshot(
+                    info.id.clone(),
+                    crate::app::session::shared_chat_messages(app.chat.clone()),
+                    app.chat_message_ids.clone(),
+                );
+                let created_ms = crate::app::time::now_ms();
+                let current_runtime = app.current_session_runtime();
+                let acp_agent = resolve_acp_agent(app, current_runtime.acp_agent.clone());
+                let allowed_tools = app.session_allowed_tools_for_request(&current_runtime);
+                let agent = request_delegate_agent(current_runtime.agent.clone());
+                let acp_test = acp_agent.is_some();
+                let acp_allowed_tools = acp_test.then(|| allowed_tools.clone()).flatten();
+                start(
+                    app,
+                    QueueItem {
+                        created_ms,
+                        query: branch_query,
+                        attachments: Vec::new(),
+                        root,
+                        model,
+                        acp_test,
+                        acp_agent,
+                        acp_allowed_tools,
+                        agent,
+                        allowed_tools,
+                        acp_force_new_session: true,
+                        acp_history_mode: current_runtime.acp_history_mode,
+                        acp_recent_count: current_runtime.acp_recent_count,
+                        full_access_enabled: current_runtime.full_access_enabled,
+                        send_behavior: ChatSendBehavior::Queue,
+                        request_history_override: None,
+                        resume_history_only: false,
+                    },
+                    true,
+                )
+            }
+            Err(error) => {
+                app.push_notification(format!("分叉会话失败: {}", error));
+                Task::none()
+            }
+        },
+        ChatMessage::MessageIdsRecoveredForAction { session_id, msg_idx, action, result } => {
+            if app.active_session_id.as_deref() != Some(session_id.as_str()) {
+                return Task::none();
+            }
+
             match result {
-                Ok(info) => {
-                    app.cache_active_session_chat();
-                    if !app.sessions.iter().any(|session| session.id == info.id) {
-                        app.sessions.insert(0, info.clone());
-                    }
-                    if let Some(list) = app.project_sessions.get_mut(&info.directory) {
-                        if !list.iter().any(|session| session.id == info.id) {
-                            list.insert(0, info.clone());
-                        }
-                    } else {
-                        app.project_sessions.insert(info.directory.clone(), vec![info.clone()]);
-                    }
-                    app.active_session_id = Some(info.id.clone());
-                    app.chat = base_chat;
-                    app.chat_message_ids = base_message_ids;
-                    app.chat_reset_menu_idx = None;
-                    app.invalidate_chat_ui_state();
-                    app.sync_active_session_preferences();
+                Ok(ids) if ids.len() == app.chat.len() => {
+                    app.chat_message_ids = ids;
                     app.store_session_chat_snapshot(
-                        info.id.clone(),
+                        session_id.clone(),
                         crate::app::session::shared_chat_messages(app.chat.clone()),
                         app.chat_message_ids.clone(),
                     );
-                    let created_ms = crate::app::time::now_ms();
-                    let current_runtime = app.current_session_runtime();
-                    let acp_agent = resolve_acp_agent(app, current_runtime.acp_agent.clone());
-                    let allowed_tools: Option<Vec<String>> = None;
-                    let agent = request_delegate_agent(current_runtime.agent.clone());
-                    let acp_test = acp_agent.is_some();
-                    start(
-                        app,
-                        QueueItem {
-                            created_ms,
-                            query: String::new(),
-                            attachments: Vec::new(),
-                            root,
-                            model,
-                            acp_test,
-                            acp_agent,
-                            agent,
-                            allowed_tools,
-                            acp_force_new_session: true,
-                            acp_history_mode: current_runtime.acp_history_mode,
-                            acp_recent_count: current_runtime.acp_recent_count,
-                            full_access_enabled: current_runtime.full_access_enabled,
-                            send_behavior: ChatSendBehavior::Queue,
-                            request_history_override: None,
-                            resume_history_only: false,
-                        },
-                        true,
-                    )
+                    match action {
+                        MessageIndexedSessionAction::Fork(target) => {
+                            Task::done(Message::Chat(ChatMessage::ForkSessionAt {
+                                msg_idx,
+                                target,
+                            }))
+                        }
+                        MessageIndexedSessionAction::Reset { revert_code } => {
+                            Task::done(Message::Chat(ChatMessage::ResetSessionToMessage {
+                                msg_idx,
+                                revert_code,
+                            }))
+                        }
+                    }
+                }
+                Ok(ids) => {
+                    if let MessageIndexedSessionAction::Reset { revert_code } = action {
+                        if revert_code {
+                            app.push_notification(
+                                "网关没有可回滚历史，已仅重置本地会话历史".to_string(),
+                            );
+                        }
+                        reset_session_locally(app, session_id, msg_idx)
+                    } else {
+                        app.push_notification(format!(
+                            "无法恢复消息 ID: 本地 {} 条，网关 {} 条",
+                            app.chat.len(),
+                            ids.len()
+                        ));
+                        Task::none()
+                    }
                 }
                 Err(error) => {
-                    app.push_notification(format!("分叉会话失败: {}", error));
-                    Task::none()
+                    if let MessageIndexedSessionAction::Reset { revert_code } = action {
+                        if revert_code {
+                            app.push_notification(format!(
+                                "网关历史不可用，已仅重置本地会话历史: {}",
+                                error
+                            ));
+                        }
+                        reset_session_locally(app, session_id, msg_idx)
+                    } else {
+                        app.push_notification(format!("恢复消息 ID 失败: {}", error));
+                        Task::none()
+                    }
                 }
             }
         }
@@ -915,13 +1168,27 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
                 return Task::none();
             };
             let Some(message_id) = message_id_for_index(app, msg_idx) else {
-                app.push_notification("当前消息暂不支持重置".to_string());
-                return Task::none();
+                let root = current_session_directory(app).or_else(|| app.project_path.clone());
+                return recover_message_ids_for_action_task(
+                    gateway_endpoint(app),
+                    session_id,
+                    root,
+                    msg_idx,
+                    MessageIndexedSessionAction::Reset { revert_code },
+                );
             };
-            app.chat_reset_menu_idx = None;
             let root = current_session_directory(app).or_else(|| app.project_path.clone());
+            let retain_end = msg_idx.saturating_add(1);
+            let retained_chat =
+                app.chat.get(..retain_end).map(|slice| slice.to_vec()).unwrap_or_default();
+            let retained_message_ids = app
+                .chat_message_ids
+                .get(..retain_end)
+                .map(|slice| slice.to_vec())
+                .unwrap_or_default();
+            let save_task = reset_session_locally(app, session_id.clone(), msg_idx);
             let endpoint = gateway_endpoint(app);
-            Task::perform(
+            let gateway_task = Task::perform(
                 async move {
                     let result = match vw_gateway_client::GatewayClient::new(
                         vw_gateway_client::GatewayEndpoint::new(endpoint.0, endpoint.1),
@@ -940,12 +1207,25 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
                         }
                         Err(err) => Err(err),
                     };
-                    ChatMessage::ResetSessionFinished { result, session_id }
+                    ChatMessage::ResetSessionFinished {
+                        result,
+                        session_id,
+                        retained_chat,
+                        retained_message_ids,
+                        directory: root,
+                    }
                 },
                 Message::Chat,
-            )
+            );
+            Task::batch([save_task, gateway_task])
         }
-        ChatMessage::ResetSessionFinished { result, session_id } => match result {
+        ChatMessage::ResetSessionFinished {
+            result,
+            session_id,
+            retained_chat,
+            retained_message_ids,
+            directory,
+        } => match result {
             Ok(info) => {
                 if let Some(existing) =
                     app.sessions.iter_mut().find(|session| session.id == info.id)
@@ -960,10 +1240,33 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
                     }
                 }
                 app.mark_session_acp_rebuild_required(&session_id);
-                Task::done(Message::Project(ProjectMessage::OpenProjectSessionPressed(
-                    info.directory.clone(),
-                    session_id,
-                )))
+                app.active_session_id = Some(session_id.clone());
+                app.chat = retained_chat;
+                app.chat_message_ids = retained_message_ids;
+                app.chat_reset_menu_idx = None;
+                app.invalidate_chat_ui_state();
+                app.sync_active_session_preferences();
+                app.rebuild_active_session_message_meta();
+                app.store_session_chat_snapshot(
+                    session_id.clone(),
+                    crate::app::session::shared_chat_messages(app.chat.clone()),
+                    app.chat_message_ids.clone(),
+                );
+                app.sync_active_session_from_chat();
+
+                let now = crate::app::time::now_ms();
+                let session_directory = directory.or_else(|| Some(info.directory.clone()));
+                let local = models::ChatSession {
+                    id: session_id,
+                    title: info.title,
+                    messages: app.chat.clone(),
+                    message_ids: app.chat_message_ids.clone(),
+                    calls: Vec::new(),
+                    steps: Vec::new(),
+                    created_ms: now,
+                    updated_ms: now,
+                };
+                save_session_task(local, session_directory)
             }
             Err(error) => {
                 app.push_notification(format!("重置会话失败: {}", error));
@@ -1103,7 +1406,7 @@ pub(super) fn start(app: &mut App, item: QueueItem, keep: bool) -> Task<Message>
             session_id = %session_id,
             acp_test = item.acp_test,
             acp_agent = ?item.acp_agent,
-            acp_allowed_tools = ?Option::<Vec<String>>::None,
+            acp_allowed_tools = ?item.acp_allowed_tools,
             agent = ?item.agent,
             allowed_tools = ?item.allowed_tools,
             acp_force_new_session = item.acp_force_new_session,
@@ -1126,7 +1429,7 @@ pub(super) fn start(app: &mut App, item: QueueItem, keep: bool) -> Task<Message>
             model: item.model,
             acp_test: item.acp_test,
             acp_agent: item.acp_agent,
-            acp_allowed_tools: None,
+            acp_allowed_tools: item.acp_allowed_tools,
             agent: item.agent,
             allowed_tools: item.allowed_tools,
             acp_force_new_session: item.acp_force_new_session,

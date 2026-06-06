@@ -31,6 +31,7 @@ pub struct App {
     pub(crate) acp_recent_count: usize,
     pub(crate) chat_send_behavior: ChatSendBehavior,
     pub(crate) acp_agents: Vec<String>,
+    pub(crate) acp_settings: AcpSettingsState,
     /// 文件 URL 输入框内容
     pub(crate) file_url_input: String,
     /// 附加文件列表
@@ -101,6 +102,8 @@ pub struct App {
     pub(crate) input_context_menu_pos: Option<(f32, f32)>,
     /// 当前打开的“重置到此点”菜单消息索引
     pub(crate) chat_reset_menu_idx: Option<usize>,
+    /// 当前打开的“分叉到新会话”对话框消息索引
+    pub(crate) chat_fork_dialog_idx: Option<usize>,
     /// Todo 面板是否展开
     pub(crate) chat_todo_expanded: bool,
     /// Todo 面板动画进度
@@ -131,6 +134,16 @@ pub struct App {
     pub(crate) branches: Vec<String>,
     /// 当前选中的分支
     pub(crate) selected_branch: Option<String>,
+    /// Git 面板可切换的工作树选项
+    pub(crate) git_worktree_options: Vec<GitWorktreeOption>,
+    /// Git 面板当前选中的工作树目录
+    pub(crate) selected_git_worktree_directory: Option<String>,
+    /// Git 面板工作树选项是否正在加载
+    pub(crate) git_worktree_options_loading: bool,
+    /// Git 面板工作树选项当前对应的项目路径
+    pub(crate) git_worktree_options_project_path: Option<String>,
+    /// Git 面板工作树菜单是否打开
+    pub(crate) git_worktree_menu_open: bool,
     /// 当前项目最近更新时间（毫秒时间戳）
     pub(crate) project_updated_at_ms: Option<u64>,
     /// 最近打开的项目路径列表
@@ -502,6 +515,8 @@ pub struct App {
     pub(crate) git_changed_files: Vec<String>,
     /// Git 变更文件是否正在加载
     pub(crate) git_changed_files_loading: bool,
+    /// Git 变更文件列表当前对应的仓库路径
+    pub(crate) git_changed_files_repo_path: Option<String>,
     /// Git diff 文件元数据缓存
     pub(crate) git_diff_file_metas: Vec<crate::app::components::git_panel::DiffFileMeta>,
     /// Git diff 文件元数据是否正在加载
@@ -603,6 +618,8 @@ pub struct App {
     pub(crate) system_settings_query: String,
     /// 当前打开的系统设置帮助标签页
     pub(crate) system_settings_help_tab: Option<crate::app::components::system_settings::SystemTab>,
+    /// 顶栏网关服务弹窗的当前标签页
+    pub(crate) top_bar_gateway_tab: TopBarGatewayTab,
     /// 提供者设置状态
     pub(crate) provider_settings: ProviderSettingsState,
     /// 模型设置状态
@@ -906,6 +923,8 @@ pub struct App {
     pub sql_tool_viewport_height: f32,
     /// Redis 客户端工具状态
     pub redis_tool: RedisToolUiState,
+    /// 知识库工作台状态
+    pub knowledge: KnowledgeUiState,
     /// HTML 工具编辑器内容
     pub html_tool_editor: text_editor::Content,
     /// HTML 工具是否记住选择
@@ -1192,6 +1211,8 @@ pub struct App {
     pub large_file_selected_entries: HashSet<String>,
     /// 大文件查找工具是否正在删除
     pub large_file_deleting: bool,
+    /// 大文件查找工具网关扫描任务 ID
+    pub large_file_scan_job_id: Option<String>,
     /// 大文件查找工具扫描取消标志
     pub large_file_cancel_flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// 大文件查找工具共享扫描进度
@@ -1333,6 +1354,8 @@ pub struct App {
     pub task_board_bulk_priority_input: String,
     /// 任务看板批量设置模型输入
     pub task_board_bulk_model_input: String,
+    /// 任务看板批量设置代理
+    pub task_board_bulk_agent: String,
     /// 任务看板批量设置 ACP 智能体
     pub task_board_bulk_acp_agent: Option<String>,
     /// 任务看板选中的任务 ID

@@ -2,7 +2,17 @@
 
 A standard Iced application lifecycle is very similar to how [Elm](https://elm-lang.org/) does it.
 
-Here's a break down:
+Here's a break down: in
+
+432fdsfds
+ fsd
+
+
+你好222啊
+
+hell222o world
+
+ni s
 
 - The `view` renders widgets with the current state
 - The user interacts with these widgets (e.g. a button)

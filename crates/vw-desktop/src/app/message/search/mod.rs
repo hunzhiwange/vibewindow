@@ -144,6 +144,7 @@ pub fn update(app: &mut App, message: SearchMessage) -> Task<Message> {
                         app.active_shared_chat_messages(),
                         base_chunk_start,
                         true,
+                        app.dialogue_flow_show_reasoning_summary,
                     )
                 };
 

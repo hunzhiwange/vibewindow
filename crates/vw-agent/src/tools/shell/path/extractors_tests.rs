@@ -68,6 +68,14 @@ fn blocks_dangerous_paths() {
 }
 
 #[test]
+fn allowed_root_slash_permits_dangerous_paths() {
+    let cmd = parse_command("cat /etc/passwd");
+    let workspace = PathBuf::from("/workspace");
+    let allowed = vec![PathBuf::from("/")];
+    assert_eq!(check_path_constraints(&cmd, &workspace, &allowed), PathCheckResult::Allowed);
+}
+
+#[test]
 fn blocks_paths_outside_workspace() {
     let cmd = parse_command("ls /root");
     let workspace = PathBuf::from("/workspace");

@@ -18,9 +18,9 @@ use super::worktree_admin::resolve_task_execution_workspace;
 use super::worktree_pool::{lock_merge_target, task_merge_lock_holder, unlock_merge_target};
 use super::*;
 #[cfg(not(target_arch = "wasm32"))]
-use crate::app::task::{SubTask, normalize_task_acp_agent_input};
+use crate::app::task::{SubTask, TASK_AGENT_MAIN, normalize_task_acp_agent_input};
 #[cfg(not(target_arch = "wasm32"))]
-use serde_json::json;
+use serde_json::{Map, Value, json};
 
 #[cfg(not(target_arch = "wasm32"))]
 fn flush_gateway_output_lines(
@@ -45,6 +45,21 @@ fn flush_gateway_output_lines(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn gateway_prompt_options(execution_path: &str, acp_enabled: bool) -> Map<String, Value> {
+    let mut options = Map::new();
+    options.insert("acp_test".to_string(), json!(acp_enabled));
+    options.insert("cwd".to_string(), json!(execution_path));
+    options.insert("full_access".to_string(), json!(true));
+    if acp_enabled {
+        options.insert("acp_permission_mode".to_string(), json!("approve-all"));
+        options.insert("acp_force_new_session".to_string(), json!(true));
+        options.insert("acp_history_strategy".to_string(), json!("discard"));
+        options.insert("acp_history_recent_count".to_string(), json!(1));
+    }
+    options
+}
+
 /// 公开的 execute_gateway_prompt_with_streaming 函数。
 ///
 /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
@@ -54,21 +69,31 @@ pub fn execute_gateway_prompt_with_streaming(
     execution_path: &str,
     model: &str,
     prompt: &str,
+    agent: Option<String>,
     acp_agent: Option<String>,
     sender: Option<&Sender<TaskLogStream>>,
 ) -> Result<String, String> {
     let endpoint = crate::app::config::gateway_client_endpoint();
     let acp_enabled = acp_agent.is_some();
-    let route_label = if acp_enabled { "acp" } else { "model" };
+    let agent_enabled = agent.is_some();
+    let route_label = if acp_enabled {
+        "acp"
+    } else if agent_enabled {
+        "agent"
+    } else {
+        "model"
+    };
     let selected_agent = acp_agent.clone().unwrap_or_else(|| "disabled".to_string());
+    let selected_delegate_agent = agent.clone().unwrap_or_else(|| "disabled".to_string());
 
     emit_stdout_log(
         sender,
         format!(
-            "[GATEWAY] endpoint={} session={} route={} agent={} model={} cwd={}",
+            "[GATEWAY] endpoint={} session={} route={} agent={} acp_agent={} model={} cwd={}",
             endpoint.describe(),
             session_id,
             route_label,
+            selected_delegate_agent,
             selected_agent,
             model,
             execution_path
@@ -78,23 +103,19 @@ pub fn execute_gateway_prompt_with_streaming(
     let mut output = String::new();
     let mut pending = String::new();
     let mut stream_error: Option<String> = None;
-    let mut options = serde_json::Map::new();
-    options.insert("acp_test".to_string(), json!(acp_enabled));
-    options.insert("cwd".to_string(), json!(execution_path));
-    options.insert("full_access".to_string(), json!(true));
+    let mut options = gateway_prompt_options(execution_path, acp_enabled);
+    if agent_enabled {
+        options.insert("agent".to_string(), json!(agent));
+    }
     if acp_enabled {
         options.insert("acp_agent".to_string(), json!(acp_agent));
-        options.insert("acp_permission_mode".to_string(), json!("approve-all"));
-        options.insert("acp_force_new_session".to_string(), json!(true));
-        options.insert("acp_history_strategy".to_string(), json!("discard"));
-        options.insert("acp_history_recent_count".to_string(), json!(1));
     }
     let request = vw_gateway_client::GatewayChatStreamRequest {
         session_id: Some(session_id.into()),
         messages: vec![json!({ "role": "user", "content": prompt })],
         system: None,
         model: (model != "auto").then(|| model.to_string()),
-        agent: None,
+        agent,
         allowed_tools: None,
         acp_agent: acp_enabled.then_some(acp_agent).flatten(),
         acp_allowed_tools: None,
@@ -182,6 +203,7 @@ pub fn execute_gateway_prompt_with_streaming(
     _execution_path: &str,
     _model: &str,
     _prompt: &str,
+    _agent: Option<String>,
     _acp_agent: Option<String>,
     sender: Option<&Sender<TaskLogStream>>,
 ) -> Result<String, String> {
@@ -212,6 +234,7 @@ fn execute_task_with_selected_backend(
         execution_path,
         model,
         prompt,
+        task.agent.clone().or_else(|| Some(TASK_AGENT_MAIN.to_string())),
         resolve_task_execution_acp_agent(task),
         sender,
     )
@@ -684,6 +707,7 @@ fn execute_task_plan_blocking(
         &project_path,
         &model,
         &prompt,
+        task.agent.clone().or_else(|| Some(TASK_AGENT_MAIN.to_string())),
         resolve_task_execution_acp_agent(&task),
         sender_ref,
     )

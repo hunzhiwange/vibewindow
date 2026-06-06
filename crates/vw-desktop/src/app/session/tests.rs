@@ -52,7 +52,7 @@ fn apply_prepared_chat_ui_phase_preserves_explore_summary_animation_history() {
         think_timing: Vec::new(),
     }];
     app.chat_message_ids = vec![None];
-    app.apply_prepared_chat_ui_phase(prepare_chat_ui_chunk_phase(&app.chat, 0, true));
+    app.apply_prepared_chat_ui_phase(prepare_chat_ui_chunk_phase(&app.chat, 0, true, false));
 
     let key = explore_summary_animation_key(0, 0);
     let initial_state = app
@@ -64,7 +64,7 @@ fn apply_prepared_chat_ui_phase_preserves_explore_summary_animation_history() {
     assert_eq!(initial_state.changed_at_ms, None);
 
     app.chat[0].content = second.to_string();
-    app.apply_prepared_chat_ui_phase(prepare_chat_ui_chunk_phase(&app.chat, 0, true));
+    app.apply_prepared_chat_ui_phase(prepare_chat_ui_chunk_phase(&app.chat, 0, true, false));
 
     let updated_state = app
         .chat_explore_summary_animations
@@ -87,7 +87,8 @@ fn prepare_chat_ui_chunk_phase_uses_display_text_for_tool_editor_cache() {
         think_timing: Vec::new(),
     }];
 
-    let PreparedChatUiPhase::Base(chunk) = prepare_chat_ui_chunk_phase(&chat, 0, true) else {
+    let PreparedChatUiPhase::Base(chunk) = prepare_chat_ui_chunk_phase(&chat, 0, true, false)
+    else {
         panic!("base phase should be returned");
     };
 

@@ -1,9 +1,9 @@
-# Button
+# Button（按钮）
 
-The [Button](https://docs.rs/iced/0.13.1/iced/widget/button/struct.Button.html) widget supports reactions to pressing/touching events.
-It has two methods of constructions: the `button` function, and the `Button::new` constructor.
-By default, the button is disabled if [on_press](https://docs.rs/iced/0.13.1/iced/widget/button/struct.Button.html#method.on_press) is not defined.
-We can also set padding around the text of the button.
+[Button](https://docs.rs/iced/0.13.1/iced/widget/button/struct.Button.html) 组件支持对按下/触摸事件的响应。
+有两种构造方式：`button` 函数和 `Button::new` 构造器。
+默认情况下，若未定义 [on_press](https://docs.rs/iced/0.13.1/iced/widget/button/struct.Button.html#method.on_press)，按钮处于禁用状态。
+我们还可以设置按钮文本周围的内边距。
 
 ```rust
 use iced::widget::{Button, button, column};
@@ -37,6 +37,6 @@ impl MyApp {
 
 ![Button](./pic/button.png)
 
-:arrow_right: Next: [TextInput](./text_input.md)
+:arrow_right: 下一篇：[TextInput](./text_input.md)
 
-:blue_book: Back: [Table of contents](./../README.md)
+:blue_book: 返回：[目录](./../README.md)

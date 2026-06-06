@@ -121,7 +121,7 @@ pub fn tool_files_view<'a>(
     let (changes_by_path, items) = parse::parse_output_files(app, tool_name, input, &output, &v);
     let is_edit_like = parse::is_edit_like_tool(tool_name);
 
-    if items.is_empty() && !(is_edit_like && is_error) && !parse::is_search_tool(tool_name) {
+    if items.is_empty() && !is_edit_like && !parse::is_search_tool(tool_name) {
         return None;
     }
     let render_state = parse::build_file_list_state(

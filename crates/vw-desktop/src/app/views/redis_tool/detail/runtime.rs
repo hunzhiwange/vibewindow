@@ -8,10 +8,12 @@ use crate::app::components::system_settings_common::{
 use crate::app::message::RedisToolMessage;
 use crate::app::state::RedisRuntimeOverview;
 use crate::app::{App, Message};
-use iced::widget::{Space, column, container, row, text, text_input};
+use iced::widget::{Space, column, container, row, scrollable, text, text_input};
 use iced::{Alignment, Background, Border, Element, Length, Theme};
 
-use super::super::common::{build_detail_action_button, masked_connection_preview, overview_row};
+use super::super::common::{
+    build_detail_action_button, masked_connection_preview, overview_row, redis_scroll_direction,
+};
 
 /// 构建对应界面片段。
 ///
@@ -259,52 +261,57 @@ pub(super) fn build_info_panel<'a>(
     runtime: &'a RedisRuntimeOverview,
 ) -> Element<'a, Message> {
     let query = app.redis_tool.info_filter.trim().to_ascii_lowercase();
-    let mut content = column![
-        row![
-            column![
-                text("Redis信息全集").size(14),
-                text("完整展示 INFO 返回的键值，支持本地过滤。")
-                    .size(12)
-                    .style(settings_muted_text_style),
-            ]
-            .spacing(4),
-            Space::new().width(Length::Fill),
-            container(
-                text_input("搜索 INFO 字段", &app.redis_tool.info_filter)
-                    .on_input(|value| Message::RedisTool(RedisToolMessage::InfoFilterChanged(
-                        value
-                    )))
-                    .padding([8, 10])
-                    .size(12),
-            )
-            .width(Length::Fixed(220.0)),
+    let header = row![
+        column![
+            text("Redis信息全集").size(14),
+            text("完整展示 INFO 返回的键值，支持本地过滤。")
+                .size(12)
+                .style(settings_muted_text_style),
         ]
-        .spacing(12)
-        .align_y(Alignment::Center),
+        .spacing(4),
+        Space::new().width(Length::Fill),
+        container(
+            text_input("搜索 INFO 字段", &app.redis_tool.info_filter)
+                .on_input(|value| Message::RedisTool(RedisToolMessage::InfoFilterChanged(value)))
+                .padding([8, 10])
+                .size(12),
+        )
+        .width(Length::Fixed(220.0)),
     ]
-    .spacing(10);
-
-    content = content.push(build_keyspace_row(
-        ["Key".to_string(), "Value".to_string(), String::new(), String::new()],
-        true,
-    ));
+    .spacing(12)
+    .align_y(Alignment::Center);
 
     let mut matched = 0usize;
+    let mut rows = column![].spacing(8).width(Length::Fill);
     for entry in runtime.info_entries.iter().filter(|entry| {
         query.is_empty()
             || entry.key.to_ascii_lowercase().contains(&query)
             || entry.value.to_ascii_lowercase().contains(&query)
     }) {
         matched += 1;
-        content = content.push(build_info_row(&entry.key, &entry.value));
+        rows = rows.push(build_info_row(&entry.key, &entry.value));
     }
 
     if matched == 0 {
-        content =
-            content.push(text("没有匹配的 INFO 字段。").size(12).style(settings_muted_text_style));
+        rows = rows.push(text("没有匹配的 INFO 字段。").size(12).style(settings_muted_text_style));
     }
 
-    settings_panel(content).into()
+    settings_panel(
+        column![
+            header,
+            build_keyspace_row(
+                ["Key".to_string(), "Value".to_string(), String::new(), String::new()],
+                true,
+            ),
+            container(scrollable(rows).direction(redis_scroll_direction()))
+                .width(Length::Fill)
+                .height(Length::Fill),
+        ]
+        .spacing(10)
+        .height(Length::Fill),
+    )
+    .height(Length::Fill)
+    .into()
 }
 
 fn build_info_row<'a>(key: &'a str, value: &'a str) -> Element<'a, Message> {

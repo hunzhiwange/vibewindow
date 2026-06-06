@@ -391,26 +391,79 @@ impl Default for GatewaySettingsState {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct GatewayClientServerDraft {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) host: String,
+    pub(crate) port: u16,
+    pub(crate) bearer_token: String,
+    pub(crate) username: String,
+    pub(crate) password: String,
+    pub(crate) skey: String,
+}
+
+impl GatewayClientServerDraft {
+    pub(crate) fn from_config(server: &vw_config_types::ui::GatewayClientServerConfig) -> Self {
+        Self {
+            id: server.id.clone(),
+            name: server.name.clone(),
+            host: server.host.clone(),
+            port: server.port.clamp(1, u16::MAX),
+            bearer_token: server.bearer_token.clone(),
+            username: server.username.clone(),
+            password: server.password.clone(),
+            skey: server.skey.clone(),
+        }
+    }
+
+    pub(crate) fn to_config(&self) -> vw_config_types::ui::GatewayClientServerConfig {
+        vw_config_types::ui::GatewayClientServerConfig {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            host: self.host.clone(),
+            port: self.port.clamp(1, u16::MAX),
+            bearer_token: self.bearer_token.clone(),
+            username: self.username.clone(),
+            password: self.password.clone(),
+            skey: self.skey.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct GatewayClientSettingsState {
+    pub(crate) servers: Vec<GatewayClientServerDraft>,
+    pub(crate) selected_server_id: String,
+    pub(crate) health: HashMap<String, bool>,
+    pub(crate) name_input: String,
     pub(crate) host_input: String,
     pub(crate) port: u16,
     pub(crate) bearer_token_input: String,
     pub(crate) username_input: String,
     pub(crate) password_input: String,
     pub(crate) skey_input: String,
+    pub(crate) pending_remove_server_id: Option<String>,
     pub(crate) show_help_modal: bool,
     pub(crate) save_error: Option<String>,
 }
 
 impl Default for GatewayClientSettingsState {
     fn default() -> Self {
+        let server = GatewayClientServerDraft::from_config(
+            &vw_config_types::ui::GatewayClientServerConfig::default(),
+        );
         Self {
+            selected_server_id: server.id.clone(),
+            name_input: server.name.clone(),
+            servers: vec![server],
+            health: HashMap::new(),
             host_input: "127.0.0.1".to_string(),
             port: 42617,
             bearer_token_input: String::new(),
             username_input: String::new(),
             password_input: String::new(),
             skey_input: String::new(),
+            pending_remove_server_id: None,
             show_help_modal: false,
             save_error: None,
         }

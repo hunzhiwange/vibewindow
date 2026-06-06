@@ -52,9 +52,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     // ==================== 布局计算 ====================
 
-    // 窗口尺寸，确保最小值为 1.0 避免除零错误
+    // 窗口宽度，确保最小值为 1.0 避免除零错误
     let window_w = app.window_size.0.max(1.0);
-    let window_h = app.window_size.1.max(1.0);
 
     // 左侧导航栏固定宽度
     let left_rail_width = 56.0;
@@ -91,8 +90,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let spacing = 0;
     // 标签页标题栏高度
     let tab_header_height = 34.0;
-    // 终端内容区高度 = 窗口高度 - 标签栏高度
-    let terminal_height = (window_h - tab_header_height).max(0.0);
 
     // ==================== 构建标签页行 ====================
 
@@ -528,7 +525,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             container(text("Terminal not supported on Web"))
                 .padding([10, 12])
                 .width(Length::Fixed(terminal_width))
-                .height(Length::Fixed(terminal_height))
+                .height(Length::Fill)
                 .into()
         }
     } else {
@@ -536,29 +533,28 @@ pub fn view(app: &App) -> Element<'_, Message> {
         container(text("").font(Font::DEFAULT))
             .padding([10, 12])
             .width(Length::Fixed(terminal_width))
-            .height(Length::Fixed(terminal_height))
+            .height(Length::Fill)
             .into()
     };
 
     // 包装终端内容区域，应用边框样式
-    let out = container(out)
-        .width(Length::Fixed(terminal_width))
-        .height(Length::Fixed(terminal_height))
-        .padding(0)
-        .style(move |_theme| iced::widget::container::Style {
-            background: None,
-            border: Border {
-                radius: iced::border::Radius {
-                    top_left: 0.0,
-                    top_right: 0.0,
-                    bottom_right: 0.0,
-                    bottom_left: 0.0,
+    let out =
+        container(out).width(Length::Fixed(terminal_width)).height(Length::Fill).padding(0).style(
+            move |_theme| iced::widget::container::Style {
+                background: None,
+                border: Border {
+                    radius: iced::border::Radius {
+                        top_left: 0.0,
+                        top_right: 0.0,
+                        bottom_right: 0.0,
+                        bottom_left: 0.0,
+                    },
+                    width: 0.0,
+                    color: Color::TRANSPARENT,
                 },
-                width: 0.0,
-                color: Color::TRANSPARENT,
+                ..Default::default()
             },
-            ..Default::default()
-        });
+        );
 
     // ==================== 组装标签页栏容器 ====================
 
@@ -581,13 +577,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     // 主内容 = 标签栏 + 终端内容区
     let main_content = container(
-        column![header, out]
-            .spacing(0)
-            .height(Length::Fixed(tab_header_height + terminal_height))
-            .width(Length::Fixed(terminal_width)),
+        column![header, out].spacing(0).height(Length::Fill).width(Length::Fixed(terminal_width)),
     )
     .width(Length::Fixed(terminal_width))
-    .height(Length::Fixed(tab_header_height + terminal_height));
+    .height(Length::Fill);
 
     // ==================== 重命名模态框 ====================
 

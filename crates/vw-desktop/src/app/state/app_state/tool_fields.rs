@@ -348,6 +348,8 @@
     pub large_file_selected_entries: HashSet<String>,
     /// 大文件查找工具是否正在删除
     pub large_file_deleting: bool,
+    /// 大文件查找工具网关扫描任务 ID
+    pub large_file_scan_job_id: Option<String>,
     /// 大文件查找工具扫描取消标志
     pub large_file_cancel_flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// 大文件查找工具共享扫描进度

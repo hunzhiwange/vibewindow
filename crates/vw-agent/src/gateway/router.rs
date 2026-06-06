@@ -113,9 +113,18 @@ pub(crate) fn build_router(cors_whitelist: Vec<String>) -> Router {
         .allow_methods(Any)
         .allow_headers(Any);
 
-    // 构建路由器并合并所有业务路由模块
-    // 路由按功能域划分，每个模块独立管理自己的路径前缀
-    // 中间件按从下到上的顺序应用（洋葱模型）
+    // 同时保留无版本前缀路由，并挂载客户端实际使用的 /v1 前缀路由。
+    // 中间件按从下到上的顺序应用（洋葱模型）。
+    Router::new()
+        .merge(handler_router())
+        .nest("/v1", handler_router())
+        // 认证中间件：所有请求必须通过基础认证
+        .layer(middleware::from_fn(basic_auth_middleware))
+        // CORS 中间件：处理跨域请求（最外层）
+        .layer(cors)
+}
+
+fn handler_router() -> Router {
     Router::new()
         // 全局路由：健康检查、系统状态等
         .merge(handlers::global::router())
@@ -129,6 +138,8 @@ pub(crate) fn build_router(cors_whitelist: Vec<String>) -> Router {
         .merge(handlers::config::router())
         // Provider 路由：模型提供者管理
         .merge(handlers::provider::router())
+        // 知识库路由：数据集、文档入库与召回
+        .merge(handlers::knowledge::router())
         // 文件路由：文件系统操作
         .merge(handlers::file::router())
         // Git 路由：选择性暂存与提交
@@ -143,10 +154,8 @@ pub(crate) fn build_router(cors_whitelist: Vec<String>) -> Router {
         .merge(handlers::pty::router())
         // 任务池路由：调度决策
         .merge(handlers::task_pool::router())
-        // 认证中间件：所有请求必须通过基础认证
-        .layer(middleware::from_fn(basic_auth_middleware))
-        // CORS 中间件：处理跨域请求（最外层）
-        .layer(cors)
+        // Workflow 应用路由：Dify Workflow 保存与列表
+        .merge(handlers::workflow::applications_router())
 }
 
 #[cfg(test)]

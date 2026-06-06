@@ -240,6 +240,10 @@ pub mod integrations;
 // 记忆系统
 pub mod memory;
 
+// 知识库运行时
+#[cfg(not(target_arch = "wasm32"))]
+pub mod knowledge;
+
 // MCP 协议（非 WASM 平台）
 #[cfg(not(target_arch = "wasm32"))]
 pub mod mcp;

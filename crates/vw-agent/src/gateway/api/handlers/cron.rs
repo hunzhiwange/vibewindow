@@ -4,6 +4,7 @@
 //! - 列出所有定时任务
 //! - 添加新的定时任务
 //! - 删除指定的定时任务
+//! - 更新指定的定时任务
 //!
 //! 所有端点均需要身份认证，通过 `auth::require_auth` 进行验证。
 //!
@@ -12,14 +13,244 @@
 //! - `GET /api/cron` - 获取所有定时任务列表
 //! - `POST /api/cron` - 添加新的定时任务
 //! - `DELETE /api/cron/:id` - 删除指定的定时任务
+//! - `PATCH /api/cron/:id` - 更新指定的定时任务
 
-use super::super::types::CronAddBody;
+use super::super::types::{CronAddBody, CronUpdateBody};
 use crate::app::agent::gateway::AppState;
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json as JsonResponse},
 };
+use chrono::{DateTime, Utc};
+
+fn cron_job_json(job: &crate::app::agent::cron::CronJob) -> serde_json::Value {
+    let job_type: &str = job.job_type.clone().into();
+    let (schedule_kind, at, every_ms) = match &job.schedule {
+        crate::app::agent::cron::Schedule::Cron { .. } => ("cron", None, None),
+        crate::app::agent::cron::Schedule::At { at } => ("at", Some(at.to_rfc3339()), None),
+        crate::app::agent::cron::Schedule::Every { every_ms } => ("every", None, Some(*every_ms)),
+    };
+    serde_json::json!({
+        "id": job.id,
+        "name": job.name,
+        "job_type": job_type,
+        "schedule_kind": schedule_kind,
+        "expression": job.expression,
+        "at": at,
+        "every_ms": every_ms,
+        "command": job.command,
+        "prompt": job.prompt,
+        "model": job.model,
+        "agent": job.agent,
+        "acp_agent": job.acp_agent,
+        "project_path": job.project_path,
+        "wake": job.wake,
+        "fallbacks": job.fallbacks,
+        "full_access": job.full_access,
+        "task_pool": job.task_pool,
+        "delivery_mode": job.delivery.mode,
+        "delivery_channel": job.delivery.channel,
+        "delivery_to": job.delivery.to,
+        "delivery_best_effort": job.delivery.best_effort,
+        "delete_after_run": job.delete_after_run,
+        "next_run": job.next_run.to_rfc3339(),
+        "last_run": job.last_run.map(|t| t.to_rfc3339()),
+        "last_status": job.last_status,
+        "last_output": job.last_output,
+        "enabled": job.enabled,
+    })
+}
+
+fn cron_run_json(run: &crate::app::agent::cron::CronRun) -> serde_json::Value {
+    serde_json::json!({
+        "id": run.id,
+        "job_id": run.job_id,
+        "started_at": run.started_at.to_rfc3339(),
+        "finished_at": run.finished_at.to_rfc3339(),
+        "status": run.status,
+        "output": run.output,
+        "duration_ms": run.duration_ms,
+    })
+}
+
+fn trimmed_optional(value: Option<String>) -> Option<String> {
+    value.and_then(|raw| {
+        let value = raw.trim();
+        (!value.is_empty()).then(|| value.to_string())
+    })
+}
+
+fn cron_add_delivery(body: &CronAddBody) -> crate::app::agent::cron::DeliveryConfig {
+    crate::app::agent::cron::DeliveryConfig {
+        mode: body
+            .delivery_mode
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("none")
+            .to_string(),
+        channel: body
+            .delivery_channel
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string),
+        to: body
+            .delivery_to
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string),
+        best_effort: body.delivery_best_effort.unwrap_or(true),
+    }
+}
+
+fn cron_add_patch(body: &CronAddBody) -> crate::app::agent::cron::CronJobPatch {
+    crate::app::agent::cron::CronJobPatch {
+        delivery: Some(cron_add_delivery(body)),
+        delete_after_run: body.delete_after_run,
+        agent: trimmed_optional(body.agent.clone()),
+        acp_agent: body.acp_agent.clone(),
+        project_path: trimmed_optional(body.project_path.clone()),
+        wake: body.wake,
+        fallbacks: body.fallbacks.clone().map(crate::app::agent::cron::normalize_fallbacks),
+        full_access: body.full_access,
+        task_pool: body.task_pool,
+        ..crate::app::agent::cron::CronJobPatch::default()
+    }
+}
+
+fn cron_add_job_type(body: &CronAddBody) -> String {
+    let raw = body.job_type.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    if let Some(value) = raw {
+        return value.to_ascii_lowercase();
+    }
+
+    let has_prompt = body.prompt.as_deref().is_some_and(|value| !value.trim().is_empty());
+    let has_command = body.command.as_deref().is_some_and(|value| !value.trim().is_empty());
+    if has_prompt && !has_command { "agent".to_string() } else { "shell".to_string() }
+}
+
+fn cron_add_schedule(body: &CronAddBody) -> Result<crate::app::agent::cron::Schedule, String> {
+    match effective_schedule_kind(body).as_str() {
+        "cron" => {
+            let Some(expr) =
+                body.schedule.as_deref().map(str::trim).filter(|value| !value.is_empty())
+            else {
+                return Err("Cron expression is required".to_string());
+            };
+            Ok(crate::app::agent::cron::Schedule::Cron { expr: expr.to_string(), tz: None })
+        }
+        "at" => {
+            let Some(at) = body.at.as_deref().map(str::trim).filter(|value| !value.is_empty())
+            else {
+                return Err("RFC3339 time is required for at schedule".to_string());
+            };
+            let at = DateTime::parse_from_rfc3339(at)
+                .map_err(|err| format!("Invalid RFC3339 time: {err}"))?
+                .with_timezone(&Utc);
+            Ok(crate::app::agent::cron::Schedule::At { at })
+        }
+        "every" => {
+            let Some(every_ms) = body.every_ms.filter(|value| *value > 0) else {
+                return Err("every_ms must be greater than 0".to_string());
+            };
+            Ok(crate::app::agent::cron::Schedule::Every { every_ms })
+        }
+        other => Err(format!("Unsupported schedule_kind: {other}")),
+    }
+}
+
+fn cron_update_schedule(
+    body: &CronUpdateBody,
+) -> Result<Option<crate::app::agent::cron::Schedule>, String> {
+    let has_schedule_update =
+        body.schedule_kind.as_deref().is_some_and(|value| !value.trim().is_empty())
+            || body.schedule.as_deref().is_some_and(|value| !value.trim().is_empty())
+            || body.at.as_deref().is_some_and(|value| !value.trim().is_empty())
+            || body.every_ms.is_some();
+    if !has_schedule_update {
+        return Ok(None);
+    }
+
+    let raw = body
+        .schedule_kind
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("cron");
+    match raw {
+        "cron" | "Cron" => {
+            let Some(expr) =
+                body.schedule.as_deref().map(str::trim).filter(|value| !value.is_empty())
+            else {
+                return Err("Cron expression is required".to_string());
+            };
+            Ok(Some(crate::app::agent::cron::Schedule::Cron { expr: expr.to_string(), tz: None }))
+        }
+        "at" | "指定时间" => {
+            let Some(at) = body.at.as_deref().map(str::trim).filter(|value| !value.is_empty())
+            else {
+                return Err("RFC3339 time is required for at schedule".to_string());
+            };
+            let at = DateTime::parse_from_rfc3339(at)
+                .map_err(|err| format!("Invalid RFC3339 time: {err}"))?
+                .with_timezone(&Utc);
+            Ok(Some(crate::app::agent::cron::Schedule::At { at }))
+        }
+        "every" | "固定间隔" => {
+            let Some(every_ms) = body.every_ms.filter(|value| *value > 0) else {
+                return Err("every_ms must be greater than 0".to_string());
+            };
+            Ok(Some(crate::app::agent::cron::Schedule::Every { every_ms }))
+        }
+        other => Err(format!("Unsupported schedule_kind: {other}")),
+    }
+}
+
+fn effective_schedule_kind(body: &CronAddBody) -> String {
+    let raw = body
+        .schedule_kind
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("cron");
+    match raw {
+        "at" | "指定时间" => "at".to_string(),
+        "every" | "固定间隔" => "every".to_string(),
+        "cron" | "Cron" => {
+            let has_schedule =
+                body.schedule.as_deref().is_some_and(|value| !value.trim().is_empty());
+            if has_schedule {
+                "cron".to_string()
+            } else if body.every_ms.is_some_and(|value| value > 0) {
+                "every".to_string()
+            } else if body.at.as_deref().is_some_and(|value| !value.trim().is_empty()) {
+                "at".to_string()
+            } else {
+                "cron".to_string()
+            }
+        }
+        other => other.to_string(),
+    }
+}
+
+fn cron_add_body_log_fields(body: &CronAddBody) -> (&str, String, usize, bool, bool, bool, bool) {
+    let job_type = body.job_type.as_deref().map(str::trim).unwrap_or("shell");
+    let schedule_kind = effective_schedule_kind(body);
+    let schedule_fields =
+        body.schedule.as_deref().map(|value| value.split_whitespace().count()).unwrap_or(0);
+    (
+        job_type,
+        schedule_kind,
+        schedule_fields,
+        body.schedule.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        body.at.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        body.command.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        body.prompt.as_deref().is_some_and(|value| !value.trim().is_empty()),
+    )
+}
 
 /// 处理定时任务列表请求
 ///
@@ -71,26 +302,141 @@ pub async fn handle_api_cron_list(
     match crate::app::agent::cron::list_jobs(&config) {
         Ok(jobs) => {
             // 将任务列表转换为 JSON 格式
-            let jobs_json: Vec<serde_json::Value> = jobs
-                .iter()
-                .map(|job| {
-                    // 构建每个任务的 JSON 对象
-                    serde_json::json!({
-                        "id": job.id,
-                        "name": job.name,
-                        "command": job.command,
-                        "next_run": job.next_run.to_rfc3339(),
-                        "last_run": job.last_run.map(|t| t.to_rfc3339()),
-                        "last_status": job.last_status,
-                        "enabled": job.enabled,
-                    })
-                })
-                .collect();
+            let jobs_json: Vec<serde_json::Value> = jobs.iter().map(cron_job_json).collect();
             JsonResponse(serde_json::json!({"jobs": jobs_json})).into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             JsonResponse(serde_json::json!({"error": format!("Failed to list cron jobs: {e}")})),
+        )
+            .into_response(),
+    }
+}
+
+/// 处理定时任务历史执行记录请求。
+pub async fn handle_api_cron_runs(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    if let Err(e) = super::super::auth::require_auth(&state, &headers) {
+        return e.into_response();
+    }
+
+    let config = state.config.lock().clone();
+    let limit = config.cron.max_run_history.clamp(1, 10_000) as usize;
+    match crate::app::agent::cron::list_runs(&config, &id, limit) {
+        Ok(runs) => {
+            let runs_json: Vec<serde_json::Value> = runs.iter().map(cron_run_json).collect();
+            JsonResponse(serde_json::json!({"runs": runs_json})).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            JsonResponse(serde_json::json!({"error": format!("Failed to list cron runs: {e}")})),
+        )
+            .into_response(),
+    }
+}
+
+/// 处理定时任务更新请求。
+///
+/// 该接口只暴露桌面管理界面当前需要的字段；不支持的任务类型与投递策略保持原值。
+pub async fn handle_api_cron_update(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    JsonResponse(body): JsonResponse<CronUpdateBody>,
+) -> impl IntoResponse {
+    if let Err(e) = super::super::auth::require_auth(&state, &headers) {
+        return e.into_response();
+    }
+
+    let config = state.config.lock().clone();
+    tracing::info!(
+        target: "vw_gateway_cron",
+        action = "update",
+        job_id = %id,
+        name_present = body.name.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        job_type_present = body.job_type.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        schedule_kind_present = body.schedule_kind.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        schedule_present = body.schedule.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        at_present = body.at.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        every_ms_present = body.every_ms.is_some(),
+        command_present = body.command.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        prompt_present = body.prompt.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        enabled = ?body.enabled,
+        "cron update request received"
+    );
+    let schedule = match cron_update_schedule(&body) {
+        Ok(schedule) => schedule,
+        Err(err) => {
+            return (StatusCode::BAD_REQUEST, JsonResponse(serde_json::json!({"error": err})))
+                .into_response();
+        }
+    };
+    let job_type = match body.job_type.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+        Some(value) => match crate::app::agent::cron::JobType::try_from(value) {
+            Ok(job_type) => Some(job_type),
+            Err(err) => {
+                return (StatusCode::BAD_REQUEST, JsonResponse(serde_json::json!({"error": err})))
+                    .into_response();
+            }
+        },
+        None => None,
+    };
+    let delivery = if body.delivery_mode.is_some()
+        || body.delivery_channel.is_some()
+        || body.delivery_to.is_some()
+        || body.delivery_best_effort.is_some()
+    {
+        Some(crate::app::agent::cron::DeliveryConfig {
+            mode: body
+                .delivery_mode
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or("none")
+                .to_string(),
+            channel: trimmed_optional(body.delivery_channel.clone()),
+            to: trimmed_optional(body.delivery_to.clone()),
+            best_effort: body.delivery_best_effort.unwrap_or(true),
+        })
+    } else {
+        None
+    };
+    let patch = crate::app::agent::cron::CronJobPatch {
+        job_type,
+        schedule,
+        command: body.command,
+        prompt: body.prompt,
+        name: body.name,
+        enabled: body.enabled,
+        delivery,
+        model: body.model,
+        session_target: body
+            .session_target
+            .as_deref()
+            .map(crate::app::agent::cron::SessionTarget::parse),
+        delete_after_run: body.delete_after_run,
+        agent: body.agent,
+        acp_agent: body.acp_agent,
+        project_path: body.project_path,
+        wake: body.wake,
+        fallbacks: body.fallbacks.map(crate::app::agent::cron::normalize_fallbacks),
+        full_access: body.full_access,
+        task_pool: body.task_pool,
+        ..crate::app::agent::cron::CronJobPatch::default()
+    };
+
+    match crate::app::agent::cron::update_job(&config, &id, patch) {
+        Ok(job) => JsonResponse(serde_json::json!({
+            "status": "ok",
+            "job": cron_job_json(&job),
+        }))
+        .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            JsonResponse(serde_json::json!({"error": format!("Failed to update cron job: {e}")})),
         )
             .into_response(),
     }
@@ -139,27 +485,148 @@ pub async fn handle_api_cron_add(
 
     // 获取配置的克隆副本以避免长时间持有锁
     let config = state.config.lock().clone();
+    let (
+        log_job_type,
+        log_schedule_kind,
+        log_schedule_fields,
+        log_has_schedule,
+        log_has_at,
+        log_has_command,
+        log_has_prompt,
+    ) = cron_add_body_log_fields(&body);
+    tracing::info!(
+        target: "vw_gateway_cron",
+        action = "add",
+        job_type = %log_job_type,
+        schedule_kind = %log_schedule_kind,
+        schedule_present = log_has_schedule,
+        schedule_fields = log_schedule_fields,
+        at_present = log_has_at,
+        every_ms_present = body.every_ms.is_some(),
+        command_present = log_has_command,
+        prompt_present = log_has_prompt,
+        agent_present = body.agent.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        project_path_present = body.project_path.as_deref().is_some_and(|value| !value.trim().is_empty()),
+        delivery_mode = %body.delivery_mode.as_deref().unwrap_or("none"),
+        "cron add request received"
+    );
 
-    // 构建调度表达式，使用 cron 表达式格式
-    let schedule = crate::app::agent::cron::Schedule::Cron { expr: body.schedule, tz: None };
+    let schedule = match cron_add_schedule(&body) {
+        Ok(schedule) => schedule,
+        Err(err) => {
+            tracing::warn!(
+                target: "vw_gateway_cron",
+                action = "add",
+                job_type = %log_job_type,
+                schedule_kind = %log_schedule_kind,
+                error = %err,
+                "cron add request rejected"
+            );
+            return (StatusCode::BAD_REQUEST, JsonResponse(serde_json::json!({"error": err})))
+                .into_response();
+        }
+    };
 
-    // 尝试添加新的 shell 任务
-    match crate::app::agent::cron::add_shell_job(&config, body.name, schedule, &body.command) {
+    let job_type = cron_add_job_type(&body);
+    let result = match job_type.as_str() {
+        "shell" => {
+            let Some(command) =
+                body.command.as_deref().map(str::trim).filter(|value| !value.is_empty())
+            else {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    JsonResponse(serde_json::json!({"error": "Shell command is required"})),
+                )
+                    .into_response();
+            };
+            let job = crate::app::agent::cron::add_shell_job(
+                &config,
+                body.name.clone(),
+                schedule,
+                command,
+            );
+            match job {
+                Ok(job) => {
+                    crate::app::agent::cron::update_job(&config, &job.id, cron_add_patch(&body))
+                }
+                Err(err) => Err(err),
+            }
+        }
+        "agent" => {
+            let Some(prompt) =
+                body.prompt.as_deref().map(str::trim).filter(|value| !value.is_empty())
+            else {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    JsonResponse(serde_json::json!({"error": "Agent prompt is required"})),
+                )
+                    .into_response();
+            };
+            let session_target = body
+                .session_target
+                .as_deref()
+                .map(crate::app::agent::cron::SessionTarget::parse)
+                .unwrap_or_default();
+            let job = crate::app::agent::cron::add_agent_job(
+                &config,
+                body.name.clone(),
+                schedule,
+                prompt,
+                session_target,
+                trimmed_optional(body.model.clone()),
+                Some(cron_add_delivery(&body)),
+                body.delete_after_run.unwrap_or(false),
+            );
+            match job {
+                Ok(job) => {
+                    crate::app::agent::cron::update_job(&config, &job.id, cron_add_patch(&body))
+                }
+                Err(err) => Err(err),
+            }
+        }
+        other => {
+            return (
+                StatusCode::BAD_REQUEST,
+                JsonResponse(
+                    serde_json::json!({"error": format!("Unsupported job_type: {other}")}),
+                ),
+            )
+                .into_response();
+        }
+    };
+
+    match result {
         Ok(job) => JsonResponse(serde_json::json!({
             "status": "ok",
-            "job": {
-                "id": job.id,
-                "name": job.name,
-                "command": job.command,
-                "enabled": job.enabled,
-            }
+            "job": cron_job_json(&job),
         }))
         .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            JsonResponse(serde_json::json!({"error": format!("Failed to add cron job: {e}")})),
-        )
-            .into_response(),
+        Err(e) => {
+            tracing::warn!(
+                target: "vw_gateway_cron",
+                action = "add",
+                job_type = %log_job_type,
+                schedule_kind = %log_schedule_kind,
+                error = %e,
+                "cron add failed"
+            );
+            let error = e.to_string();
+            let status = if error.contains("Invalid cron expression")
+                || error.contains("schedule")
+                || error.contains("Cron expression")
+            {
+                StatusCode::BAD_REQUEST
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            (
+                status,
+                JsonResponse(
+                    serde_json::json!({"error": format!("Failed to add cron job: {error}")}),
+                ),
+            )
+                .into_response()
+        }
     }
 }
 

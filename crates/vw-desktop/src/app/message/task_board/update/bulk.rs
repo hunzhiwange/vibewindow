@@ -76,6 +76,14 @@ TaskBoardMessage::BulkModelSelected(model) => {
     app.model_popover_hover = None;
     iced::Task::none()
 }
+TaskBoardMessage::BulkAgentSelected(agent) => {
+    app.task_board_bulk_agent = if agent.trim().is_empty() {
+        crate::app::state::MAIN_AGENT_KEY.to_string()
+    } else {
+        agent
+    };
+    iced::Task::none()
+}
 TaskBoardMessage::CloseBulkModelPopover => {
     app.task_board_bulk_model_popover = false;
     app.model_popover_hover = None;
@@ -133,6 +141,38 @@ TaskBoardMessage::BulkSetModelInStatus(status) => {
         let path = project_path.clone();
         return iced::Task::perform(
             async move { persist_updated_tasks(&path, &tasks, "批量设置模型") },
+            |result| Message::TaskBoard(TaskBoardMessage::BulkActionCompleted(result)),
+        );
+    }
+    iced::Task::none()
+}
+TaskBoardMessage::BulkSetAgentInStatus(status) => {
+    app.task_board_context_menu = None;
+    let mut tasks = selected_tasks_for_status(app, status);
+    if tasks.is_empty() {
+        return iced::Task::none();
+    }
+
+    let agent = if app.task_board_bulk_agent.trim().is_empty() {
+        crate::app::state::MAIN_AGENT_KEY.to_string()
+    } else {
+        app.task_board_bulk_agent.trim().to_string()
+    };
+    app.task_board_bulk_agent = agent.clone();
+
+    for task in &mut tasks {
+        let previous_agent = task.agent.clone().unwrap_or_else(|| crate::app::state::MAIN_AGENT_KEY.to_string());
+        task.agent = Some(agent.clone());
+        task.add_log(format!("批量设置代理: {} -> {}", previous_agent, agent));
+    }
+
+    let task_ids = tasks.iter().map(|task| task.id.clone()).collect::<Vec<_>>();
+    clear_selected_task_ids(app, &task_ids);
+
+    if let Some(project_path) = &app.project_path {
+        let path = project_path.clone();
+        return iced::Task::perform(
+            async move { persist_updated_tasks(&path, &tasks, "批量设置代理") },
             |result| Message::TaskBoard(TaskBoardMessage::BulkActionCompleted(result)),
         );
     }

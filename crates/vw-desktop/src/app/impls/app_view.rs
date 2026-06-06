@@ -80,6 +80,7 @@ impl App {
             Screen::Usage => views::usage::view(self),
             Screen::JsonTool => views::json_tool::view(self),
             Screen::JsonYamlTool => views::json_yaml_tool::view(self),
+            Screen::Knowledge => views::knowledge::view(self),
             Screen::SqlTool => views::sql_tool::view(self),
             Screen::RedisTool => views::redis_tool::view(self),
             Screen::HtmlTool => views::html_tool::view(self),
@@ -196,7 +197,7 @@ impl App {
 
         // 如果显示了"关于"模态框，则在根内容之上叠加
         let root_content: Element<'_, Message> = if self.show_about_modal {
-            iced::widget::stack![root_content, components::about_modal::view()].into()
+            iced::widget::stack![root_content, components::about_modal::view(self)].into()
         } else {
             root_content
         };
@@ -232,6 +233,8 @@ impl App {
         // 项目编辑模态框
         let root_content = app_view_modals::with_project_edit(self, root_content);
         let root_content = app_view_modals::with_git_diff_overlays(self, root_content);
+        let root_content = app_view_modals::with_chat_reset_dialog(self, root_content);
+        let root_content = app_view_modals::with_chat_fork_dialog(self, root_content);
         // 确认对话框（问题模态框）
         let root_content = app_view_modals::with_question_modal(self, root_content);
         let root_content = app_view_modals::with_permission_modal(self, root_content);

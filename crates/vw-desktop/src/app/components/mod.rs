@@ -211,6 +211,15 @@ pub mod system_settings_autonomy;
 #[path = "system_settings_autonomy_tests.rs"]
 mod system_settings_autonomy_tests;
 
+/// 系统设置：ACP 配置
+///
+/// 管理 Agent Client Protocol 后端目录、初始化说明和启用状态。
+pub mod system_settings_acp;
+
+#[cfg(test)]
+#[path = "system_settings_acp_tests.rs"]
+mod system_settings_acp_tests;
+
 /// 系统设置：通用组件
 ///
 /// 各设置面板共用的 UI 组件和工具函数。

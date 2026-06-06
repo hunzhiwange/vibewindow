@@ -4,6 +4,7 @@
 //! 不改变任何运行时行为。
 
 use crate::app::Message;
+use crate::app::state::MAIN_AGENT_KEY;
 use crate::app::task::SubTaskStatus;
 
 use super::helpers::*;
@@ -105,8 +106,16 @@ pub fn update(
 
             if board_is_open {
                 app.show_task_board = false;
-                app.screen = crate::app::Screen::Project;
+                app.screen = if app.project_path.is_some() {
+                    crate::app::Screen::Project
+                } else {
+                    crate::app::Screen::Home
+                };
                 app.task_board_worktree_snapshot_loading = false;
+                return iced::Task::none();
+            }
+
+            if app.project_path.is_none() {
                 return iced::Task::none();
             }
 
@@ -128,7 +137,11 @@ pub fn update(
         }
         TaskBoardMessage::CloseBoard => {
             app.show_task_board = false;
-            app.screen = crate::app::Screen::Project;
+            app.screen = if app.project_path.is_some() {
+                crate::app::Screen::Project
+            } else {
+                crate::app::Screen::Home
+            };
             app.task_board_worktree_snapshot_loading = false;
             app.task_board_bulk_active_status = None;
             app.task_board_selected_tasks.clear();
@@ -161,11 +174,8 @@ pub fn update(
             prune_bulk_selection(app);
             app.task_board_settings =
                 sanitized_task_board_settings(app.task_board_settings.clone());
-            if app.task_board_settings.auto_execute {
+            if app.task_board_settings.auto_execute && !app.task_board_executor_running {
                 return iced::Task::batch(build_auto_execute_bootstrap_tasks(app));
-            }
-            if app.task_board_executor_running {
-                return iced::Task::done(Message::TaskBoard(TaskBoardMessage::ExecutionTick));
             }
             iced::Task::none()
         }
@@ -419,6 +429,10 @@ pub fn update(
             app.task_board_last_model = app.task_board_draft.model.clone();
             iced::Task::none()
         }
+        TaskBoardMessage::UpdateDraftAgent(agent) => {
+            app.task_board_draft.agent = agent.or_else(|| Some(MAIN_AGENT_KEY.to_string()));
+            iced::Task::none()
+        }
         TaskBoardMessage::UpdateDraftExecutor(executor) => {
             set_draft_executor_selection(&mut app.task_board_draft, executor.clone());
             app.task_board_last_acp_agent = executor;
@@ -482,6 +496,8 @@ pub fn update(
 
             let mut task = Task::new(priority);
             task.model = model;
+            task.agent =
+                app.task_board_draft.agent.clone().or_else(|| Some(MAIN_AGENT_KEY.to_string()));
             task.acp_agent = app.task_board_draft.acp_agent.clone();
             task.prompt = app.task_board_draft.prompt.clone();
             task.subtasks = app
@@ -659,6 +675,13 @@ pub fn update(
                     app.task_board_viewing_logs.as_ref().unwrap().priority.to_string();
                 app.task_board_draft.model =
                     app.task_board_viewing_logs.as_ref().unwrap().model.clone();
+                app.task_board_draft.agent = app
+                    .task_board_viewing_logs
+                    .as_ref()
+                    .unwrap()
+                    .agent
+                    .clone()
+                    .or_else(|| Some(MAIN_AGENT_KEY.to_string()));
                 set_draft_executor_selection(
                     &mut app.task_board_draft,
                     app.task_board_viewing_logs.as_ref().unwrap().acp_agent.clone(),
@@ -693,6 +716,10 @@ pub fn update(
             app.task_board_last_model = normalize_task_model(&app.task_board_draft.model);
             iced::Task::none()
         }
+        TaskBoardMessage::UpdateEditingTaskAgent(agent) => {
+            app.task_board_draft.agent = agent.or_else(|| Some(MAIN_AGENT_KEY.to_string()));
+            iced::Task::none()
+        }
         TaskBoardMessage::UpdateEditingTaskExecutor(executor) => {
             set_draft_executor_selection(&mut app.task_board_draft, executor);
             app.task_board_executor_popover = false;
@@ -708,6 +735,8 @@ pub fn update(
             {
                 task.priority = app.task_board_draft.priority.parse().unwrap_or(task.priority);
                 task.model = normalize_task_model(&app.task_board_draft.model);
+                task.agent =
+                    app.task_board_draft.agent.clone().or_else(|| Some(MAIN_AGENT_KEY.to_string()));
                 task.acp_agent = app.task_board_draft.acp_agent.clone();
                 task.prompt = app.task_board_draft.prompt.clone();
                 task.updated_at_ms = crate::app::time::now_ms();
@@ -1173,6 +1202,11 @@ pub fn update(
             app.model_popover_hover = None;
             iced::Task::none()
         }
+        TaskBoardMessage::BulkAgentSelected(agent) => {
+            app.task_board_bulk_agent =
+                if agent.trim().is_empty() { MAIN_AGENT_KEY.to_string() } else { agent };
+            iced::Task::none()
+        }
         TaskBoardMessage::CloseBulkModelPopover => {
             app.task_board_bulk_model_popover = false;
             app.model_popover_hover = None;
@@ -1230,6 +1264,39 @@ pub fn update(
                 let path = project_path.to_string();
                 return iced::Task::perform(
                     async move { persist_updated_tasks(&path, &tasks, "批量设置模型") },
+                    |result| Message::TaskBoard(TaskBoardMessage::BulkActionCompleted(result)),
+                );
+            }
+            iced::Task::none()
+        }
+        TaskBoardMessage::BulkSetAgentInStatus(status) => {
+            app.task_board_context_menu = None;
+            let mut tasks = selected_tasks_for_status(app, status);
+            if tasks.is_empty() {
+                return iced::Task::none();
+            }
+
+            let agent = if app.task_board_bulk_agent.trim().is_empty() {
+                MAIN_AGENT_KEY.to_string()
+            } else {
+                app.task_board_bulk_agent.trim().to_string()
+            };
+            app.task_board_bulk_agent = agent.clone();
+
+            for task in &mut tasks {
+                let previous_agent =
+                    task.agent.clone().unwrap_or_else(|| MAIN_AGENT_KEY.to_string());
+                task.agent = Some(agent.clone());
+                task.add_log(format!("批量设置代理: {} -> {}", previous_agent, agent));
+            }
+
+            let task_ids = tasks.iter().map(|task| task.id.clone()).collect::<Vec<_>>();
+            clear_selected_task_ids(app, &task_ids);
+
+            if let Some(project_path) = &app.project_path {
+                let path = project_path.to_string();
+                return iced::Task::perform(
+                    async move { persist_updated_tasks(&path, &tasks, "批量设置代理") },
                     |result| Message::TaskBoard(TaskBoardMessage::BulkActionCompleted(result)),
                 );
             }
@@ -2868,6 +2935,14 @@ pub fn update(
                         } else {
                             task.model = app.task_board_draft.model.clone();
                         }
+                        task.agent = item
+                            .get("agent")
+                            .and_then(|value| value.as_str())
+                            .map(str::trim)
+                            .filter(|value| !value.is_empty())
+                            .map(str::to_string)
+                            .or_else(|| app.task_board_draft.agent.clone())
+                            .or_else(|| Some(MAIN_AGENT_KEY.to_string()));
                         set_task_executor_selection(
                             &mut task,
                             item.get("acp_agent")
@@ -2891,6 +2966,7 @@ pub fn update(
                     let priority_idx =
                         headers.iter().position(|&h| h == "priority" || h == "优先级");
                     let model_idx = headers.iter().position(|&h| h == "model" || h == "模型");
+                    let agent_idx = headers.iter().position(|&h| h == "agent" || h == "代理");
                     let acp_agent_idx = headers
                         .iter()
                         .position(|&h| h == "acp_agent" || h == "智能体" || h == "acp智能体");
@@ -2930,6 +3006,13 @@ pub fn update(
                                 .filter(|value: &&str| !value.is_empty())
                                 .map(str::to_string)
                                 .unwrap_or_else(|| app.task_board_draft.model.clone());
+                            task.agent = agent_idx
+                                .and_then(|idx| parts.get(idx).copied())
+                                .map(str::trim)
+                                .filter(|value| !value.is_empty())
+                                .map(str::to_string)
+                                .or_else(|| app.task_board_draft.agent.clone())
+                                .or_else(|| Some(MAIN_AGENT_KEY.to_string()));
                             set_task_executor_selection(
                                 &mut task,
                                 acp_agent_idx

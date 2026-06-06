@@ -214,6 +214,22 @@ pub(super) fn contrast_text_color(bg: Color) -> Color {
     if lum > 0.62 { Color::from_rgb8(18, 18, 18) } else { Color::WHITE }
 }
 
+pub(super) fn home_emphasis_font() -> iced::Font {
+    iced::Font {
+        family: iced::font::Family::Name("JetBrains Mono"),
+        weight: iced::font::Weight::Bold,
+        ..Default::default()
+    }
+}
+
+pub(super) fn home_cjk_emphasis_font() -> iced::Font {
+    iced::Font {
+        family: iced::font::Family::Name("Noto Sans CJK SC"),
+        weight: iced::font::Weight::Bold,
+        ..Default::default()
+    }
+}
+
 fn lighten_color(color: Color) -> Color {
     Color {
         r: (color.r + 3.0) / 4.0,
@@ -258,11 +274,7 @@ pub(super) fn project_avatar<'a>(
     let use_custom_bg = custom_color.is_some() && custom_icon_trimmed.is_some() && !has_image_icon;
     let badge_bg = if use_custom_bg { accent } else { light_bg };
     let badge_text = if use_custom_bg { contrast_text_color(accent) } else { accent };
-    let badge_font = if label.is_ascii() {
-        iced::Font { weight: iced::font::Weight::Bold, ..Default::default() }
-    } else {
-        iced::Font::with_name("Noto Sans CJK SC")
-    };
+    let badge_font = if label.is_ascii() { home_emphasis_font() } else { home_cjk_emphasis_font() };
 
     let badge_content: Element<'a, Message> =
         match image_handle {

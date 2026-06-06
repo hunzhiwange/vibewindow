@@ -143,11 +143,11 @@ const BUILT_IN_AGENT_DEFINITIONS: &[BuiltInAgentDefinition] = &[
     BuiltInAgentDefinition {
         name: "copilot",
         display_name: "GitHub Copilot",
-        command: "npx",
-        args: &["@github/copilot-language-server@latest", "--acp"],
+        command: "copilot",
+        args: &["--acp", "--stdio"],
         env: &[],
-        local_command_candidates: &["copilot-language-server"],
-        local_args: &["--acp"],
+        local_command_candidates: &["copilot"],
+        local_args: &["--acp", "--stdio"],
     },
     BuiltInAgentDefinition {
         name: "cursor",

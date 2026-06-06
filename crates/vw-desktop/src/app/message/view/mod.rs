@@ -18,7 +18,9 @@
 
 use crate::app::{
     App, Message,
-    state::{ChatSendBehavior, ExternalOpenApp, ModelPopoverHover, UsageModelInfo},
+    state::{
+        ChatSendBehavior, ExternalOpenApp, ModelPopoverHover, TopBarGatewayTab, UsageModelInfo,
+    },
 };
 use iced::{Task, Theme, Vector};
 
@@ -26,6 +28,7 @@ pub mod layout;
 pub mod panel;
 pub mod theme;
 
+#[cfg(not(target_arch = "wasm32"))]
 fn task_pet_window_settings(size: iced::Size, position: iced::Point) -> iced::window::Settings {
     iced::window::Settings {
         size,
@@ -80,6 +83,7 @@ fn open_task_pet_session(app: &mut App, session_id: String) -> Task<Message> {
             app.active_shared_chat_messages(),
             base_chunk_start,
             true,
+            app.dialogue_flow_show_reasoning_summary,
         )
     };
 
@@ -106,6 +110,8 @@ pub enum MenuType {
     Help,
     /// 外部链接菜单 - 用于在外部浏览器或其他应用中打开链接
     OpenExternal,
+    /// 网关服务菜单 - 显示服务端与客户端网关入口
+    GatewayServices,
 }
 
 /// 视图层消息枚举
@@ -361,6 +367,8 @@ pub enum ViewMessage {
     OpenJsonTool,
     /// 打开 JSON/YAML 转换工具
     OpenJsonYamlTool,
+    /// 打开知识库工作台
+    OpenKnowledge,
     /// 打开 SQL 格式化工具
     OpenSqlTool,
     /// 打开 Redis 客户端工具
@@ -412,6 +420,8 @@ pub enum ViewMessage {
     OpenUrlExternal(String),
     /// 切换 Web 链接菜单的显示/隐藏
     ToggleWebLinksMenu,
+    /// 选择顶栏网关服务弹窗标签页
+    GatewayServicesTabSelected(TopBarGatewayTab),
     /// Web 书签标题输入改变
     ///
     /// # 参数
@@ -578,15 +588,23 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             }
         }
         ViewMessage::TaskPetToggleWindow => {
-            if let Some(window_id) = app.task_pet_window_id {
-                iced::window::close(window_id)
-            } else {
-                let size = app.task_pet_window_size();
-                let position = app.task_pet_position;
-                let (window_id, open_task) =
-                    iced::window::open(task_pet_window_settings(size, position));
-                app.task_pet_window_id = Some(window_id);
-                open_task.map(|_| Message::None)
+            #[cfg(target_arch = "wasm32")]
+            {
+                Task::none()
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                if let Some(window_id) = app.task_pet_window_id {
+                    iced::window::close(window_id)
+                } else {
+                    let size = app.task_pet_window_size();
+                    let position = app.task_pet_position;
+                    let (window_id, open_task) =
+                        iced::window::open(task_pet_window_settings(size, position));
+                    app.task_pet_window_id = Some(window_id);
+                    open_task.map(|_| Message::None)
+                }
             }
         }
         ViewMessage::TaskPetToggleCollapsed => {
@@ -707,6 +725,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
         | ViewMessage::OpenApps
         | ViewMessage::OpenJsonTool
         | ViewMessage::OpenJsonYamlTool
+        | ViewMessage::OpenKnowledge
         | ViewMessage::OpenSqlTool
         | ViewMessage::OpenRedisTool
         | ViewMessage::OpenHtmlTool
@@ -736,6 +755,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
         | ViewMessage::CopyProjectPath
         | ViewMessage::ReplaySessionFromSnapshot(_)
         | ViewMessage::ToggleWebLinksMenu
+        | ViewMessage::GatewayServicesTabSelected(_)
         | ViewMessage::WebBookmarkTitleChanged(_)
         | ViewMessage::WebBookmarkUrlChanged(_)
         | ViewMessage::WebBookmarkWidthChanged(_)

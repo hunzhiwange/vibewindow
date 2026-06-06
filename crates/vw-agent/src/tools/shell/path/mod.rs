@@ -35,7 +35,7 @@ pub fn check_path_constraints(
             continue;
         };
 
-        if is_dangerous_path(&resolved) {
+        if is_dangerous_path(&resolved) && !allows_all_paths(allowed_roots) {
             return PathCheckResult::Blocked {
                 path: resolved,
                 reason: "Path is on the dangerous paths list".into(),
@@ -343,6 +343,10 @@ fn is_path_allowed(resolved: &Path, workspace_dir: &Path, allowed_roots: &[PathB
     }
 
     allowed_roots.iter().map(|root| normalize_path(root)).any(|root| resolved.starts_with(root))
+}
+
+fn allows_all_paths(allowed_roots: &[PathBuf]) -> bool {
+    allowed_roots.iter().map(|root| normalize_path(root)).any(|root| root == Path::new("/"))
 }
 
 fn is_dangerous_path(path: &Path) -> bool {

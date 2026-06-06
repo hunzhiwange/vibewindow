@@ -212,6 +212,12 @@ pub mod mcp;
 /// 通过实现 `Memory` trait 来添加新的存储后端。
 pub mod memory;
 
+/// 知识库运行时模块（非 WASM）
+///
+/// 提供本地知识库的文档存储、分段和检索能力，供 gateway 与 workflow 复用。
+#[cfg(not(target_arch = "wasm32"))]
+pub mod knowledge;
+
 /// 多模态处理模块
 ///
 /// 处理文本、图像、音频等多模态内容的解析和生成。

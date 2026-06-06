@@ -548,6 +548,7 @@ pub(crate) async fn load_gateway_recent_projects()
 
     Ok(projects
         .into_iter()
+        .filter(|project| crate::app::projects::is_visible_recent_project_path(&project.directory))
         .map(|project| crate::app::RecentProjectMeta {
             path: project.directory,
             name: project.name,
@@ -1095,6 +1096,7 @@ pub(crate) fn prepare_session_ui_task(
     chat: crate::app::session::SharedChatMessages,
     chunk_start_idx: usize,
     is_base: bool,
+    show_reasoning_summary: bool,
 ) -> Task<Message> {
     Task::perform(
         async move {
@@ -1110,6 +1112,7 @@ pub(crate) fn prepare_session_ui_task(
                         &chat[chunk_start_idx..chunk_end_idx],
                         chunk_start_idx,
                         is_base,
+                        show_reasoning_summary,
                     ),
                 ))
             })
@@ -1133,6 +1136,7 @@ pub(crate) fn prepare_session_ui_chunks_task(
     chat: crate::app::session::SharedChatMessages,
     chunk_starts: Vec<usize>,
     base_chunk_start: Option<usize>,
+    show_reasoning_summary: bool,
 ) -> Task<Message> {
     if chunk_starts.is_empty() {
         return Task::none();
@@ -1144,6 +1148,7 @@ pub(crate) fn prepare_session_ui_chunks_task(
             chat.clone(),
             chunk_start_idx,
             base_chunk_start == Some(chunk_start_idx),
+            show_reasoning_summary,
         )
     }))
 }

@@ -331,6 +331,14 @@ pub(super) fn register_icons(m: &mut HashMap<Icon, svg::Handle>) {
         )),
     );
 
+    // 网关/网络存储图标
+    m.insert(
+        Icon::HddNetwork,
+        svg::Handle::from_memory(include_bytes!(
+            "../../../../../assets/icons/bootstrap/hdd-network.svg"
+        )),
+    );
+
     // 花括号/代码块图标
     m.insert(
         Icon::Braces,

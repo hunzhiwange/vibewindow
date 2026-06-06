@@ -4,11 +4,14 @@
 //! 注释聚焦调用边界、返回值和错误传播方式，便于后续维护设置页与工具栏行为时快速定位职责。
 
 use crate::app::assets::{self, Icon};
-use crate::app::components::system_settings_common::settings_panel_style;
+use crate::app::components::system_settings_common::{
+    danger_action_btn_style, rounded_action_btn_style, settings_modal_card, settings_modal_overlay,
+    settings_muted_text_style, settings_panel_style,
+};
 use crate::app::state::ToastKind;
 use crate::app::{App, Message};
 use iced::widget::svg::{self, Svg};
-use iced::widget::{column, container, row, text};
+use iced::widget::{Space, button, column, container, row, text};
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme, Vector};
 
 fn is_dark_theme(theme: &Theme) -> bool {
@@ -21,6 +24,42 @@ fn icon_svg(icon: Icon, size: f32, color: Color) -> Svg<'static> {
         .width(Length::Fixed(size))
         .height(Length::Fixed(size))
         .style(move |_theme: &Theme, _status| svg::Style { color: Some(color) })
+}
+
+struct ToastPalette {
+    icon: Icon,
+    accent: Color,
+    background: Color,
+    title: &'static str,
+}
+
+fn toast_palette(kind: ToastKind) -> ToastPalette {
+    match kind {
+        ToastKind::Success => ToastPalette {
+            icon: Icon::Check,
+            accent: Color::from_rgb8(0x28, 0x8F, 0x61),
+            background: Color::from_rgb8(0xE8, 0xF7, 0xEF),
+            title: "操作已完成",
+        },
+        ToastKind::Info => ToastPalette {
+            icon: Icon::QuestionCircle,
+            accent: Color::from_rgb8(0x2A, 0x6F, 0xC2),
+            background: Color::from_rgb8(0xE8, 0xF1, 0xFE),
+            title: "提示",
+        },
+        ToastKind::Warning => ToastPalette {
+            icon: Icon::QuestionCircle,
+            accent: Color::from_rgb8(0xB5, 0x7A, 0x00),
+            background: Color::from_rgb8(0xFF, 0xF4, 0xD6),
+            title: "请注意",
+        },
+        ToastKind::Error => ToastPalette {
+            icon: Icon::X,
+            accent: Color::from_rgb8(0xC5, 0x3E, 0x3E),
+            background: Color::from_rgb8(0xFE, 0xEA, 0xEA),
+            title: "操作失败",
+        },
+    }
 }
 
 /// 构建或处理 `view` 对应的界面片段与交互数据。
@@ -41,13 +80,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         return container(text("")).width(Length::Fixed(0.0)).height(Length::Fixed(0.0)).into();
     };
 
-    let (icon, accent, title) = match toast.kind {
-        ToastKind::Success => (Icon::Check, Color::from_rgb8(0x28, 0x8F, 0x61), "操作已完成"),
-        ToastKind::Info => (Icon::QuestionCircle, Color::from_rgb8(0x2A, 0x6F, 0xC2), "提示"),
-        ToastKind::Error => (Icon::X, Color::from_rgb8(0xC5, 0x3E, 0x3E), "需要处理"),
-    };
+    let palette = toast_palette(toast.kind);
+    let accent = palette.accent;
+    let background = palette.background;
 
-    let icon_badge = container(icon_svg(icon, 14.0, accent))
+    let icon_badge = container(icon_svg(palette.icon, 14.0, accent))
         .width(Length::Fixed(34.0))
         .height(Length::Fixed(34.0))
         .align_x(iced::alignment::Horizontal::Center)
@@ -69,7 +106,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let content = row![
         icon_badge,
         column![
-            text(title)
+            text(palette.title)
                 .size(11)
                 .style(move |_theme: &Theme| iced::widget::text::Style { color: Some(accent) }),
             text(&toast.message).size(13).style(|theme: &Theme| iced::widget::text::Style {
@@ -91,14 +128,14 @@ pub fn view(app: &App) -> Element<'_, Message> {
             let mut style = settings_panel_style(theme);
             let is_dark = is_dark_theme(theme);
             style.background = Some(Background::Color(if is_dark {
-                theme.extended_palette().background.base.color.scale_alpha(0.97)
+                background.scale_alpha(0.22)
             } else {
-                Color::WHITE.scale_alpha(0.96)
+                background
             }));
             style.border = Border {
                 width: 1.0,
-                color: accent.scale_alpha(if is_dark { 0.38 } else { 0.16 }),
-                radius: 18.0.into(),
+                color: accent.scale_alpha(if is_dark { 0.54 } else { 0.22 }),
+                radius: 12.0.into(),
             };
             style.shadow = iced::Shadow {
                 color: Color::BLACK.scale_alpha(if is_dark { 0.18 } else { 0.08 }),
@@ -109,4 +146,50 @@ pub fn view(app: &App) -> Element<'_, Message> {
         })
         .width(Length::Shrink)
         .into()
+}
+
+/// 构建通用确认弹层。
+///
+/// # 参数
+///
+/// 调用方提供标题、正文、按钮文案和确认/取消消息；本组件只负责渲染通用确认 UI。
+///
+/// # 返回值
+///
+/// 返回一个覆盖全屏的模态确认弹层，可作为任意页面的顶层 layer 复用。
+///
+/// # 错误处理
+///
+/// 本函数不执行业务操作；确认或取消后的错误由调用方消息处理。
+pub fn confirm_dialog<'a>(
+    title: impl Into<String>,
+    body: impl Into<String>,
+    confirm_label: &'a str,
+    cancel_label: &'a str,
+    confirm_message: Message,
+    cancel_message: Message,
+) -> Element<'a, Message> {
+    let card = settings_modal_card(
+        column![
+            text(title.into()).size(18),
+            text(body.into()).size(13).style(settings_muted_text_style),
+            row![
+                Space::new().width(Length::Fill),
+                button(text(cancel_label).size(13))
+                    .style(rounded_action_btn_style)
+                    .padding([9, 14])
+                    .on_press(cancel_message.clone()),
+                button(text(confirm_label).size(13))
+                    .style(danger_action_btn_style)
+                    .padding([9, 14])
+                    .on_press(confirm_message),
+            ]
+            .spacing(10)
+            .align_y(Alignment::Center),
+        ]
+        .spacing(16),
+    )
+    .width(Length::Fixed(420.0));
+
+    settings_modal_overlay(None, cancel_message, card)
 }

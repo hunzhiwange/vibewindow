@@ -5,6 +5,41 @@
 
 use super::*;
 
+impl AcpClient {
+    pub(super) fn build_event_client(
+        &self,
+        cwd: &Path,
+        expected_session_id: Arc<Mutex<Option<String>>>,
+        event_tx: mpsc::UnboundedSender<InternalEvent>,
+    ) -> AcpEventClient {
+        let on_operation = self.on_client_operation.clone();
+        AcpEventClient {
+            expected_session_id,
+            event_tx,
+            filesystem: FileSystemHandlers::new(FileSystemHandlersOptions {
+                cwd: cwd.to_path_buf(),
+                permission_mode: self.permission_mode,
+                non_interactive_permissions: self.non_interactive_permissions,
+                on_operation: on_operation.clone(),
+                confirm_write: None,
+            }),
+            terminal_manager: TerminalManager::new(TerminalManagerOptions {
+                cwd: cwd.to_path_buf(),
+                permission_mode: self.permission_mode,
+                non_interactive_permissions: self.non_interactive_permissions,
+                on_operation,
+                confirm_execute: None,
+                kill_grace_ms: None,
+            }),
+            permission_mode: self.permission_mode,
+            non_interactive_permissions: self.non_interactive_permissions,
+            on_session_update: self.on_session_update.clone(),
+            permission_stats: self.permission_stats.clone(),
+            cancelling_session_ids: self.cancelling_session_ids.clone(),
+        }
+    }
+}
+
 #[async_trait::async_trait(?Send)]
 impl acp::Client for AcpEventClient {
     async fn request_permission(

@@ -123,6 +123,9 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             if id == crate::apps::workflow::WORKFLOW_TOOL_TAB_ID {
                 return crate::apps::workflow::ensure_initialized(app);
             }
+            if id == "knowledge" {
+                return crate::app::message::knowledge_tool::ensure_loaded(app);
+            }
             Task::none()
         }
         ViewMessage::TabClosed(id) => {

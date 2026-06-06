@@ -1,4 +1,19 @@
 use super::*;
+use std::fmt;
+
+/// Git 面板可切换的工作树选项。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitWorktreeOption {
+    pub(crate) directory: String,
+    pub(crate) label: String,
+    pub(crate) branch: Option<String>,
+}
+
+impl fmt::Display for GitWorktreeOption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.label)
+    }
+}
 
 /// Git 差异选中的行信息
 ///

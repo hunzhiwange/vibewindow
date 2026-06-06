@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 use std::future::Future;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::pin::Pin;
 use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
@@ -149,7 +149,7 @@ impl TerminalManager {
         });
 
         let result = async {
-            if !self.is_execute_approved(&command_line).await? {
+            if !self.is_execute_approved(&cwd, &command_line).await? {
                 return Err(Box::new(permission_denied_error(
                     "Permission denied for terminal/create",
                 )) as ErrorSource);
@@ -355,11 +355,18 @@ impl TerminalManager {
         });
     }
 
-    async fn is_execute_approved(&self, command_line: &str) -> Result<bool, ErrorSource> {
+    async fn is_execute_approved(
+        &self,
+        cwd: &Path,
+        command_line: &str,
+    ) -> Result<bool, ErrorSource> {
         match self.permission_mode {
             PermissionMode::ApproveAll => Ok(true),
             PermissionMode::DenyAll => Ok(false),
             PermissionMode::ApproveReads => {
+                if self.uses_default_confirm_execute && is_within_root(&self.cwd, cwd) {
+                    return Ok(true);
+                }
                 if self.uses_default_confirm_execute
                     && self.non_interactive_permissions == NonInteractivePermissionPolicy::Fail
                     && !can_prompt_for_permission()
@@ -624,6 +631,28 @@ fn terminal_cwd(record: &Map<String, Value>, default_cwd: &Path) -> Result<PathB
         return Err(format!("cwd must be absolute: {}", cwd.display()).into());
     }
     Ok(cwd)
+}
+
+fn normalize_absolute_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            Component::RootDir => normalized.push(component.as_os_str()),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            Component::Normal(value) => normalized.push(value),
+        }
+    }
+    normalized
+}
+
+fn is_within_root(root_dir: &Path, target_path: &Path) -> bool {
+    let root_dir = normalize_absolute_path(root_dir);
+    let target_path = normalize_absolute_path(target_path);
+    target_path == root_dir || target_path.starts_with(root_dir)
 }
 
 fn env_overrides(record: &Map<String, Value>) -> HashMap<String, String> {

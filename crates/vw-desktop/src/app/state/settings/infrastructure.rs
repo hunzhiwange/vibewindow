@@ -39,6 +39,29 @@ impl Default for HttpRequestSettingsState {
     }
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct AcpSettingsState {
+    pub(crate) catalog: std::collections::BTreeMap<String, vw_config_types::config::AcpAgentConfig>,
+    pub(crate) enabled: std::collections::BTreeSet<String>,
+    pub(crate) loading: bool,
+    pub(crate) saving_agent: Option<String>,
+    pub(crate) save_error: Option<String>,
+    pub(crate) status_message: Option<String>,
+}
+
+impl Default for AcpSettingsState {
+    fn default() -> Self {
+        Self {
+            catalog: std::collections::BTreeMap::new(),
+            enabled: std::collections::BTreeSet::new(),
+            loading: false,
+            saving_agent: None,
+            save_error: None,
+            status_message: None,
+        }
+    }
+}
+
 /// 安全设置面板状态
 ///
 /// 管理系统安全性的配置，包括沙箱、审计、

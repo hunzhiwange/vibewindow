@@ -11,6 +11,7 @@ use crate::app::components::system_settings_common::panels::{
 use crate::app::components::system_settings_common::styles::settings_muted_text_style;
 use crate::app::components::system_settings_common::theme::is_dark_theme;
 use crate::app::{App, Message};
+use iced::widget::scrollable::{Direction, Scrollbar};
 use iced::widget::{Space, button, column, container, row, scrollable, svg, text};
 use iced::{Alignment, Border, Color, Element, Length};
 use std::hash::{Hash, Hasher};
@@ -120,6 +121,7 @@ pub fn with_settings_help_modal<'a>(
             .width(Length::Fill)
             .padding([4, 0]),
     )
+    .direction(Direction::Vertical(Scrollbar::new().width(4).scroller_width(4)))
     .width(Length::Fill)
     .height(Length::Fill);
 

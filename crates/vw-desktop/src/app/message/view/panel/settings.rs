@@ -21,6 +21,31 @@ use std::process::Command;
 #[cfg(not(target_arch = "wasm32"))]
 use vw_shared::update;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CloseRequestedWindows {
+    pub(crate) main_window_id: Option<iced::window::Id>,
+    pub(crate) task_pet_window_id: Option<iced::window::Id>,
+}
+
+pub(crate) fn close_requested_windows(
+    main_window_id: Option<iced::window::Id>,
+    task_pet_window_id: Option<iced::window::Id>,
+    requested_window_id: iced::window::Id,
+) -> CloseRequestedWindows {
+    if main_window_id == Some(requested_window_id) {
+        return CloseRequestedWindows {
+            main_window_id,
+            task_pet_window_id: task_pet_window_id.filter(|id| *id != requested_window_id),
+        };
+    }
+
+    if task_pet_window_id == Some(requested_window_id) {
+        return CloseRequestedWindows { main_window_id: None, task_pet_window_id };
+    }
+
+    CloseRequestedWindows { main_window_id: None, task_pet_window_id: None }
+}
+
 pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
     match message {
         ViewMessage::ToggleSettingsPanel => {
@@ -318,10 +343,10 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             Task::none()
         }
         ViewMessage::OpenTerminalPressed => {
-            if let Some(_path) = &app.project_path {
+            if let Some(_path) = crate::app::components::git_panel::git_repo_path_for_app(app) {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    let _ = crate::app::components::git_panel::open_terminal(_path);
+                    let _ = crate::app::components::git_panel::open_terminal(&_path);
                 }
             }
             Task::none()
@@ -343,6 +368,10 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
             }
             Task::none()
         }
+        ViewMessage::GatewayServicesTabSelected(tab) => {
+            app.top_bar_gateway_tab = tab;
+            Task::none()
+        }
         ViewMessage::MenuAction(msg) => {
             app.active_menu = None;
             Task::done(*msg)
@@ -358,20 +387,21 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
 }
 
 pub fn close_requested(app: &mut App, window_id: iced::window::Id) -> Task<Message> {
-    if app.task_pet_window_id == Some(window_id) {
-        return iced::window::close(window_id);
+    let windows = close_requested_windows(app.main_window_id, app.task_pet_window_id, window_id);
+    let mut tasks = Vec::new();
+
+    if let Some(task_pet_window_id) = windows.task_pet_window_id {
+        tasks.push(iced::window::close(task_pet_window_id));
     }
 
-    if app.main_window_id == Some(window_id) {
-        let save_task = if app.json_tool_remember {
-            save_json_tool_content_task(app.json_tool_editor.text())
-        } else {
-            Task::none()
-        };
-        return Task::batch(vec![save_task, iced::window::close(window_id)]);
+    if let Some(main_window_id) = windows.main_window_id {
+        if app.json_tool_remember {
+            tasks.push(save_json_tool_content_task(app.json_tool_editor.text()));
+        }
+        tasks.push(iced::window::close(main_window_id));
     }
 
-    Task::none()
+    Task::batch(tasks)
 }
 
 #[cfg(target_arch = "wasm32")]

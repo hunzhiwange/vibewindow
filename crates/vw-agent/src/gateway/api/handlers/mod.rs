@@ -49,6 +49,9 @@ pub mod auth;
 /// Desktop 本地状态网关化处理器模块
 pub mod desktop;
 
+/// Desktop 清理工具网关化处理器模块
+pub(crate) mod desktop_cleaner;
+
 /// Gateway skills 目录处理器模块
 pub(crate) mod desktop_skills;
 
@@ -73,6 +76,9 @@ pub mod git;
 
 /// 全局网关路由处理器模块
 pub mod global;
+
+/// 知识库路由处理器模块
+pub mod knowledge;
 
 /// 实例相关路由处理器模块
 pub mod instance;
@@ -121,6 +127,7 @@ pub mod tools;
 
 /// Workflow 执行路由处理器模块
 pub mod workflow;
+pub(crate) mod workflow_store;
 
 // ============================================================================
 // 处理器重新导出
@@ -137,7 +144,12 @@ pub use config::{handle_api_config_get, handle_api_config_put};
 /// - `handle_api_cron_add`: 添加新的定时任务（POST /api/cron）
 /// - `handle_api_cron_delete`: 删除指定定时任务（DELETE /api/cron/:id）
 /// - `handle_api_cron_list`: 列出所有定时任务（GET /api/cron）
-pub use cron::{handle_api_cron_add, handle_api_cron_delete, handle_api_cron_list};
+/// - `handle_api_cron_runs`: 列出任务执行历史（GET /api/cron/:id/runs）
+/// - `handle_api_cron_update`: 更新指定定时任务（PATCH /api/cron/:id）
+pub use cron::{
+    handle_api_cron_add, handle_api_cron_delete, handle_api_cron_list, handle_api_cron_runs,
+    handle_api_cron_update,
+};
 
 /// 重新导出集成管理处理器
 ///

@@ -103,13 +103,7 @@ pub async fn parse_json_response<T: DeserializeOwned>(
     if !response.status().is_success() {
         return Err(response_error(method, endpoint, path, response).await);
     }
-    info!(
-        target: "vw_gateway_client",
-        method = method,
-        endpoint = %endpoint.describe(),
-        path = path,
-        "gateway request succeeded"
-    );
+    log_request_succeeded(method, endpoint, path);
     response.json().await.map_err(|err| {
         let msg = err.to_string();
         error!(
@@ -122,6 +116,31 @@ pub async fn parse_json_response<T: DeserializeOwned>(
         );
         msg
     })
+}
+
+/// 记录成功响应；高频、低风险的 Git 子命令保持在 DEBUG，避免淹没 INFO 日志。
+pub fn log_request_succeeded(method: &str, endpoint: &GatewayEndpoint, path: &str) {
+    if is_quiet_success_path(path) {
+        debug!(
+            target: "vw_gateway_client",
+            method = method,
+            endpoint = %endpoint.describe(),
+            path = path,
+            "gateway request succeeded"
+        );
+    } else {
+        info!(
+            target: "vw_gateway_client",
+            method = method,
+            endpoint = %endpoint.describe(),
+            path = path,
+            "gateway request succeeded"
+        );
+    }
+}
+
+fn is_quiet_success_path(path: &str) -> bool {
+    path == "/v1/git/command"
 }
 
 /// 将非成功响应转换为统一错误文本，便于上层直接展示。

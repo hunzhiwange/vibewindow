@@ -3,6 +3,7 @@
 mod controls;
 mod drag;
 mod external;
+mod gateway;
 mod menus;
 mod widgets;
 
@@ -23,6 +24,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let help_menu = menus::help_menu(app);
     let settings = controls::settings_button();
     let open_external_module = external::open_external_module(app);
+    let gateway_services = gateway::gateway_services_module(app);
     let project_view_tools = controls::project_view_tools(app);
     let traffic_light_spacer = drag::traffic_light_spacer();
     let drag_spacer = drag::drag_spacer();
@@ -36,6 +38,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             help_menu,
             drag_spacer,
             open_external_module,
+            gateway_services,
             project_view_tools,
             settings
         ]

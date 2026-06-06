@@ -36,6 +36,36 @@ fn parse_task_split_output_falls_back_to_single_task_without_json() {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
+fn gateway_prompt_options_grants_full_access_for_internal_design_route() {
+    let options = super::gateway_prompt_options("/tmp/project", false);
+
+    assert_eq!(options.get("cwd").and_then(serde_json::Value::as_str), Some("/tmp/project"));
+    assert_eq!(options.get("full_access").and_then(serde_json::Value::as_bool), Some(true));
+    assert_eq!(options.get("acp_test").and_then(serde_json::Value::as_bool), Some(false));
+    assert!(!options.contains_key("acp_permission_mode"));
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn gateway_prompt_options_uses_approve_all_for_acp_agents() {
+    let options = super::gateway_prompt_options("/tmp/project", true);
+
+    assert_eq!(
+        options.get("acp_permission_mode").and_then(serde_json::Value::as_str),
+        Some("approve-all")
+    );
+    assert_eq!(
+        options.get("acp_force_new_session").and_then(serde_json::Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        options.get("acp_history_strategy").and_then(serde_json::Value::as_str),
+        Some("discard")
+    );
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
 fn write_task_plan_files_uses_task_folder_with_subtask_files() {
     let temp = tempfile::TempDir::new().expect("temp project should be created");
     let project_path = temp.path().to_string_lossy().to_string();

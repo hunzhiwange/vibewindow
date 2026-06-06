@@ -12,10 +12,13 @@
 //! - 目标网关端点配置
 //! - 复用的 `reqwest::Client`
 
+mod cleaner_api;
 mod config_api;
+mod cron_api;
 pub mod desktop_settings_api;
 mod file_api;
 mod git_api;
+mod knowledge_api;
 mod permission_api;
 mod project_api;
 mod provider_api;
@@ -27,6 +30,7 @@ mod task_pool_api;
 mod tools_api;
 mod workflow_api;
 
+pub use self::cron_api::{CronAddRequest, CronJobDto, CronRunDto, CronUpdateRequest};
 pub use self::desktop_settings_api::{
     DesktopSkillCatalogEntryDto, DesktopSkillDetailDto, DesktopSkillPathDto, ExternalAppsStateDto,
 };

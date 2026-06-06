@@ -13,8 +13,11 @@ fn default_workflow_max_steps() -> u32 {
 /// Workflow 执行请求。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WorkflowRunRequest {
+    /// 本地持久化应用的 UUID。提供该字段时网关会从本地库读取 YAML。
+    #[serde(default, rename = "application_uuid", skip_serializing_if = "Option::is_none")]
+    pub workflow_uuid: Option<String>,
     /// Dify YAML 文本。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, rename = "application_workflow", skip_serializing_if = "Option::is_none")]
     pub workflow_yaml: Option<String>,
     /// 用户查询文本，会写入 `sys.query`，并在存在同名开始变量时复用。
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -30,6 +33,7 @@ pub struct WorkflowRunRequest {
 impl Default for WorkflowRunRequest {
     fn default() -> Self {
         Self {
+            workflow_uuid: None,
             workflow_yaml: None,
             query: None,
             inputs: BTreeMap::new(),
@@ -42,6 +46,8 @@ impl Default for WorkflowRunRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkflowRunStatus {
+    Running,
+    Paused,
     Succeeded,
     Failed,
 }
@@ -50,8 +56,27 @@ pub enum WorkflowRunStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkflowNodeRunStatus {
+    Paused,
     Succeeded,
     Failed,
+}
+
+/// Human input 暂停信息。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkflowPauseDto {
+    pub node_id: String,
+    pub title: String,
+    pub form_token: String,
+    pub form: Value,
+    #[serde(default)]
+    pub actions: Vec<WorkflowHumanActionDto>,
+}
+
+/// Human input 动作分支。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowHumanActionDto {
+    pub id: String,
+    pub label: String,
 }
 
 /// 单个节点执行结果。
@@ -86,4 +111,56 @@ pub struct WorkflowRunResponse {
     pub nodes: Vec<WorkflowNodeRunDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pause: Option<WorkflowPauseDto>,
+}
+
+/// Workflow Human Input 恢复请求。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkflowResumeRequest {
+    pub run_id: String,
+    pub form_token: String,
+    #[serde(default)]
+    pub form_values: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+}
+
+/// 本地 Workflow 列表项。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowRecordSummary {
+    pub uuid: String,
+    pub name: String,
+    pub description: String,
+    pub created_at_ms: u64,
+    pub updated_at_ms: u64,
+}
+
+/// 本地 Workflow 完整记录。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowRecord {
+    pub uuid: String,
+    pub name: String,
+    pub description: String,
+    pub workflow_yaml: String,
+    pub created_at_ms: u64,
+    pub updated_at_ms: u64,
+}
+
+/// 创建或更新本地 Workflow 的请求体。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowRecordUpsertBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub workflow_yaml: String,
+}
+
+/// 删除本地 Workflow 的响应。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowRecordDeleteResponse {
+    pub uuid: String,
+    pub deleted: bool,
 }

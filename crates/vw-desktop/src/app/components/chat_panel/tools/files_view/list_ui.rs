@@ -3,12 +3,13 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use iced::widget::tooltip::{Position as TooltipPosition, Tooltip};
 use iced::widget::{Space, button, column, container, mouse_area, row, text};
-use iced::{Alignment, Background, Border, Element, Length, Theme};
+use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
 use crate::app::assets::Icon;
 use crate::app::components::chat_panel::utils::{
-    change_pills, icon_svg, relative_to_project_root, resolve_path, truncate_chars,
+    bold_font, icon_svg, relative_to_project_root, resolve_path, truncate_chars,
     weak_file_button_style,
 };
 use crate::app::{App, Message, message};
@@ -59,81 +60,56 @@ pub(crate) fn build_file_list_column<'a>(
             && let Some(rel) = relative_to_project_root(app, abs)
         {
             if let Some(change) = changes_by_path.get(rel.as_str()) {
-                let preview_abs = Some(abs.as_str());
-                let meta_pill: Element<'a, Message> =
-                    change_pills(change.additions, change.deletions);
+                let hover_key = tool_file_hover_key(view_ctx.msg_idx, view_ctx.tool_idx, abs);
+                let is_hovered = app.chat_tool_file_hovered.as_deref() == Some(hover_key.as_str());
                 let title = format!("{}  +{}-{}", rel, change.additions, change.deletions);
+                let change_message = Message::Git(message::GitMessage::OpenChatTextDiff {
+                    title,
+                    file: rel.clone(),
+                    before: change.before.clone(),
+                    after: change.after.clone(),
+                });
                 let file_name = file_row_label(app, view_ctx, display, abs);
-                let light = matches!(view_ctx.verb, "读取" | "编辑");
-                let left =
-                    tool_file_left(view_ctx.verb, file_name, light, view_ctx.read_range.clone());
-
-                let diff_row = row![
-                    left,
-                    preview_eye_button_slot(app, view_ctx.msg_idx, view_ctx.tool_idx, preview_abs,),
-                    container(Space::new()).width(Length::Fill),
-                    meta_pill,
-                    view_changes_pill()
-                ]
-                .spacing(10)
-                .align_y(Alignment::Center);
-
-                let diff_button: Element<'a, Message> = button(diff_row)
-                    .padding([6, 10])
-                    .width(Length::Fill)
-                    .style(weak_file_button_style)
-                    .on_press(Message::Git(message::GitMessage::OpenChatTextDiff {
-                        title,
-                        file: rel.clone(),
-                        before: change.before.clone(),
-                        after: change.after.clone(),
-                    }))
-                    .into();
-                let diff_button = wrap_tool_file_hover(
+                let row_content = edit_file_row_content(
                     view_ctx.msg_idx,
                     view_ctx.tool_idx,
-                    preview_abs,
-                    diff_button,
+                    abs,
+                    edit_result_label(&view_ctx.tool_name, view_ctx.is_running, view_ctx.is_error),
+                    file_name,
+                    Message::Preview(message::PreviewMessage::Open(abs.clone())),
+                    is_hovered,
+                    Some((change.additions, change.deletions)),
+                    change_message,
                 );
-                column_view = column_view.push(diff_button);
+
+                column_view = column_view.push(row_content);
                 continue;
             }
         }
 
         if let Some((title, file, after)) = fallback_edit_diff_payload(app, view_ctx, display, abs)
         {
-            let preview_abs = Some(abs.as_str());
-            let light = matches!(view_ctx.verb, "读取" | "编辑");
-            let left = tool_file_left(
-                view_ctx.verb,
+            let hover_key = tool_file_hover_key(view_ctx.msg_idx, view_ctx.tool_idx, abs);
+            let is_hovered = app.chat_tool_file_hovered.as_deref() == Some(hover_key.as_str());
+            let change_message = Message::Git(message::GitMessage::OpenChatTextDiff {
+                title,
+                file,
+                before: String::new(),
+                after,
+            });
+            let row_content = edit_file_row_content(
+                view_ctx.msg_idx,
+                view_ctx.tool_idx,
+                abs,
+                edit_result_label(&view_ctx.tool_name, view_ctx.is_running, view_ctx.is_error),
                 file_row_label(app, view_ctx, display, abs),
-                light,
-                view_ctx.read_range.clone(),
+                Message::Preview(message::PreviewMessage::Open(abs.clone())),
+                is_hovered,
+                None,
+                change_message,
             );
 
-            let diff_row = row![
-                left,
-                preview_eye_button_slot(app, view_ctx.msg_idx, view_ctx.tool_idx, preview_abs,),
-                container(Space::new()).width(Length::Fill),
-                view_changes_pill()
-            ]
-            .spacing(10)
-            .align_y(Alignment::Center);
-
-            let diff_button: Element<'a, Message> = button(diff_row)
-                .padding([6, 10])
-                .width(Length::Fill)
-                .style(weak_file_button_style)
-                .on_press(Message::Git(message::GitMessage::OpenChatTextDiff {
-                    title,
-                    file,
-                    before: String::new(),
-                    after,
-                }))
-                .into();
-            let diff_button =
-                wrap_tool_file_hover(view_ctx.msg_idx, view_ctx.tool_idx, preview_abs, diff_button);
-            column_view = column_view.push(diff_button);
+            column_view = column_view.push(row_content);
             continue;
         }
 
@@ -222,45 +198,96 @@ pub(super) fn fallback_edit_diff_payload(
     Some((title, file, after))
 }
 
-fn view_changes_pill<'a>() -> Element<'a, Message> {
-    container(text("查看变更").size(14).style(|theme: &Theme| {
-        let is_dark = theme.palette().background.r
-            + theme.palette().background.g
-            + theme.palette().background.b
-            < 1.5;
-        iced::widget::text::Style {
-            color: Some(if is_dark {
-                theme.palette().text.scale_alpha(0.88)
-            } else {
-                theme.extended_palette().secondary.base.text
-            }),
-        }
-    }))
-    .padding([2, 8])
-    .style(|theme: &Theme| {
-        let ext = theme.extended_palette();
-        let is_dark = theme.palette().background.r
-            + theme.palette().background.g
-            + theme.palette().background.b
-            < 1.5;
-        iced::widget::container::Style {
-            background: Some(Background::Color(if is_dark {
-                ext.background.weak.color.scale_alpha(0.24)
-            } else {
-                ext.background.base.color.scale_alpha(0.76)
-            })),
-            border: Border {
-                width: 1.0,
-                color: ext.background.strong.color.scale_alpha(if is_dark { 0.48 } else { 0.75 }),
-                radius: 999.0.into(),
-            },
-            ..Default::default()
-        }
-    })
-    .into()
+fn edit_file_row_content<'a>(
+    msg_idx: usize,
+    tool_idx: usize,
+    abs: &str,
+    verb: &'static str,
+    file_name: String,
+    open_message: Message,
+    is_hovered: bool,
+    counts: Option<(usize, usize)>,
+    diff_message: Message,
+) -> Element<'a, Message> {
+    let mut content = row![
+        edit_verb_text(verb),
+        edit_file_name_link(msg_idx, tool_idx, abs, file_name, open_message, is_hovered),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    if let Some((adds, dels)) = counts {
+        content = content.push(edit_change_counts(adds, dels));
+    }
+
+    content = content.push(diff_eye_button_slot(is_hovered, diff_message));
+    let hover_key = tool_file_hover_key(msg_idx, tool_idx, abs);
+
+    mouse_area(container(content).width(Length::Fill))
+        .on_enter(Message::Chat(message::ChatMessage::ToolFileHover(hover_key)))
+        .on_exit(Message::Chat(message::ChatMessage::ToolFileHoverLeave))
+        .into()
 }
 
-fn preview_eye_button<'a>(abs: String) -> Element<'a, Message> {
+fn edit_file_name_link<'a>(
+    msg_idx: usize,
+    tool_idx: usize,
+    abs: &str,
+    file_name: String,
+    open_message: Message,
+    is_hovered: bool,
+) -> Element<'a, Message> {
+    let hover_key = tool_file_hover_key(msg_idx, tool_idx, abs);
+    let label = file_name.clone();
+    let file_text = text(file_name).size(14).style(move |theme: &Theme| {
+        iced::widget::text::Style { color: Some(edit_file_name_color(theme, is_hovered)) }
+    });
+
+    let link: Element<'a, Message> = mouse_area(file_text)
+        .on_enter(Message::Chat(message::ChatMessage::ToolFileHover(hover_key)))
+        .on_press(open_message)
+        .into();
+
+    Tooltip::new(link, file_name_tooltip(label), TooltipPosition::Top).gap(6).into()
+}
+
+fn edit_verb_text<'a>(verb: &'static str) -> Element<'a, Message> {
+    text(verb)
+        .size(14)
+        .style(move |theme: &Theme| {
+            let is_dark = theme.palette().background.r
+                + theme.palette().background.g
+                + theme.palette().background.b
+                < 1.5;
+            iced::widget::text::Style {
+                color: Some(if is_dark {
+                    theme.palette().text.scale_alpha(0.76)
+                } else {
+                    theme.extended_palette().secondary.base.text.scale_alpha(0.65)
+                }),
+            }
+        })
+        .into()
+}
+
+fn edit_file_name_color(theme: &Theme, is_hovered: bool) -> Color {
+    let base = theme.extended_palette().primary.base.color;
+    if is_hovered { base } else { base.scale_alpha(0.86) }
+}
+
+fn file_name_tooltip<'a>(label: String) -> Element<'a, Message> {
+    container(text(label).size(12))
+        .padding([6, 8])
+        .style(|_theme: &Theme| iced::widget::container::Style {
+            text_color: Some(Color::WHITE),
+            background: Some(Background::Color(Color::from_rgba8(0, 0, 0, 0.94))),
+            border: Border { radius: 6.0.into(), ..Default::default() },
+            ..Default::default()
+        })
+        .into()
+}
+
+fn diff_eye_button<'a>(on_press: Message) -> Element<'a, Message> {
     let eye = icon_svg(Icon::Eye).width(Length::Fixed(12.0)).height(Length::Fixed(12.0)).style(
         |theme: &Theme, _status| {
             let is_dark = theme.palette().background.r
@@ -277,64 +304,23 @@ fn preview_eye_button<'a>(abs: String) -> Element<'a, Message> {
         },
     );
 
-    mouse_area(container(eye).padding([4, 6]).style(|theme: &Theme| {
-        let ext = theme.extended_palette();
-        let is_dark = theme.palette().background.r
-            + theme.palette().background.g
-            + theme.palette().background.b
-            < 1.5;
-        iced::widget::container::Style {
-            background: Some(Background::Color(if is_dark {
-                ext.background.weak.color.scale_alpha(0.32)
-            } else {
-                ext.background.base.color.scale_alpha(0.95)
-            })),
-            border: Border {
-                width: 1.0,
-                color: ext.background.strong.color.scale_alpha(if is_dark { 0.5 } else { 0.75 }),
-                radius: 8.0.into(),
-            },
-            ..Default::default()
-        }
-    }))
-    .on_press(Message::Preview(message::PreviewMessage::Open(abs)))
-    .into()
-}
+    let button: Element<'a, Message> = mouse_area(
+        container(eye).style(|_theme: &Theme| iced::widget::container::Style::default()),
+    )
+    .on_press(on_press)
+    .into();
 
-fn preview_eye_button_slot<'a>(
-    app: &App,
-    msg_idx: usize,
-    tool_idx: usize,
-    abs: Option<&str>,
-) -> Element<'a, Message> {
-    let Some(abs) = abs else {
-        return Space::new().into();
-    };
-
-    let hover_key = tool_file_hover_key(msg_idx, tool_idx, abs);
-    if app.chat_tool_file_hovered.as_deref() == Some(hover_key.as_str()) {
-        preview_eye_button(abs.to_string())
-    } else {
-        Space::new().width(Length::Fixed(24.0)).into()
-    }
-}
-
-fn wrap_tool_file_hover<'a>(
-    msg_idx: usize,
-    tool_idx: usize,
-    abs: Option<&str>,
-    content: Element<'a, Message>,
-) -> Element<'a, Message> {
-    let Some(abs) = abs else {
-        return content;
-    };
-
-    mouse_area(content)
-        .on_enter(Message::Chat(message::ChatMessage::ToolFileHover(tool_file_hover_key(
-            msg_idx, tool_idx, abs,
-        ))))
-        .on_exit(Message::Chat(message::ChatMessage::ToolFileHoverLeave))
+    Tooltip::new(button, file_name_tooltip("查找变更".to_string()), TooltipPosition::Top)
+        .gap(6)
         .into()
+}
+
+fn diff_eye_button_slot<'a>(is_hovered: bool, on_press: Message) -> Element<'a, Message> {
+    if is_hovered {
+        diff_eye_button(on_press)
+    } else {
+        Space::new().width(Length::Fixed(12.0)).into()
+    }
 }
 
 pub(super) fn tool_file_hover_key(msg_idx: usize, tool_idx: usize, abs: &str) -> String {
@@ -373,9 +359,9 @@ fn tool_file_left<'a>(
         iced::widget::text::Style {
             color: Some(if light {
                 if is_dark {
-                    theme.palette().text.scale_alpha(0.9)
+                    theme.extended_palette().primary.base.color.scale_alpha(0.95)
                 } else {
-                    theme.extended_palette().secondary.base.text.scale_alpha(0.65)
+                    theme.extended_palette().primary.base.color.scale_alpha(0.86)
                 }
             } else {
                 theme.palette().text
@@ -404,4 +390,36 @@ fn tool_file_left<'a>(
     }
 
     row_view.into()
+}
+
+fn edit_result_label(tool_name: &str, is_running: bool, is_error: bool) -> &'static str {
+    if matches!(tool_name, "write" | "file_write") {
+        if is_running {
+            "写入中"
+        } else if is_error {
+            "写入失败"
+        } else {
+            "已写入"
+        }
+    } else if is_running {
+        "编辑中"
+    } else if is_error {
+        "编辑失败"
+    } else {
+        "已编辑"
+    }
+}
+
+fn edit_change_counts<'a>(adds: usize, dels: usize) -> Element<'a, Message> {
+    row![
+        text(format!("+{}", adds)).size(14).font(bold_font()).style(|theme: &Theme| {
+            iced::widget::text::Style { color: Some(theme.extended_palette().success.base.color) }
+        }),
+        text(format!("-{}", dels)).size(14).font(bold_font()).style(|theme: &Theme| {
+            iced::widget::text::Style { color: Some(theme.extended_palette().danger.base.color) }
+        })
+    ]
+    .spacing(4)
+    .align_y(Alignment::Center)
+    .into()
 }

@@ -52,7 +52,8 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
         | ViewMessage::OpenTerminalPressed
         | ViewMessage::ToggleMenu(_)
         | ViewMessage::MenuAction(_)
-        | ViewMessage::MenuHovered(_) => settings::update(app, message),
+        | ViewMessage::MenuHovered(_)
+        | ViewMessage::GatewayServicesTabSelected(_) => settings::update(app, message),
 
         ViewMessage::ToggleModelPopover
         | ViewMessage::ToggleModePopover
@@ -87,6 +88,7 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
         | ViewMessage::OpenUsage
         | ViewMessage::OpenJsonTool
         | ViewMessage::OpenJsonYamlTool
+        | ViewMessage::OpenKnowledge
         | ViewMessage::OpenSqlTool
         | ViewMessage::OpenRedisTool
         | ViewMessage::OpenHtmlTool

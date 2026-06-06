@@ -41,6 +41,7 @@ pub(crate) fn build_render_cache_entry(
     raw: &str,
     visible_for_copy: &str,
     copy_hash: u64,
+    show_reasoning_summary: bool,
 ) -> models::ChatRenderCacheEntry {
     const FOLD_PREVIEW_CHARS: usize = 2400;
     const FOLDABLE_VISIBLE_CHARS: usize = 6000;
@@ -63,19 +64,22 @@ pub(crate) fn build_render_cache_entry(
     for block in borrowed_blocks(&blocks) {
         match block {
             RenderBlock::Think { content, open } => {
-                if open {
-                    explore_group_force_running = true;
+                if open || show_reasoning_summary {
+                    if open {
+                        explore_group_force_running = true;
+                    }
+                    flush_explore_summaries(
+                        &mut explore_summary_text_blocks,
+                        &mut explore_items,
+                        group_idx,
+                        explore_group_force_running,
+                    );
+                    explore_group_force_running = open;
+                    group_idx = group_idx.saturating_add(1);
+                    let normalized = normalize_display_text(content.trim()).into_owned();
+                    estimated_expanded_height +=
+                        estimate_text_height(&normalized).min(160.0) + 44.0;
                 }
-                flush_explore_summaries(
-                    &mut explore_summary_text_blocks,
-                    &mut explore_items,
-                    group_idx,
-                    explore_group_force_running,
-                );
-                explore_group_force_running = open;
-                group_idx = group_idx.saturating_add(1);
-                let normalized = normalize_display_text(content.trim()).into_owned();
-                estimated_expanded_height += estimate_text_height(&normalized).min(160.0) + 44.0;
             }
             RenderBlock::Tool { raw } => {
                 if let Some(name) = tool_name_from_raw(raw)
@@ -170,6 +174,7 @@ pub(crate) fn build_render_cache_entry(
 
     models::ChatRenderCacheEntry {
         content_hash: hash_chat_content(raw),
+        show_reasoning_summary,
         copy_content_hash: Some(copy_hash),
         blocks,
         has_special_blocks,
@@ -214,9 +219,17 @@ pub(crate) fn effective_assistant_render_cache<'a>(
     visible_for_copy: &str,
     copy_hash: u64,
     _is_streaming_assistant: bool,
+    show_reasoning_summary: bool,
 ) -> Cow<'a, models::ChatRenderCacheEntry> {
-    if render_cache.content_hash != hash_chat_content(content) {
-        Cow::Owned(build_render_cache_entry(content, visible_for_copy, copy_hash))
+    if render_cache.content_hash != hash_chat_content(content)
+        || render_cache.show_reasoning_summary != show_reasoning_summary
+    {
+        Cow::Owned(build_render_cache_entry(
+            content,
+            visible_for_copy,
+            copy_hash,
+            show_reasoning_summary,
+        ))
     } else {
         Cow::Borrowed(render_cache)
     }

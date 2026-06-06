@@ -184,6 +184,7 @@ pub(crate) struct QueueItem {
     pub(crate) model: Option<String>,
     pub(crate) acp_test: bool,
     pub(crate) acp_agent: Option<String>,
+    pub(crate) acp_allowed_tools: Option<Vec<String>>,
     pub(crate) agent: Option<String>,
     pub(crate) allowed_tools: Option<Vec<String>>,
     pub(crate) acp_force_new_session: bool,
@@ -338,7 +339,7 @@ impl SessionRuntimeState {
             acp_agent: None,
             acp_history_mode: AcpHistoryReplayMode::Discard,
             acp_recent_count: 3,
-            full_access_enabled: false,
+            full_access_enabled: true,
             last_effective_acp_agent: None,
             acp_rebuild_required: false,
         }

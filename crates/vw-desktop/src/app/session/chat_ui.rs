@@ -40,7 +40,10 @@ struct ParsedChatUiArtifacts {
     message_editor_texts: Vec<Option<String>>,
 }
 
-fn parse_chat_ui_artifacts(chat: &[ChatMessage]) -> ParsedChatUiArtifacts {
+fn parse_chat_ui_artifacts(
+    chat: &[ChatMessage],
+    show_reasoning_summary: bool,
+) -> ParsedChatUiArtifacts {
     const MAX_EDITOR_CHARS: usize = 20_000;
 
     let mut parsed = ParsedChatUiArtifacts {
@@ -61,6 +64,7 @@ fn parse_chat_ui_artifacts(chat: &[ChatMessage]) -> ParsedChatUiArtifacts {
             &message.content,
             &visible,
             copy_hash,
+            show_reasoning_summary,
         );
 
         parsed.visible_texts[msg_idx] = Some(visible.clone());
@@ -246,8 +250,9 @@ pub(super) fn prioritize_chat_ui_chunk_starts(
 fn build_prepared_chat_ui_chunk(
     chat_window: &[ChatMessage],
     chunk_start_idx: usize,
+    show_reasoning_summary: bool,
 ) -> PreparedChatUiChunk {
-    let parsed = parse_chat_ui_artifacts(chat_window);
+    let parsed = parse_chat_ui_artifacts(chat_window, show_reasoning_summary);
     PreparedChatUiChunk {
         chunk_start_idx,
         chunk_end_idx: chunk_start_idx + chat_window.len(),
@@ -375,8 +380,9 @@ pub fn prepare_chat_ui_chunk_phase(
     chat_window: &[ChatMessage],
     chunk_start_idx: usize,
     is_base: bool,
+    show_reasoning_summary: bool,
 ) -> PreparedChatUiPhase {
-    let chunk = build_prepared_chat_ui_chunk(chat_window, chunk_start_idx);
+    let chunk = build_prepared_chat_ui_chunk(chat_window, chunk_start_idx, show_reasoning_summary);
     if is_base { PreparedChatUiPhase::Base(chunk) } else { PreparedChatUiPhase::Chunk(chunk) }
 }
 
@@ -800,6 +806,7 @@ impl App {
         self.tool_detail_dialog = None;
         self.chat_think_scroll_ids.clear();
         self.chat_reset_menu_idx = None;
+        self.chat_fork_dialog_idx = None;
         self.rebuild_chat_message_estimated_heights();
     }
 
@@ -912,6 +919,7 @@ impl App {
                 &self.chat[chunk_start_idx..chunk_end_idx],
                 chunk_start_idx,
                 false,
+                self.dialogue_flow_show_reasoning_summary,
             );
             self.apply_prepared_chat_ui_phase(prepared);
         }

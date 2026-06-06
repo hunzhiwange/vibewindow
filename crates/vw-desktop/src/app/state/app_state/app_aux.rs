@@ -19,6 +19,7 @@ pub struct Notification {
 pub enum ToastKind {
     Success,
     Info,
+    Warning,
     Error,
 }
 

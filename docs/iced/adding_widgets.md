@@ -1,6 +1,6 @@
-# Adding Widgets
+# 添加组件
 
-Use [column!](https://docs.rs/iced/0.13.1/iced/widget/macro.column.html) and [row!](https://docs.rs/iced/0.13.1/iced/widget/macro.row.html) to group multiple widgets such as [text](https://docs.rs/iced/0.13.1/iced/widget/fn.text.html) and [button](https://docs.rs/iced/0.13.1/iced/widget/fn.button.html).
+使用 [column!](https://docs.rs/iced/0.13.1/iced/widget/macro.column.html) 和 [row!](https://docs.rs/iced/0.13.1/iced/widget/macro.row.html) 将多个组件（如 [text](https://docs.rs/iced/0.13.1/iced/widget/fn.text.html) 和 [button](https://docs.rs/iced/0.13.1/iced/widget/fn.button.html)）组合在一起。
 
 ```rust
 use iced::widget::{button, column, row, text};
@@ -24,8 +24,8 @@ impl MyApp {
 }
 ```
 
-![Adding widgets](./pic/adding_widgets.png)
+![添加组件](./pic/adding_widgets.png)
 
-:arrow_right: Next: [Widgets](./widgets.md)
+:arrow_right: 下一步: [组件](./widgets.md)
 
-:blue_book: Back: [Table of contents](./../README.md)
+:blue_book: 返回: [目录](./../README.md)

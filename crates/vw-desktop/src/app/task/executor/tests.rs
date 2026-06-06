@@ -17,7 +17,7 @@ use std::sync::{LazyLock, Mutex, MutexGuard};
 static TASK_EXECUTOR_ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 fn task_executor_env_lock() -> MutexGuard<'static, ()> {
-    TASK_EXECUTOR_ENV_LOCK.lock().expect("task executor env test lock should acquire")
+    TASK_EXECUTOR_ENV_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn run_git_test(cwd: &std::path::Path, args: &[&str]) {
@@ -253,8 +253,29 @@ fn assign_task_execution_worktree_uses_repo_head_when_target_branch_missing() {
         .expect("worktree should be assigned");
 
     let assigned = assigned.expect("managed worktree path should exist");
-    assert!(assigned.contains(".vibewindow/task-worktrees/slot-"));
-    assert!(std::path::Path::new(&assigned).is_dir());
+    let assigned_path = std::path::Path::new(&assigned);
+    assert!(assigned_path.is_dir());
+    assert!(
+        assigned_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .is_some_and(|name| name.starts_with("slot-"))
+    );
+    assert_eq!(
+        assigned_path
+            .parent()
+            .and_then(|parent| parent.file_name())
+            .and_then(|value| value.to_str()),
+        Some("task-worktrees")
+    );
+    assert_eq!(
+        assigned_path
+            .parent()
+            .and_then(|parent| parent.parent())
+            .and_then(|parent| parent.file_name())
+            .and_then(|value| value.to_str()),
+        Some(".vibewindow")
+    );
 }
 
 #[test]

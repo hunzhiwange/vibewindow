@@ -240,25 +240,22 @@ impl App {
     ) {
         #[cfg(target_arch = "wasm32")]
         vw_provider_resolver::config::set_wasm_gateway_endpoint({
+            let active = system.gateway_client.active_server();
             let host = {
-                let value = system.gateway_client.host.trim();
+                let value = active.host.trim();
                 if value.is_empty() { "127.0.0.1".to_string() } else { value.to_string() }
             };
             let auth = vw_gateway_client::GatewayAuth {
-                bearer_token: Some(system.gateway_client.bearer_token.trim().to_string())
+                bearer_token: Some(active.bearer_token.trim().to_string())
                     .filter(|value| !value.is_empty()),
-                username: Some(system.gateway_client.username.trim().to_string())
+                username: Some(active.username.trim().to_string())
                     .filter(|value| !value.is_empty()),
-                password: Some(system.gateway_client.password.trim().to_string())
+                password: Some(active.password.trim().to_string())
                     .filter(|value| !value.is_empty()),
-                skey: Some(system.gateway_client.skey.trim().to_string())
-                    .filter(|value| !value.is_empty()),
+                skey: Some(active.skey.trim().to_string()).filter(|value| !value.is_empty()),
             };
-            vw_gateway_client::GatewayEndpoint::new(
-                host,
-                system.gateway_client.port.clamp(1, u16::MAX),
-            )
-            .with_auth(auth)
+            vw_gateway_client::GatewayEndpoint::new(host, active.port.clamp(1, u16::MAX))
+                .with_auth(auth)
         });
 
         self.terminal.font_family = system.terminal_font_family.clone();
@@ -285,15 +282,31 @@ impl App {
             tab.editor.set_theme(editor_theme.clone());
         }
         self.git_copy_modal_code_editor.set_theme(theme::from_iced_theme(&editor_theme));
+        let active_gateway_client = system.gateway_client.active_server();
+        self.gateway_client_settings.servers = system
+            .gateway_client
+            .normalized_servers()
+            .iter()
+            .map(crate::app::state::GatewayClientServerDraft::from_config)
+            .collect();
+        let gateway_health_keys = self
+            .gateway_client_settings
+            .servers
+            .iter()
+            .filter_map(crate::app::message::gateway_health::server_health_key)
+            .collect::<std::collections::HashSet<_>>();
+        self.gateway_client_settings.health.retain(|key, _| gateway_health_keys.contains(key));
+        self.gateway_client_settings.selected_server_id = active_gateway_client.id;
+        self.gateway_client_settings.name_input = active_gateway_client.name;
         self.gateway_client_settings.host_input = {
-            let value = system.gateway_client.host.trim().to_string();
+            let value = active_gateway_client.host.trim().to_string();
             if value.is_empty() { "127.0.0.1".to_string() } else { value }
         };
-        self.gateway_client_settings.port = system.gateway_client.port.clamp(1, u16::MAX);
-        self.gateway_client_settings.bearer_token_input = system.gateway_client.bearer_token;
-        self.gateway_client_settings.username_input = system.gateway_client.username;
-        self.gateway_client_settings.password_input = system.gateway_client.password;
-        self.gateway_client_settings.skey_input = system.gateway_client.skey;
+        self.gateway_client_settings.port = active_gateway_client.port.clamp(1, u16::MAX);
+        self.gateway_client_settings.bearer_token_input = active_gateway_client.bearer_token;
+        self.gateway_client_settings.username_input = active_gateway_client.username;
+        self.gateway_client_settings.password_input = active_gateway_client.password;
+        self.gateway_client_settings.skey_input = active_gateway_client.skey;
         #[cfg(not(target_arch = "wasm32"))]
         if self.terminal.theme == crate::app::TerminalTheme::System {
             self.terminal.apply_app_theme(&self.app_theme);
@@ -394,10 +407,16 @@ impl App {
             | Message::BootstrapSystemSettings(result) => {
                 if let Ok(system) = result {
                     self.apply_bootstrap_system_settings(system);
+                    let health = Task::done(Message::GatewayHealthTick);
                     #[cfg(target_arch = "wasm32")]
-                    return Task::done(Message::Settings(
-                        crate::app::message::SettingsMessage::ModelsRefresh,
-                    ));
+                    return Task::batch(vec![
+                        health,
+                        Task::done(Message::Settings(
+                            crate::app::message::SettingsMessage::ModelsRefresh,
+                        )),
+                    ]);
+                    #[cfg(not(target_arch = "wasm32"))]
+                    return health;
                 }
                 Task::none()
             }
@@ -449,6 +468,32 @@ impl App {
                     && let Some((model, auto_model, acp_agent)) = preferences
                 {
                     self.apply_project_chat_preferences(model, auto_model, acp_agent);
+                }
+                Task::none()
+            }
+            Message::GatewayHealthTick => {
+                let servers = self.gateway_client_settings.servers.clone();
+                if servers.is_empty() {
+                    Task::none()
+                } else {
+                    Task::perform(
+                        message::gateway_health::check_servers(servers),
+                        Message::GatewayHealthChecked,
+                    )
+                }
+            }
+            Message::GatewayHealthChecked(results) => {
+                let known_keys = self
+                    .gateway_client_settings
+                    .servers
+                    .iter()
+                    .filter_map(crate::app::message::gateway_health::server_health_key)
+                    .collect::<std::collections::HashSet<_>>();
+                self.gateway_client_settings.health.retain(|key, _| known_keys.contains(key));
+                for (key, healthy) in results {
+                    if known_keys.contains(&key) {
+                        self.gateway_client_settings.health.insert(key, healthy);
+                    }
                 }
                 Task::none()
             }
@@ -561,6 +606,9 @@ impl App {
 
             // JSON/YAML 转换工具相关消息
             Message::JsonYamlTool(msg) => message::json_yaml_tool::update(self, msg),
+
+            // 知识库工作台相关消息
+            Message::Knowledge(msg) => message::knowledge_tool::update(self, msg),
 
             // SQL 工具相关消息
             Message::SqlTool(msg) => message::sql_tool::update(self, msg),

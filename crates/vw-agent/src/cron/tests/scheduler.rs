@@ -13,8 +13,9 @@
 use crate::app::agent::config::Config;
 use crate::app::agent::cron;
 use crate::app::agent::cron::scheduler::{
-    deliver_announcement, deliver_if_configured, execute_job_with_retry, persist_job_result,
-    process_due_jobs, run_agent_job, run_job_command, run_job_command_with_timeout,
+    cron_agent_prompt, cron_full_access_config, deliver_announcement, deliver_if_configured,
+    execute_job_with_retry, notify_schedule_changed, persist_job_result, process_due_jobs,
+    run_agent_job, run_job_command, run_job_command_with_timeout, wait_for_schedule_scan,
 };
 use crate::app::agent::cron::{CronJob, DeliveryConfig, JobType, Schedule, SessionTarget};
 use crate::app::agent::security::{SecurityPolicy, ShellRedirectPolicy};
@@ -136,6 +137,13 @@ fn test_job(command: &str) -> CronJob {
         job_type: JobType::Shell,
         session_target: SessionTarget::Isolated,
         model: None,
+        agent: None,
+        acp_agent: None,
+        project_path: None,
+        wake: false,
+        fallbacks: Vec::new(),
+        full_access: false,
+        task_pool: false,
         enabled: true,
         delivery: DeliveryConfig::default(),
         delete_after_run: false,
@@ -160,6 +168,18 @@ fn test_job(command: &str) -> CronJob {
 /// 返回格式为 `{prefix}-{uuid}` 的唯一标识符
 fn unique_component(prefix: &str) -> String {
     format!("{prefix}-{}", uuid::Uuid::new_v4())
+}
+
+#[tokio::test]
+async fn schedule_change_notification_interrupts_poll_wait() {
+    let mut interval = tokio::time::interval(Duration::from_secs(3600));
+    interval.tick().await;
+
+    notify_schedule_changed();
+
+    tokio::time::timeout(Duration::from_millis(100), wait_for_schedule_scan(&mut interval))
+        .await
+        .expect("schedule change notification should wake scheduler scan wait");
 }
 
 /// 测试 Shell 命令成功执行
@@ -510,6 +530,34 @@ async fn run_agent_job_blocks_rate_limited() {
     assert!(!success);
     assert!(output.contains("blocked by security policy"));
     assert!(output.contains("rate limit exceeded"));
+}
+
+#[tokio::test]
+async fn full_access_agent_job_uses_trusted_runtime_config() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = test_config(&tmp).await;
+    config.autonomy.always_ask = vec!["shell".into()];
+    config.autonomy.non_cli_excluded_tools = vec!["shell".into()];
+    let run_config = cron_full_access_config(&config);
+
+    assert_eq!(run_config.autonomy.level, crate::app::agent::security::AutonomyLevel::Full);
+    assert!(!run_config.autonomy.workspace_only);
+    assert_eq!(run_config.autonomy.allowed_commands, vec!["*"]);
+    assert_eq!(run_config.autonomy.allowed_roots, vec!["/"]);
+    assert!(run_config.autonomy.always_ask.is_empty());
+    assert!(run_config.autonomy.non_cli_excluded_tools.is_empty());
+    assert!(run_config.autonomy.allow_unsafe_shell_patterns);
+}
+
+#[test]
+fn full_access_agent_prompt_includes_automation_instruction() {
+    let mut job = test_job("");
+    job.job_type = JobType::Agent;
+    job.full_access = true;
+
+    let prompt = cron_agent_prompt(&job, "daily", "写入报告");
+    assert!(prompt.contains("我是自动化脚本，无法回答你的问题"));
+    assert!(prompt.contains("写入报告"));
 }
 
 /// 测试 process_due_jobs 在空闲时仍标记组件健康

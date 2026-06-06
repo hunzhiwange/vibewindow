@@ -45,10 +45,7 @@ fn resolve_agent_command_supports_aliases_and_overrides() {
 
     assert_eq!(normalize_agent_name("  Codex CLI "), "codex cli");
     assert_eq!(resolve_agent_command("factory-droid", None), "droid exec --output-format acp");
-    assert_eq!(
-        resolve_agent_command("GitHubCopilot", None),
-        "npx @github/copilot-language-server@latest --acp"
-    );
+    assert_eq!(resolve_agent_command("GitHubCopilot", None), built_in_agent_registry()["copilot"]);
     assert_eq!(resolve_agent_command("Custom", Some(&overrides)), "custom-agent --acp");
 }
 

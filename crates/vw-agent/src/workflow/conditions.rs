@@ -22,7 +22,15 @@ fn case_matches(case: &Value, pool: &VariablePool) -> Result<bool, String> {
     if conditions.is_empty() {
         return Ok(true);
     }
-    let all = !string_field(case, "logical_operator").unwrap_or("and").eq_ignore_ascii_case("or");
+    conditions_match(conditions, string_field(case, "logical_operator").unwrap_or("and"), pool)
+}
+
+pub(crate) fn conditions_match(
+    conditions: &[Value],
+    logical_operator: &str,
+    pool: &VariablePool,
+) -> Result<bool, String> {
+    let all = !logical_operator.eq_ignore_ascii_case("or");
     if all {
         for condition in conditions {
             if !condition_matches(condition, pool)? {

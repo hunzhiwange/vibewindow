@@ -1,6 +1,7 @@
 //! Dify 模板渲染。
 
 use super::variables::VariablePool;
+use minijinja::Environment;
 use regex::Regex;
 use serde_json::Value;
 use std::sync::LazyLock;
@@ -20,6 +21,15 @@ pub(crate) fn render_template(template: &str, pool: &VariablePool) -> String {
             pool.get_selector(&selector).map(value_to_text).unwrap_or_default()
         })
         .into_owned()
+}
+
+pub(crate) fn render_jinja_value_template(
+    template: &str,
+    variables: &std::collections::BTreeMap<String, Value>,
+) -> Result<String, String> {
+    Environment::new()
+        .render_str(template, variables)
+        .map_err(|error| format!("template 节点渲染失败: {error}"))
 }
 
 pub(crate) fn value_to_text(value: &Value) -> String {

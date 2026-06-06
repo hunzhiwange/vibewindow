@@ -175,10 +175,10 @@ impl App {
     pub fn register_window_ids(
         &mut self,
         main_window_id: iced::window::Id,
-        task_pet_window_id: iced::window::Id,
+        task_pet_window_id: Option<iced::window::Id>,
     ) {
         self.main_window_id = Some(main_window_id);
-        self.task_pet_window_id = Some(task_pet_window_id);
+        self.task_pet_window_id = task_pet_window_id;
     }
 
     pub fn task_pet_window_size(&self) -> iced::Size {

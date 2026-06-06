@@ -4,8 +4,7 @@
 
 use crate::app::assets::Icon;
 use crate::app::components::system_settings_common::{
-    icon_svg, settings_muted_text_style, settings_panel, settings_text_input_style,
-    settings_value_badge,
+    settings_muted_text_style, settings_panel, settings_text_input_style, settings_value_badge,
 };
 use crate::app::message::RedisToolMessage;
 use crate::app::{App, Message};
@@ -13,9 +12,7 @@ use iced::widget::{Space, button, column, container, row, scrollable, text, text
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 use std::collections::{BTreeMap, HashSet};
 
-use super::super::common::{build_detail_action_button, redis_scroll_direction};
-
-const KEY_TREE_SCROLL_HEIGHT: f32 = 172.0;
+use super::super::common::{build_detail_action_button, redis_scroll_direction, themed_icon_svg};
 
 #[derive(Debug, Default)]
 struct RedisKeyTreeNode {
@@ -111,13 +108,10 @@ pub(super) fn build_key_tree_panel<'a>(app: &'a App, is_busy: bool) -> Element<'
         }
 
         content = content.push(
-            container(
-                scrollable(rows)
-                    .direction(redis_scroll_direction())
-                    .height(Length::Fixed(KEY_TREE_SCROLL_HEIGHT)),
-            )
-            .padding([4, 0])
-            .width(Length::Fill),
+            container(scrollable(rows).direction(redis_scroll_direction()).height(Length::Fill))
+                .padding([4, 0])
+                .width(Length::Fill)
+                .height(Length::Fill),
         );
     }
 
@@ -136,7 +130,7 @@ pub(super) fn build_key_tree_panel<'a>(app: &'a App, is_busy: bool) -> Element<'
         );
     }
 
-    settings_panel(content).into()
+    settings_panel(content.height(Length::Fill)).height(Length::Fill).into()
 }
 
 fn build_key_tree_root(keys: &[String]) -> RedisKeyTreeNode {
@@ -218,8 +212,8 @@ fn build_key_tree_branch_row(
         container(
             row![
                 Space::new().width(Length::Fixed(indent)),
-                icon_svg(icon, 12.0),
-                icon_svg(Icon::FolderOpen, 14.0),
+                themed_icon_svg(icon, 12.0),
+                themed_icon_svg(Icon::FolderOpen, 14.0),
                 text(label).size(12),
                 Space::new().width(Length::Fill),
                 settings_value_badge(format!("{} 项", item_count)),
@@ -261,7 +255,7 @@ fn build_key_tree_leaf_row(
         container(
             row![
                 Space::new().width(Length::Fixed(indent)),
-                icon_svg(Icon::FileText, 12.0),
+                themed_icon_svg(Icon::FileText, 12.0),
                 text(label.clone()).size(11).style(move |theme: &Theme| {
                     iced::widget::text::Style {
                         color: Some(if selected {

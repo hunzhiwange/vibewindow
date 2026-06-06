@@ -22,3 +22,23 @@ fn normalize_tool_ids_drops_empty_items() {
 
     assert_eq!(ids, Some(vec!["shell".to_string()]));
 }
+
+#[test]
+fn merge_gateway_request_options_forwards_allowed_tools_to_acp() {
+    let options = merge_gateway_request_options(
+        None,
+        None,
+        Some(vec!["file_read".to_string()]),
+        None,
+        None,
+        None,
+        Some("codex".to_string()),
+        None,
+    );
+
+    assert_eq!(options.get("allowed_tools").and_then(|value| value.as_array()).unwrap().len(), 1);
+    assert_eq!(
+        options.get("acp_allowed_tools").and_then(|value| value.as_array()).unwrap().len(),
+        1
+    );
+}

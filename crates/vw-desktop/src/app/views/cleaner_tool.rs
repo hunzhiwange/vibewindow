@@ -4,8 +4,7 @@
 
 use crate::app::message::CleanerToolMessage;
 use crate::app::message::cleaner_tool::{
-    CleanerPlatform, CleanerScanGroup, CleanerScanItem, current_platform, format_bytes,
-    selected_scan_totals,
+    CleanerScanGroup, CleanerScanItem, format_bytes, selected_scan_totals,
 };
 use crate::app::{App, Message};
 use iced::widget::{
@@ -31,11 +30,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .width(Length::Fill)
     .align_y(Alignment::Center);
 
-    let platform_name = match current_platform() {
-        Some(CleanerPlatform::MacOs) => "macOS",
-        Some(CleanerPlatform::Windows) => "Windows",
-        None => "暂不支持",
-    };
+    let platform_name = cleaner_platform_name(app);
 
     let spinner = ["◐", "◓", "◑", "◒"][app.cleaner_animation_frame % 4];
     let (selected_count, selected_bytes) = selected_scan_totals(app);
@@ -304,14 +299,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .style(secondary_button_style)
         .on_press(Message::CleanerTool(CleanerToolMessage::Clear));
 
-    let tip = text(match current_platform() {
-        Some(CleanerPlatform::MacOs) => {
+    let tip = text(match app.open_external_platform {
+        Some(crate::app::state::RuntimePlatform::MacOs) => {
             "提示：会直接在当前 macOS 上执行清理；涉及系统目录时会弹出管理员授权窗口。"
         }
-        Some(CleanerPlatform::Windows) => {
+        Some(crate::app::state::RuntimePlatform::Windows) => {
             "提示：会直接在当前 Windows 上执行清理；涉及系统目录时会触发 UAC 管理员确认。"
         }
-        None => "提示：当前系统暂不支持直接执行清理。",
+        Some(crate::app::state::RuntimePlatform::Linux) => {
+            "提示：当前 gateway 宿主为 Linux，暂不支持直接执行清理。"
+        }
+        None => "提示：正在通过 gateway 获取宿主平台；扫描会以 gateway 所在系统为准。",
     })
     .size(12)
     .style(|theme: &Theme| iced::widget::text::Style {
@@ -367,6 +365,15 @@ pub fn view(app: &App) -> Element<'_, Message> {
             }
         })
         .into()
+}
+
+fn cleaner_platform_name(app: &App) -> &'static str {
+    match app.open_external_platform {
+        Some(crate::app::state::RuntimePlatform::MacOs) => "macOS",
+        Some(crate::app::state::RuntimePlatform::Windows) => "Windows",
+        Some(crate::app::state::RuntimePlatform::Linux) => "Linux",
+        None => "Gateway 宿主",
+    }
 }
 
 fn render_scan_tree(app: &App) -> Element<'_, Message> {

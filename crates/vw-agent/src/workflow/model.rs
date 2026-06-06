@@ -71,7 +71,7 @@ pub(crate) fn parse_workflow_yaml(source: &str) -> Result<WorkflowGraph, String>
             Some(WorkflowEdge {
                 source,
                 target,
-                source_handle: string_field(edge, "sourceHandle").map(ToOwned::to_owned),
+                source_handle: edge_handle_field(edge, "sourceHandle"),
             })
         })
         .collect::<Vec<_>>();
@@ -89,4 +89,16 @@ pub(crate) fn string_field<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
 
 pub(crate) fn array_field<'a>(value: &'a Value, key: &str) -> &'a [Value] {
     value.get(key).and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[])
+}
+
+pub(crate) fn edge_handle_field(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(|value| match value {
+            Value::String(value) => Some(value.trim().to_string()),
+            Value::Bool(value) => Some(value.to_string()),
+            Value::Number(value) => Some(value.to_string()),
+            _ => None,
+        })
+        .filter(|value| !value.is_empty())
 }

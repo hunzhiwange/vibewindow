@@ -6,11 +6,6 @@ fn test_module_is_wired() {
 }
 
 #[test]
-fn redis_tool_width_keeps_desktop_workspace_available() {
-    assert!(super::REDIS_TOOL_MAX_WIDTH >= 1180.0);
-}
-
-#[test]
 fn compact_sidebar_height_is_bounded() {
     let cases = [(200.0, 140.0), (600.0, 210.0), (1200.0, 300.0)];
     for (available_height, expected) in cases {

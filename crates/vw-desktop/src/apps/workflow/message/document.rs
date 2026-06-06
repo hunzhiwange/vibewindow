@@ -85,17 +85,24 @@ pub(super) fn handle(app: &mut App, message: WorkflowMessage) -> Option<Task<Mes
             app.workflow_state.close_floating_panels();
             save_active_app(app, true)
         }
-        WorkflowMessage::SaveActiveAppFinished(result) => {
-            match result {
-                Ok(Some(path)) => {
-                    app.workflow_state.update_active_source_path(path.clone());
-                    app.workflow_state.status_message = Some(format!("已保存 {}", path));
-                }
-                Ok(None) => {}
-                Err(error) => app.workflow_state.set_error(error),
+        WorkflowMessage::SaveActiveAppFinished(result) => match result {
+            Ok(Some(WorkflowSaveTarget::LocalUuid(uuid))) => {
+                app.workflow_state.update_active_local_uuid(uuid.clone());
+                app.workflow_state.status_message = Some(format!("已保存到本地数据库: {uuid}"));
+                app.workflow_state.begin_saved_apps_load();
+                load_saved_apps_task()
             }
-            Task::none()
-        }
+            Ok(Some(WorkflowSaveTarget::FilePath(path))) => {
+                app.workflow_state.update_active_source_path(path.clone());
+                app.workflow_state.status_message = Some(format!("已另存为 {}", path));
+                Task::none()
+            }
+            Ok(None) => Task::none(),
+            Err(error) => {
+                app.workflow_state.set_error(error.clone());
+                app.show_error_toast(format!("保存失败: {error}"))
+            }
+        },
         WorkflowMessage::ExportPng => export_png(app),
         WorkflowMessage::ExportJpeg => export_jpeg(app),
         WorkflowMessage::ExportSvg => export_svg(app),
@@ -111,7 +118,7 @@ pub(super) fn handle(app: &mut App, message: WorkflowMessage) -> Option<Task<Mes
                 } else if let Some(entry) = app.workflow_state.active_entry_snapshot() {
                     load_document_from_value(None, entry.raw_root)
                 } else {
-                    load_builtin_workflow()
+                    Err("当前没有可重新载入的 Workflow 应用".to_string())
                 };
 
             match result {

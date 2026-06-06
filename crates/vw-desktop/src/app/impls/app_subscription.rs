@@ -251,8 +251,13 @@ impl App {
                 Subscription::none()
             };
 
+        let gateway_health_tick = iced::time::every(std::time::Duration::from_secs(60))
+            .map(|_| Message::GatewayHealthTick);
+
         Subscription::batch(vec![
             agent,
+            #[cfg(target_arch = "wasm32")]
+            crate::app::wasm_ime::subscription(),
             events,
             terminal_subs,
             markdown_stream,
@@ -267,6 +272,7 @@ impl App {
             design_generation_stream_tick,
             figma_progress_tick,
             provider_models_sync_tick,
+            gateway_health_tick,
         ])
     }
 }

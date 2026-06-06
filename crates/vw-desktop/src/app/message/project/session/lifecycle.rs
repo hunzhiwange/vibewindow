@@ -689,6 +689,7 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
                                 shared_chat,
                                 base_chunk_start,
                                 true,
+                                app.dialogue_flow_show_reasoning_summary,
                             ));
                         }
                     } else {
@@ -739,6 +740,7 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
                             shared_chat,
                             base_chunk_start,
                             true,
+                            app.dialogue_flow_show_reasoning_summary,
                         ));
                     } else {
                         app.error_message = Some(format!("Failed to load session messages: {}", e));
@@ -766,6 +768,7 @@ pub(crate) fn handle(app: &mut App, message: ProjectMessage) -> Option<iced::Tas
                             app.active_shared_chat_messages(),
                             nearby_chunk_starts,
                             None,
+                            app.dialogue_flow_show_reasoning_summary,
                         ));
                     }
                 }

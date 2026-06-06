@@ -251,8 +251,9 @@ mod tests {
         );
 
         let message = ch.otk_conflict_recovery_message();
+        let expected_store_dir = PathBuf::from("/tmp/vibewindow").join("state").join("matrix");
         assert!(message.contains("one-time key upload conflict"));
-        assert!(message.contains("/tmp/vibewindow/state/matrix"));
+        assert!(message.contains(&expected_store_dir.display().to_string()));
     }
 
     /// 测试：路径段编码正确处理 Matrix 房间引用

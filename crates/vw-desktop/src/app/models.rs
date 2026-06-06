@@ -21,6 +21,7 @@ pub enum ParsedChatBlock {
 /// 表示 ChatRenderCacheEntry 相关的应用状态或派生数据。
 pub struct ChatRenderCacheEntry {
     pub content_hash: u64,
+    pub show_reasoning_summary: bool,
     pub copy_content_hash: Option<u64>,
     pub blocks: Vec<ParsedChatBlock>,
     pub has_special_blocks: bool,

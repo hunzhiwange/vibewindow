@@ -19,8 +19,16 @@ TaskBoardMessage::ToggleBoard => {
 
     if board_is_open {
         app.show_task_board = false;
-        app.screen = crate::app::Screen::Project;
+        app.screen = if app.project_path.is_some() {
+            crate::app::Screen::Project
+        } else {
+            crate::app::Screen::Home
+        };
         app.task_board_worktree_snapshot_loading = false;
+        return iced::Task::none();
+    }
+
+    if app.project_path.is_none() {
         return iced::Task::none();
     }
 
@@ -42,7 +50,11 @@ TaskBoardMessage::ToggleBoard => {
 }
 TaskBoardMessage::CloseBoard => {
     app.show_task_board = false;
-    app.screen = crate::app::Screen::Project;
+    app.screen = if app.project_path.is_some() {
+        crate::app::Screen::Project
+    } else {
+        crate::app::Screen::Home
+    };
     app.task_board_worktree_snapshot_loading = false;
     app.task_board_bulk_active_status = None;
     app.task_board_selected_tasks.clear();
@@ -69,11 +81,8 @@ TaskBoardMessage::TasksLoaded(tasks) => {
     app.task_board_loading = false;
     prune_bulk_selection(app);
     app.task_board_settings = sanitized_task_board_settings(app.task_board_settings.clone());
-    if app.task_board_settings.auto_execute {
+    if app.task_board_settings.auto_execute && !app.task_board_executor_running {
         return iced::Task::batch(build_auto_execute_bootstrap_tasks(app));
-    }
-    if app.task_board_executor_running {
-        return iced::Task::done(Message::TaskBoard(TaskBoardMessage::ExecutionTick));
     }
     iced::Task::none()
 }

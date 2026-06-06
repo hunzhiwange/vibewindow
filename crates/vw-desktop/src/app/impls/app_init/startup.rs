@@ -11,6 +11,7 @@ pub(super) fn build_startup_task(app: &mut App) -> Task<Message> {
     #[cfg(not(target_arch = "wasm32"))]
     {
         Task::batch(vec![
+            Task::done(Message::GatewayHealthTick),
             Task::perform(
                 crate::app::config::load_app_config_async(),
                 Message::StartupAppConfigLoaded,
@@ -34,6 +35,7 @@ pub(super) fn build_startup_task(app: &mut App) -> Task<Message> {
     #[cfg(target_arch = "wasm32")]
     {
         Task::batch(vec![
+            Task::done(Message::GatewayHealthTick),
             Task::perform(crate::app::config::load_app_config_async(), Message::BootstrapAppConfig),
             Task::perform(
                 crate::app::config::load_system_settings_config_async(),
@@ -45,7 +47,7 @@ pub(super) fn build_startup_task(app: &mut App) -> Task<Message> {
             ),
             Task::perform(
                 async {
-                    crate::app::config::load_global_acp_config_async()
+                    crate::app::config::load_enabled_acp_config_async()
                         .await
                         .map(|cfg| sort_acp_agents(&cfg))
                 },

@@ -80,7 +80,7 @@ pub(crate) const BUILTIN_PRELOADED_SKILLS: [BuiltinPreloadedSkill; 2] = [
         source_url: "https://skills.sh/vercel-labs/skills/find-skills",
         markdown: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../skills/find-skills/SKILL.md"
+            "/assets/skills/find-skills/SKILL.md"
         )),
     },
     BuiltinPreloadedSkill {
@@ -88,7 +88,7 @@ pub(crate) const BUILTIN_PRELOADED_SKILLS: [BuiltinPreloadedSkill; 2] = [
         source_url: "https://skills.sh/anthropics/skills/skill-creator",
         markdown: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../skills/skill-creator/SKILL.md"
+            "/assets/skills/skill-creator/SKILL.md"
         )),
     },
 ];

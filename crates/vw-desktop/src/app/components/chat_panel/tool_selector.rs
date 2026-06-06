@@ -21,7 +21,7 @@ use crate::app::{App, Message, message};
 pub(super) const SESSION_SELECTOR_SCROLLBAR_WIDTH: f32 = 4.0;
 pub(super) const SESSION_SELECTOR_LIST_MAX_HEIGHT: f32 = 300.0;
 const SESSION_SELECTOR_LIST_RIGHT_PADDING: f32 = 5.0;
-const SESSION_SELECTOR_SKILL_DESCRIPTION_CHARS: usize = 56;
+pub(super) const SESSION_SELECTOR_SKILL_DESCRIPTION_CHARS: usize = 28;
 
 fn count_badge<'a>(label: String, active: bool) -> Element<'a, Message> {
     container(text(label).size(10))
@@ -153,14 +153,14 @@ fn matches_query(query: &str, parts: &[&str]) -> bool {
     parts.iter().any(|part| part.to_ascii_lowercase().contains(&query))
 }
 
-fn ellipsize_text(value: &str, max_chars: usize) -> String {
-    let trimmed = value.trim();
-    if trimmed.chars().count() <= max_chars {
-        return trimmed.to_string();
+pub(super) fn ellipsize_text(value: &str, max_chars: usize) -> String {
+    let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.chars().count() <= max_chars {
+        return compact;
     }
 
     let keep = max_chars.saturating_sub(3);
-    let mut clipped = trimmed.chars().take(keep).collect::<String>();
+    let mut clipped = compact.chars().take(keep).collect::<String>();
     clipped.push_str("...");
     clipped
 }

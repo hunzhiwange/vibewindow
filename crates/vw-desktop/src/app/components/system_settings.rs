@@ -33,6 +33,7 @@
 //! - **通道配置 (Channels)**：CLI 与多通道消息集成配置
 //! - **记忆配置 (Memory)**：记忆后端、缓存和嵌入检索配置
 //! - **运行时配置 (Runtime)**：native/docker/wasm 运行时配置
+//! - **ACP 配置 (Acp)**：ACP 智能体目录、初始化说明与启用状态
 //! - **自治配置 (Autonomy)**：代理自治能力设置
 //! - **安全配置 (Security)**：安全策略配置
 //! - **网关配置 (Gateway)**：HTTP 网关、配对与 node-control 配置
@@ -148,6 +149,8 @@ pub enum SystemTab {
     Memory,
     /// 运行时配置标签页
     Runtime,
+    /// ACP 配置标签页
+    Acp,
     /// 自治配置标签页
     Autonomy,
     /// 安全配置标签页
@@ -199,7 +202,7 @@ impl SystemTab {
     ///     println!("{}", tab);
     /// }
     /// ```
-    fn all() -> [SystemTab; 38] {
+    fn all() -> [SystemTab; 39] {
         [
             SystemTab::General,
             SystemTab::DialogueFlow,
@@ -222,6 +225,7 @@ impl SystemTab {
             SystemTab::Reliability,
             SystemTab::Channels,
             SystemTab::Runtime,
+            SystemTab::Acp,
             SystemTab::Autonomy,
             SystemTab::Security,
             SystemTab::GatewayClient,
@@ -279,6 +283,7 @@ impl std::fmt::Display for SystemTab {
             SystemTab::Channels => write!(f, "通道配置"),
             SystemTab::Memory => write!(f, "记忆配置"),
             SystemTab::Runtime => write!(f, "运行时配置"),
+            SystemTab::Acp => write!(f, "ACP 配置"),
             SystemTab::Autonomy => write!(f, "自治配置"),
             SystemTab::Security => write!(f, "安全配置"),
             SystemTab::GatewayClient => write!(f, "客户端网关"),
@@ -302,48 +307,127 @@ impl std::fmt::Display for SystemTab {
 
 fn system_tab_search_text(tab: SystemTab) -> &'static str {
     match tab {
-        SystemTab::General => "常规设置 general app basic 基础",
-        SystemTab::DialogueFlow => "对话流 dialogue flow permission 对话 权限",
-        SystemTab::Editor => "编辑器 editor code 编辑",
-        SystemTab::Projects => "项目 projects workspace 工作区",
-        SystemTab::Providers => "提供商 providers api key model 模型",
-        SystemTab::Models => "模型 models llm ai provider",
-        SystemTab::EmbeddingRoutes => "嵌入路由 embedding routes vector model 模型",
-        SystemTab::ModelRoutes => "模型路由 model routes routing 模型",
-        SystemTab::QueryClassification => "查询分类 query classification rules 规则",
-        SystemTab::GoalLoop => "目标循环配置 goal loop run automation 运行 自动化",
-        SystemTab::Heartbeat => "心跳配置 heartbeat monitor follow up 自动化",
-        SystemTab::Cron => "定时任务配置 cron schedule task 自动化",
-        SystemTab::Sop => "标准流程配置 sop workflow run 运行",
-        SystemTab::Scheduler => "调度配置 scheduler tasks run 运行",
-        SystemTab::Agents => "委托代理配置 agents subagent model tools 模型 工具",
-        SystemTab::AgentsIpc => "代理通信配置 agents ipc communication",
-        SystemTab::Coordination => "协调配置 coordination agents",
-        SystemTab::Reliability => "可靠性配置 reliability retry run 运行",
-        SystemTab::Channels => "通道配置 channels cli message",
-        SystemTab::Memory => "记忆配置 memory embedding vector 模型",
-        SystemTab::Runtime => "运行时配置 runtime native docker wasm run 运行",
-        SystemTab::Autonomy => "自治配置 autonomy agent run 运行",
-        SystemTab::Security => "安全配置 security policy permission",
-        SystemTab::GatewayClient => "客户端网关 gateway client connection",
-        SystemTab::Gateway => "服务端网关 gateway server api",
-        SystemTab::Observability => "可观测性配置 observability log monitor",
-        SystemTab::Storage => "存储配置 storage database",
-        SystemTab::Proxy => "代理配置 proxy network",
-        SystemTab::Tunnel => "隧道配置 tunnel public gateway",
-        SystemTab::Composio => "composio 集成配置 oauth tools 工具",
-        SystemTab::Skills => "技能配置 skills tools plugins 工具",
-        SystemTab::Hooks => "钩子配置 hooks tool command 工具",
-        SystemTab::Research => "研究配置 research search tool 工具",
-        SystemTab::WebSearch => "网页搜索配置 web search brave tool 工具 搜索",
-        SystemTab::HttpRequest => "网络请求配置 http request tool allowlist 工具",
-        SystemTab::Browser => "浏览器配置 browser computer use tool 工具",
-        SystemTab::Multimodal => "多模态配置 multimodal image vision model 模型",
-        SystemTab::Transcription => "转录配置 transcription audio speech model 模型",
+        SystemTab::General => {
+            "常规设置 general app basic 基础 界面 语言 应用主题 自动保存 终端 终端 Shell 终端主题 终端字体 字体大小 preview auto save"
+        }
+        SystemTab::DialogueFlow => {
+            "对话流 dialogue flow permission 对话 权限 时间线 显示推理摘要 展开 shell 工具 展开编辑工具 reasoning summary edit patch"
+        }
+        SystemTab::Editor => {
+            "编辑器 editor code 编辑 主题与显示 编辑器主题 跟随系统主题 字体大小 行高 自动调整行高"
+        }
+        SystemTab::Projects => {
+            "项目 projects workspace 工作区 当前项目 打开文件夹 Worktree 历史项目 项目名称 打开项目 保存 删除"
+        }
+        SystemTab::Providers => {
+            "提供商 providers api key model 模型 API Key 密钥 连接 自定义提供商 base url endpoint catalog"
+        }
+        SystemTab::Models => {
+            "模型 models llm ai provider 搜索模型 模型详情 提供商 模型 id 上下文窗口 最大输出 温度"
+        }
+        SystemTab::EmbeddingRoutes => {
+            "嵌入路由 embedding routes vector model 模型 添加路由 匹配模式 提供商/模型 前往记忆配置"
+        }
+        SystemTab::ModelRoutes => {
+            "模型路由 model routes routing 模型 新增路由 匹配模式 pattern provider model priority 优先级"
+        }
+        SystemTab::QueryClassification => {
+            "查询分类 query classification rules 规则 启用 新增规则 规则优先级 pattern category priority 分类"
+        }
+        SystemTab::GoalLoop => {
+            "目标循环配置 goal loop run automation 运行 自动化 启用 调度节奏 间隔 投递目标 channel target"
+        }
+        SystemTab::Heartbeat => {
+            "心跳配置 heartbeat monitor follow up 自动化 启用 执行间隔 兜底消息 目标通道 接收者 投递内容"
+        }
+        SystemTab::Cron => {
+            "定时任务配置 cron schedule task 自动化 启用 历史留存 history retention max history"
+        }
+        SystemTab::Sop => {
+            "标准流程配置 sop workflow run 运行 SOP 目录 选择目录 执行模式 队列限制 sops_dir"
+        }
+        SystemTab::Scheduler => {
+            "调度配置 scheduler tasks run 运行 执行能力 启用 最大任务 并发上限 最大并发 max_tasks max_concurrent"
+        }
+        SystemTab::Agents => {
+            "委托代理配置 agents subagent model tools 模型 工具 Agent 工作台 新增智能体 key 基础 身份 工具 技能 提供商 API 密钥 温度 启用 最大深度 上下文压缩 工具迭代上限 历史消息上限 并行工具 工具调度器 最大迭代次数 智能体模式"
+        }
+        SystemTab::AgentsIpc => {
+            "代理通信配置 agents ipc communication 基础行为 IPC 开关 共享数据库路径 离线阈值 db_path"
+        }
+        SystemTab::Coordination => {
+            "协调配置 coordination agents 运行开关 协调总线 主协调 agent 容量控制 收件箱 死信 上下文 消息去重"
+        }
+        SystemTab::Reliability => {
+            "可靠性配置 reliability retry run 运行 Provider 重试次数 退避 频道与调度 频道重连 调度器重试"
+        }
+        SystemTab::Channels => {
+            "通道配置 channels cli message CLI 通道 项目目录 已启用通道 workspace Slack Teams 外部消息"
+        }
+        SystemTab::Memory => {
+            "记忆配置 memory embedding vector 模型 存储后端 持久化 清理 快照 自动恢复 保留 缓存 归档 SQLite 打开超时 嵌入与检索 嵌入模型 维度 混合检索 权重"
+        }
+        SystemTab::Runtime => {
+            "运行时配置 runtime native docker wasm run 运行 运行时类型 推理级别 只读根文件系统 挂载工作区 workspace read write symlink host validation"
+        }
+        SystemTab::Acp => {
+            "acp agent client protocol 智能体 后端 启用 禁用 初始化 环境 配置 codex claude gemini copilot pi npx"
+        }
+        SystemTab::Autonomy => {
+            "自治配置 autonomy agent run 运行 权限与审批 执行级别 审批阈值 重定向 预算 工具与路径 shell 命令 自动审批 非 CLI 暴露 审批人"
+        }
+        SystemTab::Security => {
+            "安全配置 security policy permission 沙箱 后端说明 资源限制 内存 CPU 子进程 审计日志 OTP 紧急停止 E-Stop 系统调用异常检测 Canary Token 语义注入防护"
+        }
+        SystemTab::GatewayClient => {
+            "客户端网关 gateway client connection 用户名 密码 网关地址 配对 token 连接 heartbeat"
+        }
+        SystemTab::Gateway => {
+            "服务端网关 gateway server api 监听地址 端口 配对令牌 bearer token require_pairing 公网绑定 反向代理 webhook 幂等性 node-control"
+        }
+        SystemTab::Observability => {
+            "可观测性配置 observability log monitor 观测后端 OTel 端点 运行时追踪 trace 模式 文件路径 rolling 保留量"
+        }
+        SystemTab::Storage => {
+            "存储配置 storage database 连接参数 存储类型 连接串 Schema 名称 表名 连接超时 TLS 加密"
+        }
+        SystemTab::Proxy => {
+            "代理配置 proxy network 生效范围 代理地址 HTTP HTTPS ALL_PROXY NO_PROXY 排除与路由 指定服务 selector"
+        }
+        SystemTab::Tunnel => {
+            "隧道配置 tunnel public gateway 接入方式 提供者 tailscale funnel tailnet 主机名 端口 公网暴露"
+        }
+        SystemTab::Composio => {
+            "composio 集成配置 oauth tools 工具 基础行为 启用 API Key 默认实体 entity OAuth"
+        }
+        SystemTab::Skills => {
+            "技能配置 skills tools plugins 工具 插件 open-skills 目录 模式 catalog browser"
+        }
+        SystemTab::Hooks => {
+            "钩子配置 hooks tool command 工具 基础行为 启用 command_logger 内置钩子 自定义 hooks"
+        }
+        SystemTab::Research => {
+            "研究配置 research search tool 工具 基础行为 启用 触发方式 关键词 最短消息 预算与输出 最大迭代 进度输出 提示前缀"
+        }
+        SystemTab::WebSearch => {
+            "网页搜索配置 web search brave tool 工具 搜索 基础行为 启用 搜索服务 DuckDuckGo Brave Serper Google Bing Brave 密钥 API 密钥 接口地址 请求参数 结果数量 超时时间 User-Agent"
+        }
+        SystemTab::HttpRequest => {
+            "网络请求配置 http request tool allowlist 工具 基础行为 启用 允许域名 白名单 请求限制 max body timeout User-Agent method headers"
+        }
+        SystemTab::Browser => {
+            "浏览器配置 browser computer use tool 工具 基础行为 允许域名 窗口行为 运行后端 default webdriver sidecar viewport 自动化"
+        }
+        SystemTab::Multimodal => {
+            "多模态配置 multimodal image vision model 模型 最大图片数量 单张图片大小上限 远程抓取 remote fetch"
+        }
+        SystemTab::Transcription => {
+            "转录配置 transcription audio speech model 模型 基础行为 启用 接口参数 API 密钥 接口地址 超时时间"
+        }
     }
 }
 
-fn system_tab_matches_query(tab: SystemTab, query: &str) -> bool {
+pub(super) fn system_tab_matches_query(tab: SystemTab, query: &str) -> bool {
     let query = query.trim();
     if query.is_empty() {
         return true;
@@ -575,6 +659,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         SystemTab::Channels => crate::app::components::system_settings_channels::view(app),
         SystemTab::Memory => crate::app::components::system_settings_memory::view(app),
         SystemTab::Runtime => crate::app::components::system_settings_runtime::view(app),
+        SystemTab::Acp => crate::app::components::system_settings_acp::view(app),
         SystemTab::Autonomy => crate::app::components::system_settings_autonomy::view(app),
         SystemTab::Security => crate::app::components::system_settings_security::view(app),
         SystemTab::GatewayClient => {

@@ -27,6 +27,7 @@ use crate::app::agent::config::schema::ChannelsConfigExt;
 use anyhow::Result;
 use chrono::Utc;
 use std::future::Future;
+use std::io::ErrorKind;
 use std::path::PathBuf;
 use tokio::task::JoinHandle;
 use tokio::time::Duration;
@@ -42,6 +43,7 @@ const STATUS_FLUSH_SECONDS: u64 = 5;
 /// 当守护进程接收到关闭信号后，等待各组件在此时间内优雅退出。
 /// 超过此时间后，未完成的任务将被强制中止。
 const SHUTDOWN_GRACE_SECONDS: u64 = 5;
+const GATEWAY_PROBE_TIMEOUT_MILLIS: u64 = 500;
 
 /// 关闭信号类型枚举
 ///
@@ -52,6 +54,13 @@ enum ShutdownSignal {
     CtrlC,
     /// 系统发送的终止信号（SIGTERM），通常来自进程管理器
     SigTerm,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ExistingGatewayStatus {
+    Missing,
+    Compatible,
+    Stale,
 }
 
 /// 获取关闭信号的人类可读原因描述
@@ -178,9 +187,28 @@ pub async fn run(config: Config, host: String, port: u16) -> Result<()> {
 
     // 收集所有组件的任务句柄
     let mut handles: Vec<JoinHandle<()>> = vec![spawn_state_writer(config.clone())];
+    let existing_gateway_status = existing_gateway_status(&host, port).await;
+    let gateway_already_running = existing_gateway_status != ExistingGatewayStatus::Missing;
 
     // 启动网关组件监督器
-    {
+    if existing_gateway_status == ExistingGatewayStatus::Compatible {
+        crate::app::agent::health::mark_component_ok("gateway");
+        tracing::warn!(
+            host = %host,
+            port,
+            "Gateway already running on requested address; daemon will not bind a duplicate gateway"
+        );
+    } else if existing_gateway_status == ExistingGatewayStatus::Stale {
+        crate::app::agent::health::mark_component_error(
+            "gateway",
+            "existing gateway is missing cron history API",
+        );
+        tracing::error!(
+            host = %host,
+            port,
+            "Existing gateway is healthy but missing cron history API; stop the old gateway process and restart daemon to load the updated gateway"
+        );
+    } else {
         let gateway_cfg = config.clone();
         let gateway_host = host.clone();
         handles.push(spawn_component_supervisor(
@@ -249,7 +277,11 @@ pub async fn run(config: Config, host: String, port: u16) -> Result<()> {
 
     // 输出启动信息到控制台
     println!("💡 VibeWindow daemon started");
-    println!("   Gateway:  http://{host}:{port}");
+    if gateway_already_running {
+        println!("   Gateway:  http://{host}:{port} (already running)");
+    } else {
+        println!("   Gateway:  http://{host}:{port}");
+    }
     println!("   Components: gateway, channels, heartbeat, scheduler");
     println!("   {}", shutdown_hint());
 
@@ -269,6 +301,64 @@ pub async fn run(config: Config, host: String, port: u16) -> Result<()> {
     }
 
     Ok(())
+}
+
+async fn existing_gateway_status(host: &str, port: u16) -> ExistingGatewayStatus {
+    let health_url = gateway_health_url(host, port);
+    let Ok(client) = reqwest::Client::builder()
+        .timeout(Duration::from_millis(GATEWAY_PROBE_TIMEOUT_MILLIS))
+        .build()
+    else {
+        return ExistingGatewayStatus::Missing;
+    };
+    let Ok(response) = client.get(health_url).send().await else {
+        return ExistingGatewayStatus::Missing;
+    };
+    if !response.status().is_success() {
+        return ExistingGatewayStatus::Missing;
+    }
+    let Ok(body) = response.json::<serde_json::Value>().await else {
+        return ExistingGatewayStatus::Missing;
+    };
+    let is_vibewindow = body.get("status").and_then(serde_json::Value::as_str) == Some("ok")
+        && body.get("runtime").is_some();
+    if !is_vibewindow {
+        return ExistingGatewayStatus::Missing;
+    }
+
+    let history_url = gateway_cron_history_probe_url(host, port);
+    let Ok(response) = client.get(history_url).send().await else {
+        return ExistingGatewayStatus::Stale;
+    };
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        ExistingGatewayStatus::Stale
+    } else {
+        ExistingGatewayStatus::Compatible
+    }
+}
+
+fn gateway_health_url(host: &str, port: u16) -> String {
+    format!("{}/v1/health", gateway_base_url(host, port))
+}
+
+fn gateway_cron_history_probe_url(host: &str, port: u16) -> String {
+    format!("{}/v1/cron/runs/__probe__", gateway_base_url(host, port))
+}
+
+fn gateway_base_url(host: &str, port: u16) -> String {
+    let probe_host = match host.trim() {
+        "" => "127.0.0.1",
+        "0.0.0.0" => "127.0.0.1",
+        "::" => "::1",
+        other => other,
+    };
+
+    let host_part = if probe_host.contains(':') && !probe_host.starts_with('[') {
+        format!("[{probe_host}]")
+    } else {
+        probe_host.to_string()
+    };
+    format!("http://{host_part}:{port}")
 }
 
 /// 带宽限期地关闭所有任务句柄
@@ -436,6 +526,12 @@ where
                 Err(e) => {
                     // 组件失败
                     crate::app::agent::health::mark_component_error(name, e.to_string());
+                    if is_non_retryable_component_error(name, &e) {
+                        tracing::error!(
+                            "Daemon component '{name}' failed with a non-retryable error: {e}"
+                        );
+                        break;
+                    }
                     tracing::error!("Daemon component '{name}' failed: {e}");
                 }
             }
@@ -447,6 +543,15 @@ where
             backoff = backoff.saturating_mul(2).min(max_backoff);
         }
     })
+}
+
+fn is_non_retryable_component_error(name: &str, error: &anyhow::Error) -> bool {
+    name == "gateway"
+        && error.chain().any(|cause| {
+            cause
+                .downcast_ref::<std::io::Error>()
+                .is_some_and(|io_error| io_error.kind() == ErrorKind::AddrInUse)
+        })
 }
 
 /// 运行心跳工作器

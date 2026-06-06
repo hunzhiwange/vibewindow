@@ -23,7 +23,7 @@ fn source_declares_symbol(name: &str) -> bool {
 
 #[test]
 fn toast_tests_keeps_planned_coverage_targets() {
-    for name in ["is_dark_theme", "icon_svg", "view"] {
+    for name in ["is_dark_theme", "icon_svg", "view", "confirm_dialog"] {
         assert!(source_declares_symbol(name), "expected source to declare coverage target {name}");
     }
 }

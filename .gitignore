@@ -56,3 +56,5 @@ target/
 **/memory/response_cache.db*
 **/state/memory_hygiene_state.json
 **/MEMORY_SNAPSHOT.md
+
+/local-temp/

@@ -5,7 +5,7 @@
 //! - 列出所有本地分支
 //! - 切换分支
 //! - 在终端中打开仓库目录
-//! - 获取工作区与索引之间的差异文件元数据
+//! - 获取工作区与 HEAD 之间的差异文件元数据
 //! - 加载差异文件的新旧内容
 //! - 获取已更改文件的路径列表
 //!
@@ -33,6 +33,17 @@ use std::process::Command;
 /// 返回有效的 Git 仓库路径字符串，如果没有可用的仓库则返回 `None`
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn git_repo_path_for_app(app: &App) -> Option<String> {
+    if let Some(dir) = app.selected_git_worktree_directory.as_ref() {
+        let dir = dir.trim();
+        if !dir.is_empty() {
+            let dir_path = std::path::Path::new(dir);
+            if dir_path.exists() && git2::Repository::open(dir).is_ok() {
+                return Some(dir.to_string());
+            }
+        }
+        return None;
+    }
+
     if let Some(active_id) = app.active_session_id.as_ref()
         && let Some(info) = app.sessions.iter().find(|s| &s.id == active_id)
     {
@@ -293,8 +304,8 @@ pub fn get_diff_file_metas_for_repo_path(path: &str) -> Vec<DiffFileMeta> {
     // 配置差异选项：包含未跟踪的文件
     let mut opts = git2::DiffOptions::new();
     opts.include_untracked(true);
-    // 计算从树到工作区（通过索引）的差异
-    let Ok(diff) = repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut opts)) else {
+    // 提交网关按 HEAD 到工作区的行号暂存选中内容，面板必须使用同一基线。
+    let Ok(diff) = repo.diff_tree_to_workdir(Some(&tree), Some(&mut opts)) else {
         return vec![];
     };
 

@@ -141,6 +141,15 @@ pub(super) fn select_connection(app: &mut App, connection_id: String) -> Task<Me
         return Task::none();
     }
 
+    if let Some(connection) =
+        app.redis_tool.connections.iter().find(|connection| connection.id == connection_id).cloned()
+    {
+        app.redis_tool.selected_connection_id = Some(connection_id.clone());
+        app.redis_tool.load_connection_into_draft(&connection);
+        app.redis_tool.draft_is_new = false;
+        app.redis_tool.detail_tab = RedisDetailTab::Connection;
+    }
+
     app.redis_tool.begin_gateway_request("切换连接");
     let query = current_history_query(app, Some(0));
     let active_detail_tab = app.redis_tool.detail_tab;

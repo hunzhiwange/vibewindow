@@ -10,7 +10,10 @@
 //!
 //! 该模块是 VibeWindow 应用中 Git 面板功能的核心消息处理器。
 
-use crate::app::{App, DiffTheme, Message, state::ConventionalCommitType};
+use crate::app::{
+    App, DiffTheme, Message,
+    state::{ConventionalCommitType, GitWorktreeOption},
+};
 use iced::Task;
 use iced::widget::text_editor;
 
@@ -42,6 +45,21 @@ pub enum GitMessage {
     /// 刷新 Git 面板所需的全部数据
     RefreshGitPanelData,
 
+    /// 从网关刷新 Git 面板可切换的 worktree 列表
+    RefreshWorktreeOptions,
+
+    /// Git 面板 worktree 列表已就绪
+    WorktreeOptionsReady {
+        project_path: String,
+        result: Result<Vec<GitWorktreeOption>, String>,
+    },
+
+    /// 切换 Git 面板当前操作的 worktree
+    SelectGitWorktree(GitWorktreeOption),
+
+    /// 打开或关闭 Git 面板 worktree 菜单
+    ToggleGitWorktreeMenu(bool),
+
     /// 刷新变更文件列表
     ///
     /// 触发异步获取当前仓库的变更文件列表。
@@ -50,7 +68,10 @@ pub enum GitMessage {
     /// 变更文件列表已就绪
     ///
     /// 异步获取变更文件完成后的回调，携带文件路径列表。
-    ChangedFilesReady(Vec<String>),
+    ChangedFilesReady {
+        repo_path: Option<String>,
+        files: Vec<String>,
+    },
 
     /// 刷新 diff 文件元数据缓存
     RefreshDiffFileMetas,
@@ -389,8 +410,12 @@ struct SelectedCommitRequest {
 pub fn update(app: &mut App, message: GitMessage) -> Task<Message> {
     match message {
         message @ (GitMessage::RefreshGitPanelData
+        | GitMessage::RefreshWorktreeOptions
+        | GitMessage::WorktreeOptionsReady { .. }
+        | GitMessage::SelectGitWorktree(_)
+        | GitMessage::ToggleGitWorktreeMenu(_)
         | GitMessage::RefreshChangedFiles
-        | GitMessage::ChangedFilesReady(_)
+        | GitMessage::ChangedFilesReady { .. }
         | GitMessage::RefreshDiffFileMetas
         | GitMessage::DiffFileMetasReady { .. }
         | GitMessage::LoadDiffContent(_)

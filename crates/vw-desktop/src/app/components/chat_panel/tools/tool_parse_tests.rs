@@ -1,6 +1,6 @@
 use super::tool_parse::{
-    explore_item_dedupe_key, explore_tool_kind, is_explore_tool, tool_call_id_from_raw,
-    tool_name_from_raw, tool_status_from_raw,
+    explore_item_dedupe_key, explore_tool_kind, is_explore_tool, tool_call_id_from_raw, tool_input,
+    tool_input_path, tool_name_from_raw, tool_status_from_raw,
 };
 
 #[test]
@@ -23,5 +23,22 @@ fn explore_tool_kind_classifies_read_like_tools() {
 {"input":"{\"filePath\":\"src/main.rs\"}"}"#
         )
         .is_some()
+    );
+}
+
+#[test]
+fn tool_input_accepts_raw_input_alias() {
+    let value = serde_json::json!({
+        "rawInput": "{\"command\":\"date\"}"
+    });
+
+    assert_eq!(tool_input(&value), "{\"command\":\"date\"}");
+}
+
+#[test]
+fn tool_input_path_accepts_claude_file_path_alias() {
+    assert_eq!(
+        tool_input_path(r#"{"file_path":"docs/demo.md"}"#),
+        Some("docs/demo.md".to_string())
     );
 }

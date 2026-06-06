@@ -43,14 +43,13 @@ pub(crate) fn sync_top_tab(app: &mut App) {
 }
 
 pub fn ensure_initialized(app: &mut App) -> Task<Message> {
-    if !app.workflow_state.has_apps() {
-        match model::load_builtin_workflow() {
-            Ok(loaded) => app.workflow_state.apply_loaded(loaded, app.window_size),
-            Err(error) => app.workflow_state.set_error(error),
-        }
+    sync_top_tab(app);
+
+    if !app.workflow_state.saved_apps_loaded && !app.workflow_state.saved_apps_loading {
+        app.workflow_state.begin_saved_apps_load();
+        return message::load_saved_apps_task();
     }
 
-    sync_top_tab(app);
     Task::none()
 }
 

@@ -1,12 +1,8 @@
 //! # Workflow 模型创建
 //!
-//! 该模块提供内置示例加载、空白工作流创建、节点创建以及节点 YAML 重建能力。
+//! 该模块提供空白工作流创建、节点创建以及节点 YAML 重建能力。
 
 use super::*;
-
-pub fn load_builtin_workflow() -> Result<LoadedWorkflow, String> {
-    load_document_from_text(None, BUILTIN_SAMPLE.to_string())
-}
 
 pub fn create_blank_workflow(app_meta: WorkflowAppMeta) -> Result<LoadedWorkflow, String> {
     let root = blank_workflow_root(&app_meta);

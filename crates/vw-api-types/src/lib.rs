@@ -14,6 +14,7 @@
 //! - [`project`][]: 项目实体、项目列表与项目级变更记录
 //! - [`file`][]: 文件树、文件读写、搜索与文件元信息
 //! - [`git`][]: Git 状态、diff、分支切换与提交选择
+//! - [`knowledge`][]: 知识库、文档、检索与运行时能力 DTO
 //! - [`provider`][]: 模型提供商与模型能力信息
 //! - [`settings`][]: 运行时、安全、多代理与浏览器等设置
 //! - [`task`][]: 后台任务、任务事件流与执行请求
@@ -35,12 +36,14 @@
 //! - 通过新类型包装 ID，降低字符串误用风险
 
 pub mod chat;
+pub mod cleaner;
 pub mod common;
 pub mod data;
 pub mod error;
 pub mod file;
 pub mod git;
 pub mod id;
+pub mod knowledge;
 pub mod project;
 pub mod provider;
 pub mod question;
@@ -56,6 +59,9 @@ pub mod worktree;
 #[cfg(test)]
 #[path = "chat_tests.rs"]
 mod chat_tests;
+#[cfg(test)]
+#[path = "cleaner_tests.rs"]
+mod cleaner_tests;
 #[cfg(test)]
 #[path = "common_tests.rs"]
 mod common_tests;
@@ -74,6 +80,9 @@ mod git_tests;
 #[cfg(test)]
 #[path = "id_tests.rs"]
 mod id_tests;
+#[cfg(test)]
+#[path = "knowledge_tests.rs"]
+mod knowledge_tests;
 #[cfg(test)]
 #[path = "project_tests.rs"]
 mod project_tests;

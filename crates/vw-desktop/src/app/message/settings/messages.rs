@@ -1,6 +1,6 @@
 //! 定义系统设置页面的消息枚举，作为 UI 事件与状态更新之间的显式契约。
 
-use crate::app::state::ModelCatalogEntry;
+use crate::app::state::{CronAddJobType, CronAddScheduleKind, CronSettingsTab, ModelCatalogEntry};
 use crate::app::{SettingsTab, components::system_settings::SystemTab};
 use iced::widget::text_editor;
 use vw_config_types::automation::ResearchTrigger;
@@ -243,6 +243,12 @@ pub enum GatewayMessage {
 /// 网关客户端设置页消息。
 #[derive(Debug, Clone)]
 pub enum GatewayClientMessage {
+    SelectServer(String),
+    AddServer,
+    RemoveServerRequested(String),
+    RemoveServerConfirmed(String),
+    RemoveServerCanceled,
+    NameChanged(String),
     HostChanged(String),
     PortChanged(u16),
     BearerTokenChanged(String),
@@ -251,6 +257,22 @@ pub enum GatewayClientMessage {
     SkeyChanged(String),
     HelpOpen,
     HelpClose,
+}
+
+/// ACP 设置页消息。
+#[derive(Debug, Clone)]
+pub enum AcpMessage {
+    Refresh,
+    Loaded(Result<crate::app::config::AcpSettingsSnapshot, String>),
+    SetEnabled {
+        agent: String,
+        enabled: bool,
+    },
+    SetEnabledCompleted {
+        agent: String,
+        enabled: bool,
+        result: Result<crate::app::config::AcpSettingsSnapshot, String>,
+    },
 }
 
 /// 隧道设置页消息。
@@ -355,6 +377,7 @@ pub enum SettingsMessage {
     Memory(MemoryMessage),
     Channels(ChannelsMessage),
     Multimodal(MultimodalMessage),
+    Acp(AcpMessage),
     Gateway(GatewayMessage),
     GatewayClient(GatewayClientMessage),
     Tunnel(TunnelMessage),
@@ -442,6 +465,74 @@ pub enum SettingsMessage {
     HeartbeatHelpClose,
     CronEnabledToggled(bool),
     CronMaxRunHistoryChanged(u32),
+    CronTabSelected(CronSettingsTab),
+    CronJobsRefresh,
+    CronJobsLoaded(Result<Vec<vw_gateway_client::CronJobDto>, String>),
+    CronJobSelectionToggled(String, bool),
+    CronJobsSelectAllToggled(bool),
+    CronJobRunsOpen(String),
+    CronJobRunsLoaded(String, Result<Vec<vw_gateway_client::CronRunDto>, String>),
+    CronJobRunsEditorAction(text_editor::Action),
+    CronJobRunsClose,
+    CronJobEditStarted(String),
+    CronJobEditCanceled,
+    CronJobEditNameChanged(String),
+    CronJobEditJobTypeChanged(CronAddJobType),
+    CronJobEditScheduleKindChanged(CronAddScheduleKind),
+    CronJobEditScheduleChanged(String),
+    CronJobEditAtChanged(String),
+    CronJobEditEveryMsChanged(String),
+    CronJobEditCommandChanged(String),
+    CronJobEditCommandEditorAction(text_editor::Action),
+    CronJobEditPromptChanged(String),
+    CronJobEditPromptEditorAction(text_editor::Action),
+    CronJobEditAgentChanged(String),
+    CronJobEditAcpAgentChanged(String),
+    CronJobEditProjectPathChanged(String),
+    CronJobEditModelProviderChanged(String),
+    CronJobEditModelChanged(String),
+    CronJobEditWakeToggled(bool),
+    CronJobEditFallbacksChanged(String),
+    CronJobEditFullAccessToggled(bool),
+    CronJobEditTaskPoolToggled(bool),
+    CronJobEditDeliveryEnabledToggled(bool),
+    CronJobEditDeliveryChannelChanged(String),
+    CronJobEditDeliveryToChanged(String),
+    CronJobEditDeliveryBestEffortToggled(bool),
+    CronJobEditDeleteAfterRunToggled(bool),
+    CronJobEditSave,
+    CronJobEnabledChanged(String, bool),
+    CronJobDelete(String),
+    CronSelectedJobsEnable,
+    CronSelectedJobsDisable,
+    CronSelectedJobsDelete,
+    CronAddNameChanged(String),
+    CronAddJobTypeChanged(CronAddJobType),
+    CronAddScheduleKindChanged(CronAddScheduleKind),
+    CronAddScheduleChanged(String),
+    CronAddAtChanged(String),
+    CronAddEveryMsChanged(String),
+    CronAddCommandChanged(String),
+    CronAddCommandEditorAction(text_editor::Action),
+    CronAddPromptChanged(String),
+    CronAddPromptEditorAction(text_editor::Action),
+    CronAddSessionTargetChanged(String),
+    CronAddAgentChanged(String),
+    CronAddAcpAgentChanged(String),
+    CronAddProjectPathChanged(String),
+    CronAddModelProviderChanged(String),
+    CronAddModelChanged(String),
+    CronAddWakeToggled(bool),
+    CronAddFallbacksChanged(String),
+    CronAddFullAccessToggled(bool),
+    CronAddTaskPoolToggled(bool),
+    CronAddDeliveryEnabledToggled(bool),
+    CronAddDeliveryChannelChanged(String),
+    CronAddDeliveryToChanged(String),
+    CronAddDeliveryBestEffortToggled(bool),
+    CronAddDeleteAfterRunToggled(bool),
+    CronAddSubmit,
+    CronJobMutationCompleted(Result<String, String>),
     CronSave,
     CronHelpOpen,
     CronHelpClose,

@@ -4,18 +4,19 @@
 
 use super::model::{
     LoadedWorkflow, WorkflowAppMeta, WorkflowConnectionEndpoint, create_blank_workflow,
-    load_builtin_workflow, load_document_from_path, load_document_from_value,
-    suggested_workflow_file_name,
+    load_document_from_path, load_document_from_value, suggested_workflow_file_name,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use super::model::{WorkflowViewport, load_document_from_text, serialize_workflow_yaml};
 use super::state::{
     WorkflowAppEditorMode, WorkflowCanvasContextMenuTarget, WorkflowNodeEditorTab,
-    WorkflowVariablePanelKind,
+    WorkflowSavedAppSummary, WorkflowVariablePanelKind,
 };
 use crate::app::{App, Message};
 use iced::widget::text_editor;
 use iced::{Point, Task, Vector};
+#[cfg(not(target_arch = "wasm32"))]
+use vw_gateway_client::{WorkflowRecordSummary, WorkflowRecordUpsertBody};
 
 mod app;
 mod canvas;
@@ -39,7 +40,20 @@ mod tests;
 
 #[derive(Debug, Clone)]
 pub enum WorkflowMessage {
-    LoadSample,
+    LoadSavedApps,
+    LoadSavedAppsFinished(Result<Vec<WorkflowSavedAppSummary>, String>),
+    OpenSavedApp(String),
+    OpenSavedAppFinished(Result<LoadedWorkflow, String>),
+    ShowSavedApps,
+    SavedAppSearchChanged(String),
+    ToggleSavedAppActions(String),
+    CloseSavedAppActions,
+    CopySavedAppUuid(String),
+    ClearCopiedSavedAppUuid(String),
+    RequestDeleteSavedApp(String),
+    CancelDeleteSavedApp,
+    DeleteSavedApp(String),
+    DeleteSavedAppFinished(Result<String, String>),
     OpenFile,
     OpenFileFinished(Result<Option<LoadedWorkflow>, String>),
     SelectApp(String),
@@ -51,6 +65,7 @@ pub enum WorkflowMessage {
     AppEditorIconChanged(String),
     AppEditorUseIconAsAnswerIconChanged(bool),
     AppEditorMaxActiveRequestsChanged(String),
+    OrganizeActiveApp,
     SubmitAppEditor,
     ToggleQuickInsertPanel,
     InsertSuggestedNode(String),
@@ -185,7 +200,7 @@ pub enum WorkflowMessage {
     CloseFloatingPanels,
     SaveActiveApp,
     SaveActiveAppAs,
-    SaveActiveAppFinished(Result<Option<String>, String>),
+    SaveActiveAppFinished(Result<Option<WorkflowSaveTarget>, String>),
     ExportPng,
     ExportJpeg,
     ExportSvg,
@@ -220,6 +235,12 @@ pub enum WorkflowMessage {
     DismissError,
 }
 
+#[derive(Debug, Clone)]
+pub enum WorkflowSaveTarget {
+    LocalUuid(String),
+    FilePath(String),
+}
+
 pub fn update(app: &mut App, message: WorkflowMessage) -> Task<Message> {
     app::handle(app, message.clone())
         .or_else(|| node::handle(app, message.clone()))
@@ -231,6 +252,99 @@ pub fn update(app: &mut App, message: WorkflowMessage) -> Task<Message> {
 pub(super) fn apply_loaded(app: &mut App, loaded: LoadedWorkflow) {
     app.workflow_state.apply_loaded(loaded, app.window_size);
     crate::apps::workflow::sync_top_tab(app);
+}
+
+pub(crate) fn load_saved_apps_task() -> Task<Message> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        Task::perform(
+            async { Err("Web 平台暂不支持读取本地 Workflow 应用列表".to_string()) },
+            |res| Message::WorkflowTool(WorkflowMessage::LoadSavedAppsFinished(res)),
+        )
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        Task::perform(
+            async move {
+                let client = crate::app::config::gateway_client()?;
+                let records = client.workflow_applications_list().await?;
+                Ok(records.into_iter().map(saved_app_summary_from_record).collect())
+            },
+            |res| Message::WorkflowTool(WorkflowMessage::LoadSavedAppsFinished(res)),
+        )
+    }
+}
+
+pub(super) fn open_saved_app_task(uuid: String) -> Task<Message> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = uuid;
+        Task::perform(
+            async { Err("Web 平台暂不支持读取本地 Workflow 应用".to_string()) },
+            |res| Message::WorkflowTool(WorkflowMessage::OpenSavedAppFinished(res)),
+        )
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        Task::perform(
+            async move {
+                let client = crate::app::config::gateway_client()?;
+                let record = client.workflow_application_get(&uuid).await?;
+                let mut loaded = load_document_from_text(None, record.workflow_yaml)?;
+                loaded.local_uuid = Some(record.uuid);
+                if !record.name.trim().is_empty() {
+                    loaded.source_name = record.name.clone();
+                    loaded.app_meta.name = record.name.clone();
+                    loaded.document.name = record.name;
+                }
+                if !record.description.trim().is_empty() {
+                    loaded.app_meta.description = record.description;
+                }
+                Ok(loaded)
+            },
+            |res| Message::WorkflowTool(WorkflowMessage::OpenSavedAppFinished(res)),
+        )
+    }
+}
+
+pub(super) fn delete_saved_app_task(uuid: String) -> Task<Message> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = uuid;
+        Task::perform(
+            async { Err("Web 平台暂不支持删除本地 Workflow 应用".to_string()) },
+            |res| Message::WorkflowTool(WorkflowMessage::DeleteSavedAppFinished(res)),
+        )
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        Task::perform(
+            async move {
+                let client = crate::app::config::gateway_client()?;
+                let response = client.workflow_application_delete(&uuid).await?;
+                if response.deleted {
+                    Ok(response.uuid)
+                } else {
+                    Err(format!("未找到可删除的 Workflow 应用: {uuid}"))
+                }
+            },
+            |res| Message::WorkflowTool(WorkflowMessage::DeleteSavedAppFinished(res)),
+        )
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn saved_app_summary_from_record(record: WorkflowRecordSummary) -> WorkflowSavedAppSummary {
+    WorkflowSavedAppSummary {
+        uuid: record.uuid,
+        name: record.name,
+        description: record.description,
+        created_at_ms: record.created_at_ms,
+        updated_at_ms: record.updated_at_ms,
+    }
 }
 
 pub(super) fn save_active_app(app: &mut App, force_picker: bool) -> Task<Message> {
@@ -268,6 +382,30 @@ pub(super) fn save_entry(
     {
         Task::perform(
             async move {
+                let content = serialize_workflow_yaml(
+                    &entry.meta,
+                    &entry.document,
+                    &entry.environment_variables,
+                    &entry.conversation_variables,
+                    &entry.raw_root,
+                    WorkflowViewport { x: entry.pan.x, y: entry.pan.y, zoom: entry.zoom },
+                )?;
+
+                if !force_picker {
+                    let client = crate::app::config::gateway_client()?;
+                    let body = WorkflowRecordUpsertBody {
+                        uuid: entry.local_uuid.clone(),
+                        name: entry.meta.name.clone(),
+                        description: entry.meta.description.clone(),
+                        workflow_yaml: content,
+                    };
+                    let record = match entry.local_uuid.as_deref() {
+                        Some(uuid) => client.workflow_application_update(uuid, &body).await?,
+                        None => client.workflow_application_create(&body).await?,
+                    };
+                    return Ok(Some(WorkflowSaveTarget::LocalUuid(record.uuid)));
+                }
+
                 let default_name = suggested_workflow_file_name(&entry.meta.name);
                 let path = if force_picker || entry.source_path.is_none() {
                     let file = rfd::AsyncFileDialog::new()
@@ -285,17 +423,9 @@ pub(super) fn save_entry(
                     entry.source_path.clone().unwrap_or(default_name)
                 };
 
-                let content = serialize_workflow_yaml(
-                    &entry.meta,
-                    &entry.document,
-                    &entry.environment_variables,
-                    &entry.conversation_variables,
-                    &entry.raw_root,
-                    WorkflowViewport { x: entry.pan.x, y: entry.pan.y, zoom: entry.zoom },
-                )?;
                 std::fs::write(&path, content)
                     .map_err(|error| format!("写入工作流文件失败: {error}"))?;
-                Ok(Some(path))
+                Ok(Some(WorkflowSaveTarget::FilePath(path)))
             },
             |res| Message::WorkflowTool(WorkflowMessage::SaveActiveAppFinished(res)),
         )

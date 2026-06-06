@@ -42,7 +42,7 @@ fn hygiene_state_path_uses_user_worktree_dir() {
         path.starts_with(home.join(".vibewindow").join("worktree")),
         "state path should stay in the user VibeWindow worktree state directory"
     );
-    assert!(path.to_string_lossy().contains("/workspaces/"));
+    assert!(path.components().any(|component| component.as_os_str() == "workspaces"));
     assert!(
         !path.starts_with(workspace),
         "state path should not be written inside the project workspace"

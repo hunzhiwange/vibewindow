@@ -63,7 +63,7 @@ use crate::app::agent::security::SecurityPolicy;
 use crate::app::agent::security::pairing::{PairingGuard, is_public_bind};
 use crate::app::agent::tools::traits::ToolSpec;
 use crate::app::agent::tools::{self, Tool};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use axum::{
     Router,
     http::HeaderValue,
@@ -106,17 +106,9 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         };
 
     let addr: SocketAddr = format!("{host}:{port}").parse()?;
-    let listener = match tokio::net::TcpListener::bind(addr).await {
-        Ok(listener) => listener,
-        Err(err) => {
-            tracing::warn!(
-                "Failed to bind gateway on {host}:{port}: {err}; trying random fallback port"
-            );
-            tokio::net::TcpListener::bind((host, 0))
-                .await
-                .map_err(|fallback_err| anyhow::anyhow!(fallback_err.to_string()))?
-        }
-    };
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .with_context(|| format!("Failed to bind gateway on {host}:{port}"))?;
     let actual_port = listener.local_addr()?.port();
     let display_addr = format!("{host}:{actual_port}");
     let cors_whitelist: Arc<Vec<String>> = Arc::new(Vec::new());
@@ -451,6 +443,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .merge(api::handlers::git::router())
         .merge(api::handlers::global::router())
         .merge(api::handlers::instance::router())
+        .merge(api::handlers::knowledge::router())
         .merge(api::handlers::misc::router())
         .merge(api::handlers::permission::router())
         .merge(api::handlers::project::router::<AppState>())
@@ -467,6 +460,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
 
     let app = Router::<AppState>::new()
         // ── Infrastructure routes ──
+        .route("/health", get(health::handle_health))
         .route("/v1/health", get(health::handle_health))
         .route("/v1/metrics", get(health::handle_metrics))
         .route("/v1/pair", post(pairing::handle_pair))
@@ -494,7 +488,15 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/v1/tools", get(api::handle_api_tools))
         .route("/v1/cron", get(api::handle_api_cron_list))
         .route("/v1/cron", post(api::handle_api_cron_add))
-        .route("/v1/cron/{id}", delete(api::handle_api_cron_delete))
+        .route("/v1/cron/{id}/runs", get(api::handle_api_cron_runs))
+        .route("/v1/cron/runs/{id}", get(api::handle_api_cron_runs))
+        .route(
+            "/v1/cron/{id}",
+            delete(api::handle_api_cron_delete)
+                .patch(api::handle_api_cron_update)
+                .post(api::handle_api_cron_update)
+                .put(api::handle_api_cron_update),
+        )
         .route("/v1/integrations", get(api::handle_api_integrations))
         .route("/v1/integrations/settings", get(api::handle_api_integrations_settings))
         .route(
