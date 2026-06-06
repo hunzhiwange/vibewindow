@@ -9,7 +9,7 @@ VibeWindow 是一个 Rust-first 的自主代理运行时，目标是在桌面端
 - `vibewindow` CLI：交互式 Agent、单次消息、网关、守护进程、任务、记忆、技能、集成、计划任务和安全维护。
 - `vibe-window` 桌面端：基于 Iced 的本地桌面应用。
 - `vw-webview` helper：跨平台 WebView 窗口，用于桌面打包场景。
-- `acp`：Agent Client Protocol 桥接入口。
+- `vw-acp`：Agent Client Protocol 桥接入口。
 - `vw-fig2json`：Figma `.fig` 文件到 JSON 的转换工具。
 - 共享 crate：API 类型、配置类型、网关客户端、运行时核心、提供商解析和通用工具。
 
