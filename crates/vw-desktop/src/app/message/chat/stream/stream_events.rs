@@ -96,6 +96,85 @@ fn message_ids_tail(message_ids: &[Option<String>]) -> Vec<Option<String>> {
     message_ids[message_ids.len().saturating_sub(tail_len)..].to_vec()
 }
 
+fn parse_tool_block_len(s: &str) -> Option<usize> {
+    if !s.starts_with("tool ") {
+        return None;
+    }
+
+    let line_end = s.find('\n')?;
+    let mut idx = line_end + 1;
+    let mut buf = String::new();
+    for _ in 0..64 {
+        if idx >= s.len() {
+            break;
+        }
+        let next_end = s[idx..].find('\n').map(|offset| idx + offset).unwrap_or(s.len());
+        let line = &s[idx..next_end];
+        if !buf.is_empty() {
+            buf.push('\n');
+        }
+        buf.push_str(line);
+        if serde_json::from_str::<serde_json::Value>(buf.trim()).is_ok() {
+            return Some(if next_end < s.len() { next_end + 1 } else { next_end });
+        }
+        if next_end >= s.len() {
+            break;
+        }
+        idx = next_end + 1;
+    }
+    None
+}
+
+fn tool_call_id_from_raw_block(raw: &str) -> Option<String> {
+    let (_, rest) = raw.split_once('\n')?;
+    let value = serde_json::from_str::<serde_json::Value>(rest.trim()).ok()?;
+    value.get("tool_call_id").and_then(serde_json::Value::as_str).map(ToOwned::to_owned)
+}
+
+fn tool_block_start_allowed(content: &str, start: usize) -> bool {
+    if start == 0 || content[..start].ends_with('\n') {
+        return true;
+    }
+    let prefix = content[..start].trim_end_matches([' ', '\t']);
+    prefix.ends_with(':') || prefix.ends_with('：')
+}
+
+fn upsert_tool_block_by_call_id(content: &mut String, raw_tool_block: &str) {
+    let Some(call_id) = tool_call_id_from_raw_block(raw_tool_block) else {
+        append_tool_block(content, raw_tool_block);
+        return;
+    };
+
+    let mut search_from = 0usize;
+    while let Some(offset) = content[search_from..].find("tool ") {
+        let start = search_from + offset;
+        if !tool_block_start_allowed(content, start) {
+            search_from = start + "tool ".len();
+            continue;
+        }
+        let Some(block_len) = parse_tool_block_len(&content[start..]) else {
+            search_from = start + "tool ".len();
+            continue;
+        };
+        let end = start + block_len;
+        if tool_call_id_from_raw_block(&content[start..end]).as_deref() == Some(call_id.as_str()) {
+            content.replace_range(start..end, raw_tool_block);
+            return;
+        }
+        search_from = end;
+    }
+
+    append_tool_block(content, raw_tool_block);
+}
+
+fn append_tool_block(content: &mut String, raw_tool_block: &str) {
+    if !content.is_empty() && !content.ends_with('\n') {
+        content.push('\n');
+    }
+    content.push_str(raw_tool_block.trim_end());
+    content.push('\n');
+}
+
 fn leading_guide_count(queue: &[QueueItem]) -> usize {
     queue.iter().take_while(|item| item.send_behavior == ChatSendBehavior::Guide).count()
 }
@@ -149,6 +228,102 @@ pub(super) fn handle_agent_stream_delta(app: &mut App, id: u64, delta: String) -
         if let Some(last) = live_chat.last_mut() {
             update_think_timing_from_delta(last, &delta, now);
         }
+    }
+
+    app.store_session_chat_snapshot(
+        session_id.clone(),
+        crate::app::session::shared_chat_messages(live_chat.clone()),
+        live_ids.clone(),
+    );
+
+    let mut session = load_session_or_default(app, session_id.clone());
+    session.messages = live_chat.clone();
+    session.updated_ms = now;
+    let save_task = save_session_task(session, session_directory_for_save(app, &session_id));
+
+    if !is_active {
+        app.sync_task_pet_from_runtime();
+        return save_task;
+    }
+
+    app.chat = live_chat;
+    app.chat_message_ids = live_ids;
+    app.sync_task_pet_from_runtime();
+    app.sync_chat_message_estimated_heights_len();
+    let mut tail_prewarm_task = Task::none();
+    let mut should_snap_to_bottom = false;
+    if let Some(last_idx) = app.chat.len().checked_sub(1) {
+        app.refine_chat_message_estimated_heights(last_idx, last_idx + 1);
+        let tail_chunk_start = crate::app::session::chat_ui_chunk_start_idx(last_idx);
+        let tail_is_visible = {
+            let (visible_start_idx, visible_end_idx) = app.visible_chat_message_window();
+            last_idx >= visible_start_idx && last_idx < visible_end_idx
+        };
+        should_snap_to_bottom = app.chat_auto_scroll && !tail_is_visible;
+        if (app.chat_auto_scroll || tail_is_visible)
+            && !app.active_session_view_state.preparing_chat_ui_chunks.contains(&tail_chunk_start)
+        {
+            app.mark_chat_ui_chunks_preparing(&[tail_chunk_start]);
+            tail_prewarm_task = crate::app::message::project::prepare_session_ui_task(
+                session_id.clone(),
+                app.active_shared_chat_messages(),
+                tail_chunk_start,
+                false,
+                app.dialogue_flow_show_reasoning_summary,
+            );
+        }
+    }
+    app.active_session_view_state.updated_ms = now;
+    app.rebuild_active_session_message_meta();
+    if should_snap_to_bottom {
+        Task::batch(vec![scroll_chat_to_bottom_task(app), tail_prewarm_task, save_task])
+    } else {
+        Task::batch(vec![tail_prewarm_task, save_task])
+    }
+}
+
+/// 模块内可见函数，执行 handle_agent_workflow_node_update 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+pub(super) fn handle_agent_workflow_node_update(
+    app: &mut App,
+    id: u64,
+    raw_tool_block: String,
+) -> Task<Message> {
+    let Some(session_id) = app.find_session_by_request_id(id) else {
+        return Task::none();
+    };
+
+    let now = now_ms();
+    let is_active = app.active_session_id.as_ref() == Some(&session_id);
+    let mut live_chat: Vec<models::ChatMessage> = if is_active {
+        app.chat.clone()
+    } else if let Some(cached) = app.session_chat_cache.get(&session_id).cloned() {
+        cached.iter().cloned().collect::<Vec<models::ChatMessage>>()
+    } else {
+        load_session_or_default(app, session_id.clone()).messages
+    };
+    let mut live_ids = if is_active {
+        app.chat_message_ids.clone()
+    } else {
+        app.session_chat_message_id_cache
+            .get(&session_id)
+            .cloned()
+            .unwrap_or_else(|| vec![None; live_chat.len()])
+    };
+
+    if let Some(last) = live_chat.last_mut()
+        && last.role == models::ChatRole::Assistant
+    {
+        upsert_tool_block_by_call_id(&mut last.content, &raw_tool_block);
+    } else {
+        let mut content = String::new();
+        append_tool_block(&mut content, &raw_tool_block);
+        live_chat.push(models::ChatMessage {
+            role: models::ChatRole::Assistant,
+            content,
+            think_timing: Vec::new(),
+        });
+        live_ids.push(None);
     }
 
     app.store_session_chat_snapshot(
@@ -403,6 +578,7 @@ pub(super) fn handle_agent_post_tool_round(
         send_behavior: ChatSendBehavior::Queue,
         request_history_override: Some(resume_history),
         resume_history_only: true,
+        workflow_mode_enabled: active_request.workflow_mode_enabled,
     };
     let next_item = {
         let runtime = app.get_session_runtime_mut(&session_id);

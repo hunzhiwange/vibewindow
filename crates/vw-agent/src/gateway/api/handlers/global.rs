@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use axum::Json;
 use axum::Router;
+use axum::extract::State;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::{get, post};
 use serde_json::Value;
@@ -23,7 +24,7 @@ use tokio_stream::wrappers::ReceiverStream;
 
 use crate::app::agent::bus;
 use crate::app::agent::config;
-use crate::app::agent::gateway::ApiError;
+use crate::app::agent::gateway::{ApiError, AppState};
 use crate::app::agent::health;
 use crate::app::agent::installation;
 use crate::app::agent::project;
@@ -69,6 +70,15 @@ where
         .route("/global/health", get(global_health))
         .route("/global/event", get(global_event_sse))
         .route("/global/config", get(global_config_get).patch(global_config_patch))
+        .route("/global/config/acp", get(global_config_acp_get))
+        .route("/global/dispose", post(global_dispose))
+}
+
+pub(crate) fn stateful_router() -> Router<AppState> {
+    Router::new()
+        .route("/global/health", get(global_health))
+        .route("/global/event", get(global_event_sse))
+        .route("/global/config", get(global_config_get).patch(global_config_patch_stateful))
         .route("/global/config/acp", get(global_config_acp_get))
         .route("/global/dispose", post(global_dispose))
 }
@@ -132,6 +142,17 @@ async fn global_config_acp_get() -> Json<Value> {
 async fn global_config_patch(Json(patch): Json<Value>) -> Result<Json<Value>, ApiError> {
     config::update_global(patch).await.map_err(|e| ApiError::bad_request(e.to_string()))?;
     Ok(Json(Value::Null))
+}
+
+async fn global_config_patch_stateful(
+    State(state): State<AppState>,
+    Json(patch): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    let response = global_config_patch(Json(patch)).await?;
+    let next = config::get_global().await;
+    state.pairing.update_from_skeys(next.gateway.auth_enabled, &next.gateway.skeys);
+    *state.config.lock() = next;
+    Ok(response)
 }
 
 async fn global_dispose() -> Result<Json<bool>, ApiError> {

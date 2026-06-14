@@ -15,8 +15,20 @@ fn default_retrieval_mode() -> KnowledgeRetrievalMode {
     KnowledgeRetrievalMode::FullText
 }
 
+fn default_chunking_mode() -> KnowledgeChunkingMode {
+    KnowledgeChunkingMode::General
+}
+
 fn default_top_k() -> usize {
     10
+}
+
+fn default_keyword_count() -> usize {
+    10
+}
+
+fn default_score_threshold() -> f64 {
+    0.15
 }
 
 fn default_enabled() -> bool {
@@ -42,16 +54,37 @@ pub enum KnowledgeRetrievalMode {
     Hybrid,
 }
 
+/// Knowledge chunk structure.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KnowledgeChunkingMode {
+    General,
+    ParentChild,
+    Qa,
+}
+
 /// Dataset metadata returned by the gateway.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct KnowledgeDatasetDto {
     pub id: String,
     pub name: String,
     pub description: String,
+    #[serde(default = "default_chunking_mode")]
+    pub chunking_mode: KnowledgeChunkingMode,
     #[serde(default = "default_indexing_mode")]
     pub indexing_mode: KnowledgeIndexingMode,
     #[serde(default = "default_retrieval_mode")]
     pub retrieval_mode: KnowledgeRetrievalMode,
+    #[serde(default = "default_keyword_count")]
+    pub keyword_count: usize,
+    #[serde(default = "default_top_k")]
+    pub top_k: usize,
+    #[serde(default)]
+    pub score_threshold_enabled: bool,
+    #[serde(default = "default_score_threshold")]
+    pub score_threshold: f64,
+    #[serde(default)]
+    pub rerank_enabled: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub embedding_model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -68,10 +101,22 @@ pub struct KnowledgeDatasetCreateRequest {
     pub name: String,
     #[serde(default)]
     pub description: String,
+    #[serde(default = "default_chunking_mode")]
+    pub chunking_mode: KnowledgeChunkingMode,
     #[serde(default = "default_indexing_mode")]
     pub indexing_mode: KnowledgeIndexingMode,
     #[serde(default = "default_retrieval_mode")]
     pub retrieval_mode: KnowledgeRetrievalMode,
+    #[serde(default = "default_keyword_count")]
+    pub keyword_count: usize,
+    #[serde(default = "default_top_k")]
+    pub top_k: usize,
+    #[serde(default)]
+    pub score_threshold_enabled: bool,
+    #[serde(default = "default_score_threshold")]
+    pub score_threshold: f64,
+    #[serde(default)]
+    pub rerank_enabled: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub embedding_model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

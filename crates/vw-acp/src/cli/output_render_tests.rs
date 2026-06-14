@@ -1,17 +1,27 @@
 //! CLI 输出渲染行为的单元测试。
 
 use std::collections::HashMap;
+use std::io::{self, Write};
+use std::path::MAIN_SEPARATOR;
 
-use serde_json::Value;
+use serde_json::{Value, json};
+use vw_api_types::tools::{RenderHintDto, ToolResultDto};
 
 use crate::cli::output_render::{
-    conversation_history_entries, write_session_details_by_format, write_session_history_by_format,
+    SessionConnectionStatus, agent_session_id_payload, conversation_history_entries,
+    format_prompt_session_banner_line, write_cancel_result_by_format,
+    write_closed_session_by_format, write_created_session_banner, write_ensured_session_by_format,
+    write_new_session_by_format, write_queued_prompt_by_format, write_session_details_by_format,
+    write_session_history_by_format, write_sessions_by_format,
+    write_set_config_option_result_by_format, write_set_mode_result_by_format,
+    write_set_model_result_by_format,
 };
 use crate::{
     OutputFormat, SESSION_RECORD_SCHEMA, SessionAcpxState, SessionAgentContent,
-    SessionAgentMessage, SessionEventLog, SessionMessage, SessionRecord, SessionTokenUsage,
-    SessionToolResult, SessionToolResultContent, SessionToolUse, SessionUserContent,
-    SessionUserMessage,
+    SessionAgentMessage, SessionEnqueueResult, SessionEventLog, SessionMessage,
+    SessionMessageImage, SessionMessageImageSize, SessionRecord, SessionThinking,
+    SessionTokenUsage, SessionToolResult, SessionToolResultContent, SessionToolUse,
+    SessionUserContent, SessionUserMessage,
 };
 
 fn sample_record() -> SessionRecord {
@@ -104,6 +114,22 @@ fn sample_record() -> SessionRecord {
     }
 }
 
+fn rendered_output(output: Vec<u8>) -> String {
+    String::from_utf8(output).unwrap()
+}
+
+struct FailingWriter;
+
+impl Write for FailingWriter {
+    fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+        Err(io::Error::other("write failed"))
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 #[test]
 fn conversation_history_entries_summarize_user_and_agent_messages() {
     let entries = conversation_history_entries(&sample_record());
@@ -113,6 +139,283 @@ fn conversation_history_entries_summarize_user_and_agent_messages() {
     assert_eq!(entries[0].text_preview, "hello\nREADME");
     assert_eq!(entries[1].role, "assistant");
     assert_eq!(entries[1].text_preview, "hi\n[tool:shell]\ndone");
+}
+
+#[test]
+fn conversation_history_entries_summarize_media_and_render_hint_fallbacks() {
+    let mut record = sample_record();
+    let mut tool_results = HashMap::new();
+    tool_results.insert(
+        "b-tool".to_string(),
+        SessionToolResult {
+            tool_use_id: "b-tool".to_string(),
+            tool_name: "image".to_string(),
+            is_error: false,
+            content: SessionToolResultContent::Image(SessionMessageImage {
+                source: "file:///tmp/image.png".to_string(),
+                size: Some(SessionMessageImageSize { width: 10, height: 20 }),
+            }),
+            output: None,
+            result: None,
+        },
+    );
+    tool_results.insert(
+        "a-tool".to_string(),
+        SessionToolResult {
+            tool_use_id: "a-tool".to_string(),
+            tool_name: "empty-text".to_string(),
+            is_error: false,
+            content: SessionToolResultContent::Text("   ".to_string()),
+            output: None,
+            result: Some(ToolResultDto {
+                tool_use_id: Some("a-tool".to_string()),
+                tool_id: Some("empty-text".into()),
+                success: Some(true),
+                content: Vec::new(),
+                data: Value::Null,
+                model_result: Value::Null,
+                render_hint: Some(RenderHintDto {
+                    summary: Some("  fallback summary  ".to_string()),
+                    ..RenderHintDto::default()
+                }),
+                permission_request: None,
+                context_updates: Vec::new(),
+                extra_messages: Vec::new(),
+                telemetry: None,
+            }),
+        },
+    );
+    record.messages = vec![
+        SessionMessage::User(SessionUserMessage {
+            id: "user-2".to_string(),
+            content: vec![
+                SessionUserContent::Text("   ".to_string()),
+                SessionUserContent::Mention(crate::SessionMention {
+                    uri: "file:///tmp/project/empty.md".to_string(),
+                    content: "  ".to_string(),
+                }),
+                SessionUserContent::Image(SessionMessageImage {
+                    source: "file:///tmp/project/screenshot.png".to_string(),
+                    size: None,
+                }),
+            ],
+        }),
+        SessionMessage::Agent(SessionAgentMessage {
+            content: vec![
+                SessionAgentContent::Text(" ".to_string()),
+                SessionAgentContent::Thinking(SessionThinking {
+                    text: "hidden".to_string(),
+                    signature: None,
+                }),
+                SessionAgentContent::RedactedThinking("redacted".to_string()),
+                SessionAgentContent::ToolUse(SessionToolUse {
+                    id: "tool-use".to_string(),
+                    name: "search".to_string(),
+                    raw_input: "{}".to_string(),
+                    input: Value::Null,
+                    is_input_complete: true,
+                    thought_signature: None,
+                }),
+            ],
+            tool_results,
+            reasoning_details: None,
+        }),
+        SessionMessage::User(SessionUserMessage {
+            id: "empty-user".to_string(),
+            content: vec![SessionUserContent::Text(" ".to_string())],
+        }),
+    ];
+
+    let entries = conversation_history_entries(&record);
+
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0].text_preview, "file:///tmp/project/empty.md\n[image]");
+    assert_eq!(
+        entries[1].text_preview,
+        "[thinking]\n[thinking redacted]\n[tool:search]\nfallback summary\n[image]"
+    );
+}
+
+#[test]
+fn conversation_history_entries_skip_empty_tool_result_fallbacks() {
+    let mut record = sample_record();
+    let mut tool_results = HashMap::new();
+    tool_results.insert(
+        "tool".to_string(),
+        SessionToolResult {
+            tool_use_id: "tool".to_string(),
+            tool_name: "empty".to_string(),
+            is_error: false,
+            content: SessionToolResultContent::Text(" ".to_string()),
+            output: None,
+            result: Some(ToolResultDto {
+                tool_use_id: Some("tool".to_string()),
+                tool_id: Some("empty".into()),
+                success: Some(true),
+                content: Vec::new(),
+                data: Value::Null,
+                model_result: Value::Null,
+                render_hint: Some(RenderHintDto {
+                    summary: Some(" ".to_string()),
+                    ..RenderHintDto::default()
+                }),
+                permission_request: None,
+                context_updates: Vec::new(),
+                extra_messages: Vec::new(),
+                telemetry: None,
+            }),
+        },
+    );
+    record.messages = vec![SessionMessage::Agent(SessionAgentMessage {
+        content: Vec::new(),
+        tool_results,
+        reasoning_details: None,
+    })];
+
+    assert!(conversation_history_entries(&record).is_empty());
+}
+
+#[test]
+fn write_sessions_by_format_renders_all_formats() {
+    let mut open = sample_record();
+    open.name = None;
+    let mut closed = sample_record();
+    closed.vwacp_record_id = "record-closed".to_string();
+    closed.name = Some("closed-name".to_string());
+    closed.closed = Some(true);
+    let sessions = vec![open, closed];
+
+    let mut json_output = Vec::new();
+    write_sessions_by_format(&mut json_output, &sessions, OutputFormat::Json).unwrap();
+    let json_value: Value = serde_json::from_slice(&json_output).unwrap();
+    assert_eq!(json_value[0]["vwacpRecordId"], "record-1");
+    assert_eq!(json_value[1]["vwacpRecordId"], "record-closed");
+
+    let mut quiet_output = Vec::new();
+    write_sessions_by_format(&mut quiet_output, &sessions, OutputFormat::Quiet).unwrap();
+    assert_eq!(rendered_output(quiet_output), "record-1\nrecord-closed [closed]\n");
+
+    let mut text_output = Vec::new();
+    write_sessions_by_format(&mut text_output, &sessions, OutputFormat::Text).unwrap();
+    assert_eq!(
+        rendered_output(text_output),
+        "record-1\t-\t/tmp/project\t2026-01-01T00:02:00Z\nrecord-closed [closed]\tclosed-name\t/tmp/project\t2026-01-01T00:02:00Z\n"
+    );
+}
+
+#[test]
+fn write_sessions_by_format_reports_empty_text_list() {
+    let mut output = Vec::new();
+
+    write_sessions_by_format(&mut output, &[], OutputFormat::Text).unwrap();
+
+    assert_eq!(rendered_output(output), "No sessions\n");
+}
+
+#[test]
+fn write_sessions_by_format_propagates_writer_errors() {
+    let mut writer = FailingWriter;
+
+    let error =
+        write_sessions_by_format(&mut writer, &[sample_record()], OutputFormat::Text).unwrap_err();
+
+    assert_eq!(error.kind(), io::ErrorKind::Other);
+}
+
+#[test]
+fn write_closed_session_by_format_renders_all_formats() {
+    let record = sample_record();
+
+    let mut json_output = Vec::new();
+    write_closed_session_by_format(&mut json_output, &record, OutputFormat::Json).unwrap();
+    let json_value: Value = serde_json::from_slice(&json_output).unwrap();
+    assert_eq!(json_value["action"], "session_closed");
+    assert_eq!(json_value["vwacpRecordId"], "record-1");
+    assert_eq!(json_value["agentSessionId"], "agent-1");
+
+    let mut quiet_output = Vec::new();
+    write_closed_session_by_format(&mut quiet_output, &record, OutputFormat::Quiet).unwrap();
+    assert!(quiet_output.is_empty());
+
+    let mut text_output = Vec::new();
+    write_closed_session_by_format(&mut text_output, &record, OutputFormat::Text).unwrap();
+    assert_eq!(rendered_output(text_output), "record-1\n");
+}
+
+#[test]
+fn write_new_session_by_format_renders_created_and_replaced() {
+    let record = sample_record();
+    let mut replaced = sample_record();
+    replaced.vwacp_record_id = "old-record".to_string();
+
+    let mut json_output = Vec::new();
+    write_new_session_by_format(&mut json_output, &record, Some(&replaced), OutputFormat::Json)
+        .unwrap();
+    let json_value: Value = serde_json::from_slice(&json_output).unwrap();
+    assert_eq!(json_value["action"], "session_ensured");
+    assert_eq!(json_value["created"], true);
+    assert_eq!(json_value["replacedSessionId"], "old-record");
+
+    let mut quiet_output = Vec::new();
+    write_new_session_by_format(&mut quiet_output, &record, None, OutputFormat::Quiet).unwrap();
+    assert_eq!(rendered_output(quiet_output), "record-1\n");
+
+    let mut text_output = Vec::new();
+    write_new_session_by_format(&mut text_output, &record, Some(&replaced), OutputFormat::Text)
+        .unwrap();
+    assert_eq!(rendered_output(text_output), "record-1\t(replaced old-record)\n");
+
+    let mut plain_output = Vec::new();
+    write_new_session_by_format(&mut plain_output, &record, None, OutputFormat::Text).unwrap();
+    assert_eq!(rendered_output(plain_output), "record-1\n");
+}
+
+#[test]
+fn write_ensured_session_by_format_renders_created_and_existing() {
+    let record = sample_record();
+
+    let mut json_output = Vec::new();
+    write_ensured_session_by_format(&mut json_output, &record, false, OutputFormat::Json).unwrap();
+    let json_value: Value = serde_json::from_slice(&json_output).unwrap();
+    assert_eq!(json_value["created"], false);
+    assert_eq!(json_value["name"], "workspace");
+
+    let mut quiet_output = Vec::new();
+    write_ensured_session_by_format(&mut quiet_output, &record, true, OutputFormat::Quiet).unwrap();
+    assert_eq!(rendered_output(quiet_output), "record-1\n");
+
+    let mut created_output = Vec::new();
+    write_ensured_session_by_format(&mut created_output, &record, true, OutputFormat::Text)
+        .unwrap();
+    assert_eq!(rendered_output(created_output), "record-1\t(created)\n");
+
+    let mut existing_output = Vec::new();
+    write_ensured_session_by_format(&mut existing_output, &record, false, OutputFormat::Text)
+        .unwrap();
+    assert_eq!(rendered_output(existing_output), "record-1\t(existing)\n");
+}
+
+#[test]
+fn write_queued_prompt_by_format_renders_all_formats() {
+    let result = SessionEnqueueResult {
+        queued: true,
+        session_id: "record-1".to_string(),
+        request_id: "request-1".to_string(),
+    };
+
+    let mut json_output = Vec::new();
+    write_queued_prompt_by_format(&mut json_output, &result, OutputFormat::Json).unwrap();
+    let json_value: Value = serde_json::from_slice(&json_output).unwrap();
+    assert_eq!(json_value["action"], "prompt_queued");
+    assert_eq!(json_value["requestId"], "request-1");
+
+    let mut quiet_output = Vec::new();
+    write_queued_prompt_by_format(&mut quiet_output, &result, OutputFormat::Quiet).unwrap();
+    assert!(quiet_output.is_empty());
+
+    let mut text_output = Vec::new();
+    write_queued_prompt_by_format(&mut text_output, &result, OutputFormat::Text).unwrap();
+    assert_eq!(rendered_output(text_output), "[queued] request-1\n");
 }
 
 #[test]
@@ -129,6 +432,36 @@ fn write_session_details_by_format_renders_json_payload() {
 }
 
 #[test]
+fn write_session_details_by_format_renders_text_and_quiet_payloads() {
+    let mut record = sample_record();
+    record.agent_session_id = None;
+    record.name = None;
+    record.title = None;
+    record.closed = Some(true);
+    record.closed_at = Some("2026-01-01T00:04:00Z".to_string());
+    record.last_agent_exit_code = Some(2);
+    record.last_agent_exit_signal = Some("SIGTERM".to_string());
+    record.last_agent_disconnect_reason = Some("shutdown".to_string());
+    record.vwacp = None;
+
+    let mut quiet_output = Vec::new();
+    write_session_details_by_format(&mut quiet_output, &record, OutputFormat::Quiet).unwrap();
+    assert_eq!(rendered_output(quiet_output), "record-1\n");
+
+    let mut text_output = Vec::new();
+    write_session_details_by_format(&mut text_output, &record, OutputFormat::Text).unwrap();
+    let rendered = rendered_output(text_output);
+    assert!(rendered.contains("session: record-1\n"));
+    assert!(rendered.contains("agentSessionId: -\n"));
+    assert!(rendered.contains("status: closed\n"));
+    assert!(rendered.contains("model: -\n"));
+    assert!(rendered.contains("closedAt: 2026-01-01T00:04:00Z\n"));
+    assert!(rendered.contains("lastAgentExitCode: 2\n"));
+    assert!(rendered.contains("lastAgentExitSignal: SIGTERM\n"));
+    assert!(rendered.contains("lastAgentDisconnectReason: shutdown\n"));
+}
+
+#[test]
 fn write_session_history_by_format_limits_text_output() {
     let record = sample_record();
     let mut output = Vec::new();
@@ -136,4 +469,216 @@ fn write_session_history_by_format_limits_text_output() {
     write_session_history_by_format(&mut output, &record, OutputFormat::Text, 1).unwrap();
 
     assert_eq!(String::from_utf8(output).unwrap(), "[assistant] hi\n[tool:shell]\ndone\n");
+}
+
+#[test]
+fn write_session_history_by_format_renders_json_quiet_and_empty_text() {
+    let record = sample_record();
+
+    let mut json_output = Vec::new();
+    write_session_history_by_format(&mut json_output, &record, OutputFormat::Json, 10).unwrap();
+    let json_value: Value = serde_json::from_slice(&json_output).unwrap();
+    assert_eq!(json_value["action"], "session_history");
+    assert_eq!(json_value["entries"].as_array().unwrap().len(), 2);
+
+    let mut quiet_output = Vec::new();
+    write_session_history_by_format(&mut quiet_output, &record, OutputFormat::Quiet, 1).unwrap();
+    assert_eq!(rendered_output(quiet_output), "hi\n[tool:shell]\ndone\n");
+
+    let mut empty_record = sample_record();
+    empty_record.messages.clear();
+    let mut empty_output = Vec::new();
+    write_session_history_by_format(&mut empty_output, &empty_record, OutputFormat::Text, 1)
+        .unwrap();
+    assert_eq!(rendered_output(empty_output), "No conversation history\n");
+}
+
+#[test]
+fn write_session_history_by_format_handles_zero_limit() {
+    let record = sample_record();
+
+    let mut text_output = Vec::new();
+    write_session_history_by_format(&mut text_output, &record, OutputFormat::Text, 0).unwrap();
+    assert_eq!(rendered_output(text_output), "No conversation history\n");
+
+    let mut json_output = Vec::new();
+    write_session_history_by_format(&mut json_output, &record, OutputFormat::Json, 0).unwrap();
+    let json_value: Value = serde_json::from_slice(&json_output).unwrap();
+    assert_eq!(json_value["entries"].as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn format_prompt_session_banner_line_renders_status_and_routing() {
+    let record = sample_record();
+
+    let same = format_prompt_session_banner_line(
+        &record,
+        "/tmp/project",
+        SessionConnectionStatus::Connected,
+    );
+    assert_eq!(same, "[vwacp] session workspace (record-1) · /tmp/project · agent connected");
+
+    let nested = format_prompt_session_banner_line(
+        &record,
+        "/tmp/project/src",
+        SessionConnectionStatus::NeedsReconnect,
+    );
+    assert_eq!(
+        nested,
+        format!(
+            "[vwacp] session workspace (record-1) · /tmp/project (routed from .{MAIN_SEPARATOR}src) · agent needs reconnect"
+        )
+    );
+
+    let mut unnamed = sample_record();
+    unnamed.name = None;
+    let sibling = format_prompt_session_banner_line(
+        &unnamed,
+        "/tmp/other",
+        SessionConnectionStatus::Connected,
+    );
+    assert_eq!(
+        sibling,
+        format!(
+            "[vwacp] session cwd (record-1) · /tmp/project (routed from ..{MAIN_SEPARATOR}other) · agent connected"
+        )
+    );
+}
+
+#[test]
+fn write_created_session_banner_renders_label_agent_and_cwd() {
+    let record = sample_record();
+    let mut output = Vec::new();
+
+    write_created_session_banner(&mut output, &record, "codex").unwrap();
+
+    assert_eq!(
+        rendered_output(output),
+        "[vwacp] created session workspace (record-1)\n[vwacp] agent: codex\n[vwacp] cwd: /tmp/project\n"
+    );
+}
+
+#[test]
+fn write_created_session_banner_uses_cwd_label_when_name_is_missing() {
+    let mut record = sample_record();
+    record.name = None;
+    let mut output = Vec::new();
+
+    write_created_session_banner(&mut output, &record, "codex").unwrap();
+
+    assert!(rendered_output(output).starts_with("[vwacp] created session cwd (record-1)\n"));
+}
+
+#[test]
+fn agent_session_id_payload_normalizes_supported_shapes() {
+    let string_payload = agent_session_id_payload(Some("agent-1"));
+    assert_eq!(string_payload.agent_session_id.as_deref(), Some("agent-1"));
+
+    let empty_payload = agent_session_id_payload(Some(" "));
+    assert_eq!(empty_payload.agent_session_id, None);
+
+    let none_payload = agent_session_id_payload(None);
+    assert_eq!(none_payload.agent_session_id, None);
+}
+
+#[test]
+fn agent_session_id_payload_serializes_absent_id_as_empty_object() {
+    let payload = agent_session_id_payload(Some(" "));
+
+    assert_eq!(serde_json::to_value(payload).unwrap(), json!({}));
+}
+
+#[test]
+fn write_cancel_result_by_format_renders_all_formats() {
+    let mut json_output = Vec::new();
+    write_cancel_result_by_format(&mut json_output, true, OutputFormat::Json).unwrap();
+    let json_value: Value = serde_json::from_slice(&json_output).unwrap();
+    assert_eq!(json_value, json!({"action": "cancel", "cancelled": true}));
+
+    let mut quiet_output = Vec::new();
+    write_cancel_result_by_format(&mut quiet_output, true, OutputFormat::Quiet).unwrap();
+    assert!(quiet_output.is_empty());
+
+    let mut cancelled_output = Vec::new();
+    write_cancel_result_by_format(&mut cancelled_output, true, OutputFormat::Text).unwrap();
+    assert_eq!(rendered_output(cancelled_output), "Cancelled\n");
+
+    let mut not_cancelled_output = Vec::new();
+    write_cancel_result_by_format(&mut not_cancelled_output, false, OutputFormat::Text).unwrap();
+    assert_eq!(rendered_output(not_cancelled_output), "Not cancelled\n");
+}
+
+#[test]
+fn write_cancel_result_by_format_propagates_json_writer_errors() {
+    let mut writer = FailingWriter;
+
+    let error = write_cancel_result_by_format(&mut writer, true, OutputFormat::Json).unwrap_err();
+
+    assert_eq!(error.kind(), io::ErrorKind::Other);
+}
+
+#[test]
+fn write_set_mode_model_and_config_results_render_all_formats() {
+    let mut mode_json = Vec::new();
+    write_set_mode_result_by_format(&mut mode_json, "focus", OutputFormat::Json).unwrap();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&mode_json).unwrap(),
+        json!({"action": "set_mode", "mode": "focus"})
+    );
+
+    let mut mode_quiet = Vec::new();
+    write_set_mode_result_by_format(&mut mode_quiet, "focus", OutputFormat::Quiet).unwrap();
+    assert!(mode_quiet.is_empty());
+
+    let mut mode_text = Vec::new();
+    write_set_mode_result_by_format(&mut mode_text, "focus", OutputFormat::Text).unwrap();
+    assert_eq!(rendered_output(mode_text), "Mode set to focus\n");
+
+    let mut model_json = Vec::new();
+    write_set_model_result_by_format(&mut model_json, "model-a", OutputFormat::Json).unwrap();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&model_json).unwrap(),
+        json!({"action": "set_model", "model": "model-a"})
+    );
+
+    let mut model_quiet = Vec::new();
+    write_set_model_result_by_format(&mut model_quiet, "model-a", OutputFormat::Quiet).unwrap();
+    assert!(model_quiet.is_empty());
+
+    let mut model_text = Vec::new();
+    write_set_model_result_by_format(&mut model_text, "model-a", OutputFormat::Text).unwrap();
+    assert_eq!(rendered_output(model_text), "Model set to model-a\n");
+
+    let mut config_json = Vec::new();
+    write_set_config_option_result_by_format(
+        &mut config_json,
+        "approval",
+        "strict",
+        OutputFormat::Json,
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&config_json).unwrap(),
+        json!({"action": "set_config_option", "config": "approval", "value": "strict"})
+    );
+
+    let mut config_quiet = Vec::new();
+    write_set_config_option_result_by_format(
+        &mut config_quiet,
+        "approval",
+        "strict",
+        OutputFormat::Quiet,
+    )
+    .unwrap();
+    assert!(config_quiet.is_empty());
+
+    let mut config_text = Vec::new();
+    write_set_config_option_result_by_format(
+        &mut config_text,
+        "approval",
+        "strict",
+        OutputFormat::Text,
+    )
+    .unwrap();
+    assert_eq!(rendered_output(config_text), "Config option approval set to strict\n");
 }

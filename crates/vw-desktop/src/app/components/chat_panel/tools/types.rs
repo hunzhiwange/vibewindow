@@ -47,7 +47,7 @@ pub struct ChangeFile {
     pub after: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChangeFileSummary {
     pub kind: char,
     pub path: String,

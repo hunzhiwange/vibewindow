@@ -28,6 +28,7 @@
 //! ```
 
 use crate::app::agent::config::schema::load_or_init_config;
+use crate::app::agent::security::gateway_skey_store;
 use crate::app::agent::storage;
 use crate::app::agent::util::log;
 use serde_json::{Map, Value};
@@ -44,6 +45,39 @@ pub mod traits;
 mod traits_tests;
 pub use schema::*;
 pub(crate) use schema::{save_config, validate_config};
+
+fn hydrate_gateway_skeys_from_store(config: &mut Config) {
+    match gateway_skey_store::load_existing_gateway_skeys() {
+        Ok(Some(skeys)) => {
+            config.gateway.skeys = skeys;
+        }
+        Ok(None) => {}
+        Err(error) => {
+            LOGGER.info(
+                "gateway_skey_store_load_failed",
+                Some({
+                    let mut m = Map::new();
+                    m.insert("error".to_string(), Value::String(error));
+                    m
+                }),
+            );
+        }
+    }
+}
+
+fn take_gateway_skeys_from_patch(
+    patch: &mut Value,
+) -> Result<Option<Vec<vw_config_types::gateway::GatewaySkey>>, Error> {
+    let Some(gateway) = patch.get_mut("gateway").and_then(Value::as_object_mut) else {
+        return Ok(None);
+    };
+    let Some(skeys_value) = gateway.remove("skeys") else {
+        return Ok(None);
+    };
+    let skeys = serde_json::from_value::<Vec<vw_config_types::gateway::GatewaySkey>>(skeys_value)
+        .map_err(Error::Json)?;
+    Ok(Some(skeys))
+}
 
 /// 配置模块专用日志记录器
 ///
@@ -270,7 +304,10 @@ fn merge_json_value(target: &mut Value, patch: Value) {
 /// ```
 pub async fn get() -> Config {
     match load_or_init_config().await {
-        Ok(config) => config,
+        Ok(mut config) => {
+            hydrate_gateway_skeys_from_store(&mut config);
+            config
+        }
         Err(err) => {
             LOGGER.info(
                 "load_failed",
@@ -440,12 +477,13 @@ pub async fn remove_global_provider(provider_id: &str) -> Result<(), Error> {
 /// });
 /// config::update_global(patch).await?;
 /// ```
-pub async fn update_global(patch: Value) -> Result<(), Error> {
+pub async fn update_global(mut patch: Value) -> Result<(), Error> {
     // 验证 patch 必须是对象
     if !patch.is_object() {
         return Err(Error::Invalid("config patch must be a JSON object".to_string()));
     }
 
+    let gateway_skeys = take_gateway_skeys_from_patch(&mut patch)?;
     let current = load_or_init_config().await.map_err(|e| Error::Invalid(e.to_string()))?;
     // 将配置转换为 JSON 值
     let mut merged = serde_json::to_value(&current).map_err(Error::Json)?;
@@ -457,6 +495,12 @@ pub async fn update_global(patch: Value) -> Result<(), Error> {
     // 保留路径字段（不被 patch 覆盖）
     next.workspace_dir = current.workspace_dir;
     next.config_path = current.config_path;
+    if let Some(skeys) = gateway_skeys {
+        gateway_skey_store::save_gateway_skeys(&skeys).map_err(Error::Invalid)?;
+        next.gateway.skeys.clear();
+    } else if gateway_skey_store::load_existing_gateway_skeys().map_err(Error::Invalid)?.is_some() {
+        next.gateway.skeys.clear();
+    }
     validate_config(&next).map_err(|e| Error::Invalid(e.to_string()))?;
     save_config(&next).await.map_err(|e| Error::Invalid(e.to_string()))
 }

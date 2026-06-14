@@ -4,6 +4,8 @@ use super::naming::{random_name, slug};
 fn slug_normalizes_user_visible_names() {
     assert_eq!(slug("  Feature/Test 42! "), "feature-test-42");
     assert_eq!(slug("___"), "");
+    assert_eq!(slug("Already--Slug"), "already-slug");
+    assert_eq!(slug("release/v1.2.3"), "release-v1-2-3");
 }
 
 #[test]

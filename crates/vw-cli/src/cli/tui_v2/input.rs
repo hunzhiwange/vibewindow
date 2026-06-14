@@ -139,10 +139,7 @@ pub(crate) fn prompt_suggestions(state: &TuiState) -> Vec<TuiPromptSuggestion> {
     if let Some(argument) = maybe_argument
         && let Some(spec) = slash_command_spec(token)
     {
-        let suggestions = argument_suggestions(spec, argument.trim(), state);
-        if !suggestions.is_empty() {
-            return suggestions;
-        }
+        return argument_suggestions(spec, argument.trim(), state);
     }
 
     let partial = token.to_ascii_lowercase();

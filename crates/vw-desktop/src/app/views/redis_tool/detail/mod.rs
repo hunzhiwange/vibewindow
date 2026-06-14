@@ -403,3 +403,7 @@ fn build_detail_hint_state<'a>(title: &'a str, description: &'a str) -> Element<
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

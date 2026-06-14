@@ -16,3 +16,23 @@ fn extract_url_from_error_message_trims_common_wrappers() {
 fn extract_url_from_error_message_returns_none_without_url() {
     assert_eq!(extract_url_from_error_message("network unavailable"), None);
 }
+
+#[test]
+fn extract_url_from_error_message_picks_earliest_url() {
+    assert_eq!(
+        extract_url_from_error_message("see http://first.test or https://second.test"),
+        Some("http://first.test".to_string())
+    );
+}
+
+#[test]
+fn extract_url_from_error_message_stops_at_quotes_and_whitespace() {
+    assert_eq!(
+        extract_url_from_error_message("failed at https://api.example.test/v1\" with 500"),
+        Some("https://api.example.test/v1".to_string())
+    );
+    assert_eq!(
+        extract_url_from_error_message("failed at https://api.example.test/v1 next"),
+        Some("https://api.example.test/v1".to_string())
+    );
+}

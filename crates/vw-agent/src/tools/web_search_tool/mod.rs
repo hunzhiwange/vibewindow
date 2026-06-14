@@ -1035,5 +1035,8 @@ impl Tool for WebSearchTool {
 }
 
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

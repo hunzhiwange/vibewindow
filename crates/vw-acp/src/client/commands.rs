@@ -114,12 +114,12 @@ impl AcpClient {
         let command_tx = self.actor_command_tx()?;
         let (event_tx, mut event_rx) = mpsc::unbounded_channel();
         let (response_tx, response_rx) = oneshot::channel();
-        command_tx.send(ActorCommand::RunPrompt { request, event_tx, response_tx }).map_err(
-            |_| {
-                self.invalidate_actor();
-                AcpError::Initialize("ACP client actor is unavailable".to_string())
-            },
-        )?;
+        let command = ActorCommand::RunPrompt { request, event_tx, response_tx };
+        let unavailable = "ACP client actor is unavailable";
+        if command_tx.send(command).is_err() {
+            self.invalidate_actor();
+            return Err(AcpError::Initialize(unavailable.to_string()));
+        }
 
         let mut events_open = true;
         tokio::pin!(response_rx);

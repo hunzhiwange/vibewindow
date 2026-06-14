@@ -302,3 +302,68 @@ fn test_real_world_example() {
     assert!(transform.get("scaleY").is_none());
     assert!(transform.get("skewX").is_none());
 }
+
+#[test]
+fn test_skew_x_matrix() {
+    let mut tree = json!({
+        "transform": {
+            "m00": 1.0,
+            "m01": 1.0,
+            "m02": 0.0,
+            "m10": 0.0,
+            "m11": 1.0,
+            "m12": 0.0
+        }
+    });
+
+    transform_matrix_to_css(&mut tree).unwrap();
+
+    let transform = tree.get("transform").unwrap();
+    assert!(approx_eq(transform["skewX"].as_f64().unwrap(), 45.0, 1e-8));
+    assert!(transform.get("rotation").is_none());
+    assert!(transform.get("scaleX").is_none());
+    assert!(transform.get("scaleY").is_none());
+}
+
+#[test]
+fn test_zero_scale_x_uses_second_column_scale() {
+    let mut tree = json!({
+        "transform": {
+            "m00": 0.0,
+            "m01": 3.0,
+            "m02": 7.0,
+            "m10": 0.0,
+            "m11": 4.0,
+            "m12": 9.0
+        }
+    });
+
+    transform_matrix_to_css(&mut tree).unwrap();
+
+    let transform = tree.get("transform").unwrap();
+    assert!(approx_eq(transform["x"].as_f64().unwrap(), 7.0, 1e-10));
+    assert!(approx_eq(transform["y"].as_f64().unwrap(), 9.0, 1e-10));
+    assert!(approx_eq(transform["scaleX"].as_f64().unwrap(), 0.0, 1e-10));
+    assert!(approx_eq(transform["scaleY"].as_f64().unwrap(), 5.0, 1e-10));
+    assert!(transform.get("rotation").is_none());
+    assert!(transform.get("skewX").is_none());
+}
+
+#[test]
+fn test_invalid_matrix_value_preserves_transform() {
+    let mut tree = json!({
+        "transform": {
+            "m00": "1",
+            "m01": 0.0,
+            "m02": 0.0,
+            "m10": 0.0,
+            "m11": 1.0,
+            "m12": 0.0
+        }
+    });
+    let original = tree.clone();
+
+    transform_matrix_to_css(&mut tree).unwrap();
+
+    assert_eq!(tree, original);
+}

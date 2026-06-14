@@ -43,6 +43,9 @@ mod added_deleted_tests;
 #[path = "gaps_tests.rs"]
 mod gaps_tests;
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "standard_tests.rs"]
 mod standard_tests;
 #[cfg(test)]

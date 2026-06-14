@@ -48,6 +48,52 @@ fn detect_agent_token_skips_global_options() {
 }
 
 #[test]
+fn detect_agent_token_treats_stdin_marker_as_agent_token() {
+    let scan = detect_agent_token(&argv(&["--json-strict", "-", "prompt"]));
+
+    assert_eq!(scan.token, Some("-".to_string()));
+    assert!(!scan.has_agent_override);
+}
+
+#[test]
+fn detect_agent_token_stops_at_argument_separator() {
+    let scan = detect_agent_token(&argv(&["--ttl=30", "--", "custom-agent"]));
+
+    assert_eq!(scan.token, None);
+    assert!(!scan.has_agent_override);
+}
+
+#[test]
+fn detect_agent_token_skips_equals_style_agent_override() {
+    let scan = detect_agent_token(&argv(&["--agent=./server", "--timeout", "5", "prompt"]));
+
+    assert_eq!(scan.token, Some("prompt".to_string()));
+    assert!(scan.has_agent_override);
+}
+
+#[test]
+fn detect_agent_token_skips_boolean_global_flags() {
+    let scan = detect_agent_token(&argv(&[
+        "--approve-all",
+        "--deny-all",
+        "--verbose",
+        "--suppress-reads",
+        "custom-agent",
+    ]));
+
+    assert_eq!(scan.token, Some("custom-agent".to_string()));
+    assert!(!scan.has_agent_override);
+}
+
+#[test]
+fn detect_agent_token_returns_none_for_unknown_flag_before_agent() {
+    let scan = detect_agent_token(&argv(&["--unknown", "custom-agent"]));
+
+    assert_eq!(scan.token, None);
+    assert!(!scan.has_agent_override);
+}
+
+#[test]
 fn detect_agent_token_records_agent_override_without_dynamic_command() {
     let scan = detect_agent_token(&argv(&["--agent", "./server", "prompt"]));
 

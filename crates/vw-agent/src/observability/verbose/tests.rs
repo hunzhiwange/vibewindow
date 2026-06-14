@@ -9,7 +9,9 @@ use std::time::Duration;
 
 #[test]
 fn verbose_name() {
-    assert_eq!(VerboseObserver::new().name(), "verbose");
+    let observer = VerboseObserver::new();
+    assert_eq!(observer.name(), "verbose");
+    assert!(observer.as_any().is::<VerboseObserver>());
 }
 
 #[test]
@@ -39,4 +41,12 @@ fn verbose_events_do_not_panic() {
         success: true,
     });
     obs.record_event(&ObserverEvent::TurnComplete);
+    obs.record_event(&ObserverEvent::HeartbeatTick);
+}
+
+#[test]
+fn verbose_metrics_and_flush_do_not_panic() {
+    let obs = VerboseObserver::new();
+    obs.record_metric(&ObserverMetric::TokensUsed(123));
+    obs.flush();
 }

@@ -96,3 +96,81 @@ fn loaded_tasks_does_not_rebootstrap_running_executor() {
     assert!(app.task_board_executor_running);
     assert_eq!(app.task_board_next_auto_promote_tick_at_ms, 12_345);
 }
+
+#[test]
+fn stop_execution_disables_auto_scheduling() {
+    let (mut app, _task) = crate::app::App::new();
+    app.task_board_settings.auto_execute = true;
+    app.task_board_settings.auto_promote_pool_tasks = true;
+    app.task_board_executor_running = true;
+
+    let _task = super::update(&mut app, super::TaskBoardMessage::StopExecution);
+
+    assert!(!app.task_board_executor_running);
+    assert!(!app.task_board_settings.auto_execute);
+    assert!(!app.task_board_settings.auto_promote_pool_tasks);
+}
+
+#[test]
+fn local_pool_scheduler_promotes_ready_pool_tasks_by_priority() {
+    use crate::app::task::{Task, TaskStatus};
+
+    let (mut app, _task) = crate::app::App::new();
+    app.task_board_settings.auto_execute = true;
+    app.task_board_settings.auto_promote_pool_tasks = true;
+    app.task_board_settings.max_concurrent = 1;
+    app.task_board_settings.auto_promote_delay_seconds = 30;
+
+    let mut slow = Task::new(1);
+    slow.id = "slow".to_string();
+    slow.status = TaskStatus::Pool;
+    slow.priority = 9;
+    slow.order = 0;
+    slow.created_at_ms = 1_000;
+
+    let mut fast = Task::new(2);
+    fast.id = "fast".to_string();
+    fast.status = TaskStatus::Pool;
+    fast.priority = 1;
+    fast.order = 0;
+    fast.created_at_ms = 1_000;
+
+    app.task_board_tasks = vec![slow, fast];
+
+    let promote_task_ids = super::local_pool_tasks_to_promote(&app, 31_000);
+
+    assert_eq!(promote_task_ids, vec!["fast", "slow"]);
+}
+
+#[test]
+fn local_pool_scheduler_respects_flags_and_pending_capacity() {
+    use crate::app::task::{Task, TaskStatus};
+
+    let (mut app, _task) = crate::app::App::new();
+    app.task_board_settings.auto_execute = true;
+    app.task_board_settings.auto_promote_pool_tasks = true;
+    app.task_board_settings.max_concurrent = 1;
+    app.task_board_settings.auto_promote_delay_seconds = 30;
+
+    let mut pool = Task::new(1);
+    pool.id = "pool".to_string();
+    pool.status = TaskStatus::Pool;
+    pool.created_at_ms = 1_000;
+
+    let mut planning = Task::new(2);
+    planning.id = "planning".to_string();
+    planning.status = TaskStatus::Planning;
+
+    let mut pending = Task::new(3);
+    pending.id = "pending".to_string();
+    pending.status = TaskStatus::Pending;
+
+    app.task_board_tasks = vec![pool, planning, pending];
+
+    assert!(super::local_pool_tasks_to_promote(&app, 31_000).is_empty());
+
+    app.task_board_tasks.retain(|task| task.status != TaskStatus::Pending);
+    app.task_board_settings.auto_promote_pool_tasks = false;
+
+    assert!(super::local_pool_tasks_to_promote(&app, 31_000).is_empty());
+}

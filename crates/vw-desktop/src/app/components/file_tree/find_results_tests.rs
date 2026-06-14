@@ -10,4 +10,13 @@ fn to_relative_path_strips_project_root() {
 #[test]
 fn find_match_highlight_bg_is_visible() {
     assert!(find_match_highlight_bg(&Theme::Dark).a > 0.0);
+    assert!(find_match_highlight_bg(&Theme::Light).a > 0.0);
+}
+
+#[test]
+fn to_relative_path_normalizes_windows_separators() {
+    assert_eq!(
+        to_relative_path("C:/work/project", "C:\\work\\project\\src\\main.rs"),
+        "src/main.rs"
+    );
 }

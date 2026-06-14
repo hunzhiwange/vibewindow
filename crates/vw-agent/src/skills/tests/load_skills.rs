@@ -7,9 +7,10 @@
 use super::super::*;
 use super::helpers::{EnvVarGuard, open_skills_env_lock};
 use crate::app::agent::config::Config;
+use crate::app::agent::config::SkillsPromptInjectionMode;
 use std::fs;
 use std::path::PathBuf;
-use vw_config_types::skills::SkillsDirectoryProvider;
+use vw_config_types::{paths::home_config_dir, skills::SkillsDirectoryProvider};
 
 fn load_workspace_only(workspace_dir: &std::path::Path) -> Vec<Skill> {
     let _lock = open_skills_env_lock().lock().unwrap();
@@ -285,7 +286,7 @@ fn load_skills_discovers_workspace_ancestor_and_global_sources() {
     fs::create_dir_all(repo_root.join(".git")).unwrap();
     fs::create_dir_all(&project_dir).unwrap();
 
-    let global_skill = home.path().join(".vibewindow").join("skills").join("global-skill");
+    let global_skill = home_config_dir(home.path()).join("skills").join("global-skill");
     fs::create_dir_all(&global_skill).unwrap();
     fs::write(global_skill.join("SKILL.md"), "# Global\nGlobal skill\n").unwrap();
 
@@ -305,7 +306,7 @@ fn load_skills_discovers_workspace_ancestor_and_global_sources() {
     fs::create_dir_all(&legacy_skill).unwrap();
     fs::write(legacy_skill.join("SKILL.md"), "# Legacy\nLegacy skill\n").unwrap();
 
-    let global_shared = home.path().join(".vibewindow").join("skills").join("shared-skill");
+    let global_shared = home_config_dir(home.path()).join("skills").join("shared-skill");
     fs::create_dir_all(&global_shared).unwrap();
     fs::write(global_shared.join("SKILL.md"), "# Shared\nGlobal shared\n").unwrap();
 
@@ -363,4 +364,68 @@ fn load_skills_uses_configured_directory_provider() {
         .map(|skill| skill.name.clone())
         .collect::<Vec<_>>();
     assert_eq!(names, vec!["codex-skill"]);
+}
+
+#[test]
+fn workspace_skill_roots_follow_directory_provider_contract() {
+    let workspace = std::path::Path::new("/workspace");
+
+    assert_eq!(
+        workspace_skills_dir(workspace, SkillsDirectoryProvider::Vibewindow),
+        PathBuf::from("/workspace/.vibewindow/skills")
+    );
+    assert_eq!(
+        workspace_skills_dir(workspace, SkillsDirectoryProvider::Codex),
+        PathBuf::from("/workspace/.codex/skills")
+    );
+    assert_eq!(
+        workspace_skills_dir(workspace, SkillsDirectoryProvider::Claude),
+        PathBuf::from("/workspace/.claude/skills")
+    );
+    assert_eq!(
+        workspace_skills_dir(workspace, SkillsDirectoryProvider::Cursor),
+        PathBuf::from("/workspace/.cursor/skills")
+    );
+}
+
+#[test]
+fn configured_prompt_mode_controls_loaded_skill_detail() {
+    let _lock = open_skills_env_lock().lock().unwrap();
+    let _enabled = EnvVarGuard::unset("VIBEWINDOW_OPEN_SKILLS_ENABLED");
+    let _dir = EnvVarGuard::unset("VIBEWINDOW_OPEN_SKILLS_DIR");
+
+    let dir = tempfile::tempdir().unwrap();
+    let skill_dir = dir.path().join(".vibewindow").join("skills").join("detailed");
+    fs::create_dir_all(&skill_dir).unwrap();
+    fs::write(
+        skill_dir.join("SKILL.toml"),
+        r#"
+        prompts = ["Full instructions"]
+
+        [skill]
+        name = "detailed"
+        description = "Detailed skill"
+
+        [[tools]]
+        name = "run"
+        description = "Run it"
+        kind = "shell"
+        command = "echo run"
+        "#,
+    )
+    .unwrap();
+
+    let mut config = Config::default();
+    config.skills.open_skills_enabled = false;
+    config.skills.prompt_injection_mode = SkillsPromptInjectionMode::Compact;
+
+    let compact = load_skills_with_config(dir.path(), &config);
+    assert_eq!(compact.len(), 1);
+    assert!(compact[0].tools.is_empty());
+    assert!(compact[0].prompts.is_empty());
+
+    let full = load_skills_full_with_config(dir.path(), &config);
+    assert_eq!(full.len(), 1);
+    assert_eq!(full[0].tools.len(), 1);
+    assert_eq!(full[0].prompts, vec!["Full instructions"]);
 }

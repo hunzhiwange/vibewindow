@@ -420,10 +420,6 @@ pub(crate) fn parse_xml_attribute_tool_calls(response: &str) -> Vec<ParsedToolCa
         let tool_name = cap.get(1).map(|m| m.as_str()).unwrap_or("");
         let inner = cap.get(2).map(|m| m.as_str()).unwrap_or("");
 
-        if tool_name.is_empty() {
-            continue;
-        }
-
         let mut arguments = serde_json::Map::new();
 
         // 解析所有参数
@@ -571,10 +567,6 @@ pub(crate) fn parse_function_call_tool_calls(response: &str) -> Vec<ParsedToolCa
         let tool_name = cap.get(1).map(|m| m.as_str()).unwrap_or("");
         let args_text = cap.get(2).map(|m| m.as_str()).unwrap_or("");
 
-        if tool_name.is_empty() {
-            continue;
-        }
-
         // 解析 key>value 参数对（例如 path>/Users/.../file.txt）
         let mut arguments = serde_json::Map::new();
         for line in args_text.lines() {
@@ -691,61 +683,6 @@ pub(crate) fn parse_glm_style_tool_calls(
             continue;
         }
 
-        // 格式：tool_name/param>value 或 tool_name/{json}
-        if let Some(pos) = line.find('/') {
-            let tool_part = &line[..pos];
-            let rest = &line[pos + 1..];
-
-            // 验证工具名称格式：仅允许字母数字和下划线
-            if tool_part.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                let tool_name = canonicalize_tool_name(tool_part);
-
-                // 处理 param>value 格式
-                if let Some(gt_pos) = rest.find('>') {
-                    let param_name = rest[..gt_pos].trim();
-                    let value = rest[gt_pos + 1..].trim();
-
-                    let arguments = match tool_name {
-                        // Shell 工具：特殊处理 URL 参数
-                        "shell" => {
-                            if param_name == "url" {
-                                let Some(command) = build_curl_command(value) else {
-                                    continue;
-                                };
-                                serde_json::json!({ "command": command })
-                            } else if value.starts_with("http://") || value.starts_with("https://")
-                            {
-                                // 值本身是 URL
-                                if let Some(command) = build_curl_command(value) {
-                                    serde_json::json!({ "command": command })
-                                } else {
-                                    serde_json::json!({ "command": value })
-                                }
-                            } else {
-                                serde_json::json!({ "command": value })
-                            }
-                        }
-                        // HTTP 工具：自动添加 GET 方法
-                        "http_request" => {
-                            serde_json::json!({"url": value, "method": "GET"})
-                        }
-                        // 其他工具：直接使用参数名和值
-                        _ => serde_json::json!({ param_name: value }),
-                    };
-
-                    calls.push((tool_name.to_string(), arguments, Some(line.to_string())));
-                    continue;
-                }
-
-                // 处理 JSON 格式参数
-                if rest.starts_with('{') {
-                    if let Ok(json_args) = serde_json::from_str::<serde_json::Value>(rest) {
-                        calls.push((tool_name.to_string(), json_args, Some(line.to_string())));
-                    }
-                }
-            }
-        }
-
         // 处理纯 URL：转换为 shell curl 命令
         if let Some(command) = build_curl_command(line) {
             calls.push((
@@ -753,6 +690,63 @@ pub(crate) fn parse_glm_style_tool_calls(
                 serde_json::json!({ "command": command }),
                 Some(line.to_string()),
             ));
+            continue;
+        }
+
+        // 格式：tool_name/param>value 或 tool_name/{json}
+        if let Some(pos) = line.find('/') {
+            let tool_part = &line[..pos];
+            let rest = &line[pos + 1..];
+
+            // 验证工具名称格式：仅允许字母数字和下划线
+            if !tool_part.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                continue;
+            }
+
+            let tool_name = canonicalize_tool_name(tool_part);
+
+            // 处理 param>value 格式
+            if let Some(gt_pos) = rest.find('>') {
+                let param_name = rest[..gt_pos].trim();
+                let value = rest[gt_pos + 1..].trim();
+
+                let arguments = match tool_name {
+                    // Shell 工具：特殊处理 URL 参数
+                    "shell" => {
+                        if param_name == "url" {
+                            let Some(command) = build_curl_command(value) else {
+                                continue;
+                            };
+                            serde_json::json!({ "command": command })
+                        } else if value.starts_with("http://") || value.starts_with("https://") {
+                            // 值本身是 URL
+                            if let Some(command) = build_curl_command(value) {
+                                serde_json::json!({ "command": command })
+                            } else {
+                                serde_json::json!({ "command": value })
+                            }
+                        } else {
+                            serde_json::json!({ "command": value })
+                        }
+                    }
+                    // HTTP 工具：自动添加 GET 方法
+                    "http_request" => serde_json::json!({"url": value, "method": "GET"}),
+                    // 其他工具：直接使用参数名和值
+                    _ => serde_json::json!({ param_name: value }),
+                };
+
+                calls.push((tool_name.to_string(), arguments, Some(line.to_string())));
+                continue;
+            }
+
+            // 处理 JSON 格式参数
+            if !rest.starts_with('{') {
+                continue;
+            }
+            let Ok(json_args) = serde_json::from_str::<serde_json::Value>(rest) else {
+                continue;
+            };
+            calls.push((tool_name.to_string(), json_args, Some(line.to_string())));
         }
     }
 

@@ -100,10 +100,10 @@ pub(super) fn skill_badge(label: impl Into<String>, emphasized: bool) -> Element
         .into()
 }
 
-fn catalog_skill_initials(skill: &CatalogSkillMeta) -> String {
+pub(super) fn catalog_skill_initials(skill: &CatalogSkillMeta) -> String {
     let initials = skill
         .title
-        .split(|ch: char| ch.is_whitespace() || ch == '-' || ch == '_')
+        .split(|ch: char| ch.is_whitespace() || ch == '-')
         .filter_map(|part| part.chars().next())
         .take(2)
         .collect::<String>();
@@ -115,7 +115,7 @@ fn catalog_skill_initials(skill: &CatalogSkillMeta) -> String {
     }
 }
 
-fn section_copy(source: &str) -> (Icon, &'static str, &'static str) {
+pub(super) fn section_copy(source: &str) -> (Icon, &'static str, &'static str) {
     match source {
         "workspace" => (Icon::FolderOpen, "项目目录", "当前项目优先命中的技能。"),
         "ancestor" => (Icon::FolderOpen, "父级目录", "从上级目录逐层发现。"),
@@ -125,7 +125,7 @@ fn section_copy(source: &str) -> (Icon, &'static str, &'static str) {
     }
 }
 
-fn source_label(source: &str) -> &'static str {
+pub(super) fn source_label(source: &str) -> &'static str {
     match source {
         "workspace" => "本目录",
         "ancestor" => "父级目录",
@@ -135,7 +135,10 @@ fn source_label(source: &str) -> &'static str {
     }
 }
 
-fn catalog_item(skill: CatalogSkillMeta, is_selected: bool) -> Element<'static, Message> {
+pub(super) fn catalog_item(
+    skill: CatalogSkillMeta,
+    is_selected: bool,
+) -> Element<'static, Message> {
     let initials = catalog_skill_initials(&skill);
     let title = skill.title.clone();
     let description = skill.description.clone();

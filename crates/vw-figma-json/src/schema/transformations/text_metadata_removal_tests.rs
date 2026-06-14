@@ -282,3 +282,43 @@ fn test_remove_font_variant_numeric_properties() {
     assert_eq!(tree.get("fontSize").unwrap().as_f64(), Some(14.0));
     assert!(tree.get("fontName").is_some());
 }
+
+#[test]
+fn test_array_root_and_primitive_values() {
+    let mut tree = json!([
+        {
+            "name": "Text",
+            "autoRename": true,
+            "textAutoResize": "WIDTH_AND_HEIGHT"
+        },
+        "plain-value",
+        42,
+        {
+            "name": "Nested",
+            "children": [
+                {
+                    "textAlignVertical": "CENTER",
+                    "textTracking": 1.0
+                }
+            ]
+        }
+    ]);
+
+    remove_text_metadata_fields(&mut tree).unwrap();
+
+    assert!(tree[0].get("autoRename").is_none());
+    assert!(tree[0].get("textAutoResize").is_none());
+    assert_eq!(tree[1].as_str(), Some("plain-value"));
+    assert_eq!(tree[2].as_i64(), Some(42));
+    assert!(tree[3]["children"][0].get("textAlignVertical").is_none());
+    assert!(tree[3]["children"][0].get("textTracking").is_none());
+}
+
+#[test]
+fn test_root_primitive_is_unchanged() {
+    let mut tree = json!("text");
+
+    remove_text_metadata_fields(&mut tree).unwrap();
+
+    assert_eq!(tree.as_str(), Some("text"));
+}

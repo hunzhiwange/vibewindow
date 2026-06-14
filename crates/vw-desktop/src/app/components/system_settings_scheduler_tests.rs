@@ -1,29 +1,20 @@
-// Tests for plan6 task 816.
-const SOURCE: &str = include_str!("system_settings_scheduler.rs");
+use super::*;
+use iced::Element;
+use iced::widget::text;
 
-fn source_declares_symbol(name: &str) -> bool {
-    let needles = [
-        format!("fn {name}"),
-        format!("pub fn {name}"),
-        format!("struct {name}"),
-        format!("pub struct {name}"),
-        format!("enum {name}"),
-        format!("pub enum {name}"),
-        format!("type {name}"),
-        format!("pub type {name}"),
-        format!("const {name}"),
-        format!("pub const {name}"),
-        format!("static {name}"),
-        format!("pub static {name}"),
-        format!("impl {name}"),
-    ];
-
-    needles.iter().any(|needle| SOURCE.contains(needle))
+#[test]
+fn field_row_accepts_scheduler_control() {
+    let element: Element<'_, Message> =
+        field_row("最大任务", "单次轮询最多处理的任务数量。", text("64"));
+    drop(element);
 }
 
 #[test]
-fn system_settings_scheduler_tests_keeps_planned_coverage_targets() {
-    for name in ["field_row", "view", "view_overlays"] {
-        assert!(source_declares_symbol(name), "expected source to declare coverage target {name}");
-    }
+fn scheduler_view_uses_expected_bounded_ranges_and_help_message() {
+    let source = include_str!("system_settings_scheduler.rs");
+
+    assert!(source.contains("slider(1.0..=10_000.0, s.max_tasks as f32"));
+    assert!(source.contains("slider(1.0..=100.0, s.max_concurrent as f32"));
+    assert!(source.contains("SchedulerHelpOpen"));
+    assert!(source.contains("SchedulerHelpClose"));
 }

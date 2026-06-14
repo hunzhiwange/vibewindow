@@ -231,7 +231,7 @@ pub(super) fn default_edge_stroke_color(path: &[usize]) -> Color {
 /// let blue = hsv_to_rgb(240.0, 1.0, 1.0);  // 蓝色
 /// ```
 #[allow(dead_code)]
-fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
+pub(super) fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Color {
     // 规范化输入：色相取模，饱和度和明度限制在有效范围内
     let h = h.rem_euclid(360.0);
     let s = s.clamp(0.0, 1.0);

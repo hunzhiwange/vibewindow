@@ -346,3 +346,7 @@ pub(super) fn gateway_services_module(app: &App) -> Element<'_, Message> {
         .on_close(Message::View(message::ViewMessage::ToggleMenu(None)))
         .into()
 }
+
+#[cfg(test)]
+#[path = "gateway_tests.rs"]
+mod gateway_tests;

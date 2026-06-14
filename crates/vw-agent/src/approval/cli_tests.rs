@@ -20,3 +20,13 @@ fn approval_request_round_trips_tool_and_arguments() {
     assert_eq!(decoded.tool_name, "shell");
     assert_eq!(decoded.arguments["command"], "pwd");
 }
+
+#[test]
+fn parse_cli_response_accepts_yes_always_and_defaults_to_no() {
+    assert_eq!(super::cli::parse_cli_response("y\n"), ApprovalResponse::Yes);
+    assert_eq!(super::cli::parse_cli_response(" YES "), ApprovalResponse::Yes);
+    assert_eq!(super::cli::parse_cli_response("a"), ApprovalResponse::Always);
+    assert_eq!(super::cli::parse_cli_response("Always\n"), ApprovalResponse::Always);
+    assert_eq!(super::cli::parse_cli_response(""), ApprovalResponse::No);
+    assert_eq!(super::cli::parse_cli_response("maybe"), ApprovalResponse::No);
+}

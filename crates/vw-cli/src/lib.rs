@@ -453,16 +453,7 @@ pub async fn run() -> Result<()> {
         }
 
         // 处理 Gateway 命令：启动 HTTP/WebSocket 网关服务
-        Commands::Gateway { port, host, new_pairing } => {
-            // 如果请求新的配对，清除已配对的令牌
-            if new_pairing {
-                // 从原始配置持久化令牌重置，以便环境派生的覆盖不会写入磁盘
-                let mut persisted_config = Box::pin(Config::load_or_init()).await?;
-                persisted_config.gateway.paired_tokens.clear();
-                persisted_config.save().await?;
-                config.gateway.paired_tokens.clear();
-                info!("🔐 Cleared paired tokens — a fresh pairing code will be generated");
-            }
+        Commands::Gateway { port, host } => {
             // 确定监听端口（使用参数或配置中的值）
             let port = port.unwrap_or(config.gateway.port);
             // 确定监听主机（使用参数或配置中的值）
@@ -621,6 +612,12 @@ pub async fn run() -> Result<()> {
             // 解析初始化系统类型
             let init_system = service_init.parse()?;
             service::handle_command(&service_command, &config, init_system)
+        }
+
+        // 处理 Server 命令：service 的兼容别名
+        Commands::Server { server_command, service_init } => {
+            let init_system = service_init.parse()?;
+            service::handle_command(&server_command, &config, init_system)
         }
 
         // 处理 Doctor 命令：系统诊断工具

@@ -38,6 +38,34 @@ mod tests {
         assert_eq!(runtime.memory_budget(), 256 * 1024 * 1024);
     }
 
+    #[test]
+    fn docker_runtime_capabilities_follow_mount_workspace() {
+        let runtime = DockerRuntime::new(DockerRuntimeConfig {
+            mount_workspace: true,
+            ..DockerRuntimeConfig::default()
+        });
+        assert!(runtime.has_shell_access());
+        assert!(runtime.has_filesystem_access());
+        assert!(!runtime.supports_long_running());
+        assert_eq!(runtime.storage_path(), PathBuf::from("/workspace/.vibewindow"));
+
+        let runtime = DockerRuntime::new(DockerRuntimeConfig {
+            mount_workspace: false,
+            ..DockerRuntimeConfig::default()
+        });
+        assert!(!runtime.has_filesystem_access());
+        assert_eq!(runtime.storage_path(), PathBuf::from("/tmp/.vibewindow"));
+    }
+
+    #[test]
+    fn docker_runtime_memory_budget_saturates() {
+        let runtime = DockerRuntime::new(DockerRuntimeConfig {
+            memory_limit_mb: Some(u64::MAX),
+            ..DockerRuntimeConfig::default()
+        });
+        assert_eq!(runtime.memory_budget(), u64::MAX);
+    }
+
     /// 测试 Shell 命令构建是否包含所有运行时标志
     ///
     /// 验证 `build_shell_command` 方法在构建 Docker 命令时：
@@ -98,6 +126,27 @@ mod tests {
 
         // 应返回错误，拒绝访问
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn docker_workspace_allowlist_allows_child_paths() {
+        let workspace =
+            std::env::temp_dir().join(format!("vw-agent-docker-runtime-{}", std::process::id()));
+        std::fs::create_dir_all(workspace.join("child")).unwrap();
+
+        let cfg = DockerRuntimeConfig {
+            mount_workspace: true,
+            allowed_workspace_roots: vec![workspace.display().to_string()],
+            ..DockerRuntimeConfig::default()
+        };
+        let runtime = DockerRuntime::new(cfg);
+        let command = runtime.build_shell_command("pwd", &workspace.join("child")).unwrap();
+        let debug = format!("{command:?}");
+
+        assert!(debug.contains("--volume"));
+        assert!(debug.contains("/workspace:rw"));
+
+        let _ = std::fs::remove_dir_all(workspace);
     }
 
     // ── §3.3 / §3.4 Docker 挂载与网络隔离测试 ──
@@ -181,5 +230,27 @@ mod tests {
         let cmd = runtime.build_shell_command("echo hello", &workspace).unwrap();
         let debug = format!("{cmd:?}");
         assert!(!debug.contains("--memory"), "should not include --memory when not configured");
+    }
+
+    #[test]
+    fn docker_omits_blank_or_zero_valued_optional_flags() {
+        let cfg = DockerRuntimeConfig {
+            network: "   ".into(),
+            memory_limit_mb: Some(0),
+            cpu_limit: Some(0.0),
+            mount_workspace: false,
+            ..DockerRuntimeConfig::default()
+        };
+        let runtime = DockerRuntime::new(cfg);
+        let cmd = runtime.build_shell_command("true", Path::new("/tmp")).unwrap();
+        let debug = format!("{cmd:?}");
+
+        assert!(!debug.contains("--network"));
+        assert!(!debug.contains("--memory"));
+        assert!(!debug.contains("--cpus"));
+        assert!(!debug.contains("--workdir"));
+        assert!(debug.contains("sh"));
+        assert!(debug.contains("-c"));
+        assert!(debug.contains("true"));
     }
 }

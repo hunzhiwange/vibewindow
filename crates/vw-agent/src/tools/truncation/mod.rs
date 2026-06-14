@@ -469,5 +469,8 @@ pub fn output(text: &str, options: Options, _agent: Option<&agent::Info>) -> Res
 }
 
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

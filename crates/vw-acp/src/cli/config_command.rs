@@ -90,7 +90,14 @@ pub async fn write_config_init<W: Write>(
     global_flags: &GlobalFlags,
 ) -> Result<(), ConfigCommandError> {
     let result = config_init_payload(init_global_config_file().await?);
+    write_config_init_result(stdout, global_flags, &result)
+}
 
+fn write_config_init_result<W: Write>(
+    stdout: &mut W,
+    global_flags: &GlobalFlags,
+    result: &ConfigInitPayload,
+) -> Result<(), ConfigCommandError> {
     if emit_json_result(stdout, global_flags.format, &result)? {
         return Ok(());
     }

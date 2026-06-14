@@ -137,6 +137,15 @@ fn test_no_stroke_properties() {
 }
 
 #[test]
+fn test_primitive_value() {
+    let mut tree = json!("stroke");
+
+    remove_stroke_properties(&mut tree).unwrap();
+
+    assert_eq!(tree.as_str(), Some("stroke"));
+}
+
+#[test]
 fn test_preserves_stroke_paints() {
     let mut tree = json!({
         "name": "Line",

@@ -386,5 +386,8 @@ impl Tool for WasmModuleTool {
 ///
 /// 包含 WasmModuleTool 的单元测试，测试文件位于 `tests/wasm_module.rs`
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

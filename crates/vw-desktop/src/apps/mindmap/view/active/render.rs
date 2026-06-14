@@ -587,7 +587,7 @@ pub(super) fn render(tab: &MindMapTab) -> Element<'_, Message> {
     }
 }
 
-fn color_picker_title(target: MindMapColorTarget) -> Option<&'static str> {
+pub(super) fn color_picker_title(target: MindMapColorTarget) -> Option<&'static str> {
     match target {
         MindMapColorTarget::NodeText => Some("文字颜色"),
         MindMapColorTarget::NodeFill => Some("节点填充"),

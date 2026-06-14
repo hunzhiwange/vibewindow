@@ -271,3 +271,29 @@ fn test_remove_image_thumbnail_nested() {
     assert!(paint.get("imageThumbnail").is_none());
     assert!(paint.get("image").is_some());
 }
+
+#[test]
+fn test_image_metadata_primitive_value() {
+    let mut tree = json!(false);
+
+    remove_image_metadata_fields(&mut tree).unwrap();
+
+    assert_eq!(tree.as_bool(), Some(false));
+}
+
+#[test]
+fn test_preserve_rotation_scale_for_non_image_enum_paint() {
+    let mut tree = json!({
+        "type": {
+            "__enum__": "PaintType",
+            "value": "SOLID"
+        },
+        "rotation": 30.0,
+        "scale": 2.0
+    });
+
+    remove_image_metadata_fields(&mut tree).unwrap();
+
+    assert_eq!(tree.get("rotation").unwrap().as_f64(), Some(30.0));
+    assert_eq!(tree.get("scale").unwrap().as_f64(), Some(2.0));
+}

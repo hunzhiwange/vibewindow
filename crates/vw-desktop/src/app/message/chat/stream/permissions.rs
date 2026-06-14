@@ -238,6 +238,18 @@ pub(super) fn handle_permission_approve_always(app: &mut App) -> Task<Message> {
     submit_permission_reply(app, PendingPermissionReplyDto::Always)
 }
 
+/// 模块内可见函数，执行 handle_permission_approve_all_always 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+pub(super) fn handle_permission_approve_all_always(app: &mut App) -> Task<Message> {
+    let directory = permission_directory(app);
+    let request_ids = std::mem::take(&mut app.permission_modal_requests)
+        .into_iter()
+        .map(|request| request.id)
+        .collect::<Vec<_>>();
+    clear_permission_modal(app);
+    submit_permission_replies(request_ids, PendingPermissionReplyDto::Always, directory)
+}
+
 /// 模块内可见函数，执行 handle_permission_reject 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
 pub(super) fn handle_permission_reject(app: &mut App) -> Task<Message> {

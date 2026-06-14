@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use super::super::common::{build_detail_action_button, redis_scroll_direction, themed_icon_svg};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct RedisKeyTreeNode {
     label: String,
     full_key: Option<String>,
@@ -223,20 +223,7 @@ fn build_key_tree_branch_row(
         )
         .padding([8, 10])
         .width(Length::Fill)
-        .style(|theme: &Theme| {
-            let palette = theme.extended_palette();
-            iced::widget::container::Style {
-                background: Some(Background::Color(
-                    palette.background.base.color.scale_alpha(0.42),
-                )),
-                border: Border {
-                    width: 1.0,
-                    color: palette.background.strong.color.scale_alpha(0.18),
-                    radius: 14.0.into(),
-                },
-                ..Default::default()
-            }
-        }),
+        .style(branch_row_container_style),
     )
     .on_press(Message::RedisTool(RedisToolMessage::ToggleKeyTreePath(path)))
     .style(button::text)
@@ -257,15 +244,7 @@ fn build_key_tree_leaf_row(
                 Space::new().width(Length::Fixed(indent)),
                 themed_icon_svg(Icon::FileText, 12.0),
                 text(label.clone()).size(11).style(move |theme: &Theme| {
-                    iced::widget::text::Style {
-                        color: Some(if selected {
-                            theme.palette().primary
-                        } else if exact_key_child {
-                            theme.palette().text.scale_alpha(0.96)
-                        } else {
-                            theme.palette().text.scale_alpha(0.88)
-                        }),
-                    }
+                    leaf_row_text_style(theme, selected, exact_key_child)
                 }),
                 Space::new().width(Length::Fill),
                 if selected {
@@ -279,31 +258,62 @@ fn build_key_tree_leaf_row(
         )
         .padding([8, 10])
         .width(Length::Fill)
-        .style(move |theme: &Theme| {
-            let palette = theme.extended_palette();
-            iced::widget::container::Style {
-                background: Some(Background::Color(if selected {
-                    theme.palette().primary.scale_alpha(0.12)
-                } else {
-                    Color::TRANSPARENT
-                })),
-                border: Border {
-                    width: 1.0,
-                    color: if selected {
-                        theme.palette().primary.scale_alpha(0.22)
-                    } else {
-                        palette.background.strong.color.scale_alpha(0.0)
-                    },
-                    radius: 12.0.into(),
-                },
-                ..Default::default()
-            }
-        }),
+        .style(move |theme: &Theme| leaf_row_container_style(theme, selected)),
     )
     .on_press(Message::RedisTool(RedisToolMessage::SelectKey(label)))
     .style(button::text)
     .width(Length::Fill)
     .into()
+}
+
+fn branch_row_container_style(theme: &Theme) -> iced::widget::container::Style {
+    let palette = theme.extended_palette();
+    iced::widget::container::Style {
+        background: Some(Background::Color(palette.background.base.color.scale_alpha(0.42))),
+        border: Border {
+            width: 1.0,
+            color: palette.background.strong.color.scale_alpha(0.18),
+            radius: 14.0.into(),
+        },
+        ..Default::default()
+    }
+}
+
+fn leaf_row_text_style(
+    theme: &Theme,
+    selected: bool,
+    exact_key_child: bool,
+) -> iced::widget::text::Style {
+    iced::widget::text::Style {
+        color: Some(if selected {
+            theme.palette().primary
+        } else if exact_key_child {
+            theme.palette().text.scale_alpha(0.96)
+        } else {
+            theme.palette().text.scale_alpha(0.88)
+        }),
+    }
+}
+
+fn leaf_row_container_style(theme: &Theme, selected: bool) -> iced::widget::container::Style {
+    let palette = theme.extended_palette();
+    iced::widget::container::Style {
+        background: Some(Background::Color(if selected {
+            theme.palette().primary.scale_alpha(0.12)
+        } else {
+            Color::TRANSPARENT
+        })),
+        border: Border {
+            width: 1.0,
+            color: if selected {
+                theme.palette().primary.scale_alpha(0.22)
+            } else {
+                palette.background.strong.color.scale_alpha(0.0)
+            },
+            radius: 12.0.into(),
+        },
+        ..Default::default()
+    }
 }
 
 fn count_terminal_keys(node: &RedisKeyTreeNode) -> usize {

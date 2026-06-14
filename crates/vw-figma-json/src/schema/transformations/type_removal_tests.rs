@@ -204,3 +204,31 @@ fn test_removes_all_node_types() {
         assert!(child.get("type").is_none());
     }
 }
+
+#[test]
+fn test_root_array_and_non_object_elements() {
+    let mut tree = json!([
+        {"name": "Frame", "type": "FRAME"},
+        "plain-value",
+        7,
+        {"name": "Text", "type": "TEXT"}
+    ]);
+
+    remove_type(&mut tree).unwrap();
+
+    assert!(tree[0].get("type").is_none());
+    assert_eq!(tree[0]["name"].as_str(), Some("Frame"));
+    assert_eq!(tree[1].as_str(), Some("plain-value"));
+    assert_eq!(tree[2].as_i64(), Some(7));
+    assert!(tree[3].get("type").is_none());
+    assert_eq!(tree[3]["name"].as_str(), Some("Text"));
+}
+
+#[test]
+fn test_root_primitive_is_unchanged() {
+    let mut tree = json!("FRAME");
+
+    remove_type(&mut tree).unwrap();
+
+    assert_eq!(tree.as_str(), Some("FRAME"));
+}

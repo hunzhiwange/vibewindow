@@ -47,6 +47,9 @@ mod header_tests;
 #[path = "left_panel_tests.rs"]
 mod left_panel_tests;
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "ops_tests.rs"]
 mod ops_tests;
 #[cfg(test)]

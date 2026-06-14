@@ -2,7 +2,7 @@ use super::state::AppState;
 use crate::app::agent::security::pairing::constant_time_eq;
 use axum::{
     extract::State,
-    http::{HeaderMap, StatusCode, header},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
 
@@ -36,16 +36,8 @@ pub async fn handle_node_control(
     headers: HeaderMap,
     body: Result<Json<NodeControlRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
-    // ── Bearer auth (pairing) ──
-    if state.pairing.require_pairing() {
-        let auth = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()).unwrap_or("");
-        let token = auth.strip_prefix("Bearer ").unwrap_or("");
-        if !state.pairing.is_authenticated(token) {
-            let err = serde_json::json!({
-                "error": "Unauthorized — pair first via POST /pair, then send Authorization: Bearer <token>"
-            });
-            return (StatusCode::UNAUTHORIZED, Json(err)).into_response();
-        }
+    if let Err(err) = super::api::auth::require_auth(&state, &headers) {
+        return err.into_response();
     }
 
     let Json(request) = match body {

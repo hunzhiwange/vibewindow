@@ -9,6 +9,26 @@ fn discord_channel_name() {
     assert_eq!(ch.name(), "discord");
 }
 
+#[test]
+fn discord_channel_new_preserves_constructor_options() {
+    let ch = DiscordChannel::new(
+        "token".into(),
+        Some("guild-1".into()),
+        vec!["user-1".into()],
+        true,
+        true,
+    );
+
+    assert_eq!(ch.bot_token, "token");
+    assert_eq!(ch.guild_id.as_deref(), Some("guild-1"));
+    assert_eq!(ch.allowed_users, vec!["user-1"]);
+    assert!(ch.listen_to_bots);
+    assert!(ch.mention_only);
+    assert!(ch.group_reply_allowed_sender_ids.is_empty());
+    assert!(ch.transcription.is_none());
+    assert!(ch.workspace_dir.is_none());
+}
+
 /// 测试 Base64 解码功能能够正确解码 Bot ID
 /// "MTIzNDU2" 解码后应为 "123456"
 #[test]

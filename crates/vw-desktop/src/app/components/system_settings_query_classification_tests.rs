@@ -1,29 +1,21 @@
-// Tests for plan6 task 812.
-const SOURCE: &str = include_str!("system_settings_query_classification.rs");
+use super::*;
+use iced::Element;
+use iced::widget::text;
 
-fn source_declares_symbol(name: &str) -> bool {
-    let needles = [
-        format!("fn {name}"),
-        format!("pub fn {name}"),
-        format!("struct {name}"),
-        format!("pub struct {name}"),
-        format!("enum {name}"),
-        format!("pub enum {name}"),
-        format!("type {name}"),
-        format!("pub type {name}"),
-        format!("const {name}"),
-        format!("pub const {name}"),
-        format!("static {name}"),
-        format!("pub static {name}"),
-        format!("impl {name}"),
-    ];
-
-    needles.iter().any(|needle| SOURCE.contains(needle))
+#[test]
+fn field_row_accepts_query_rule_control() {
+    let element: Element<'_, Message> = field_row("pattern", "匹配关键字或模式。", text("bug"));
+    drop(element);
 }
 
 #[test]
-fn system_settings_query_classification_tests_keeps_planned_coverage_targets() {
-    for name in ["field_row", "view"] {
-        assert!(source_declares_symbol(name), "expected source to declare coverage target {name}");
-    }
+fn source_keeps_empty_state_and_rule_editor_paths() {
+    let source = include_str!("system_settings_query_classification.rs");
+
+    assert!(source.contains("暂无分类规则"));
+    assert!(source.contains("QueryClassificationMessage::AddRule"));
+    assert!(source.contains("QueryClassificationMessage::RemoveRule(idx)"));
+    assert!(source.contains("QueryClassificationMessage::PatternChanged(idx, value)"));
+    assert!(source.contains("QueryClassificationMessage::CategoryChanged(idx, value)"));
+    assert!(source.contains("QueryClassificationMessage::PriorityChanged(idx, value)"));
 }

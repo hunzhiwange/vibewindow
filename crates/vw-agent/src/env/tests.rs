@@ -1,4 +1,4 @@
-use super::{all, get, provide_with, remove, set};
+use super::{all, get, provide, provide_with, remove, set};
 use std::collections::HashMap;
 
 #[test]
@@ -14,4 +14,41 @@ fn injected_environment_is_isolated_from_default_snapshot() {
         assert_eq!(get("VIBEWINDOW_TEST_KEY"), None);
         assert!(!all().contains_key("VIBEWINDOW_TEST_KEY"));
     });
+}
+
+#[test]
+fn provide_captures_process_environment_and_restores_outer_context() {
+    let mut outer = HashMap::new();
+    outer.insert("VIBEWINDOW_OUTER".to_string(), "outer".to_string());
+    let process_path = std::env::var("PATH").ok();
+
+    provide_with(outer, || {
+        assert_eq!(get("VIBEWINDOW_OUTER").as_deref(), Some("outer"));
+
+        let inner_result = provide(|| {
+            assert_eq!(get("VIBEWINDOW_OUTER"), None);
+            if let Some(path) = process_path.as_deref() {
+                assert_eq!(get("PATH").as_deref(), Some(path));
+            }
+            set("VIBEWINDOW_INNER", "changed");
+            get("VIBEWINDOW_INNER")
+        });
+
+        assert_eq!(inner_result.as_deref(), Some("changed"));
+        assert_eq!(get("VIBEWINDOW_OUTER").as_deref(), Some("outer"));
+        assert_eq!(get("VIBEWINDOW_INNER"), None);
+    });
+}
+
+#[test]
+fn default_context_can_be_updated_and_cleared() {
+    let key = "VIBEWINDOW_DEFAULT_SNAPSHOT_TEST";
+
+    set(key, "context");
+    assert_eq!(get(key).as_deref(), Some("context"));
+    set(key, "changed-context");
+    assert_eq!(get(key).as_deref(), Some("changed-context"));
+
+    remove(key);
+    assert_eq!(get(key), None);
 }

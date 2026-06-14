@@ -54,9 +54,10 @@ pub const INPUT_LINE_HEIGHT: f32 = 20.0;
 ///
 /// 应用于编辑器内容区域的顶部和底部内边距，确保文本不会紧贴边缘。
 pub const INPUT_VERTICAL_PADDING: f32 = 4.0;
+pub const INPUT_HORIZONTAL_PADDING: f32 = 16.0;
 
 #[cfg(target_arch = "wasm32")]
-fn binding_from_key_press(
+pub(super) fn binding_from_key_press(
     app: &App,
     kp: iced::widget::text_editor::KeyPress,
 ) -> Option<iced::widget::text_editor::Binding<Message>> {
@@ -104,7 +105,7 @@ fn binding_from_key_press(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn binding_from_key_press(
+pub(super) fn binding_from_key_press(
     app: &App,
     kp: iced::widget::text_editor::KeyPress,
 ) -> Option<iced::widget::text_editor::Binding<Message>> {
@@ -233,12 +234,12 @@ pub fn build_input_editor<'a>(
         .on_action(|a| Message::Chat(message::ChatMessage::InputEditorAction(a)))
         .key_binding(move |kp| binding_from_key_press(app, kp))
         .size(14.0)
-        // 设置编辑器内边距：上下使用常量，左右固定 8 像素
+        // 设置编辑器内边距：上下压缩，左右留出更舒适的输入空间。
         .padding(iced::Padding {
             top: INPUT_VERTICAL_PADDING,
-            right: 8.0,
+            right: INPUT_HORIZONTAL_PADDING,
             bottom: INPUT_VERTICAL_PADDING,
-            left: 8.0,
+            left: INPUT_HORIZONTAL_PADDING,
         })
         .height(Length::Fixed(editor_height))
         // 应用编辑器样式：根据请求状态调整外观
@@ -279,7 +280,7 @@ pub fn build_input_editor<'a>(
     (input, editor_height)
 }
 
-fn input_context_menu<'a>() -> Element<'a, Message> {
+pub(super) fn input_context_menu<'a>() -> Element<'a, Message> {
     container(
         column![
             button(text("复制").size(12))

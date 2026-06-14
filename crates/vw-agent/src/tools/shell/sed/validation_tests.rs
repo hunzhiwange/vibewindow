@@ -1,6 +1,6 @@
 use super::validation;
 use super::*;
-use crate::tools::shell::ast::parse_command;
+use crate::tools::shell::ast::{ParsedCommand, parse_command};
 
 #[test]
 fn allows_print_and_substitute_subset() {
@@ -42,4 +42,55 @@ fn parses_substitute_escaped_delimiters() {
     assert_eq!(pattern, r"a\/b");
     assert_eq!(replacement, r"c\/d");
     assert_eq!(flags, "g");
+}
+
+#[test]
+fn blocks_non_ascii_and_blocked_script_syntax() {
+    assert_eq!(
+        validate_sed_command(&parse_command("sed 's/你/好/' file.txt")),
+        SedValidationResult::Blocked { reason: "sed script must be ASCII".into() }
+    );
+    assert_eq!(
+        validate_sed_command(&parse_command("sed '1,3p # comment' file.txt")),
+        SedValidationResult::Blocked { reason: "sed script uses blocked syntax".into() }
+    );
+}
+
+#[test]
+fn rejects_commands_outside_allowed_subset() {
+    assert_eq!(
+        validate_sed_command(&parse_command("sed 'd' file.txt")),
+        SedValidationResult::Blocked {
+            reason: "only sed print and substitute commands are allowed".into()
+        }
+    );
+}
+
+#[test]
+fn sed_invocation_parses_fallback_tokens_and_empty_backup_suffix() {
+    let cmd = ParsedCommand::Fallback {
+        raw: "sed -i '' -r s/a/b/ file.txt".into(),
+        tokens: vec![
+            "sed".into(),
+            "-i".into(),
+            "".into(),
+            "-r".into(),
+            "s/a/b/".into(),
+            "file.txt".into(),
+        ],
+    };
+
+    let invocation = validation::SedInvocation::from_command(&cmd).expect("sed invocation");
+    assert_eq!(invocation.script, "s/a/b/");
+    assert_eq!(invocation.files, vec!["file.txt"]);
+    assert!(invocation.in_place);
+    assert!(invocation.extended_regex);
+}
+
+#[test]
+fn sed_invocation_rejects_non_sed_or_missing_script() {
+    assert!(
+        validation::SedInvocation::from_command(&parse_command("awk '{print}' file")).is_none()
+    );
+    assert!(validation::SedInvocation::from_command(&parse_command("sed -n")).is_none());
 }

@@ -13,8 +13,11 @@ mod tests {
     use super::*;
 
     use async_trait::async_trait;
+    use serde_json::{Value, json};
     use std::sync::Arc;
+    use std::sync::Mutex;
     use std::sync::atomic::{AtomicU32, Ordering};
+    use std::time::Duration;
 
     /// 计数钩子 - 用于追踪无返回值事件触发次数
     ///
@@ -135,6 +138,200 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum EventMode {
+        Pass,
+        Modify,
+        Cancel,
+        Panic,
+    }
+
+    struct EventHook {
+        name: String,
+        priority: i32,
+        mode: EventMode,
+        events: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl EventHook {
+        fn with_log(
+            name: &str,
+            priority: i32,
+            mode: EventMode,
+            events: Arc<Mutex<Vec<String>>>,
+        ) -> Self {
+            Self { name: name.to_string(), priority, mode, events }
+        }
+
+        fn record(&self, event: impl Into<String>) {
+            self.events.lock().expect("events lock").push(event.into());
+        }
+
+        fn finish<T>(&self, method: &str, value: T, modified: T) -> HookResult<T> {
+            match self.mode {
+                EventMode::Pass => HookResult::Continue(value),
+                EventMode::Modify => HookResult::Continue(modified),
+                EventMode::Cancel => HookResult::Cancel(format!("{}:{method}", self.name)),
+                EventMode::Panic => panic!("{}:{method}:panic", self.name),
+            }
+        }
+    }
+
+    fn shared_events() -> Arc<Mutex<Vec<String>>> {
+        Arc::new(Mutex::new(Vec::new()))
+    }
+
+    fn events_snapshot(events: &Arc<Mutex<Vec<String>>>) -> Vec<String> {
+        events.lock().expect("events lock").clone()
+    }
+
+    fn expect_continue<T>(result: HookResult<T>) -> T {
+        match result {
+            HookResult::Continue(value) => value,
+            HookResult::Cancel(reason) => panic!("unexpected cancel: {reason}"),
+        }
+    }
+
+    fn expect_cancel<T>(result: HookResult<T>) -> String {
+        match result {
+            HookResult::Continue(_) => panic!("unexpected continue"),
+            HookResult::Cancel(reason) => reason,
+        }
+    }
+
+    fn message(content: &str) -> ChannelMessage {
+        ChannelMessage {
+            id: "msg-1".to_string(),
+            sender: "user-1".to_string(),
+            reply_target: "thread-1".to_string(),
+            content: content.to_string(),
+            channel: "cli".to_string(),
+            timestamp: 123,
+            thread_ts: Some("thread-ts".to_string()),
+        }
+    }
+
+    #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+    #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+    impl HookHandler for EventHook {
+        fn name(&self) -> &str {
+            &self.name
+        }
+
+        fn priority(&self) -> i32 {
+            self.priority
+        }
+
+        async fn on_gateway_start(&self, host: &str, port: u16) {
+            self.record(format!("{}:gateway_start:{host}:{port}", self.name));
+        }
+
+        async fn on_gateway_stop(&self) {
+            self.record(format!("{}:gateway_stop", self.name));
+        }
+
+        async fn on_session_start(&self, session_id: &str, channel: &str) {
+            self.record(format!("{}:session_start:{session_id}:{channel}", self.name));
+        }
+
+        async fn on_session_end(&self, session_id: &str, channel: &str) {
+            self.record(format!("{}:session_end:{session_id}:{channel}", self.name));
+        }
+
+        async fn on_llm_input(&self, messages: &[ChatMessage], model: &str) {
+            self.record(format!("{}:llm_input:{}:{model}", self.name, messages.len()));
+        }
+
+        async fn on_llm_output(&self, response: &ChatResponse) {
+            self.record(format!("{}:llm_output:{}", self.name, response.text_or_empty()));
+        }
+
+        async fn on_after_tool_call(&self, tool: &str, result: &ToolResult, duration: Duration) {
+            self.record(format!(
+                "{}:after_tool:{tool}:{}:{}:{}",
+                self.name,
+                result.success,
+                result.output,
+                duration.as_millis()
+            ));
+        }
+
+        async fn on_message_sent(&self, channel: &str, recipient: &str, content: &str) {
+            self.record(format!("{}:message_sent:{channel}:{recipient}:{content}", self.name));
+        }
+
+        async fn on_heartbeat_tick(&self) {
+            self.record(format!("{}:heartbeat", self.name));
+        }
+
+        async fn before_model_resolve(
+            &self,
+            provider: String,
+            model: String,
+        ) -> HookResult<(String, String)> {
+            self.record(format!("{}:before_model_resolve:{provider}:{model}", self.name));
+            let modified = (format!("{provider}|{}", self.name), format!("{model}|{}", self.name));
+            self.finish("before_model_resolve", (provider, model), modified)
+        }
+
+        async fn before_prompt_build(&self, prompt: String) -> HookResult<String> {
+            self.record(format!("{}:before_prompt_build:{prompt}", self.name));
+            let modified = format!("{prompt}|{}", self.name);
+            self.finish("before_prompt_build", prompt, modified)
+        }
+
+        async fn before_llm_call(
+            &self,
+            messages: Vec<ChatMessage>,
+            model: String,
+        ) -> HookResult<(Vec<ChatMessage>, String)> {
+            self.record(format!("{}:before_llm_call:{}:{model}", self.name, messages.len()));
+            let mut modified_messages = messages.clone();
+            modified_messages.push(ChatMessage::system(format!("hook:{}", self.name)));
+            let modified = (modified_messages, format!("{model}|{}", self.name));
+            self.finish("before_llm_call", (messages, model), modified)
+        }
+
+        async fn before_tool_call(
+            &self,
+            tool_name: String,
+            args: Value,
+        ) -> HookResult<(String, Value)> {
+            self.record(format!("{}:before_tool_call:{tool_name}", self.name));
+            let mut modified_args = args.clone();
+            if let Some(map) = modified_args.as_object_mut() {
+                map.insert("hook".to_string(), Value::String(self.name.clone()));
+            }
+            let modified = (format!("{tool_name}|{}", self.name), modified_args);
+            self.finish("before_tool_call", (tool_name, args), modified)
+        }
+
+        async fn on_message_received(&self, message: ChannelMessage) -> HookResult<ChannelMessage> {
+            self.record(format!("{}:on_message_received:{}", self.name, message.content));
+            let mut modified = message.clone();
+            modified.content = format!("{}|{}", modified.content, self.name);
+            self.finish("on_message_received", message, modified)
+        }
+
+        async fn on_message_sending(
+            &self,
+            channel: String,
+            recipient: String,
+            content: String,
+        ) -> HookResult<(String, String, String)> {
+            self.record(format!(
+                "{}:on_message_sending:{channel}:{recipient}:{content}",
+                self.name
+            ));
+            let modified = (
+                format!("{channel}|{}", self.name),
+                format!("{recipient}|{}", self.name),
+                format!("{content}|{}", self.name),
+            );
+            self.finish("on_message_sending", (channel, recipient, content), modified)
+        }
+    }
+
     /// 测试钩子注册与优先级排序
     ///
     /// 验证钩子按优先级从高到低排序：
@@ -226,5 +423,237 @@ mod tests {
             HookResult::Continue(result) => assert_eq!(result, "HELLO_done"),
             HookResult::Cancel(_) => panic!("should not cancel"),
         }
+    }
+
+    #[tokio::test]
+    async fn void_hooks_forward_all_event_arguments_to_handlers() {
+        let events = shared_events();
+        let mut runner = HookRunner::new();
+        runner.register(Box::new(EventHook::with_log(
+            "first",
+            10,
+            EventMode::Pass,
+            events.clone(),
+        )));
+        runner.register(Box::new(EventHook::with_log(
+            "second",
+            0,
+            EventMode::Pass,
+            events.clone(),
+        )));
+
+        runner.fire_gateway_start("127.0.0.1", 8787).await;
+        runner.fire_gateway_stop().await;
+        runner.fire_session_start("session-1", "telegram").await;
+        runner.fire_session_end("session-1", "telegram").await;
+        runner.fire_llm_input(&[ChatMessage::user("hello")], "model-a").await;
+        runner
+            .fire_llm_output(&ChatResponse {
+                text: Some("done".to_string()),
+                tool_calls: Vec::new(),
+                usage: None,
+                reasoning_content: None,
+            })
+            .await;
+        runner
+            .fire_after_tool_call(
+                "shell",
+                &ToolResult { success: true, output: "ok".to_string(), error: None },
+                Duration::from_millis(42),
+            )
+            .await;
+        runner.fire_message_sent("slack", "user-1", "hi").await;
+        runner.fire_heartbeat_tick().await;
+
+        let events = events_snapshot(&events);
+        assert!(events.contains(&"first:gateway_start:127.0.0.1:8787".to_string()));
+        assert!(events.contains(&"second:gateway_stop".to_string()));
+        assert!(events.contains(&"first:session_start:session-1:telegram".to_string()));
+        assert!(events.contains(&"second:session_end:session-1:telegram".to_string()));
+        assert!(events.contains(&"first:llm_input:1:model-a".to_string()));
+        assert!(events.contains(&"second:llm_output:done".to_string()));
+        assert!(events.contains(&"first:after_tool:shell:true:ok:42".to_string()));
+        assert!(events.contains(&"second:message_sent:slack:user-1:hi".to_string()));
+        assert_eq!(events.iter().filter(|event| event.ends_with(":heartbeat")).count(), 2);
+    }
+
+    #[tokio::test]
+    async fn empty_runner_returns_original_values_for_modifying_hooks() {
+        let runner = HookRunner::new();
+
+        assert_eq!(
+            expect_continue(runner.run_before_model_resolve("openai".into(), "gpt".into()).await),
+            ("openai".to_string(), "gpt".to_string())
+        );
+        assert_eq!(
+            expect_continue(runner.run_before_prompt_build("prompt".into()).await),
+            "prompt"
+        );
+
+        let (messages, model) = expect_continue(
+            runner.run_before_llm_call(vec![ChatMessage::user("hi")], "m".into()).await,
+        );
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].content, "hi");
+        assert_eq!(model, "m");
+
+        let (tool, args) =
+            expect_continue(runner.run_before_tool_call("read".into(), json!({"path": "a"})).await);
+        assert_eq!(tool, "read");
+        assert_eq!(args["path"], "a");
+
+        let received = expect_continue(runner.run_on_message_received(message("body")).await);
+        assert_eq!(received.content, "body");
+
+        assert_eq!(
+            expect_continue(
+                runner.run_on_message_sending("cli".into(), "user".into(), "hello".into()).await
+            ),
+            ("cli".to_string(), "user".to_string(), "hello".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn modifying_hooks_pipeline_every_dispatcher_by_priority() {
+        let events = shared_events();
+        let mut runner = HookRunner::new();
+        runner.register(Box::new(EventHook::with_log("low", 0, EventMode::Modify, events.clone())));
+        runner.register(Box::new(EventHook::with_log(
+            "high",
+            10,
+            EventMode::Modify,
+            events.clone(),
+        )));
+
+        assert_eq!(
+            expect_continue(runner.run_before_model_resolve("p".into(), "m".into()).await),
+            ("p|high|low".to_string(), "m|high|low".to_string())
+        );
+        assert_eq!(
+            expect_continue(runner.run_before_prompt_build("prompt".into()).await),
+            "prompt|high|low"
+        );
+
+        let (messages, model) = expect_continue(
+            runner.run_before_llm_call(vec![ChatMessage::user("hi")], "m".into()).await,
+        );
+        assert_eq!(messages.len(), 3);
+        assert_eq!(messages[1].content, "hook:high");
+        assert_eq!(messages[2].content, "hook:low");
+        assert_eq!(model, "m|high|low");
+
+        let (tool, args) =
+            expect_continue(runner.run_before_tool_call("read".into(), json!({"path": "a"})).await);
+        assert_eq!(tool, "read|high|low");
+        assert_eq!(args["hook"], "low");
+
+        let received = expect_continue(runner.run_on_message_received(message("body")).await);
+        assert_eq!(received.content, "body|high|low");
+
+        assert_eq!(
+            expect_continue(
+                runner.run_on_message_sending("cli".into(), "user".into(), "hello".into()).await
+            ),
+            ("cli|high|low".to_string(), "user|high|low".to_string(), "hello|high|low".to_string())
+        );
+
+        let events = events_snapshot(&events);
+        let high =
+            events.iter().position(|event| event.starts_with("high:before_model_resolve")).unwrap();
+        let low =
+            events.iter().position(|event| event.starts_with("low:before_model_resolve")).unwrap();
+        assert!(high < low);
+    }
+
+    #[tokio::test]
+    async fn modifying_hooks_cancel_every_dispatcher_and_short_circuit() {
+        let events = shared_events();
+        let mut runner = HookRunner::new();
+        runner.register(Box::new(EventHook::with_log("low", 0, EventMode::Modify, events.clone())));
+        runner.register(Box::new(EventHook::with_log(
+            "block",
+            10,
+            EventMode::Cancel,
+            events.clone(),
+        )));
+
+        assert_eq!(
+            expect_cancel(runner.run_before_model_resolve("p".into(), "m".into()).await),
+            "block:before_model_resolve"
+        );
+        assert_eq!(
+            expect_cancel(runner.run_before_prompt_build("prompt".into()).await),
+            "block:before_prompt_build"
+        );
+        assert_eq!(
+            expect_cancel(
+                runner.run_before_llm_call(vec![ChatMessage::user("hi")], "m".into()).await
+            ),
+            "block:before_llm_call"
+        );
+        assert_eq!(
+            expect_cancel(runner.run_before_tool_call("read".into(), json!({})).await),
+            "block:before_tool_call"
+        );
+        assert_eq!(
+            expect_cancel(runner.run_on_message_received(message("body")).await),
+            "block:on_message_received"
+        );
+        assert_eq!(
+            expect_cancel(
+                runner.run_on_message_sending("cli".into(), "user".into(), "hello".into()).await
+            ),
+            "block:on_message_sending"
+        );
+
+        assert!(events_snapshot(&events).iter().all(|event| !event.starts_with("low:")));
+    }
+
+    #[tokio::test]
+    async fn modifying_hooks_recover_from_panics_and_keep_previous_values() {
+        let events = shared_events();
+        let mut runner = HookRunner::new();
+        runner.register(Box::new(EventHook::with_log("low", 0, EventMode::Modify, events.clone())));
+        runner.register(Box::new(EventHook::with_log(
+            "panic",
+            10,
+            EventMode::Panic,
+            events.clone(),
+        )));
+
+        assert_eq!(
+            expect_continue(runner.run_before_model_resolve("p".into(), "m".into()).await),
+            ("p|low".to_string(), "m|low".to_string())
+        );
+        assert_eq!(
+            expect_continue(runner.run_before_prompt_build("prompt".into()).await),
+            "prompt|low"
+        );
+
+        let (messages, model) = expect_continue(
+            runner.run_before_llm_call(vec![ChatMessage::user("hi")], "m".into()).await,
+        );
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[1].content, "hook:low");
+        assert_eq!(model, "m|low");
+
+        let (tool, args) =
+            expect_continue(runner.run_before_tool_call("read".into(), json!({"path": "a"})).await);
+        assert_eq!(tool, "read|low");
+        assert_eq!(args["hook"], "low");
+
+        let received = expect_continue(runner.run_on_message_received(message("body")).await);
+        assert_eq!(received.content, "body|low");
+
+        assert_eq!(
+            expect_continue(
+                runner.run_on_message_sending("cli".into(), "user".into(), "hello".into()).await
+            ),
+            ("cli|low".to_string(), "user|low".to_string(), "hello|low".to_string())
+        );
+
+        let events = events_snapshot(&events);
+        assert!(events.iter().any(|event| event.starts_with("panic:before_tool_call")));
+        assert!(events.iter().any(|event| event.starts_with("low:before_tool_call")));
     }
 }

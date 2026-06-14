@@ -10,9 +10,13 @@ use super::programs::{
 use super::runner::resolve_task_execution_acp_agent;
 use super::worktree_admin::assign_task_execution_worktree;
 use super::worktree_admin::resolve_task_execution_workspace;
-use super::{normalize_commit_title, task_session_id};
+use super::{
+    block_on_gateway, build_task_commit_message, normalize_commit_title,
+    normalize_non_default_commit_title, task_session_id,
+};
 use crate::app::task::Task;
 use std::sync::{LazyLock, Mutex, MutexGuard};
+use vw_config_types::paths::HOME_CONFIG_DIR_NAME;
 
 static TASK_EXECUTOR_ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
@@ -137,6 +141,48 @@ fn normalize_commit_title_flattens_whitespace_and_limits_length() {
 #[test]
 fn task_session_id_uses_task_board_prefix() {
     assert_eq!(task_session_id("123"), "task-board-123");
+}
+
+#[test]
+fn normalize_commit_title_drops_control_characters_and_empty_values() {
+    assert_eq!(normalize_commit_title("\u{0000}\u{0007}"), None);
+    assert_eq!(
+        normalize_commit_title("  hello\u{0000}\r\n\tworld  ").as_deref(),
+        Some("hello world")
+    );
+}
+
+#[test]
+fn normalize_non_default_commit_title_rejects_default_titles() {
+    assert_eq!(normalize_non_default_commit_title("新会话"), None);
+    assert_eq!(normalize_non_default_commit_title("   "), None);
+    assert_eq!(
+        normalize_non_default_commit_title("Implement executor tests").as_deref(),
+        Some("Implement executor tests")
+    );
+}
+
+#[test]
+fn block_on_gateway_runs_future_without_existing_runtime() {
+    let result = block_on_gateway(async { Ok::<_, String>("ok".to_string()) });
+
+    assert_eq!(result.as_deref(), Ok("ok"));
+}
+
+#[test]
+fn block_on_gateway_propagates_future_errors() {
+    let result = block_on_gateway(async { Err::<String, _>("bad".to_string()) });
+
+    assert_eq!(result, Err("bad".to_string()));
+}
+
+#[test]
+fn build_task_commit_message_uses_fallback_when_title_unavailable() {
+    let mut task = Task::default();
+    task.id = "T1".to_string();
+    task.prompt = String::new();
+
+    assert_eq!(build_task_commit_message(&task, "fallback message"), "fallback message");
 }
 
 #[test]
@@ -274,7 +320,7 @@ fn assign_task_execution_worktree_uses_repo_head_when_target_branch_missing() {
             .and_then(|parent| parent.parent())
             .and_then(|parent| parent.file_name())
             .and_then(|value| value.to_str()),
-        Some(".vibewindow")
+        Some(HOME_CONFIG_DIR_NAME)
     );
 }
 

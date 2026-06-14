@@ -100,3 +100,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     container(content).width(Length::Fill).into()
 }
+#[cfg(test)]
+#[path = "system_settings_hooks_tests.rs"]
+mod system_settings_hooks_tests;

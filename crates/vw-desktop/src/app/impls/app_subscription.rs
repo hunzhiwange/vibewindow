@@ -7,6 +7,82 @@ use super::agent_stream::agent_stream;
 use super::message;
 use super::{App, Message, Screen};
 
+fn map_global_event(
+    event: iced::Event,
+    status: iced::event::Status,
+    id: iced::window::Id,
+) -> Option<Message> {
+    match event {
+        iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
+            Some(Message::View(message::ViewMessage::PointerMoved(position.x, position.y)))
+        }
+        iced::Event::Window(iced::window::Event::FileHovered(path)) => Some(Message::View(
+            message::ViewMessage::HoveredFilePath(path.to_string_lossy().to_string()),
+        )),
+        iced::Event::Window(iced::window::Event::FilesHoveredLeft) => {
+            Some(Message::View(message::ViewMessage::HoveredFilesLeft))
+        }
+        iced::Event::Mouse(iced::mouse::Event::ButtonReleased(_)) => {
+            Some(Message::View(message::ViewMessage::GlobalMouseReleased))
+        }
+        iced::Event::Mouse(iced::mouse::Event::CursorLeft) => {
+            Some(Message::View(message::ViewMessage::GlobalCursorLeft))
+        }
+        iced::Event::Window(iced::window::Event::Resized(size)) => {
+            Some(Message::View(message::ViewMessage::WindowResized(id, size.width, size.height)))
+        }
+        iced::Event::Window(iced::window::Event::Moved(pos)) => {
+            Some(Message::View(message::ViewMessage::WindowMoved(id, pos.x, pos.y)))
+        }
+        iced::Event::Window(iced::window::Event::CloseRequested) => {
+            Some(Message::View(message::ViewMessage::CloseRequested(id)))
+        }
+        iced::Event::Window(iced::window::Event::Closed) => {
+            Some(Message::View(message::ViewMessage::WindowClosed(id)))
+        }
+        iced::Event::Window(iced::window::Event::Unfocused) => {
+            Some(Message::Preview(message::PreviewMessage::WindowUnfocused))
+        }
+        iced::Event::Keyboard(iced::keyboard::Event::KeyPressed { key, modifiers, .. }) => {
+            if matches!(key, iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape)) {
+                let escape_key_message =
+                    Message::View(message::ViewMessage::GlobalKeyPressed(key.clone(), modifiers));
+                #[cfg(not(target_arch = "wasm32"))]
+                let mut messages = vec![
+                    Message::TaskBoard(message::TaskBoardMessage::ContextMenuClosed),
+                    Message::Editor(message::EditorMessage::CloseSearch),
+                    escape_key_message,
+                ];
+                #[cfg(target_arch = "wasm32")]
+                let messages = vec![
+                    Message::TaskBoard(message::TaskBoardMessage::ContextMenuClosed),
+                    Message::Editor(message::EditorMessage::CloseSearch),
+                    escape_key_message,
+                ];
+                #[cfg(not(target_arch = "wasm32"))]
+                messages.push(Message::Preview(message::PreviewMessage::LspCompletionClosed));
+                return Some(Message::Batch(messages));
+            }
+
+            if modifiers.command()
+                && matches!(key, iced::keyboard::Key::Character(ref c) if c.eq_ignore_ascii_case("f"))
+            {
+                return Some(if modifiers.alt() {
+                    Message::Editor(message::EditorMessage::OpenReplace)
+                } else {
+                    Message::Editor(message::EditorMessage::OpenSearch)
+                });
+            }
+
+            if status == iced::event::Status::Captured {
+                return None;
+            }
+            Some(Message::View(message::ViewMessage::GlobalKeyPressed(key, modifiers)))
+        }
+        _ => None,
+    }
+}
+
 impl App {
     /// 公开函数，执行 subscription 对应的应用流程。
     /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
@@ -39,77 +115,7 @@ impl App {
             Subscription::batch(subs)
         };
 
-        let events = iced::event::listen_with(|event, status, id| match event {
-            iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
-                Some(Message::View(message::ViewMessage::PointerMoved(position.x, position.y)))
-            }
-            iced::Event::Window(iced::window::Event::FileHovered(path)) => Some(Message::View(
-                message::ViewMessage::HoveredFilePath(path.to_string_lossy().to_string()),
-            )),
-            iced::Event::Window(iced::window::Event::FilesHoveredLeft) => {
-                Some(Message::View(message::ViewMessage::HoveredFilesLeft))
-            }
-            iced::Event::Mouse(iced::mouse::Event::ButtonReleased(_)) => {
-                Some(Message::View(message::ViewMessage::GlobalMouseReleased))
-            }
-            iced::Event::Mouse(iced::mouse::Event::CursorLeft) => {
-                Some(Message::View(message::ViewMessage::GlobalCursorLeft))
-            }
-            iced::Event::Window(iced::window::Event::Resized(size)) => Some(Message::View(
-                message::ViewMessage::WindowResized(id, size.width, size.height),
-            )),
-            iced::Event::Window(iced::window::Event::Moved(pos)) => {
-                Some(Message::View(message::ViewMessage::WindowMoved(id, pos.x, pos.y)))
-            }
-            iced::Event::Window(iced::window::Event::CloseRequested) => {
-                Some(Message::View(message::ViewMessage::CloseRequested(id)))
-            }
-            iced::Event::Window(iced::window::Event::Closed) => {
-                Some(Message::View(message::ViewMessage::WindowClosed(id)))
-            }
-            iced::Event::Window(iced::window::Event::Unfocused) => {
-                Some(Message::Preview(message::PreviewMessage::WindowUnfocused))
-            }
-            iced::Event::Keyboard(iced::keyboard::Event::KeyPressed { key, modifiers, .. }) => {
-                if matches!(key, iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape)) {
-                    let escape_key_message = Message::View(message::ViewMessage::GlobalKeyPressed(
-                        key.clone(),
-                        modifiers,
-                    ));
-                    #[cfg(not(target_arch = "wasm32"))]
-                    let mut messages = vec![
-                        Message::TaskBoard(message::TaskBoardMessage::ContextMenuClosed),
-                        Message::Editor(message::EditorMessage::CloseSearch),
-                        escape_key_message,
-                    ];
-                    #[cfg(target_arch = "wasm32")]
-                    let messages = vec![
-                        Message::TaskBoard(message::TaskBoardMessage::ContextMenuClosed),
-                        Message::Editor(message::EditorMessage::CloseSearch),
-                        escape_key_message,
-                    ];
-                    #[cfg(not(target_arch = "wasm32"))]
-                    messages.push(Message::Preview(message::PreviewMessage::LspCompletionClosed));
-                    return Some(Message::Batch(messages));
-                }
-
-                if modifiers.command()
-                    && matches!(key, iced::keyboard::Key::Character(ref c) if c.eq_ignore_ascii_case("f"))
-                {
-                    return Some(if modifiers.alt() {
-                        Message::Editor(message::EditorMessage::OpenReplace)
-                    } else {
-                        Message::Editor(message::EditorMessage::OpenSearch)
-                    });
-                }
-
-                if status == iced::event::Status::Captured {
-                    return None;
-                }
-                Some(Message::View(message::ViewMessage::GlobalKeyPressed(key, modifiers)))
-            }
-            _ => None,
-        });
+        let events = iced::event::listen_with(map_global_event);
 
         let terminal_subs = if self.terminal.is_visible {
             #[cfg(not(target_arch = "wasm32"))]

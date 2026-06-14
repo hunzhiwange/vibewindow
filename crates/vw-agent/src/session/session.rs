@@ -715,13 +715,13 @@ async fn remove_messages_and_parts(session_id: &str) -> Result<(), Error> {
 
 /// 分叉（Fork）会话
 ///
-/// 从现有会话创建一个新分支，复制原始会话的消息历史直到指定消息（可选）。
+/// 从现有会话创建一个新分支，复制原始会话的消息历史直到并包含指定消息（可选）。
 /// 新会话的标题会自动添加或递增分支编号。
 ///
 /// # 参数
 ///
 /// - `session_id`: 原始会话 ID
-/// - `message_id`: 可选的截止消息 ID（只复制此消息之前的内容）
+/// - `message_id`: 可选的截止消息 ID（复制到此消息为止，并包含此消息）
 ///
 /// # 返回
 ///
@@ -746,28 +746,25 @@ pub async fn fork(session_id: &str, message_id: Option<&str>) -> Result<Info, Er
     let original = get(session_id).await?;
     // 生成分支标题
     let title = forked_title(&original.title);
+    let directory = instance_directory_opt().unwrap_or_else(|| original.directory.clone());
     // 创建新会话
     let created = create_next(CreateInput {
         parent_id: None,
         title: Some(title),
-        directory: original.directory.clone(),
+        directory,
         permission: original.permission.clone(),
     })
     .await?;
 
-    // 获取原始会话的所有消息
-    let msgs = super::message::messages(session_id, None).await?;
+    // 获取原始会话的所有消息，按时间正序复制，保证父消息映射可用。
+    let mut msgs = super::message::messages(session_id, None).await?;
+    msgs.sort_by(|a, b| a.info.id().cmp(b.info.id()));
     // 建立旧消息 ID 到新消息 ID 的映射
     let mut id_map: std::collections::HashMap<String, String> = std::collections::HashMap::new();
 
     // 复制消息和部分
     for msg in msgs {
-        // 如果指定了截止消息 ID，检查是否达到
-        if let Some(until) = message_id {
-            if msg.info.id() >= until {
-                break;
-            }
-        }
+        let reached_target = message_id.is_some_and(|until| msg.info.id() == until);
 
         // 生成新的消息 ID
         let new_id = id::ascending(id::Prefix::Message, None)?;
@@ -795,6 +792,10 @@ pub async fn fork(session_id: &str, message_id: Option<&str>) -> Result<Info, Er
             new_part.set_message_id(&new_id);
             new_part.set_id(&id::ascending(id::Prefix::Part, None)?);
             super::message::update_part(&new_part).await?;
+        }
+
+        if reached_target {
+            break;
         }
     }
 

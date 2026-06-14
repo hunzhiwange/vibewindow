@@ -1,4 +1,8 @@
-use super::time::{format_chat_time_label, relative_time_bucket, relative_time_label_for_bucket};
+use super::time::{
+    format_chat_time_label, project_last_modified_ms, relative_modified_label,
+    relative_time_bucket, relative_time_label, relative_time_label_for_bucket,
+};
+use crate::app::App;
 
 #[test]
 fn relative_time_bucket_groups_boundaries() {
@@ -16,4 +20,13 @@ fn relative_time_label_for_bucket_formats_units() {
 #[test]
 fn chat_time_label_is_not_empty_for_epoch() {
     assert!(!format_chat_time_label(0).is_empty());
+}
+
+#[test]
+fn relative_time_label_and_modified_label_use_fallbacks() {
+    let app = App::new().0;
+
+    assert_eq!(project_last_modified_ms(&app), None);
+    assert_eq!(relative_modified_label(&app), "最后修改 暂无");
+    assert_eq!(relative_time_label(0), "刚刚");
 }

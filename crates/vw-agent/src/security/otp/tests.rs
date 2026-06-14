@@ -213,4 +213,68 @@ mod tests {
         // 为相同时间戳生成的验证码应该完全相同
         assert_eq!(first.code_for_timestamp(ts), second.code_for_timestamp(ts));
     }
+
+    #[test]
+    fn invalid_code_formats_are_rejected_without_cache_side_effects() {
+        let dir = tempdir().unwrap();
+        let store = SecretStore::new(dir.path(), true);
+        let (validator, _) = OtpValidator::from_config(&test_config(), dir.path(), &store).unwrap();
+
+        for code in ["", "12345", "1234567", "12 456", "abcdef", "１２３４５６"] {
+            assert!(!validator.validate_at(code, 1_700_000_000).unwrap(), "{code:?}");
+        }
+
+        let valid = validator.code_for_timestamp(1_700_000_000);
+        assert!(validator.validate_at(&format!(" {valid}\n"), 1_700_000_000).unwrap());
+    }
+
+    #[test]
+    fn adjacent_time_windows_are_accepted_once() {
+        let dir = tempdir().unwrap();
+        let store = SecretStore::new(dir.path(), true);
+        let (validator, _) = OtpValidator::from_config(&test_config(), dir.path(), &store).unwrap();
+
+        let now = 1_700_000_060u64;
+        let previous_window_code = validator.code_for_timestamp(now - 30);
+        let next_window_code = validator.code_for_timestamp(now + 30);
+
+        assert!(validator.validate_at(&previous_window_code, now).unwrap());
+        assert!(validator.validate_at(&next_window_code, now).unwrap());
+        assert!(!validator.validate_at(&previous_window_code, now).unwrap());
+    }
+
+    #[test]
+    fn zero_ttl_uses_one_second_period_in_uri_and_codes() {
+        let dir = tempdir().unwrap();
+        let store = SecretStore::new(dir.path(), false);
+        let config = OtpConfig { token_ttl_secs: 0, cache_valid_secs: 1, ..test_config() };
+        let (validator, uri) = OtpValidator::from_config(&config, dir.path(), &store).unwrap();
+
+        assert!(uri.as_deref().unwrap().contains("period=1"));
+        assert_ne!(validator.code_for_timestamp(100), validator.code_for_timestamp(101));
+    }
+
+    #[test]
+    fn corrupt_existing_secret_is_reported() {
+        let dir = tempdir().unwrap();
+        let store = SecretStore::new(dir.path(), false);
+        fs::create_dir_all(dir.path()).unwrap();
+        fs::write(secret_file_path(dir.path()), "not base32!").unwrap();
+
+        let err = OtpValidator::from_config(&test_config(), dir.path(), &store).unwrap_err();
+        assert!(format!("{err:#}").to_ascii_lowercase().contains("base32"));
+    }
+
+    #[test]
+    fn base32_roundtrip_and_known_totp_vector_are_stable() {
+        let secret = b"12345678901234567890";
+        let encoded = encode_base32_secret(secret);
+        assert_eq!(decode_base32_secret(&encoded).unwrap(), secret);
+        assert_eq!(compute_totp_code(secret, 1), "287082");
+    }
+
+    #[test]
+    fn secret_file_path_appends_fixed_filename() {
+        assert!(secret_file_path(Path::new("/tmp/vw")).ends_with("otp-secret"));
+    }
 }

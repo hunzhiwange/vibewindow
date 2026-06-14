@@ -20,6 +20,9 @@ mod header_tabs_tests;
 #[path = "menus_tests.rs"]
 mod menus_tests;
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "settings_tests.rs"]
 mod settings_tests;
 #[cfg(test)]

@@ -168,3 +168,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .spacing(16)
     .into()
 }
+#[cfg(test)]
+#[path = "system_settings_general_tests.rs"]
+mod system_settings_general_tests;

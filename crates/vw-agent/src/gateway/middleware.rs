@@ -149,18 +149,27 @@ pub(crate) fn cors_origin_allowed(origin: &HeaderValue, whitelist: &[String]) ->
 /// Basic 认证将凭据以 Base64 编码形式传输，建议仅在 HTTPS 下使用。
 /// 在生产环境中，应确保使用 TLS 加密传输。
 pub(crate) async fn basic_auth_middleware(req: Request<axum::body::Body>, next: Next) -> Response {
+    let password = flag::VIBEWINDOW_SERVER_PASSWORD.as_deref();
+    let username = flag::VIBEWINDOW_SERVER_USERNAME.as_deref().unwrap_or("vibewindow");
+
+    basic_auth_middleware_with_credentials(req, next, password, username).await
+}
+
+async fn basic_auth_middleware_with_credentials(
+    req: Request<axum::body::Body>,
+    next: Next,
+    password: Option<&str>,
+    username: &str,
+) -> Response {
     // OPTIONS 请求是 CORS 预检请求，应直接放行以支持跨域访问
     if req.method() == Method::OPTIONS {
         return next.run(req).await;
     }
 
     // 检查是否配置了密码，未配置则跳过认证（开发模式）
-    let Some(password) = flag::VIBEWINDOW_SERVER_PASSWORD.as_deref() else {
+    let Some(password) = password else {
         return next.run(req).await;
     };
-
-    // 获取用户名，未配置时使用默认值 "vibewindow"
-    let username = flag::VIBEWINDOW_SERVER_USERNAME.as_deref().unwrap_or("vibewindow");
 
     // 执行认证验证链：
     // 1. 获取 Authorization 头

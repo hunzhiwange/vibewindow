@@ -787,7 +787,7 @@ pub fn parse_val(
         Some(serde_json::Value::Number(n)) => n.as_f64().map(|f| f as f32),
         Some(serde_json::Value::String(s)) => {
             if s.starts_with("$-") {
-                let var_name = s.strip_prefix("$").unwrap_or(s);
+                let var_name = s.strip_prefix("$-").unwrap_or(s);
                 if let Some(val_str) = resolve_variable(var_name, variables, theme_mode) {
                     return parse_val(
                         &Some(serde_json::Value::String(val_str.clone())),

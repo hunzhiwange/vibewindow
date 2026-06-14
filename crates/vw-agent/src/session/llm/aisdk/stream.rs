@@ -109,39 +109,6 @@ fn reasoning_request_config(
     }
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
-mod tests {
-    use super::reasoning_request_config;
-    use serde_json::json;
-
-    #[test]
-    fn dashscope_reasoning_uses_extra_body() {
-        let options = json!({ "reasoning_effort": "high" });
-        let obj = options.as_object().expect("options should be an object");
-
-        let (effort, body) = reasoning_request_config(
-            "alibaba-cn",
-            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-            obj,
-        );
-
-        assert_eq!(effort, None);
-        assert_eq!(body.and_then(|map| map.get("enable_thinking").cloned()), Some(json!(true)));
-    }
-
-    #[test]
-    fn non_dashscope_reasoning_stays_top_level() {
-        let options = json!({ "reasoning_effort": "medium" });
-        let obj = options.as_object().expect("options should be an object");
-
-        let (effort, body) =
-            reasoning_request_config("openai", "https://api.openai.com/v1/chat/completions", obj);
-
-        assert_eq!(effort, Some("medium"));
-        assert!(body.is_none());
-    }
-}
-
 /// 执行带模型的 aisdk 流式请求
 ///
 /// 该函数是 aisdk 流式请求的核心入口点，负责构建请求、发送流式调用、
@@ -581,3 +548,7 @@ pub(crate) async fn do_stream_request_aisdk_with_model<
 
     Ok(())
 }
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "stream_tests.rs"]
+mod stream_tests;

@@ -58,3 +58,44 @@ fn compute_window_keeps_chunk_boundaries_stable_near_edges() {
     assert_window_is_consistent(&index, &near_top);
     assert_window_is_consistent(&index, &near_bottom);
 }
+
+#[test]
+fn empty_and_cleared_index_have_zero_height_and_empty_window() {
+    let mut index = ChatHeightIndex::from_heights(&[24.0, 48.0]);
+    index.clear();
+
+    let window = index.compute_window(0.5, 120.0, 10.0);
+
+    assert_eq!(index.len(), 0);
+    assert_eq!(index.total_height(), 0.0);
+    assert_eq!(index.find_start_by_scroll_top(100.0), 0);
+    assert_eq!(window.render_start_idx, 0);
+    assert_eq!(window.render_end_idx, 0);
+}
+
+#[test]
+fn negative_heights_are_clamped_and_updates_ignore_out_of_range() {
+    let mut index = ChatHeightIndex::from_heights(&[-20.0, 10.0]);
+    let initial_total = index.total_height();
+
+    index.update_height(99, 500.0);
+    assert_eq!(index.total_height(), initial_total);
+
+    index.update_height(0, 30.0);
+    assert!(index.total_height() > initial_total);
+    assert_eq!(index.find_start_by_scroll_top(-1.0), 0);
+}
+
+#[test]
+fn zero_viewport_returns_full_window() {
+    let index = ChatHeightIndex::from_heights(&[20.0, 30.0, 40.0]);
+
+    let window = index.compute_window(0.5, 0.0, 0.0);
+
+    assert_eq!(window.render_start_idx, 0);
+    assert_eq!(window.render_end_idx, 3);
+    assert_eq!(window.visible_start_idx, 0);
+    assert_eq!(window.visible_end_idx, 3);
+    assert_eq!(window.top_spacer_h, 0.0);
+    assert_eq!(window.bottom_spacer_h, 0.0);
+}

@@ -111,3 +111,7 @@ mod mode_tests;
 #[cfg(test)]
 #[path = "warning_tests.rs"]
 mod warning_tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

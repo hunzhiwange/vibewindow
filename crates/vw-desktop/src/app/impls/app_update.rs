@@ -245,14 +245,14 @@ impl App {
                 let value = active.host.trim();
                 if value.is_empty() { "127.0.0.1".to_string() } else { value.to_string() }
             };
+            let skey = if active.skey.trim().is_empty() {
+                active.bearer_token.trim().to_string()
+            } else {
+                active.skey.trim().to_string()
+            };
             let auth = vw_gateway_client::GatewayAuth {
-                bearer_token: Some(active.bearer_token.trim().to_string())
-                    .filter(|value| !value.is_empty()),
-                username: Some(active.username.trim().to_string())
-                    .filter(|value| !value.is_empty()),
-                password: Some(active.password.trim().to_string())
-                    .filter(|value| !value.is_empty()),
-                skey: Some(active.skey.trim().to_string()).filter(|value| !value.is_empty()),
+                skey: Some(skey).filter(|value| !value.is_empty()),
+                ..vw_gateway_client::GatewayAuth::default()
             };
             vw_gateway_client::GatewayEndpoint::new(host, active.port.clamp(1, u16::MAX))
                 .with_auth(auth)
@@ -303,9 +303,6 @@ impl App {
             if value.is_empty() { "127.0.0.1".to_string() } else { value }
         };
         self.gateway_client_settings.port = active_gateway_client.port.clamp(1, u16::MAX);
-        self.gateway_client_settings.bearer_token_input = active_gateway_client.bearer_token;
-        self.gateway_client_settings.username_input = active_gateway_client.username;
-        self.gateway_client_settings.password_input = active_gateway_client.password;
         self.gateway_client_settings.skey_input = active_gateway_client.skey;
         #[cfg(not(target_arch = "wasm32"))]
         if self.terminal.theme == crate::app::TerminalTheme::System {
@@ -397,6 +394,44 @@ impl App {
     /// ```
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            #[cfg(not(target_arch = "wasm32"))]
+            Message::StartupCliServiceBootstrapped(result) => {
+                match result {
+                    Ok(()) => {
+                        tracing::info!(
+                            target: "vw_desktop",
+                            "desktop CLI service bootstrap completed"
+                        );
+                    }
+                    Err(error) => {
+                        tracing::warn!(
+                            target: "vw_desktop",
+                            error = %error,
+                            "desktop CLI service bootstrap failed"
+                        );
+                    }
+                }
+                let mut tasks = vec![
+                    Task::perform(
+                        crate::app::config::load_app_config_async(),
+                        Message::StartupAppConfigLoaded,
+                    ),
+                    Task::perform(
+                        crate::app::config::load_system_settings_config_async(),
+                        Message::StartupSystemSettingsLoaded,
+                    ),
+                    Task::perform(
+                        crate::app::config::load_browser_config_async(),
+                        Message::StartupBrowserConfigLoaded,
+                    ),
+                    Task::perform(
+                        crate::app::session_gateway::gateway_external_apps_async(),
+                        Message::ExternalAppsLoaded,
+                    ),
+                ];
+                tasks.push(self.reload_sessions_for_project(None));
+                Task::batch(tasks)
+            }
             Message::StartupAppConfigLoaded(result) | Message::BootstrapAppConfig(result) => {
                 if let Ok(cfg) = result {
                     self.apply_bootstrap_app_config(cfg);

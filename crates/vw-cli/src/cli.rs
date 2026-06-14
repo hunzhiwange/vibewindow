@@ -240,7 +240,6 @@ Examples:
     /// vibewindow gateway -p 8080          # 在 8080 端口监听
     /// vibewindow gateway --host 0.0.0.0   # 绑定到所有网络接口
     /// vibewindow gateway -p 0             # 使用随机可用端口
-    /// vibewindow gateway --new-pairing    # 清除已配对令牌并生成新的配对码
     /// ```
     #[command(long_about = "\
 Start the gateway server (webhooks, websockets).
@@ -253,8 +252,7 @@ Examples:
   vibewindow gateway                  # use config defaults
   vibewindow gateway -p 8080          # listen on port 8080
   vibewindow gateway --host 0.0.0.0   # bind to all interfaces
-  vibewindow gateway -p 0             # random available port
-  vibewindow gateway --new-pairing    # clear tokens and generate fresh pairing code")]
+  vibewindow gateway -p 0             # random available port")]
     Gateway {
         /// 监听端口（使用 0 表示随机可用端口）；默认使用配置中的 gateway.port
         #[arg(short, long)]
@@ -263,10 +261,6 @@ Examples:
         /// 绑定主机地址；默认使用配置中的 gateway.host
         #[arg(long)]
         host: Option<String>,
-
-        /// 清除所有已配对令牌并生成新的配对码
-        #[arg(long)]
-        new_pairing: bool,
     },
 
     /// 启动长时间运行的自主运行时（网关 + 通道 + 心跳 + 调度器）
@@ -319,6 +313,20 @@ Examples:
         /// 服务子命令
         #[command(subcommand)]
         service_command: ServiceCommands,
+    },
+
+    /// 管理本机后台 server 服务（兼容 `vibewindow server start`）
+    ///
+    /// 这是 `service` 命令的兼容别名，便于桌面端和旧脚本使用
+    /// `vibewindow server start` 启动本机常驻服务。
+    Server {
+        /// 使用的 init 系统：auto（自动检测）、systemd 或 openrc
+        #[arg(long, default_value = "auto", value_parser = ["auto", "systemd", "openrc"])]
+        service_init: String,
+
+        /// server 生命周期子命令
+        #[command(subcommand)]
+        server_command: ServiceCommands,
     },
 
     /// 运行诊断（用于守护进程/调度器/通道健康检查）

@@ -70,14 +70,21 @@ fn parse_heading_root(md: &str) -> Option<String> {
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
 fn parse_list_item(line: &str) -> Option<(usize, String)> {
     let mut indent = 0usize;
-    for ch in line.chars() {
+    let mut content_start = 0usize;
+    for (idx, ch) in line.char_indices() {
         match ch {
-            ' ' => indent += 1,
-            '\t' => indent += 4,
+            ' ' => {
+                indent += 1;
+                content_start = idx + ch.len_utf8();
+            }
+            '\t' => {
+                indent += 4;
+                content_start = idx + ch.len_utf8();
+            }
             _ => break,
         }
     }
-    let trimmed = line[indent.min(line.len())..].trim_start();
+    let trimmed = line[content_start..].trim_start();
     let (after_marker, ok) = if let Some(rest) = trimmed.strip_prefix("- ") {
         (rest, true)
     } else if let Some(rest) = trimmed.strip_prefix("* ") {

@@ -30,6 +30,13 @@ TaskBoardMessage::StartExecution => {
 }
 TaskBoardMessage::StopExecution => {
     app.task_board_executor_running = false;
+    app.task_board_settings.auto_execute = false;
+    app.task_board_settings.auto_promote_pool_tasks = false;
+    crate::app::set_config_field(
+        "task_board_auto_promote_pool_tasks",
+        serde_json::Value::Bool(false),
+    );
+    save_settings(app);
     iced::Task::none()
 }
 TaskBoardMessage::ExecutionTick => {

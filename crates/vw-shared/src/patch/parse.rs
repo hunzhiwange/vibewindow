@@ -127,12 +127,12 @@ fn parse_update_file_chunks(lines: &[String], mut index: usize) -> (Vec<UpdateFi
 
         while index < lines.len() {
             let line = &lines[index];
-            if line.starts_with("@@") || line.trim_start().starts_with("***") {
-                break;
-            }
             if line.trim() == "*** End of File" {
                 is_end_of_file = true;
                 index += 1;
+                break;
+            }
+            if line.starts_with("@@") || line.trim_start().starts_with("***") {
                 break;
             }
 

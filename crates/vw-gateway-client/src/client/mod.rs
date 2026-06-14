@@ -27,6 +27,8 @@ mod redis_api;
 mod request_helpers;
 mod session_api;
 mod task_pool_api;
+#[cfg(test)]
+pub(crate) mod test_support;
 mod tools_api;
 mod workflow_api;
 

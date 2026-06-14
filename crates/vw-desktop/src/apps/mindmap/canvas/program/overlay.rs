@@ -53,15 +53,8 @@ fn draw_hover_buttons(
     let rect = canvas.node_screen_rect(node);
 
     for (kind, center, r) in canvas.node_button_specs(node_path, rect) {
-        let fill = match kind {
-            HoverButtonKind::AddChild => Color::from_rgba8(34, 197, 94, 1.0),
-            HoverButtonKind::AddSibling => Color::from_rgba8(59, 130, 246, 1.0),
-            HoverButtonKind::ToggleCollapse => continue,
-        };
-
-        let dx = cursor_pos.x - center.x;
-        let dy = cursor_pos.y - center.y;
-        let hovered = dx * dx + dy * dy <= r * r;
+        let Some(fill) = hover_button_fill(kind) else { continue };
+        let hovered = point_in_circle(cursor_pos, center, r);
         let circle = Path::circle(center, r);
         frame.fill(&circle, if hovered { fill } else { fill.scale_alpha(0.92) });
         frame.stroke(
@@ -118,4 +111,18 @@ fn draw_hover_buttons(
             HoverButtonKind::ToggleCollapse => {}
         }
     }
+}
+
+pub(super) fn hover_button_fill(kind: HoverButtonKind) -> Option<Color> {
+    match kind {
+        HoverButtonKind::AddChild => Some(Color::from_rgba8(34, 197, 94, 1.0)),
+        HoverButtonKind::AddSibling => Some(Color::from_rgba8(59, 130, 246, 1.0)),
+        HoverButtonKind::ToggleCollapse => None,
+    }
+}
+
+pub(super) fn point_in_circle(point: Point, center: Point, r: f32) -> bool {
+    let dx = point.x - center.x;
+    let dy = point.y - center.y;
+    dx * dx + dy * dy <= r * r
 }

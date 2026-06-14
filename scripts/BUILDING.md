@@ -1,110 +1,110 @@
-# 构建与打包（macOS / Windows）
+# Build & Package (macOS / Windows)
 
-本文档放在 `scripts/` 下，面向日常开发与发布。
+This document is located under `scripts/` for daily development and release.
 
-## 0. 通用前置
+## 0. Prerequisites
 
-- 安装 Rust（推荐用 rustup）：
+- Install Rust (recommend via rustup):
   ```bash
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
   ```
-- 进入项目根目录：
+- Navigate to project root:
   ```bash
   cd /path/to/vibe-window
   ```
 
-## 1. macOS（本机构建 + .app 打包）
+## 1. macOS (Native Build + .app Bundle)
 
-### 1.1 本机构建（二进制）
+### 1.1 Native Build (Binary)
 ```bash
 cargo build
 cargo test
 ```
 
-Release：
+Release:
 ```bash
 cargo build --release
 ```
 
-### 1.2 macOS .app 打包（包含 vw-webview helper）
+### 1.2 macOS .app Bundle (including vw-webview helper)
 
-安装 `cargo-bundle`（提供 `cargo bundle` 命令）：
+Install `cargo-bundle` (provides `cargo bundle` command):
 ```bash
 cargo install cargo-bundle
 ```
 
-执行打包脚本：
+Run the bundle script:
 ```bash
 ./scripts/bundle_macos.sh
 ```
 
-产物默认在：
+Output defaults to:
 - `target/release/bundle/osx/VibeWindow.app`
 
-## 2. Windows（在 Windows 机器上本机构建）
+## 2. Windows (Native Build on Windows Machine)
 
-### 2.1 工具安装
+### 2.1 Tool Installation
 
-- 安装 Rust（rustup）：https://rustup.rs/
-- 安装 MSVC 编译工具链（任选其一）：
-  - Visual Studio 2022（勾选 “Desktop development with C++”）
-  - 或 Build Tools for Visual Studio（同样需要 C++ 工具链）
-- WebView 运行时：
-  - `vw-webview.exe` 依赖 Microsoft Edge WebView2 Runtime（Win10/11 通常已自带；没有的话安装即可）
+- Install Rust (rustup): https://rustup.rs/
+- Install MSVC build toolchain (choose one):
+  - Visual Studio 2022 (select "Desktop development with C++")
+  - Or Build Tools for Visual Studio (also requires C++ toolchain)
+- WebView Runtime:
+  - `vw-webview.exe` depends on Microsoft Edge WebView2 Runtime (Win10/11 usually comes with it; install it if missing)
 
-### 2.2 构建
+### 2.2 Build
 
 ```powershell
 cargo build --release
 ```
 
-产物（示例）：
+Output (example):
 - `target\release\vibe-window.exe`
 - `target\release\vw-webview.exe`
 
-分发时确保两个 exe 同目录。
+When distributing, ensure both exe files are in the same directory.
 
-## 3. macOS 上交叉编译 Windows（推荐：MSVC 目标 + cargo-xwin）
+## 3. Cross-compilation for Windows on macOS (Recommended: MSVC target + cargo-xwin)
 
-### 3.1 安装目标与工具
+### 3.1 Install Target & Tools
 
-安装 Windows MSVC target：
+Install Windows MSVC target:
 ```bash
 rustup target add x86_64-pc-windows-msvc
 ```
 
-安装 `cargo-xwin`：
+Install `cargo-xwin`:
 ```bash
 cargo install cargo-xwin
 ```
 
-如果构建时提示找不到 `lld-link` / 链接器相关错误，安装 LLVM 并把它放到 PATH：
+If you get `lld-link` / linker-related errors during build, install LLVM and add it to PATH:
 ```bash
 brew install llvm
 export PATH="$(brew --prefix llvm)/bin:$PATH"
 ```
 
-### 3.2 交叉编译
+### 3.2 Cross-compile
 
 ```bash
 cargo xwin build --release --target x86_64-pc-windows-msvc
 ```
 
-产物位置：
+Output location:
 - `target/x86_64-pc-windows-msvc/release/vibe-window.exe`
 - `target/x86_64-pc-windows-msvc/release/vw-webview.exe`
 
-### 3.3 一键打包成 zip
+### 3.3 One-click Zip Bundle
 
-项目内已提供脚本（会优先使用 cargo-xwin；否则退回 cargo build）：
+The project provides a script (prefers cargo-xwin; falls back to cargo build):
 ```bash
 bash scripts/bundle_windows.sh
 ```
 
-默认输出：
+Default output:
 - `dist/windows/VibeWindow-x86_64-pc-windows-msvc-release.zip`
 
-可选环境变量：
+Optional environment variables:
 ```bash
 TARGET=x86_64-pc-windows-msvc PROFILE=release OUT_DIR=dist/windows bash scripts/bundle_windows.sh
 ```

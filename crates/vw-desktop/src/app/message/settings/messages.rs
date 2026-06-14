@@ -1,6 +1,8 @@
 //! 定义系统设置页面的消息枚举，作为 UI 事件与状态更新之间的显式契约。
 
-use crate::app::state::{CronAddJobType, CronAddScheduleKind, CronSettingsTab, ModelCatalogEntry};
+use crate::app::state::{
+    CronAddJobType, CronAddScheduleKind, CronSettingsTab, GatewaySettingsTab, ModelCatalogEntry,
+};
 use crate::app::{SettingsTab, components::system_settings::SystemTab};
 use iced::widget::text_editor;
 use vw_config_types::automation::ResearchTrigger;
@@ -20,6 +22,7 @@ pub enum EmbeddingRoutesMessage {
     ProviderChanged(usize, String),
     ModelChanged(usize, String),
     DimensionsChanged(usize, String),
+    ApiKeyChanged(usize, String),
     Save,
 }
 
@@ -220,8 +223,23 @@ pub enum ChannelsMessage {
 #[derive(Debug, Clone)]
 pub enum GatewayMessage {
     Refresh,
+    TabSelected(GatewaySettingsTab),
     PortChanged(u16),
     HostChanged(String),
+    AuthEnabledToggled(bool),
+    NewSkeyNameChanged(String),
+    NewSkeyChanged(String),
+    NewSkeyExpiresAtChanged(String),
+    NewSkeyCalendarToggled,
+    NewSkeyCalendarClosed,
+    NewSkeyExpiresDateSelected(String),
+    NewSkeyExpiresMonthChanged(i32),
+    NewSkeyExpiresAtCleared,
+    AddSkey,
+    CopyLastCreatedSkey,
+    ClearLastCreatedSkeyCopied,
+    SkeyEnabledToggled(usize, bool),
+    RemoveSkey(usize),
     RequirePairingToggled(bool),
     AllowPublicBindToggled(bool),
     TrustForwardedHeadersToggled(bool),
@@ -236,6 +254,8 @@ pub enum GatewayMessage {
     NodeControlEnabledToggled(bool),
     NodeControlAuthTokenChanged(String),
     NodeControlAllowedNodeIdsChanged(String),
+    ServiceCommandRequested(String),
+    ServiceCommandCompleted(String, Result<String, String>),
     HelpOpen,
     HelpClose,
 }
@@ -251,9 +271,6 @@ pub enum GatewayClientMessage {
     NameChanged(String),
     HostChanged(String),
     PortChanged(u16),
-    BearerTokenChanged(String),
-    UsernameChanged(String),
-    PasswordChanged(String),
     SkeyChanged(String),
     HelpOpen,
     HelpClose,

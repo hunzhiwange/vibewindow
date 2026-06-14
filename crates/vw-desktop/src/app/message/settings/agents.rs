@@ -251,9 +251,9 @@ fn resolve_workspace_identity_root(agent_key: &str) -> Option<PathBuf> {
     } else {
         format!("-{normalized_agent_key}")
     };
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .map(|home| home.join(".vibewindow").join(format!("workspace{suffix}")))
+    std::env::var_os("HOME").map(PathBuf::from).map(|home| {
+        vw_config_types::paths::home_config_dir(home).join(format!("workspace{suffix}"))
+    })
 }
 
 fn load_workspace_identity_file_task(agent_key: String, file_name: String) -> Task<Message> {

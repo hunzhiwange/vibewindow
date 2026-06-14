@@ -101,7 +101,7 @@ pub(super) fn normalize_target_frame_id(raw_target: &str) -> String {
     if let Some(extracted) = extract_embedded_id(trimmed) {
         extracted
     } else {
-        trimmed.trim_matches('"').trim_end_matches(',').to_string()
+        trimmed.trim_end_matches(',').trim_matches('"').to_string()
     }
 }
 

@@ -17,9 +17,12 @@ mod health;
 mod instance;
 mod limits;
 mod middleware;
+#[cfg(test)]
+mod mod_tests;
 mod node_control;
 mod openai_compat;
 mod options;
+#[cfg(test)]
 mod pairing;
 mod router;
 mod runtime;
@@ -66,8 +69,13 @@ use crate::app::agent::tools::{self, Tool};
 use anyhow::{Context, Result};
 use axum::{
     Router,
+    body::Body,
+    extract::{Request, State},
     http::HeaderValue,
+    http::Method,
     http::StatusCode,
+    middleware::{Next, from_fn, from_fn_with_state},
+    response::{IntoResponse, Response},
     routing::{delete, get, post, put},
 };
 use parking_lot::Mutex;
@@ -76,12 +84,13 @@ use std::sync::Arc;
 use std::time::Duration;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::limit::RequestBodyLimitLayer;
-use tower_http::timeout::TimeoutLayer;
 
 /// Maximum request body size (5MB) — prevents memory exhaustion
 pub const MAX_BODY_SIZE: usize = 5_242_880;
 /// Request timeout (30s) — prevents slow-loris attacks
 pub const REQUEST_TIMEOUT_SECS: u64 = 30;
+/// Workflow streaming timeout (1h) — allows long-running SSE workflow runs.
+pub const WORKFLOW_CHAT_MESSAGES_TIMEOUT_SECS: u64 = 3_600;
 
 /// Run the HTTP gateway using axum with proper HTTP/1.1 compliance.
 #[allow(clippy::too_many_lines)]
@@ -298,9 +307,17 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
             })
             .map(Arc::from);
 
-    // ── Pairing guard ──────────────────────────────────────
-    let pairing =
-        Arc::new(PairingGuard::new(config.gateway.require_pairing, &config.gateway.paired_tokens));
+    // ── Gateway auth guard ─────────────────────────────────
+    let gateway_skeys =
+        match crate::app::agent::security::gateway_skey_store::load_existing_gateway_skeys() {
+            Ok(Some(skeys)) => skeys,
+            Ok(None) => config.gateway.skeys.clone(),
+            Err(err) => {
+                tracing::warn!(target: "vw_agent", error = %err, "failed to load gateway skeys from sqlite, falling back to config");
+                config.gateway.skeys.clone()
+            }
+        };
+    let pairing = Arc::new(PairingGuard::from_skeys(config.gateway.auth_enabled, &gateway_skeys));
     let rate_limit_max_keys =
         normalize_max_keys(config.gateway.rate_limit_max_keys, RATE_LIMIT_MAX_KEYS_DEFAULT);
     let rate_limiter = Arc::new(GatewayRateLimiter::new(
@@ -337,7 +354,6 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
     if let Some(ref url) = tunnel_url {
         println!("  🌐 Public URL: {url}");
     }
-    println!("  POST /v1/pair              — pair a new client (X-Pairing-Code header)");
     println!("  POST /v1/webhook           — {{\"message\": \"your prompt\"}}");
     println!(
         "  POST /v1/agent             — tool-enabled agent chat {{\"message\": \"your prompt\"}}"
@@ -364,21 +380,17 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
     }
     println!("  POST /v1/chat/completions  — OpenAI-compatible chat");
     println!("  GET  /v1/models            — list available models");
-    println!("  GET  /v1/*                 — REST API (bearer token required)");
+    println!("  GET  /v1/*                 — REST API");
     println!("  GET  /v1/ws/chat           — WebSocket agent chat");
     println!("  GET  /v1/health            — health check");
     println!("  GET  /v1/metrics           — Prometheus metrics");
-    if let Some(code) = pairing.pairing_code() {
-        println!();
-        println!("  🔐 PAIRING REQUIRED — use this one-time code:");
-        println!("     ┌──────────────┐");
-        println!("     │  {code}  │");
-        println!("     └──────────────┘");
-        println!("     Send: POST /v1/pair with header X-Pairing-Code: {code}");
-    } else if pairing.require_pairing() {
-        println!("  🔒 Pairing: ACTIVE (bearer token required)");
+    if pairing.auth_enabled() {
+        println!(
+            "  🔒 Gateway auth: ENABLED (Authorization: Bearer <skey> required, active skeys: {})",
+            pairing.active_skey_count()
+        );
     } else {
-        println!("  ⚠️  Pairing: DISABLED (all requests accepted)");
+        println!("  ⚠️  Gateway auth: DISABLED (all requests accepted)");
     }
     println!("  Press Ctrl+C to stop.\n");
 
@@ -441,7 +453,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .merge(api::handlers::auth::router())
         .merge(api::handlers::file::router())
         .merge(api::handlers::git::router())
-        .merge(api::handlers::global::router())
+        .merge(api::handlers::global::stateful_router())
         .merge(api::handlers::instance::router())
         .merge(api::handlers::knowledge::router())
         .merge(api::handlers::misc::router())
@@ -454,17 +466,19 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .merge(api::handlers::redis::router())
         .merge(api::handlers::workflow::router())
         .merge(api::handlers::session::router())
-        .merge(api::handlers::config::router())
+        .merge(api::handlers::config::stateful_router())
         .merge(api::handlers::desktop_skills::router())
         .merge(api::handlers::desktop::router());
+
+    let handler_auth_state = state.clone();
+    let handler_router =
+        handler_router.layer(from_fn_with_state(handler_auth_state, skey_auth_middleware));
 
     let app = Router::<AppState>::new()
         // ── Infrastructure routes ──
         .route("/health", get(health::handle_health))
         .route("/v1/health", get(health::handle_health))
         .route("/v1/metrics", get(health::handle_metrics))
-        .route("/v1/pair", post(pairing::handle_pair))
-        .route("/v1/pair-code", get(pairing::handle_pair_code))
         .route("/v1/webhook", post(webhook::handle_webhook))
         .route("/v1/agent", post(agent::handle_agent))
         .route("/v1/whatsapp", get(handlers::handle_whatsapp_verify))
@@ -515,14 +529,57 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .nest("/v1", handler_router)
         .with_state(state)
         .layer(RequestBodyLimitLayer::new(MAX_BODY_SIZE))
-        .layer(TimeoutLayer::with_status_code(
-            StatusCode::REQUEST_TIMEOUT,
-            Duration::from_secs(REQUEST_TIMEOUT_SECS),
-        ))
+        .layer(from_fn(request_timeout_middleware))
         .layer(cors);
 
     // Run the server
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
 
     Ok(())
+}
+
+async fn request_timeout_middleware(req: Request<Body>, next: Next) -> Response {
+    let timeout = request_timeout_for_path(req.uri().path());
+    match tokio::time::timeout(timeout, next.run(req)).await {
+        Ok(response) => response,
+        Err(_) => StatusCode::REQUEST_TIMEOUT.into_response(),
+    }
+}
+
+fn request_timeout_for_path(path: &str) -> Duration {
+    if is_workflow_chat_messages_path(path) {
+        Duration::from_secs(WORKFLOW_CHAT_MESSAGES_TIMEOUT_SECS)
+    } else {
+        Duration::from_secs(REQUEST_TIMEOUT_SECS)
+    }
+}
+
+fn is_workflow_chat_messages_path(path: &str) -> bool {
+    path == "/v1/workflow/applications/chat-messages"
+        || (path.starts_with("/v1/workflow/applications/")
+            && path.ends_with("/chat-messages")
+            && path
+                .trim_end_matches("/chat-messages")
+                .trim_start_matches("/v1/workflow/applications/")
+                .contains(|ch: char| !ch.is_whitespace()))
+}
+
+async fn skey_auth_middleware(
+    State(state): State<AppState>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
+    if req.method() == Method::OPTIONS || is_public_skey_auth_path(req.uri().path()) {
+        return next.run(req).await;
+    }
+
+    if let Err(err) = api::auth::require_auth(&state, req.headers()) {
+        return err.into_response();
+    }
+
+    next.run(req).await
+}
+
+fn is_public_skey_auth_path(path: &str) -> bool {
+    matches!(path, "/v1/global/health" | "/global/health")
 }

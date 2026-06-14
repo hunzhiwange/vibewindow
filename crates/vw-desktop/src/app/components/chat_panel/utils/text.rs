@@ -292,7 +292,12 @@ pub fn strip_internal_tool_trace(s: &str) -> String {
             continue;
         }
 
-        if t_lower.contains("called the ") && t_lower.contains(" tool with the following input:") {
+        if t_lower.contains("called the ")
+            && (t_lower.contains(" tool with the following input:")
+                || t_lower.ends_with(" tool")
+                || t_lower.contains(" tool "))
+        {
+            in_tool_leak_dump = true;
             continue;
         }
 

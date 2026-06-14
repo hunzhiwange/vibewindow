@@ -66,6 +66,13 @@ mod tests {
         assert_eq!(sandbox.image, "alpine:latest");
     }
 
+    #[test]
+    fn docker_sandbox_description_and_availability_are_stable() {
+        let sandbox = DockerSandbox::default();
+        assert_eq!(sandbox.description(), "Docker container isolation (requires docker)");
+        assert_eq!(sandbox.is_available(), DockerSandbox::is_installed());
+    }
+
     /// 测试自定义镜像创建
     ///
     /// 验证使用 `with_image()` 方法可以创建使用自定义镜像的沙箱。
@@ -87,6 +94,13 @@ mod tests {
             Ok(sandbox) => assert_eq!(sandbox.image, "ubuntu:latest"),
             Err(_) => assert!(!DockerSandbox::is_installed()),
         }
+    }
+
+    #[test]
+    fn docker_new_and_probe_follow_installation_probe() {
+        let installed = DockerSandbox::is_installed();
+        assert_eq!(DockerSandbox::new().is_ok(), installed);
+        assert_eq!(DockerSandbox::probe().is_ok(), installed);
     }
 
     /// §1.1 沙箱隔离标志测试
@@ -194,5 +208,17 @@ mod tests {
 
         // 验证使用了自定义镜像
         assert!(args.contains(&"ubuntu:22.04".to_string()), "must use the custom image");
+    }
+
+    #[test]
+    fn docker_wrap_command_preserves_multiple_arguments_in_order() {
+        let sandbox = DockerSandbox { image: "busybox:latest".to_string() };
+        let mut cmd = Command::new("sh");
+        cmd.args(["-c", "echo hello"]);
+        sandbox.wrap_command(&mut cmd).unwrap();
+
+        let args: Vec<String> = cmd.get_args().map(|s| s.to_string_lossy().to_string()).collect();
+        let image_pos = args.iter().position(|arg| arg == "busybox:latest").unwrap();
+        assert_eq!(&args[image_pos + 1..], ["sh", "-c", "echo hello"]);
     }
 }

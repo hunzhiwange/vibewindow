@@ -1,27 +1,31 @@
-//! # 网关配对模式 - 首次连接认证模块
+//! # 网关 skey 鉴权管理模块
 //!
-//! 本模块实现了网关的安全首次配对认证机制，用于在首次启动时建立信任关系。
+//! 本模块保留历史 `PairingGuard` 类型名，但运行时鉴权已切换为服务端配置的 skey。
 //!
 //! ## 工作原理
 //!
-//! 1. **启动阶段**：网关生成一个一次性的6位数字配对码，并打印到终端
-//! 2. **首次配对**：客户端通过 `POST /pair` 请求提交配对码（使用 `X-Pairing-Code` 请求头）
-//! 3. **令牌发放**：服务器验证配对码后，生成一个持有者令牌（Bearer Token）返回给客户端
-//! 4. **后续请求**：客户端在所有后续请求中通过 `Authorization: Bearer <token>` 请求头携带令牌
-//! 5. **持久化**：已配对的令牌以 SHA-256 哈希形式持久化到配置文件，重启后无需重新配对
+//! 1. **配置阶段**：服务端读取 `[gateway].skeys` 配置。
+//! 2. **哈希存储**：原始 skey 只在加载时使用，运行时仅保留 `skey_hash` 和过期时间。
+//! 3. **请求认证**：客户端通过 `Authorization: Bearer <skey>` 携带 skey。
+//! 4. **默认关闭**：`auth_enabled = false` 时不要求 skey，开启后才校验。
 //!
 //! ## 安全特性
 //!
-//! - **防暴力破解**：对每个客户端的失败尝试次数进行限制，超过阈值后实施锁定
-//! - **恒定时间比较**：使用恒定时间算法比较配对码，防止时序攻击
-//! - **令牌哈希存储**：令牌以 SHA-256 哈希形式存储，避免明文暴露
+//! - **可选过期时间**：过期 skey 自动失效
+//! - **恒定时间比较**：使用恒定时间算法比较 skey 哈希，防止时序攻击
+//! - **skey 哈希存储**：skey 以 SHA-256 哈希形式存储，避免明文暴露
 //! - **内存边界保护**：限制追踪的客户端数量，防止内存无限增长
 
+use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 use std::time::Instant;
+use vw_config_types::gateway::GatewaySkey;
 
 /// 配对尝试失败的最大次数阈值
 ///
@@ -62,6 +66,13 @@ struct FailedAttemptState {
     last_attempt: Instant,
 }
 
+#[derive(Debug, Clone)]
+struct SkeyEntry {
+    enabled: bool,
+    hash: String,
+    expires_at: Option<DateTime<Utc>>,
+}
+
 /// 网关配对状态管理器
 ///
 /// 负责管理整个配对流程的状态，包括配对码、已配对令牌和防暴力破解机制。
@@ -97,17 +108,17 @@ pub struct PairingGuard {
     /// 是否启用配对要求
     ///
     /// 为 `false` 时，所有请求都视为已认证
-    require_pairing: bool,
+    require_pairing: Arc<AtomicBool>,
 
     /// 一次性配对码
     ///
     /// 启动时生成，首次成功配对后会被消费（置为 `None`）
     pairing_code: Arc<Mutex<Option<String>>>,
 
-    /// 已配对的令牌哈希集合
+    /// 网关 skey 哈希集合
     ///
-    /// 以 SHA-256 哈希形式存储，跨重启持久化
-    paired_tokens: Arc<Mutex<HashSet<String>>>,
+    /// 以 SHA-256 哈希形式存储，原始 skey 不进入运行时持久状态
+    skeys: Arc<Mutex<Vec<SkeyEntry>>>,
 
     /// 防暴力破解状态
     ///
@@ -149,16 +160,44 @@ impl PairingGuard {
             .iter()
             .map(|t| if is_token_hash(t) { t.clone() } else { hash_token(t) })
             .collect();
+        let skeys = tokens
+            .iter()
+            .map(|hash| SkeyEntry { enabled: true, hash: hash.clone(), expires_at: None })
+            .collect::<Vec<_>>();
 
         // 仅在需要配对且无现有令牌时生成配对码
         let code = if require_pairing && tokens.is_empty() { Some(generate_code()) } else { None };
 
         Self {
-            require_pairing,
+            require_pairing: Arc::new(AtomicBool::new(require_pairing)),
             pairing_code: Arc::new(Mutex::new(code)),
-            paired_tokens: Arc::new(Mutex::new(tokens)),
+            skeys: Arc::new(Mutex::new(skeys)),
             failed_attempts: Arc::new(Mutex::new((HashMap::new(), Instant::now()))),
         }
+    }
+
+    /// 使用服务端网关 skey 配置创建鉴权管理器。
+    ///
+    /// 原始 skey 如果出现在配置对象中，只会在这里被哈希后使用；运行时状态只保留哈希和过期时间。
+    pub fn from_skeys(auth_enabled: bool, configured_skeys: &[GatewaySkey]) -> Self {
+        let skeys = configured_skeys.iter().filter_map(skey_entry_from_config).collect::<Vec<_>>();
+
+        Self {
+            require_pairing: Arc::new(AtomicBool::new(auth_enabled)),
+            pairing_code: Arc::new(Mutex::new(None)),
+            skeys: Arc::new(Mutex::new(skeys)),
+            failed_attempts: Arc::new(Mutex::new((HashMap::new(), Instant::now()))),
+        }
+    }
+
+    /// 热更新服务端网关 skey 鉴权配置。
+    ///
+    /// Gateway 进程启动后，桌面端或 dashboard 可能会更新 `auth_enabled` / `skeys`。
+    /// 该方法让运行中的 handler 立即看到新状态，无需重启 gateway。
+    pub fn update_from_skeys(&self, auth_enabled: bool, configured_skeys: &[GatewaySkey]) {
+        let skeys = configured_skeys.iter().filter_map(skey_entry_from_config).collect::<Vec<_>>();
+        *self.skeys.lock() = skeys;
+        self.require_pairing.store(auth_enabled, Ordering::Relaxed);
     }
 
     /// 获取当前的一次性配对码
@@ -177,14 +216,14 @@ impl PairingGuard {
     /// 返回当前可用的引导配对码，必要时为本地 bootstrap 重新生成一个。
     ///
     /// 与 [`pairing_code`](Self::pairing_code) 不同，这个方法在已经存在已配对令牌时
-    /// 也允许重新生成一次性配对码，供受信任的本地 loopback 客户端重新获取 Bearer Token。
+    /// 也允许重新生成一次性配对码，供旧版受信任的本地 loopback 客户端重新获取令牌。
     ///
     /// # 返回
     ///
     /// - `Some(String)`: 当前可用的 6 位数字配对码
     /// - `None`: 未启用配对
     pub fn ensure_pairing_code(&self) -> Option<String> {
-        if !self.require_pairing {
+        if !self.require_pairing() {
             return None;
         }
 
@@ -202,7 +241,12 @@ impl PairingGuard {
     /// - `true`: 需要配对认证
     /// - `false`: 禁用配对，所有请求都视为已认证
     pub fn require_pairing(&self) -> bool {
-        self.require_pairing
+        self.require_pairing.load(Ordering::Relaxed)
+    }
+
+    /// 检查服务端网关是否启用了 skey 鉴权。
+    pub fn auth_enabled(&self) -> bool {
+        self.require_pairing()
     }
 
     /// 尝试配对的内部阻塞实现
@@ -266,8 +310,11 @@ impl PairingGuard {
 
                     // 生成新令牌并存储哈希值
                     let token = generate_token();
-                    let mut tokens = self.paired_tokens.lock();
-                    tokens.insert(hash_token(&token));
+                    let mut skeys = self.skeys.lock();
+                    let hash = hash_token(&token);
+                    if !skeys.iter().any(|entry| entry.hash == hash) {
+                        skeys.push(SkeyEntry { enabled: true, hash, expires_at: None });
+                    }
 
                     // 消费配对码，防止重复使用
                     *pairing_code = None;
@@ -373,29 +420,38 @@ impl PairingGuard {
         }
     }
 
-    /// 验证持有者令牌是否有效
+    /// 验证 skey 是否有效
     ///
-    /// 将提供的令牌进行哈希后，与已存储的令牌哈希集合比对。
+    /// 将提供的 skey 进行哈希后，与已存储的 skey 哈希集合比对。
     ///
     /// # 参数
     ///
-    /// - `token`: 待验证的持有者令牌
+    /// - `token`: 待验证的 skey
     ///
     /// # 返回
     ///
-    /// - `true`: 令牌有效或不需要配对
-    /// - `false`: 令牌无效
+    /// - `true`: skey 有效或不需要鉴权
+    /// - `false`: skey 无效、缺失或已过期
     ///
     /// # 注意
     ///
     /// 如果 `require_pairing` 为 `false`，此方法始终返回 `true`
     pub fn is_authenticated(&self, token: &str) -> bool {
-        if !self.require_pairing {
+        if !self.require_pairing() {
             return true;
         }
-        let hashed = hash_token(token);
-        let tokens = self.paired_tokens.lock();
-        tokens.contains(&hashed)
+        let trimmed = token.trim();
+        if trimmed.is_empty() {
+            return false;
+        }
+        let hashed = hash_token(trimmed);
+        let now = Utc::now();
+        let skeys = self.skeys.lock();
+        skeys.iter().any(|entry| {
+            entry.enabled
+                && !entry.expires_at.as_ref().is_some_and(|expires_at| now >= *expires_at)
+                && constant_time_eq(&entry.hash, &hashed)
+        })
     }
 
     /// 检查网关是否已完成配对
@@ -407,8 +463,20 @@ impl PairingGuard {
     /// - `true`: 已有至少一个配对的令牌
     /// - `false`: 尚未配对
     pub fn is_paired(&self) -> bool {
-        let tokens = self.paired_tokens.lock();
-        !tokens.is_empty()
+        self.active_skey_count() > 0
+    }
+
+    /// 返回当前未过期 skey 数量。
+    pub fn active_skey_count(&self) -> usize {
+        let now = Utc::now();
+        let skeys = self.skeys.lock();
+        skeys
+            .iter()
+            .filter(|entry| {
+                entry.enabled
+                    && !entry.expires_at.as_ref().is_some_and(|expires_at| now >= *expires_at)
+            })
+            .count()
     }
 
     /// 获取所有已配对令牌的哈希值
@@ -423,9 +491,30 @@ impl PairingGuard {
     ///
     /// 返回的是哈希值，不是原始令牌。原始令牌仅在配对时返回一次。
     pub fn tokens(&self) -> Vec<String> {
-        let tokens = self.paired_tokens.lock();
-        tokens.iter().cloned().collect()
+        let skeys = self.skeys.lock();
+        skeys.iter().map(|entry| entry.hash.clone()).collect()
     }
+}
+
+fn skey_entry_from_config(config: &GatewaySkey) -> Option<SkeyEntry> {
+    let raw_skey = config.skey.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    let hash = match raw_skey {
+        Some(skey) => hash_token(skey),
+        None => config.skey_hash.trim().to_ascii_lowercase(),
+    };
+    if !is_token_hash(&hash) {
+        return None;
+    }
+
+    let expires_at = match config.expires_at.as_deref().map(str::trim) {
+        Some(value) if !value.is_empty() => match DateTime::parse_from_rfc3339(value) {
+            Ok(parsed) => Some(parsed.with_timezone(&Utc)),
+            Err(_) => return None,
+        },
+        _ => None,
+    };
+
+    Some(SkeyEntry { enabled: config.enabled, hash, expires_at })
 }
 
 /// 规范化客户端标识符
@@ -531,6 +620,29 @@ fn generate_token() -> String {
 /// 小写十六进制格式的 SHA-256 哈希值（64字符）
 fn hash_token(token: &str) -> String {
     format!("{:x}", Sha256::digest(token.as_bytes()))
+}
+
+/// 对原始 skey 进行 SHA-256 哈希，供配置保存前归一化使用。
+pub fn hash_skey(skey: &str) -> String {
+    hash_token(skey.trim())
+}
+
+/// 生成 skey 的脱敏展示名。
+pub fn masked_skey_name(skey: &str) -> String {
+    let trimmed = skey.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let chars = trimmed.chars().collect::<Vec<_>>();
+    if chars.len() <= 8 {
+        return "*".repeat(chars.len().max(1));
+    }
+
+    let prefix = chars.iter().take(4).collect::<String>();
+    let suffix =
+        chars.iter().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect::<String>();
+    format!("{prefix}***{suffix}")
 }
 
 /// 检查存储值是否为 SHA-256 哈希格式

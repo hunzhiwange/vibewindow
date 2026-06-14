@@ -1,6 +1,8 @@
 // Tests for plan6 task 821.
 const SOURCE: &str = include_str!("help.rs");
 
+use super::help::help_text;
+
 fn source_declares_symbol(name: &str) -> bool {
     let needles = [
         format!("fn {name}"),
@@ -19,6 +21,22 @@ fn source_declares_symbol(name: &str) -> bool {
     ];
 
     needles.iter().any(|needle| SOURCE.contains(needle))
+}
+
+#[test]
+fn help_text_documents_core_fields_and_local_skill_toggle_marker() {
+    let text = help_text();
+
+    for expected in [
+        "open_skills_enabled",
+        "open_skills_dir",
+        "prompt_injection_mode",
+        "compact",
+        "full",
+        "SKILL.disabled",
+    ] {
+        assert!(text.contains(expected), "help text should contain {expected}");
+    }
 }
 
 #[test]

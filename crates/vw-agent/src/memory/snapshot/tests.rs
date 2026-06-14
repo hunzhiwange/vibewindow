@@ -271,3 +271,121 @@ fn hydrate_no_snapshot_returns_zero() {
     let count = hydrate_from_snapshot(tmp.path()).unwrap();
     assert_eq!(count, 0);
 }
+
+#[test]
+fn hydrate_empty_snapshot_returns_zero_without_creating_db() {
+    let tmp = TempDir::new().unwrap();
+    let workspace = tmp.path();
+    let storage = paths::project_data_dir(workspace).unwrap();
+    fs::create_dir_all(&storage).unwrap();
+    fs::write(storage.join(SNAPSHOT_FILENAME), "# empty\n").unwrap();
+
+    assert_eq!(hydrate_from_snapshot(workspace).unwrap(), 0);
+    assert!(!storage.join("memory").join("brain.db").exists());
+}
+
+#[test]
+fn parse_snapshot_ignores_malformed_and_empty_entries() {
+    let input = r#"### 🔑 ``
+
+empty key should be ignored
+
+### not a snapshot key
+
+ignored
+
+### 🔑 `valid`
+
+Line one.
+
+*Created: old | Updated: old*
+
+---
+"#;
+
+    let entries = parse_snapshot(input);
+
+    assert_eq!(entries, vec![("valid".to_string(), "Line one.".to_string())]);
+}
+
+#[test]
+fn export_existing_db_with_no_core_memories_returns_zero_without_snapshot() {
+    let tmp = TempDir::new().unwrap();
+    let workspace = tmp.path();
+    let storage = paths::project_data_dir(workspace).unwrap();
+    let db_dir = storage.join("memory");
+    fs::create_dir_all(&db_dir).unwrap();
+    let db_path = db_dir.join("brain.db");
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute_batch(
+        "CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            key TEXT NOT NULL UNIQUE,
+            content TEXT NOT NULL,
+            category TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        INSERT INTO memories VALUES ('id', 'daily', 'not exported', 'daily', 'c', 'u');",
+    )
+    .unwrap();
+    drop(conn);
+
+    assert_eq!(export_snapshot(workspace).unwrap(), 0);
+    assert!(!storage.join(SNAPSHOT_FILENAME).exists());
+}
+
+#[test]
+fn export_errors_when_existing_database_has_no_memories_table() {
+    let tmp = TempDir::new().unwrap();
+    let workspace = tmp.path();
+    let storage = paths::project_data_dir(workspace).unwrap();
+    let db_dir = storage.join("memory");
+    fs::create_dir_all(&db_dir).unwrap();
+    let db_path = db_dir.join("brain.db");
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute_batch("CREATE TABLE other_table (id TEXT);").unwrap();
+    drop(conn);
+
+    let err = export_snapshot(workspace).unwrap_err().to_string();
+
+    assert!(err.contains("no such table"));
+}
+
+#[test]
+fn hydrate_skips_duplicate_keys_and_creates_schema() {
+    let tmp = TempDir::new().unwrap();
+    let workspace = tmp.path();
+    let storage = paths::project_data_dir(workspace).unwrap();
+    fs::create_dir_all(&storage).unwrap();
+    fs::write(
+        storage.join(SNAPSHOT_FILENAME),
+        "### 🔑 `same`\n\nfirst\n\n---\n\n### 🔑 `same`\n\nsecond\n",
+    )
+    .unwrap();
+
+    let hydrated = hydrate_from_snapshot(workspace).unwrap();
+
+    assert_eq!(hydrated, 1);
+    let conn = Connection::open(storage.join("memory").join("brain.db")).unwrap();
+    let content: String = conn
+        .query_row("SELECT content FROM memories WHERE key = 'same'", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(content, "first");
+    let fts_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM memories_fts", [], |row| row.get(0)).unwrap();
+    assert_eq!(fts_count, 1);
+}
+
+#[test]
+fn should_hydrate_when_database_file_is_tiny() {
+    let tmp = TempDir::new().unwrap();
+    let workspace = tmp.path();
+    let storage = paths::project_data_dir(workspace).unwrap();
+    let db_dir = storage.join("memory");
+    fs::create_dir_all(&db_dir).unwrap();
+    fs::write(db_dir.join("brain.db"), b"tiny").unwrap();
+    fs::write(storage.join(SNAPSHOT_FILENAME), "### 🔑 `key`\n\nvalue\n").unwrap();
+
+    assert!(should_hydrate(workspace));
+}

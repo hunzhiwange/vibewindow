@@ -450,3 +450,7 @@ fn tab_btn<'a>(
 
     container(tab_interaction).width(Length::Shrink).height(Length::Fill).into()
 }
+
+#[cfg(test)]
+#[path = "tab_bar_tests.rs"]
+mod tab_bar_tests;

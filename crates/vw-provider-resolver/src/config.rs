@@ -25,11 +25,11 @@ static WASM_GATEWAY_ENDPOINT: Lazy<Mutex<Option<GatewayEndpoint>>> = Lazy::new(|
 
 /// 解析默认配置目录，优先使用测试或外部显式指定的目录。
 ///
-/// 若未显式指定，则默认落在用户主目录下的 `.vibewindow`。
+/// 若未显式指定，则默认落在用户主目录下的活跃 VibeWindow 配置目录。
 fn default_config_dir() -> Option<PathBuf> {
     std::env::var_os("VIBEWINDOW_CONFIG_DIR")
         .map(PathBuf::from)
-        .or_else(|| UserDirs::new().map(|u| u.home_dir().join(".vibewindow")))
+        .or_else(|| UserDirs::new().map(|u| vw_config_types::paths::home_config_dir(u.home_dir())))
 }
 
 /// 返回配置文件路径。

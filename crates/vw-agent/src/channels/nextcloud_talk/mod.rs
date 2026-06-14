@@ -688,5 +688,8 @@ pub fn verify_nextcloud_talk_signature(
 }
 
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

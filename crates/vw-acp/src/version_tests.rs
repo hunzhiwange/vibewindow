@@ -1,12 +1,29 @@
 use super::*;
 use std::collections::HashMap;
 use std::fs;
+use std::path::PathBuf;
+
+fn temp_path(name: &str) -> PathBuf {
+    std::env::temp_dir().join(format!("vwacp-version-{}-{name}", std::process::id()))
+}
+
+fn env_with(package_name: &str, version: &str) -> HashMap<String, String> {
+    let mut env = HashMap::new();
+    env.insert("npm_package_name".to_string(), package_name.to_string());
+    env.insert("npm_package_version".to_string(), version.to_string());
+    env
+}
+
+#[test]
+fn parse_version_trims_non_empty_values() {
+    assert_eq!(parse_version(Some("  1.2.3  ")), Some("1.2.3".to_string()));
+    assert_eq!(parse_version(Some("\t\n")), None);
+    assert_eq!(parse_version(None), None);
+}
 
 #[test]
 fn env_version_accepts_vwacp_package_only() {
-    let mut env = HashMap::new();
-    env.insert("npm_package_name".to_string(), "vwacp".to_string());
-    env.insert("npm_package_version".to_string(), "1.2.3".to_string());
+    let mut env = env_with("vwacp", "1.2.3");
 
     assert_eq!(
         resolve_vwacp_version(Some(ResolveAcpxVersionParams {
@@ -21,12 +38,128 @@ fn env_version_accepts_vwacp_package_only() {
 }
 
 #[test]
+fn env_version_accepts_cargo_package_name_alias() {
+    let env = env_with(env!("CARGO_PKG_NAME"), "2.3.4");
+
+    assert_eq!(env_version(Some(&env)), Some("2.3.4".to_string()));
+}
+
+#[test]
+fn env_version_rejects_missing_or_blank_fields() {
+    let env = HashMap::new();
+    assert_eq!(env_version(Some(&env)), None);
+
+    let env = env_with("vwacp", "   ");
+    assert_eq!(env_version(Some(&env)), None);
+
+    let env = env_with("   ", "1.0.0");
+    assert_eq!(env_version(Some(&env)), None);
+}
+
+#[test]
 fn read_package_version_rejects_blank_or_missing_version() {
-    let path = std::env::temp_dir().join(format!("vwacp-version-{}.json", std::process::id()));
+    let path = temp_path("package.json");
     fs::write(&path, r#"{ "version": "  2.0.0-beta  " }"#).unwrap();
     assert_eq!(read_package_version(&path), Some("2.0.0-beta".to_string()));
 
     fs::write(&path, r#"{ "version": "   " }"#).unwrap();
     assert_eq!(read_package_version(&path), None);
+
+    fs::write(&path, r#"{ "version": 7 }"#).unwrap();
+    assert_eq!(read_package_version(&path), None);
+
+    fs::write(&path, r#"{ "name": "vwacp" }"#).unwrap();
+    assert_eq!(read_package_version(&path), None);
+
+    fs::write(&path, r#"{ "version": "#).unwrap();
+    assert_eq!(read_package_version(&path), None);
+
     let _ = fs::remove_file(path);
+}
+
+#[test]
+fn read_package_version_returns_none_for_missing_file() {
+    assert_eq!(read_package_version(&temp_path("missing-package.json")), None);
+}
+
+#[test]
+fn resolve_version_from_ancestors_finds_nearest_valid_package() {
+    let root = temp_path("ancestors");
+    let child = root.join("child");
+    let grandchild = child.join("grandchild");
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&grandchild).unwrap();
+
+    fs::write(root.join("package.json"), r#"{ "version": "3.4.5" }"#).unwrap();
+    assert_eq!(resolve_version_from_ancestors(&grandchild), Some("3.4.5".to_string()));
+
+    fs::write(child.join("package.json"), r#"{ "version": "4.5.6" }"#).unwrap();
+    assert_eq!(resolve_version_from_ancestors(&grandchild), Some("4.5.6".to_string()));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn resolve_version_from_ancestors_returns_none_without_valid_package() {
+    let root = temp_path("no-ancestors");
+    let child = root.join("child");
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&child).unwrap();
+    fs::write(root.join("package.json"), r#"{ "version": " " }"#).unwrap();
+
+    assert_eq!(resolve_version_from_ancestors(&child), None);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn resolve_vwacp_version_prefers_env_over_package_path() {
+    let path = temp_path("env-wins-package.json");
+    let env = env_with("vwacp", "5.6.7");
+    fs::write(&path, r#"{ "version": "9.9.9" }"#).unwrap();
+
+    assert_eq!(
+        resolve_vwacp_version(Some(ResolveAcpxVersionParams {
+            env: Some(&env),
+            package_json_path: Some(&path),
+        })),
+        "5.6.7"
+    );
+
+    let _ = fs::remove_file(path);
+}
+
+#[test]
+fn resolve_vwacp_version_uses_package_path_or_unknown() {
+    let path = temp_path("explicit-package.json");
+    let env = env_with("other", "5.6.7");
+    fs::write(&path, r#"{ "version": "6.7.8" }"#).unwrap();
+
+    assert_eq!(
+        resolve_vwacp_version(Some(ResolveAcpxVersionParams {
+            env: Some(&env),
+            package_json_path: Some(&path),
+        })),
+        "6.7.8"
+    );
+
+    fs::write(&path, r#"{ "version": " " }"#).unwrap();
+    assert_eq!(
+        resolve_vwacp_version(Some(ResolveAcpxVersionParams {
+            env: Some(&env),
+            package_json_path: Some(&path),
+        })),
+        UNKNOWN_VERSION
+    );
+
+    let _ = fs::remove_file(path);
+}
+
+#[test]
+fn get_vwacp_version_returns_cached_resolved_value() {
+    let first = get_vwacp_version();
+    let second = get_vwacp_version();
+
+    assert_eq!(first, second);
+    assert!(parse_version(Some(&first)).is_some());
 }

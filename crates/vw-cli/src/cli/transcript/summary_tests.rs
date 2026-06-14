@@ -1,5 +1,46 @@
+use super::transcript_to_lines;
+use crate::app::agent::agent::loop_::cli::transcript::{TranscriptEntry, TranscriptRole};
+use std::collections::BTreeSet;
+
+fn line_text(line: &ratatui::text::Line<'_>) -> String {
+    line.spans.iter().map(|span| span.content.as_ref()).collect::<String>()
+}
+
 #[test]
-fn summary_tests_module_is_loaded() {
-    let path = String::from(module_path!());
-    assert!(path.contains("tests"));
+fn renders_default_line_and_draft_for_empty_transcript() {
+    let (lines, think_map) = transcript_to_lines(&[], false, false, &BTreeSet::new(), "draft");
+
+    assert_eq!(lines.len(), 2);
+    assert_eq!(line_text(&lines[0]), "Ready. Type /help for commands.");
+    assert_eq!(line_text(&lines[1]), "draft");
+    assert_eq!(think_map, vec![None, None]);
+}
+
+#[test]
+fn skips_progress_and_error_entries() {
+    let transcript = vec![
+        TranscriptEntry::new(TranscriptRole::Progress, "loading"),
+        TranscriptEntry::new(TranscriptRole::Error, "boom"),
+        TranscriptEntry::new(TranscriptRole::User, "hello"),
+    ];
+
+    let (lines, think_map) = transcript_to_lines(&transcript, false, false, &BTreeSet::new(), "");
+
+    assert_eq!(lines.len(), 1);
+    assert_eq!(line_text(&lines[0]), "> hello");
+    assert_eq!(think_map, vec![None]);
+}
+
+#[test]
+fn inserts_blank_line_between_visible_entries() {
+    let transcript = vec![
+        TranscriptEntry::new(TranscriptRole::System, "boot"),
+        TranscriptEntry::new(TranscriptRole::User, "hello"),
+    ];
+
+    let (lines, _) = transcript_to_lines(&transcript, false, false, &BTreeSet::new(), "");
+
+    assert_eq!(line_text(&lines[0]), "boot");
+    assert_eq!(line_text(&lines[1]), "");
+    assert_eq!(line_text(&lines[2]), "> hello");
 }

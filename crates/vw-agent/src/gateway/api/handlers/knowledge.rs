@@ -119,3 +119,7 @@ fn knowledge_store_from_config(config: crate::config::Config) -> SqliteKnowledge
 pub(super) fn knowledge_db_path() -> PathBuf {
     crate::global::paths().data.join("knowledge").join("knowledge.sqlite")
 }
+
+#[cfg(test)]
+#[path = "knowledge_tests.rs"]
+mod knowledge_tests;

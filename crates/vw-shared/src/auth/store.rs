@@ -7,7 +7,7 @@ use super::Info;
 
 /// 解析鉴权文件路径，优先兼容旧目录，其次使用当前数据目录。
 pub fn resolve_filepath(home: &Path, data: &Path) -> PathBuf {
-    let legacy = home.join(".vibewindow").join("auth.json");
+    let legacy = vw_config_types::paths::home_config_dir(home).join("auth.json");
     if legacy.exists() {
         return legacy;
     }
@@ -67,7 +67,7 @@ fn write_auth_file(path: &Path, data: &HashMap<String, Info>) -> Result<(), std:
         std::fs::create_dir_all(parent)?;
     }
 
-    let content = serde_json::to_string_pretty(data).unwrap_or_else(|_| "{}".to_string());
+    let content = serde_json::to_string_pretty(data).map_err(std::io::Error::other)?;
     std::fs::write(path, content)?;
 
     #[cfg(unix)]

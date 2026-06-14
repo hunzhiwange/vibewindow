@@ -10,7 +10,11 @@ use axum::extract::{Path, Query};
 use axum::routing::{get, post};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::path::{Path as FsPath, PathBuf};
+use std::process::Command;
 
+use crate::app::agent::config::Config;
+use crate::app::agent::config::schema::ConfigExt;
 use crate::app::agent::gateway::ApiError;
 use crate::storage;
 
@@ -47,10 +51,78 @@ where
         .route("/desktop/external-apps", get(external_apps_get))
         .route("/desktop/external-apps/open", post(external_apps_open_post))
         .route("/desktop/external-path/reveal", post(external_path_reveal_post))
+        .route("/desktop/service/{command}", post(service_command_post))
         .route(
             "/desktop/project-preferences",
             get(project_preferences_get).put(project_preferences_put),
         )
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ServiceCommandPath {
+    command: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+struct ServiceCommandResponse {
+    command: String,
+    output: String,
+}
+
+async fn service_command_post(
+    Path(params): Path<ServiceCommandPath>,
+) -> Result<Json<ServiceCommandResponse>, ApiError> {
+    let command = normalize_service_command(&params.command)
+        .ok_or_else(|| ApiError::bad_request("unsupported service command"))?;
+    let config = Config::load_or_init().await.map_err(|err| ApiError::internal(err.to_string()))?;
+    let config_dir = config
+        .config_path
+        .parent()
+        .map(FsPath::to_path_buf)
+        .ok_or_else(|| ApiError::internal("config path has no parent"))?;
+
+    let output = tokio::task::spawn_blocking(move || run_cli_service_command(command, config_dir))
+        .await
+        .map_err(|err| ApiError::internal(err.to_string()))?
+        .map_err(ApiError::bad_request)?;
+
+    Ok(Json(ServiceCommandResponse { command: command.to_string(), output }))
+}
+
+fn normalize_service_command(raw: &str) -> Option<&'static str> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "install" => Some("install"),
+        "start" => Some("start"),
+        "stop" => Some("stop"),
+        "restart" => Some("restart"),
+        "status" => Some("status"),
+        "uninstall" => Some("uninstall"),
+        _ => None,
+    }
+}
+
+fn run_cli_service_command(command: &'static str, config_dir: PathBuf) -> Result<String, String> {
+    let exe = std::env::current_exe().map_err(|err| format!("定位当前 CLI 失败: {err}"))?;
+    let output = Command::new(&exe)
+        .arg("--config-dir")
+        .arg(&config_dir)
+        .arg("service")
+        .arg(command)
+        .output()
+        .map_err(|err| format!("执行 {} service {command} 失败: {err}", exe.display()))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if output.status.success() {
+        return Ok(if stdout.is_empty() { stderr } else { stdout });
+    }
+
+    let detail = if stderr.is_empty() { stdout } else { stderr };
+    if detail.is_empty() {
+        Err(format!("service {command} 退出状态异常: {}", output.status))
+    } else {
+        Err(detail)
+    }
 }
 
 async fn preferences_get() -> Result<Json<Value>, ApiError> {

@@ -16,6 +16,9 @@ mod basic_tests;
 #[path = "identity_tests.rs"]
 mod identity_tests;
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "shared_tests.rs"]
 mod shared_tests;
 #[cfg(test)]

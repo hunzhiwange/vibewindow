@@ -1,4 +1,216 @@
-use super::query_engine::QueryEngineUsage;
+use super::*;
+
+use crate::app::agent::config::Config;
+use crate::app::agent::memory::{Memory, MemoryCategory, MemoryEntry};
+use crate::app::agent::observability::{NoopObserver, Observer, ObserverEvent};
+use crate::app::agent::providers::traits::TokenUsage;
+use crate::app::agent::providers::{ChatMessage, ChatRequest, ChatResponse, Provider};
+use crate::observability::traits::ObserverMetric;
+use std::any::Any;
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+
+#[derive(Default)]
+struct FakeMemory {
+    entries: Vec<MemoryEntry>,
+}
+
+impl FakeMemory {
+    fn with_entries(entries: Vec<MemoryEntry>) -> Self {
+        Self { entries }
+    }
+}
+
+fn memory_entry(key: &str, content: &str, score: Option<f64>) -> MemoryEntry {
+    MemoryEntry {
+        id: key.to_string(),
+        key: key.to_string(),
+        content: content.to_string(),
+        category: MemoryCategory::Core,
+        timestamp: "now".to_string(),
+        session_id: None,
+        score,
+    }
+}
+
+#[async_trait::async_trait]
+impl Memory for FakeMemory {
+    fn name(&self) -> &str {
+        "fake"
+    }
+
+    async fn store(
+        &self,
+        _key: &str,
+        _content: &str,
+        _category: MemoryCategory,
+        _session_id: Option<&str>,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn recall(
+        &self,
+        _query: &str,
+        _limit: usize,
+        _session_id: Option<&str>,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
+        Ok(self.entries.clone())
+    }
+
+    async fn get(&self, _key: &str) -> anyhow::Result<Option<MemoryEntry>> {
+        Ok(None)
+    }
+
+    async fn list(
+        &self,
+        _category: Option<&MemoryCategory>,
+        _session_id: Option<&str>,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
+        Ok(Vec::new())
+    }
+
+    async fn forget(&self, _key: &str) -> anyhow::Result<bool> {
+        Ok(false)
+    }
+
+    async fn count(&self) -> anyhow::Result<usize> {
+        Ok(0)
+    }
+
+    async fn health_check(&self) -> bool {
+        true
+    }
+}
+
+enum ProviderStep {
+    Response(ChatResponse),
+    Error(&'static str),
+}
+
+#[derive(Default)]
+struct ProviderState {
+    steps: Mutex<VecDeque<ProviderStep>>,
+    seen_messages: Mutex<Vec<Vec<ChatMessage>>>,
+    seen_models: Mutex<Vec<String>>,
+    seen_temperatures: Mutex<Vec<f64>>,
+}
+
+#[derive(Clone, Default)]
+struct ScriptedProvider {
+    state: Arc<ProviderState>,
+}
+
+impl ScriptedProvider {
+    fn with_steps(steps: Vec<ProviderStep>) -> Self {
+        Self {
+            state: Arc::new(ProviderState {
+                steps: Mutex::new(steps.into_iter().collect()),
+                ..ProviderState::default()
+            }),
+        }
+    }
+
+    fn seen_messages(&self) -> Vec<Vec<ChatMessage>> {
+        self.state.seen_messages.lock().unwrap().clone()
+    }
+
+    fn seen_models(&self) -> Vec<String> {
+        self.state.seen_models.lock().unwrap().clone()
+    }
+
+    fn seen_temperatures(&self) -> Vec<f64> {
+        self.state.seen_temperatures.lock().unwrap().clone()
+    }
+}
+
+#[async_trait::async_trait]
+impl Provider for ScriptedProvider {
+    async fn chat_with_system(
+        &self,
+        _system_prompt: Option<&str>,
+        _message: &str,
+        _model: &str,
+        _temperature: f64,
+    ) -> anyhow::Result<String> {
+        Ok("summary".to_string())
+    }
+
+    async fn chat(
+        &self,
+        request: ChatRequest<'_>,
+        model: &str,
+        temperature: f64,
+    ) -> anyhow::Result<ChatResponse> {
+        self.state.seen_messages.lock().unwrap().push(request.messages.to_vec());
+        self.state.seen_models.lock().unwrap().push(model.to_string());
+        self.state.seen_temperatures.lock().unwrap().push(temperature);
+
+        match self.state.steps.lock().unwrap().pop_front() {
+            Some(ProviderStep::Response(response)) => Ok(response),
+            Some(ProviderStep::Error(message)) => anyhow::bail!("{message}"),
+            None => anyhow::bail!("scripted provider exhausted"),
+        }
+    }
+}
+
+#[derive(Default)]
+struct CapturingObserver {
+    events: Mutex<Vec<String>>,
+    metrics: AtomicUsize,
+    flushes: AtomicUsize,
+}
+
+impl Observer for CapturingObserver {
+    fn record_event(&self, event: &ObserverEvent) {
+        self.events.lock().unwrap().push(format!("{event:?}"));
+    }
+
+    fn record_metric(&self, _metric: &ObserverMetric) {
+        self.metrics.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn flush(&self) {
+        self.flushes.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn name(&self) -> &str {
+        "capturing"
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+fn chat_text(text: &str, usage: Option<TokenUsage>) -> ChatResponse {
+    ChatResponse {
+        text: Some(text.to_string()),
+        tool_calls: Vec::new(),
+        usage,
+        reasoning_content: None,
+    }
+}
+
+fn test_engine(provider: ScriptedProvider, memory: Arc<dyn Memory>) -> QueryEngine {
+    QueryEngine {
+        history: vec![ChatMessage::system("system prompt")],
+        tools_registry: Vec::new(),
+        observer: Arc::new(RecordingObserver::new(Arc::new(NoopObserver))),
+        provider: Box::new(provider),
+        memory,
+        provider_name: "scripted".to_string(),
+        model_name: "model-a".to_string(),
+        default_temperature: 0.25,
+        multimodal_config: crate::app::agent::config::MultimodalConfig::default(),
+        compact_context: false,
+        max_tool_iterations: 2,
+        max_history_messages: 10,
+        min_memory_relevance_score: 0.5,
+        turn_count: 0,
+    }
+}
 
 #[test]
 fn query_engine_usage_totals_billable_tokens() {
@@ -11,5 +223,218 @@ fn query_engine_usage_totals_billable_tokens() {
     };
 
     assert_eq!(usage.total_tokens(), 20);
+    assert_eq!(usage.as_ui_token_usage().input_tokens, 10);
     assert_eq!(usage.as_ui_token_usage().reasoning_tokens, 99);
+}
+
+#[test]
+fn query_engine_usage_total_saturates_on_overflow() {
+    let usage = QueryEngineUsage {
+        input_tokens: i64::MAX,
+        output_tokens: 1,
+        cached_tokens: 1,
+        reasoning_tokens: 0,
+        llm_calls: 0,
+    };
+
+    assert_eq!(usage.total_tokens(), i64::MAX);
+}
+
+#[test]
+fn recording_observer_accumulates_successful_llm_usage_and_forwards_calls() {
+    let inner = Arc::new(CapturingObserver::default());
+    let observer = RecordingObserver::new(inner.clone());
+
+    observer.record_event(&ObserverEvent::LlmResponse {
+        provider: "p".to_string(),
+        model: "m".to_string(),
+        duration: std::time::Duration::from_millis(1),
+        success: true,
+        error_message: None,
+        input_tokens: Some(5),
+        output_tokens: Some(7),
+        cached_tokens: Some(11),
+        reasoning_tokens: Some(13),
+    });
+    observer.record_event(&ObserverEvent::LlmResponse {
+        provider: "p".to_string(),
+        model: "m".to_string(),
+        duration: std::time::Duration::from_millis(1),
+        success: false,
+        error_message: Some("failed".to_string()),
+        input_tokens: Some(100),
+        output_tokens: Some(100),
+        cached_tokens: Some(100),
+        reasoning_tokens: Some(100),
+    });
+    observer.record_metric(&ObserverMetric::QueueDepth(3));
+    observer.flush();
+
+    let usage = observer.usage_snapshot();
+    assert_eq!(usage.llm_calls, 1);
+    assert_eq!(usage.input_tokens, 5);
+    assert_eq!(usage.output_tokens, 7);
+    assert_eq!(usage.cached_tokens, 11);
+    assert_eq!(usage.reasoning_tokens, 13);
+    assert_eq!(observer.name(), "capturing");
+    assert!(observer.as_any().is::<RecordingObserver>());
+    assert_eq!(inner.events.lock().unwrap().len(), 2);
+    assert_eq!(inner.metrics.load(Ordering::SeqCst), 1);
+    assert_eq!(inner.flushes.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn session_state_counts_non_system_messages_and_remaining_budget() {
+    let provider = ScriptedProvider::default();
+    let mut engine = test_engine(provider, Arc::new(FakeMemory::default()));
+    engine.history = vec![
+        ChatMessage::system("system"),
+        ChatMessage::user("one"),
+        ChatMessage::assistant("two"),
+        ChatMessage::tool("three"),
+    ];
+    engine.max_history_messages = 2;
+    engine.max_tool_iterations = 4;
+    engine.turn_count = 9;
+    engine.observer.replace_usage(QueryEngineUsage {
+        input_tokens: 1,
+        output_tokens: 2,
+        cached_tokens: 3,
+        reasoning_tokens: 4,
+        llm_calls: 5,
+    });
+
+    let state = engine.session_state();
+
+    assert_eq!(state.turn_count, 9);
+    assert_eq!(state.usage.total_tokens(), 6);
+    assert_eq!(state.budget.max_tool_iterations, 4);
+    assert_eq!(state.budget.max_history_messages, 2);
+    assert_eq!(state.budget.non_system_messages, 3);
+    assert_eq!(state.budget.remaining_history_messages, 0);
+}
+
+#[test]
+fn snapshot_replace_and_restore_round_trip_history_turns_and_usage() {
+    let provider = ScriptedProvider::default();
+    let mut engine = test_engine(provider, Arc::new(FakeMemory::default()));
+    engine.history.push(ChatMessage::user("original"));
+    engine.turn_count = 2;
+    engine.observer.replace_usage(QueryEngineUsage {
+        input_tokens: 3,
+        output_tokens: 4,
+        cached_tokens: 5,
+        reasoning_tokens: 6,
+        llm_calls: 7,
+    });
+
+    let snapshot = engine.snapshot();
+    engine.replace_history(vec![ChatMessage::system("replacement")]);
+    engine.turn_count = 0;
+    engine.observer.replace_usage(QueryEngineUsage::default());
+
+    engine.restore_snapshot(snapshot);
+
+    assert_eq!(engine.turn_count(), 2);
+    assert_eq!(engine.history_snapshot().last().unwrap().content, "original");
+    assert_eq!(engine.session_state().usage.llm_calls, 7);
+}
+
+#[tokio::test]
+async fn submit_message_success_enriches_history_and_records_usage() {
+    let usage = TokenUsage {
+        input_tokens: Some(5),
+        output_tokens: Some(7),
+        cached_tokens: Some(2),
+        reasoning_tokens: Some(3),
+    };
+    let provider = ScriptedProvider::with_steps(vec![ProviderStep::Response(chat_text(
+        "final answer",
+        Some(usage),
+    ))]);
+    let provider_handle = provider.clone();
+    let memory = Arc::new(FakeMemory::with_entries(vec![memory_entry(
+        "style",
+        "prefer concise replies",
+        Some(0.9),
+    )]));
+    let mut engine = test_engine(provider, memory);
+
+    let result = engine.submit_message("hello").await.expect("submit should succeed");
+
+    assert_eq!(result, "final answer");
+    assert_eq!(engine.turn_count(), 1);
+    let history = engine.history_snapshot();
+    assert_eq!(history.len(), 3);
+    assert_eq!(history[1].role, "user");
+    assert!(history[1].content.contains("[Memory context]"));
+    assert!(history[1].content.contains("prefer concise replies"));
+    assert!(history[1].content.contains("hello"));
+    assert_eq!(history[2].content, "final answer");
+
+    let state = engine.session_state();
+    assert_eq!(state.usage.llm_calls, 1);
+    assert_eq!(state.usage.total_tokens(), 14);
+    assert_eq!(state.usage.reasoning_tokens, 3);
+    assert_eq!(provider_handle.seen_models(), vec!["model-a".to_string()]);
+    assert_eq!(provider_handle.seen_temperatures(), vec![0.25]);
+    assert!(provider_handle.seen_messages()[0][1].content.contains("hello"));
+}
+
+#[tokio::test]
+async fn submit_message_error_rolls_back_history_and_turn_count() {
+    let provider = ScriptedProvider::with_steps(vec![ProviderStep::Error("boom")]);
+    let mut engine = test_engine(provider, Arc::new(FakeMemory::default()));
+    engine.history.push(ChatMessage::assistant("previous"));
+    let before = engine.history_snapshot();
+
+    let result = engine.submit_message("hello").await;
+
+    assert!(result.is_err());
+    assert_eq!(engine.turn_count(), 0);
+    assert_eq!(engine.history_snapshot().len(), before.len());
+    assert_eq!(engine.history_snapshot()[1].content, "previous");
+    assert_eq!(engine.session_state().usage.llm_calls, 0);
+}
+
+#[tokio::test]
+async fn govern_history_trims_non_system_messages() {
+    let provider = ScriptedProvider::default();
+    let mut engine = test_engine(provider, Arc::new(FakeMemory::default()));
+    engine.max_history_messages = 2;
+    engine.history = vec![
+        ChatMessage::system("system"),
+        ChatMessage::user("old"),
+        ChatMessage::assistant("middle"),
+        ChatMessage::user("new"),
+    ];
+
+    engine.govern_history().await;
+
+    let history = engine.history_snapshot();
+    assert_eq!(
+        history.iter().map(|m| m.content.as_str()).collect::<Vec<_>>(),
+        vec!["system", "middle", "new",]
+    );
+}
+
+#[test]
+fn build_tool_descriptions_tracks_optional_tools() {
+    let mut config = Config::default();
+    let base = build_tool_descriptions(&config);
+    assert!(base.iter().any(|(name, _)| *name == "bash"));
+    assert!(!base.iter().any(|(name, _)| *name == "Browser"));
+
+    config.browser.enabled = true;
+    config.browser.browser_open = "disable".to_string();
+    config.web_fetch.enabled = true;
+    config.web_search.enabled = true;
+    config.composio.enabled = true;
+
+    let descriptions = build_tool_descriptions(&config);
+    assert!(descriptions.iter().any(|(name, _)| *name == "Browser"));
+    assert!(!descriptions.iter().any(|(name, _)| *name == "BrowserOpen"));
+    assert!(descriptions.iter().any(|(name, _)| *name == "WebFetch"));
+    assert!(descriptions.iter().any(|(name, _)| *name == "WebSearch"));
+    assert!(descriptions.iter().any(|(name, _)| *name == "composio"));
 }

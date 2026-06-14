@@ -162,3 +162,7 @@ pub(super) fn discord_reaction_url(channel_id: &str, message_id: &str, emoji: &s
 pub(super) fn discord_ack_reactions() -> &'static [&'static str] {
     DISCORD_ACK_REACTIONS
 }
+
+#[cfg(test)]
+#[path = "reactions_tests.rs"]
+mod reactions_tests;

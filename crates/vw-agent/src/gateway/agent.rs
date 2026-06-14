@@ -21,7 +21,7 @@ use super::util::webhook_memory_key;
 use crate::app::agent::memory::MemoryCategory;
 use axum::{
     extract::{ConnectInfo, State},
-    http::{HeaderMap, StatusCode, header},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
 use std::net::SocketAddr;
@@ -116,19 +116,8 @@ pub async fn handle_agent(
         return (StatusCode::TOO_MANY_REQUESTS, Json(err)).into_response();
     }
 
-    // 如果启用了配对机制，验证 Bearer 令牌
-    if state.pairing.require_pairing() {
-        // 从 Authorization 头中提取令牌
-        let auth = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()).unwrap_or("");
-        let token = auth.strip_prefix("Bearer ").unwrap_or("");
-
-        // 验证令牌是否有效
-        if !state.pairing.is_authenticated(token) {
-            let err = serde_json::json!({
-                "error": "Unauthorized — pair first via POST /pair, then send Authorization: Bearer <token>"
-            });
-            return (StatusCode::UNAUTHORIZED, Json(err)).into_response();
-        }
+    if let Err(err) = super::api::auth::require_auth(&state, &headers) {
+        return err.into_response();
     }
 
     // 解析请求体，如果 JSON 格式错误则返回 400 错误
@@ -247,3 +236,7 @@ pub async fn handle_agent(
     )
         .into_response()
 }
+
+#[cfg(test)]
+#[path = "agent_tests.rs"]
+mod agent_tests;

@@ -12658,7 +12658,7 @@ dependencies = [
 
 [[package]]
 name = "vw-acp"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "agent-client-protocol",
  "async-trait",
@@ -12674,12 +12674,13 @@ dependencies = [
  "tokio-util",
  "tracing",
  "vw-api-types",
+ "vw-config-types",
  "vw-shared",
 ]
 
 [[package]]
 name = "vw-agent"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "agent-client-protocol",
  "anyhow",
@@ -12771,6 +12772,7 @@ dependencies = [
  "tokio-tungstenite 0.28.0",
  "tokio-util",
  "toml 0.8.2",
+ "tower",
  "tower-http",
  "tracing",
  "tree-sitter",
@@ -12803,7 +12805,7 @@ dependencies = [
 
 [[package]]
 name = "vw-api-types"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "serde",
  "serde_json",
@@ -12811,7 +12813,7 @@ dependencies = [
 
 [[package]]
 name = "vw-cli"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "anyhow",
  "chrono",
@@ -12830,13 +12832,14 @@ dependencies = [
  "tracing-subscriber",
  "unicode-width 0.1.14",
  "vw-agent",
+ "vw-config-types",
  "vw-gateway-client",
  "vw-shared",
 ]
 
 [[package]]
 name = "vw-config-types"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "directories",
  "schemars 0.8.22",
@@ -12848,7 +12851,7 @@ dependencies = [
 
 [[package]]
 name = "vw-desktop"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "anyhow",
  "arboard",
@@ -12913,7 +12916,7 @@ dependencies = [
 
 [[package]]
 name = "vw-fig2json"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
@@ -12928,12 +12931,13 @@ dependencies = [
 
 [[package]]
 name = "vw-gateway-client"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "futures-util",
  "reqwest",
  "serde",
  "serde_json",
+ "tokio",
  "tracing",
  "vw-api-types",
  "vw-shared",
@@ -12941,7 +12945,7 @@ dependencies = [
 
 [[package]]
 name = "vw-provider-resolver"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "anyhow",
  "directories",
@@ -12960,7 +12964,7 @@ dependencies = [
 
 [[package]]
 name = "vw-shared"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "anyhow",
  "getrandom 0.2.17",
@@ -12976,12 +12980,13 @@ dependencies = [
  "tempfile",
  "time",
  "tokio",
+ "vw-config-types",
  "web-time",
 ]
 
 [[package]]
 name = "vw-webview"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "directories",
  "mime_guess",

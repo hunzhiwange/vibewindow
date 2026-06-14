@@ -20,7 +20,12 @@
 
 use super::*;
 use crate::app::agent::config::Config;
-use crate::app::agent::config::schema::{IMessageConfig, MatrixConfig, StreamMode, TelegramConfig};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::app::agent::config::schema::EmailConfig;
+use crate::app::agent::config::schema::{
+    DingTalkConfig, DiscordConfig, IMessageConfig, MatrixConfig, QQConfig, QQReceiveMode,
+    SignalConfig, SlackConfig, StreamMode, TelegramConfig, WebhookConfig, WhatsAppConfig,
+};
 
 /// 验证注册表包含足够的集成条目
 ///
@@ -478,4 +483,154 @@ fn regional_provider_aliases_activate_expected_ai_integrations() {
     config.default_provider = Some("baidu".to_string());
     let qianfan = entries.iter().find(|e| e.name == "Qianfan").unwrap();
     assert!(matches!((qianfan.status_fn)(&config), IntegrationStatus::Active));
+}
+
+fn entry<'a>(entries: &'a [IntegrationEntry], name: &str) -> &'a IntegrationEntry {
+    entries.iter().find(|entry| entry.name == name).unwrap_or_else(|| panic!("{name} missing"))
+}
+
+#[test]
+fn default_provider_matcher_is_case_insensitive_and_handles_missing_values() {
+    let empty = Config::default();
+    assert!(!default_provider_matches(&empty, &["zai"]));
+
+    let config = Config { default_provider: Some("ZAI-CN".to_string()), ..Config::default() };
+    assert!(default_provider_matches(&config, &["zai", "zai-cn"]));
+    assert!(!default_provider_matches(&config, &["glm", "glm-cn"]));
+}
+
+#[test]
+fn configured_chat_channels_become_active() {
+    let entries = all_integrations();
+    let mut config = Config::default();
+
+    config.channels_config.discord = Some(DiscordConfig {
+        bot_token: "discord-token".into(),
+        guild_id: None,
+        allowed_users: vec![],
+        listen_to_bots: false,
+        mention_only: false,
+        group_reply: None,
+    });
+    config.channels_config.slack = Some(SlackConfig {
+        bot_token: "slack-token".into(),
+        app_token: None,
+        channel_id: None,
+        allowed_users: vec![],
+        group_reply: None,
+    });
+    config.channels_config.webhook = Some(WebhookConfig { port: 8787, secret: None });
+    config.channels_config.whatsapp = Some(WhatsAppConfig {
+        access_token: Some("whatsapp-token".into()),
+        phone_number_id: Some("phone-id".into()),
+        verify_token: Some("verify".into()),
+        app_secret: None,
+        session_path: None,
+        pair_phone: None,
+        pair_code: None,
+        allowed_numbers: vec![],
+    });
+    config.channels_config.signal = Some(SignalConfig {
+        http_url: "http://127.0.0.1:8080".into(),
+        account: "+15555550100".into(),
+        group_id: None,
+        allowed_from: vec![],
+        ignore_attachments: false,
+        ignore_stories: false,
+    });
+    config.channels_config.dingtalk = Some(DingTalkConfig {
+        client_id: "ding-id".into(),
+        client_secret: "ding-secret".into(),
+        allowed_users: vec![],
+    });
+    config.channels_config.qq = Some(QQConfig {
+        app_id: "qq-id".into(),
+        app_secret: "qq-secret".into(),
+        allowed_users: vec![],
+        receive_mode: QQReceiveMode::Webhook,
+    });
+
+    for name in ["Discord", "Slack", "Webhooks", "WhatsApp", "Signal", "DingTalk", "QQ Official"] {
+        assert_eq!((entry(&entries, name).status_fn)(&config), IntegrationStatus::Active, "{name}");
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn email_becomes_active_when_configured() {
+    let entries = all_integrations();
+    let mut config = Config::default();
+    config.channels_config.email =
+        Some(EmailConfig { imap_host: "imap.example.test".into(), ..EmailConfig::default() });
+
+    assert_eq!((entry(&entries, "Email").status_fn)(&config), IntegrationStatus::Active);
+}
+
+#[test]
+fn ai_provider_entries_reflect_provider_and_model_configuration() {
+    let entries = all_integrations();
+    let mut config = Config::default();
+
+    config.default_provider = Some("openrouter".into());
+    config.api_key = Some("sk-test".into());
+    assert_eq!((entry(&entries, "OpenRouter").status_fn)(&config), IntegrationStatus::Active);
+
+    for (provider, name) in [
+        ("anthropic", "Anthropic"),
+        ("openai", "OpenAI"),
+        ("ollama", "Ollama"),
+        ("perplexity", "Perplexity"),
+        ("venice", "Venice"),
+        ("vercel", "Vercel AI"),
+        ("cloudflare", "Cloudflare AI"),
+        ("synthetic", "Synthetic"),
+        ("opencode", "OpenCode Zen"),
+        ("dashscope", "Qwen"),
+        ("qianfan", "Qianfan"),
+    ] {
+        config = Config { default_provider: Some(provider.to_string()), ..Config::default() };
+        assert_eq!((entry(&entries, name).status_fn)(&config), IntegrationStatus::Active, "{name}");
+    }
+
+    for (model, name) in [
+        ("google/gemini-pro", "Google"),
+        ("deepseek/deepseek-chat", "DeepSeek"),
+        ("x-ai/grok", "xAI"),
+        ("mistral-large", "Mistral"),
+    ] {
+        config = Config { default_model: Some(model.to_string()), ..Config::default() };
+        assert_eq!((entry(&entries, name).status_fn)(&config), IntegrationStatus::Active, "{name}");
+    }
+}
+
+#[test]
+fn available_and_always_active_ai_entries_are_stable() {
+    let entries = all_integrations();
+    let config = Config::default();
+
+    for name in ["Amazon Bedrock", "Together AI", "Fireworks AI", "Cohere"] {
+        assert_eq!(
+            (entry(&entries, name).status_fn)(&config),
+            IntegrationStatus::Available,
+            "{name}"
+        );
+    }
+    assert_eq!((entry(&entries, "Groq").status_fn)(&config), IntegrationStatus::Active);
+}
+
+#[test]
+fn platform_entries_reflect_current_target() {
+    let entries = all_integrations();
+    let config = Config::default();
+
+    let linux_status = (entry(&entries, "Linux").status_fn)(&config);
+    if cfg!(target_os = "linux") {
+        assert_eq!(linux_status, IntegrationStatus::Active);
+    } else {
+        assert_eq!(linux_status, IntegrationStatus::Available);
+    }
+
+    assert_eq!((entry(&entries, "Windows").status_fn)(&config), IntegrationStatus::Available);
+    assert_eq!((entry(&entries, "iOS").status_fn)(&config), IntegrationStatus::Available);
+    assert_eq!((entry(&entries, "Android").status_fn)(&config), IntegrationStatus::Available);
 }

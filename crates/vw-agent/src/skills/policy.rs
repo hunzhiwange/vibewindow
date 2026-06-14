@@ -207,12 +207,21 @@ pub(crate) fn ensure_source_domain_trust(
     policy: &mut SkillDownloadPolicy,
     skills_path: &Path,
 ) -> Result<()> {
+    let interactive = std::io::stdin().is_terminal() && std::io::stdout().is_terminal();
+    ensure_source_domain_trust_with_interactivity(source, policy, skills_path, interactive)
+}
+
+fn ensure_source_domain_trust_with_interactivity(
+    source: &str,
+    policy: &mut SkillDownloadPolicy,
+    skills_path: &Path,
+    interactive: bool,
+) -> Result<()> {
     let urls = source_urls_for_trust_check(source);
     if urls.is_empty() {
         return Ok(());
     }
 
-    let interactive = std::io::stdin().is_terminal() && std::io::stdout().is_terminal();
     let mut policy_changed = false;
 
     for url in urls {

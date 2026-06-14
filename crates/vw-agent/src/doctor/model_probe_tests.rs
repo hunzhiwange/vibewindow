@@ -1,0 +1,40 @@
+use super::model_probe::{ModelProbeOutcome, classify_model_probe_error, run_models};
+use crate::app::agent::config::Config;
+
+#[test]
+fn classify_model_probe_error_marks_unsupported_as_skipped() {
+    let outcome = classify_model_probe_error("Provider does not support live model discovery yet");
+
+    assert_eq!(outcome, ModelProbeOutcome::Skipped);
+}
+
+#[test]
+fn classify_model_probe_error_marks_auth_access_quota_and_rate_limit_hints() {
+    for message in [
+        "OpenAI API error (401): unauthorized",
+        "API key missing",
+        "Forbidden token scope",
+        "insufficient balance",
+        "insufficient quota",
+        "plan does not include requested model",
+        "rate limit exceeded",
+    ] {
+        assert_eq!(
+            classify_model_probe_error(message),
+            ModelProbeOutcome::AuthOrAccess,
+            "{message}"
+        );
+    }
+}
+
+#[test]
+fn classify_model_probe_error_falls_back_to_error_for_unknown_text() {
+    assert_eq!(classify_model_probe_error("transport closed"), ModelProbeOutcome::Error);
+}
+
+#[tokio::test]
+async fn run_models_accepts_trimmed_provider_override() {
+    let config = Config::default();
+
+    run_models(&config, Some(" openrouter "), false).await.expect("provider override should run");
+}

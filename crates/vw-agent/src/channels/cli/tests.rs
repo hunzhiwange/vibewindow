@@ -191,4 +191,12 @@ mod tests {
         assert_eq!(cloned.id, msg.id);
         assert_eq!(cloned.content, msg.content);
     }
+
+    #[test]
+    fn cli_channel_is_zero_sized_and_constructible() {
+        let channel = CliChannel::new();
+
+        assert_eq!(std::mem::size_of_val(&channel), 0);
+        assert_eq!(channel.name(), "cli");
+    }
 }

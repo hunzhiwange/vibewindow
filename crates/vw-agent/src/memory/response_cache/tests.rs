@@ -392,3 +392,69 @@ fn cache_concurrent_reads_no_panic() {
     let (_, hits, _) = cache.stats().unwrap();
     assert_eq!(hits, 10, "所有并发读取都应计入命中");
 }
+
+#[test]
+fn cache_key_none_and_empty_system_prompt_are_equivalent() {
+    let without_system = ResponseCache::cache_key("gpt-4", None, "hello");
+    let empty_system = ResponseCache::cache_key("gpt-4", Some(""), "hello");
+
+    assert_eq!(without_system, empty_system);
+}
+
+#[test]
+fn put_cleans_expired_entries() {
+    let (_tmp, cache) = temp_cache(60);
+    let old_key = ResponseCache::cache_key("gpt-4", None, "old");
+    let new_key = ResponseCache::cache_key("gpt-4", None, "new");
+    let old_time = (Local::now() - Duration::minutes(120)).to_rfc3339();
+
+    {
+        let conn = cache.conn.lock();
+        conn.execute(
+            "INSERT INTO response_cache
+             (prompt_hash, model, response, token_count, created_at, accessed_at, hit_count)
+             VALUES (?1, 'gpt-4', 'old response', 5, ?2, ?3, 0)",
+            params![old_key, old_time, old_time],
+        )
+        .unwrap();
+    }
+
+    cache.put(&new_key, "gpt-4", "new response", 10).unwrap();
+
+    assert!(cache.get(&old_key).unwrap().is_none());
+    assert_eq!(cache.get(&new_key).unwrap().as_deref(), Some("new response"));
+    assert_eq!(cache.stats().unwrap().0, 1);
+}
+
+#[test]
+fn clear_empty_cache_reports_zero() {
+    let (_tmp, cache) = temp_cache(60);
+
+    assert_eq!(cache.clear().unwrap(), 0);
+}
+
+#[test]
+fn new_initializes_expected_schema_and_indexes() {
+    let (_tmp, cache) = temp_cache(60);
+    let conn = cache.conn.lock();
+
+    let table_sql: String = conn
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'response_cache'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(table_sql.contains("prompt_hash TEXT PRIMARY KEY"));
+    assert!(table_sql.contains("hit_count"));
+
+    let index_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master
+             WHERE type = 'index' AND name IN ('idx_rc_accessed', 'idx_rc_created')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(index_count, 2);
+}

@@ -46,6 +46,20 @@ fn test_hash_to_filename_invalid() {
 }
 
 #[test]
+fn test_hash_to_filename_rejects_non_integer() {
+    let hash = vec![JsonValue::from("60")];
+
+    assert!(hash_to_filename(&hash).is_none());
+}
+
+#[test]
+fn test_hash_to_filename_empty_hash() {
+    let hash = vec![];
+
+    assert_eq!(hash_to_filename(&hash).unwrap(), "images/");
+}
+
+#[test]
 fn test_transform_image_field() {
     let mut tree = json!({
         "name": "Rectangle",
@@ -476,6 +490,86 @@ fn test_multiple_images_different_formats() {
 
     assert!(temp_dir.join("images/6049.png").exists());
     assert!(temp_dir.join("images/a17a.jpg").exists());
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_transform_invalid_hash_array_preserves_hash() {
+    let mut tree = json!({
+        "image": {
+            "hash": [96, "bad"],
+            "name": "Invalid"
+        }
+    });
+
+    transform_image_hashes(&mut tree, std::path::Path::new(".")).unwrap();
+
+    let image = tree.get("image").unwrap();
+    assert!(image.get("filename").is_none());
+    assert_eq!(image["hash"][0].as_i64(), Some(96));
+    assert_eq!(image["hash"][1].as_str(), Some("bad"));
+}
+
+#[test]
+fn test_transform_hash_field_not_array_preserves_hash() {
+    let mut tree = json!({
+        "image": {
+            "hash": "6049",
+            "name": "StringHash"
+        }
+    });
+
+    transform_image_hashes(&mut tree, std::path::Path::new(".")).unwrap();
+
+    let image = tree.get("image").unwrap();
+    assert!(image.get("filename").is_none());
+    assert_eq!(image.get("hash").unwrap().as_str(), Some("6049"));
+}
+
+#[test]
+fn test_transform_image_value_not_object_is_preserved() {
+    let mut tree = json!({
+        "image": "images/6049",
+        "imageThumbnail": null
+    });
+
+    transform_image_hashes(&mut tree, std::path::Path::new(".")).unwrap();
+
+    assert_eq!(tree.get("image").unwrap().as_str(), Some("images/6049"));
+    assert!(tree.get("imageThumbnail").unwrap().is_null());
+}
+
+#[test]
+fn test_transform_image_hashes_primitive_value() {
+    let mut tree = json!(false);
+
+    transform_image_hashes(&mut tree, std::path::Path::new(".")).unwrap();
+
+    assert_eq!(tree.as_bool(), Some(false));
+}
+
+#[test]
+fn test_detect_image_format_missing_file() {
+    let missing_file =
+        std::env::temp_dir().join("fig2json_test_missing_file").join("images").join("missing");
+
+    assert!(detect_image_format(&missing_file).is_none());
+}
+
+#[test]
+fn test_detect_image_format_short_file() {
+    use std::io::Write;
+
+    let temp_dir = std::env::temp_dir().join("fig2json_test_short_file");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).unwrap();
+    let test_file = temp_dir.join("short");
+    let mut file = fs::File::create(&test_file).unwrap();
+    file.write_all(&[0xFF, 0xD8, 0xFF]).unwrap();
+    drop(file);
+
+    assert!(detect_image_format(&test_file).is_none());
 
     let _ = fs::remove_dir_all(&temp_dir);
 }

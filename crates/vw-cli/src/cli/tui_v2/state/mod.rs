@@ -51,6 +51,9 @@ pub(crate) use selectors::{
 };
 
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 mod tests;
 
 /// 滚动窗口的最小状态。

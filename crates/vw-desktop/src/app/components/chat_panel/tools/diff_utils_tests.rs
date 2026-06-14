@@ -10,6 +10,8 @@ fn unified_diff_detection_and_counts_ignore_headers() {
     let diff = "--- a/a.rs\n+++ b/a.rs\n@@ -1 +1 @@\n-old\n+new\n";
 
     assert!(looks_like_unified_diff(diff));
+    assert!(!looks_like_unified_diff(""));
+    assert!(!looks_like_unified_diff("--- a/a.rs\n+++ b/a.rs\n"));
     assert_eq!(count_unified_diff_changes(diff), (1, 1));
 }
 
@@ -24,13 +26,25 @@ fn apply_patch_summary_and_counts_parse_file_lines() {
         count_apply_patch_format_changes("*** Update File: src/lib.rs\n+new\n-old\n"),
         (1, 1)
     );
+    assert_eq!(parse_apply_patch_line_changes("A src/new.rs +7\nD src/old.rs -3\n"), (7, 3));
+    assert_eq!(parse_apply_patch_summary("X not/a/status\nM no/slash\n"), Vec::new());
+    assert_eq!(
+        parse_apply_patch_summary("The following files have been updated:\n- src/lib.rs\n\n"),
+        vec![('M', "src/lib.rs".to_string())]
+    );
 }
 
 #[test]
 fn diff_helpers_extract_code_blocks_and_paths() {
     assert_eq!(extract_diff_block("<diff>\n+new\n</diff>"), Some("+new".to_string()));
+    assert_eq!(extract_diff_block("<diff></diff>"), None);
+    assert_eq!(extract_diff_block("missing"), None);
     assert!(is_likely_file_path("src/main.rs"));
+    assert!(is_likely_file_path("/tmp/demo.txt"));
+    assert!(!is_likely_file_path("plain words"));
     assert_eq!(string_or_string_array(&json!(["a", "b"])), Some("a\nb".to_string()));
+    assert_eq!(string_or_string_array(&json!("single")), Some("single".to_string()));
+    assert_eq!(string_or_string_array(&json!(42)), None);
 }
 
 #[test]
@@ -38,4 +52,18 @@ fn file_preview_ignores_omitted_write_placeholder() {
     let input = r#"{"path":"docs/demo.md","content":"<omitted 812 chars>"}"#;
 
     assert_eq!(file_preview("file_write", input, ""), None);
+    assert_eq!(file_preview("write", r#"{"content":"hello"}"#, ""), Some("hello".to_string()));
+    assert_eq!(file_preview("file_edit", r#"{"newString":"new"}"#, ""), Some("new".to_string()));
+    assert_eq!(
+        file_preview("notebook_edit", r#"{"new_code":["a","b"]}"#, ""),
+        Some("a\nb".to_string())
+    );
+    assert_eq!(
+        file_preview("apply_patch", "*** Begin Patch\n*** End Patch", ""),
+        Some("*** Begin Patch\n*** End Patch".to_string())
+    );
+    assert_eq!(
+        file_preview("read", "", "<diff>\n--- a/a\n+++ b/a\n@@\n-old\n+new\n</diff>"),
+        Some("--- a/a\n+++ b/a\n@@\n-old\n+new".to_string())
+    );
 }

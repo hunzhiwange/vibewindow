@@ -1,5 +1,388 @@
+use std::collections::HashSet;
+use std::ffi::OsString;
+use std::io::{Read, Write};
+use std::net::TcpListener;
+use std::path::{Path, PathBuf};
+use std::thread;
+
+use serde_json::{Map, Value, json};
+
+use super::*;
+use crate::app::agent::project::instance;
+use crate::app::agent::session::message;
+
+static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+struct EnvGuard {
+    key: &'static str,
+    previous: Option<OsString>,
+}
+
+impl EnvGuard {
+    fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
+        let previous = std::env::var_os(key);
+        unsafe {
+            std::env::set_var(key, value);
+        }
+        Self { key, previous }
+    }
+
+    fn unset(key: &'static str) -> Self {
+        let previous = std::env::var_os(key);
+        unsafe {
+            std::env::remove_var(key);
+        }
+        Self { key, previous }
+    }
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        unsafe {
+            if let Some(previous) = &self.previous {
+                std::env::set_var(self.key, previous);
+            } else {
+                std::env::remove_var(self.key);
+            }
+        }
+    }
+}
+
+fn path_string(path: impl AsRef<Path>) -> String {
+    path.as_ref().to_string_lossy().to_string()
+}
+
+fn unique_id(label: &str) -> String {
+    format!("{label}-{}-{:?}", std::process::id(), std::thread::current().id())
+}
+
+fn user_info(id: &str) -> message::Info {
+    message::Info::User(Box::new(message::UserInfo {
+        id: id.to_string(),
+        session_id: "session-1".to_string(),
+        time: message::UserTime { created: 0 },
+        summary: None,
+        agent: "agent".to_string(),
+        model: message::ModelRef {
+            provider_id: "provider".to_string(),
+            model_id: "model".to_string(),
+        },
+        system: None,
+        tools: None,
+        variant: None,
+    }))
+}
+
+fn part_base(id: &str) -> message::PartBase {
+    message::PartBase {
+        id: id.to_string(),
+        session_id: "session-1".to_string(),
+        message_id: "message-1".to_string(),
+    }
+}
+
+fn completed_tool_part(
+    id: &str,
+    tool: &str,
+    loaded_value: Option<Value>,
+    compacted: Option<u64>,
+) -> message::Part {
+    let mut metadata = Map::new();
+    if let Some(loaded_value) = loaded_value {
+        metadata.insert("loaded".to_string(), loaded_value);
+    }
+
+    message::Part::Tool(message::ToolPart {
+        base: part_base(id),
+        call_id: format!("call-{id}"),
+        tool: tool.to_string(),
+        state: message::ToolState::Completed(message::ToolStateCompleted {
+            input: Map::new(),
+            output: String::new(),
+            title: String::new(),
+            metadata,
+            time: message::ToolStateCompletedTime { start: 1, end: 2, compacted },
+            attachments: None,
+        }),
+        metadata: None,
+    })
+}
+
+fn running_tool_part(id: &str, tool: &str) -> message::Part {
+    message::Part::Tool(message::ToolPart {
+        base: part_base(id),
+        call_id: format!("call-{id}"),
+        tool: tool.to_string(),
+        state: message::ToolState::Running(message::ToolStateRunning {
+            input: Map::new(),
+            title: None,
+            metadata: None,
+            time: message::PartTime { start: 1, end: None },
+        }),
+        metadata: None,
+    })
+}
+
+fn with_parts(parts: Vec<message::Part>) -> message::WithParts {
+    message::WithParts { info: user_info("message-1"), parts }
+}
+
+fn serve_once(status: &str, body: &str) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("test listener should bind");
+    let addr = listener.local_addr().expect("listener address");
+    let status = status.to_string();
+    let body = body.to_string();
+    thread::spawn(move || {
+        let Ok((mut stream, _)) = listener.accept() else {
+            return;
+        };
+        let mut request = [0_u8; 512];
+        let _ = stream.read(&mut request);
+        let response = format!(
+            "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        let _ = stream.write_all(response.as_bytes());
+    });
+    format!("http://{addr}/instructions")
+}
+
 #[test]
-fn instruction_tests_module_is_wired() {
-    let marker = String::from("instruction_tests");
-    assert_eq!(marker.as_str(), "instruction_tests");
+fn normalize_str_keeps_paths_comparable() {
+    let path = PathBuf::from("alpha").join("beta").join("AGENTS.md");
+
+    assert_eq!(normalize_str(&path), path.to_string_lossy().to_string());
+}
+
+#[tokio::test]
+async fn global_files_puts_explicit_config_dir_first() {
+    let _guard = ENV_LOCK.lock().await;
+    let config_dir = tempfile::tempdir().expect("config dir");
+    let _config = EnvGuard::set("VIBEWINDOW_CONFIG_DIR", config_dir.path().as_os_str());
+
+    let files = global_files();
+
+    assert_eq!(files.first(), Some(&config_dir.path().join("AGENTS.md")));
+    assert!(files.iter().any(|path| path.file_name().is_some_and(|name| name == "AGENTS.md")));
+}
+
+#[tokio::test]
+async fn resolve_relative_warns_to_empty_when_project_config_is_disabled_without_config_dir() {
+    let _guard = ENV_LOCK.lock().await;
+    let _disable = EnvGuard::set("VIBEWINDOW_DISABLE_PROJECT_CONFIG", "1");
+    let _config = EnvGuard::unset("VIBEWINDOW_CONFIG_DIR");
+
+    assert!(resolve_relative("AGENTS.md").is_empty());
+}
+
+#[tokio::test]
+async fn resolve_relative_when_project_config_is_disabled_stays_inside_config_dir() {
+    let _guard = ENV_LOCK.lock().await;
+    let config_dir = tempfile::tempdir().expect("config dir");
+    let agents = config_dir.path().join("AGENTS.md");
+    std::fs::write(&agents, "global instructions").expect("write agents");
+    let _disable = EnvGuard::set("VIBEWINDOW_DISABLE_PROJECT_CONFIG", "true");
+    let _config = EnvGuard::set("VIBEWINDOW_CONFIG_DIR", config_dir.path().as_os_str());
+
+    let found = resolve_relative("AGENTS.md");
+
+    assert_eq!(found, vec![agents]);
+}
+
+#[tokio::test]
+async fn resolve_relative_uses_project_instance_when_project_config_is_enabled() {
+    let _guard = ENV_LOCK.lock().await;
+    let project = tempfile::tempdir().expect("project dir");
+    let nested = project.path().join("nested");
+    std::fs::create_dir_all(&nested).expect("nested dir");
+    let local = nested.join("CONTEXT.md");
+    std::fs::write(&local, "local instructions").expect("write context");
+    let _disable = EnvGuard::unset("VIBEWINDOW_DISABLE_PROJECT_CONFIG");
+
+    let found = instance::provide(project.path().join("nested"), None, move || {
+        Box::pin(async move { resolve_relative("CONTEXT.md") })
+    })
+    .await
+    .expect("project instance should provide");
+
+    assert_eq!(found, vec![local]);
+}
+
+#[tokio::test]
+async fn claim_is_scoped_by_message_id_and_clear_removes_claims() {
+    let message_id = unique_id("claim");
+    let other_message_id = format!("{message_id}-other");
+    let filepath = "/tmp/vw-instruction-claim";
+
+    assert!(!is_claimed(&message_id, filepath).await);
+    claim(&message_id, filepath).await;
+
+    assert!(is_claimed(&message_id, filepath).await);
+    assert!(!is_claimed(&other_message_id, filepath).await);
+
+    clear(&message_id).await;
+    assert!(!is_claimed(&message_id, filepath).await);
+}
+
+#[tokio::test]
+async fn system_paths_selects_first_project_instruction_family() {
+    let _guard = ENV_LOCK.lock().await;
+    let project = tempfile::tempdir().expect("project dir");
+    let config_dir = tempfile::tempdir().expect("config dir");
+    std::fs::write(project.path().join("AGENTS.md"), "root agents").expect("write agents");
+    std::fs::write(project.path().join("CLAUDE.md"), "root claude").expect("write claude");
+    let _disable = EnvGuard::unset("VIBEWINDOW_DISABLE_PROJECT_CONFIG");
+    let _config = EnvGuard::set("VIBEWINDOW_CONFIG_DIR", config_dir.path().as_os_str());
+
+    let paths = instance::provide(project.path(), None, move || {
+        Box::pin(async move { system_paths().await })
+    })
+    .await
+    .expect("project instance should provide");
+
+    assert!(paths.contains(&normalize_str(project.path().join("AGENTS.md"))));
+    assert!(!paths.contains(&normalize_str(project.path().join("CLAUDE.md"))));
+}
+
+#[tokio::test]
+async fn system_reads_first_existing_global_instruction_and_skips_empty_files() {
+    let _guard = ENV_LOCK.lock().await;
+    let config_dir = tempfile::tempdir().expect("config dir");
+    let global_agents = config_dir.path().join("AGENTS.md");
+    std::fs::write(&global_agents, "  global instructions\n").expect("write global agents");
+    let _disable = EnvGuard::set("VIBEWINDOW_DISABLE_PROJECT_CONFIG", "1");
+    let _config = EnvGuard::set("VIBEWINDOW_CONFIG_DIR", config_dir.path().as_os_str());
+
+    let paths = system_paths().await;
+    let instructions = system().await;
+
+    assert_eq!(paths, HashSet::from([normalize_str(&global_agents)]));
+    assert_eq!(instructions.len(), 1);
+    assert!(instructions[0].contains(&normalize_str(&global_agents)));
+    assert!(instructions[0].contains("global instructions"));
+
+    std::fs::write(&global_agents, "   \n").expect("rewrite empty global agents");
+    assert!(system().await.is_empty());
+}
+
+#[tokio::test]
+async fn fetch_url_reads_successful_response_and_returns_empty_for_http_errors() {
+    let ok_url = serve_once("200 OK", "remote instructions");
+    let missing_url = serve_once("404 Not Found", "nope");
+
+    assert_eq!(fetch_url(&ok_url).await, "remote instructions");
+    assert_eq!(fetch_url(&missing_url).await, "");
+}
+
+#[test]
+fn loaded_collects_uncompacted_read_and_file_read_metadata() {
+    let messages = vec![with_parts(vec![
+        completed_tool_part("read-1", "read", Some(json!(["/a", "/b", 7])), None),
+        completed_tool_part("read-2", "file_read", Some(json!(["/c"])), None),
+        completed_tool_part("other-tool", "grep", Some(json!(["/skip-tool"])), None),
+        completed_tool_part("compacted", "read", Some(json!(["/skip-compacted"])), Some(99)),
+        completed_tool_part("missing", "read", None, None),
+        running_tool_part("running", "read"),
+    ])];
+
+    let paths = loaded(&messages);
+
+    assert_eq!(paths, HashSet::from(["/a".to_string(), "/b".to_string(), "/c".to_string()]));
+}
+
+#[tokio::test]
+async fn find_prefers_agents_then_claude_then_context() {
+    let dir = tempfile::tempdir().expect("instruction dir");
+    let claude = dir.path().join("CLAUDE.md");
+    let context = dir.path().join("CONTEXT.md");
+    std::fs::write(&claude, "claude").expect("write claude");
+    std::fs::write(&context, "context").expect("write context");
+
+    assert_eq!(find(&path_string(dir.path())).await, Some(normalize_str(&claude)));
+
+    let agents = dir.path().join("AGENTS.md");
+    std::fs::write(&agents, "agents").expect("write agents");
+    assert_eq!(find(&path_string(dir.path())).await, Some(normalize_str(&agents)));
+    assert_eq!(find(&path_string(dir.path().join("missing"))).await, None);
+}
+
+#[tokio::test]
+async fn resolve_walks_up_from_target_directory_skips_loaded_files_and_claims_per_message() {
+    let _guard = ENV_LOCK.lock().await;
+    let project = tempfile::tempdir().expect("project dir");
+    let config_dir = tempfile::tempdir().expect("config dir");
+    let parent = project.path().join("a");
+    let leaf = parent.join("b");
+    std::fs::create_dir_all(&leaf).expect("leaf dir");
+    let target = leaf.join("main.rs");
+    let leaf_agents = leaf.join("AGENTS.md");
+    let parent_claude = parent.join("CLAUDE.md");
+    std::fs::write(&target, "fn main() {}").expect("write target");
+    std::fs::write(&leaf_agents, "leaf instructions").expect("write leaf agents");
+    std::fs::write(&parent_claude, "parent instructions").expect("write parent claude");
+    let loaded_parent = normalize_str(&parent_claude);
+    let messages = vec![with_parts(vec![completed_tool_part(
+        "loaded-parent",
+        "read",
+        Some(json!([loaded_parent])),
+        None,
+    )])];
+    let message_id = unique_id("resolve");
+    let _disable = EnvGuard::unset("VIBEWINDOW_DISABLE_PROJECT_CONFIG");
+    let _config = EnvGuard::set("VIBEWINDOW_CONFIG_DIR", config_dir.path().as_os_str());
+
+    let (first, second, third) = instance::provide(project.path(), None, move || {
+        let messages = messages.clone();
+        let target = path_string(&target);
+        let message_id = message_id.clone();
+        Box::pin(async move {
+            let first = resolve(&messages, &target, &message_id).await;
+            let second = resolve(&messages, &target, &message_id).await;
+            clear(&message_id).await;
+            let third = resolve(&messages, &target, &message_id).await;
+            (first, second, third)
+        })
+    })
+    .await
+    .expect("project instance should provide");
+
+    assert_eq!(first.len(), 1);
+    assert_eq!(first[0].filepath, normalize_str(&leaf_agents));
+    assert!(first[0].content.contains("leaf instructions"));
+    assert!(second.is_empty());
+    assert_eq!(third.len(), 1);
+    assert_eq!(third[0].filepath, normalize_str(&leaf_agents));
+}
+
+#[tokio::test]
+async fn resolve_skips_target_instruction_file_and_empty_instruction_content() {
+    let _guard = ENV_LOCK.lock().await;
+    let project = tempfile::tempdir().expect("project dir");
+    let config_dir = tempfile::tempdir().expect("config dir");
+    let leaf = project.path().join("nested");
+    std::fs::create_dir_all(&leaf).expect("leaf dir");
+    let empty_agents = leaf.join("AGENTS.md");
+    std::fs::write(&empty_agents, "   \n").expect("write empty agents");
+    let message_id = unique_id("empty-resolve");
+    let _disable = EnvGuard::unset("VIBEWINDOW_DISABLE_PROJECT_CONFIG");
+    let _config = EnvGuard::set("VIBEWINDOW_CONFIG_DIR", config_dir.path().as_os_str());
+
+    let (target_is_instruction, empty_result) =
+        instance::provide(project.path(), None, move || {
+            let empty_agents = path_string(&empty_agents);
+            let message_id = message_id.clone();
+            Box::pin(async move {
+                let target_is_instruction = resolve(&[], &empty_agents, &message_id).await;
+                clear(&message_id).await;
+                let target = PathBuf::from(&empty_agents).with_file_name("main.rs");
+                std::fs::write(&target, "fn main() {}").expect("write target");
+                let empty_result = resolve(&[], &path_string(target), &message_id).await;
+                (target_is_instruction, empty_result)
+            })
+        })
+        .await
+        .expect("project instance should provide");
+
+    assert!(target_is_instruction.is_empty());
+    assert!(empty_result.is_empty());
 }

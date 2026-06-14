@@ -7,6 +7,7 @@ use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 use once_cell::sync::Lazy;
 
 use crate::app::assets::{self, Icon};
+use crate::app::components::status_animation::spinner_frame;
 use crate::app::state::{TaskPetAvatarKind, TaskPetItem, TaskPetStatus};
 use crate::app::{App, Message, message};
 
@@ -24,6 +25,9 @@ const PET_EXPANDED_SIZE: f32 = PET_COLLAPSED_SIZE;
 const PET_CONTROL_SIZE: f32 = 104.0;
 const PET_CONTROL_GAP: f32 = 6.0;
 const PET_AVATAR_SWITCH_SIZE: f32 = 18.0;
+const TASK_STATUS_SLOT_WIDTH: f32 = 20.0;
+const TASK_STATUS_SLOT_HEIGHT: f32 = 52.0;
+const TASK_STATUS_ICON_SIZE: f32 = 18.0;
 const TASK_TITLE_SIZE: u32 = 15;
 const TASK_DETAIL_SIZE: u32 = 13;
 
@@ -74,14 +78,6 @@ static PET_WALK_LEFT_HANDLES: Lazy<[svg::Handle; 2]> = Lazy::new(|| {
 });
 static PET_WALK_RIGHT_HANDLES: Lazy<[svg::Handle; 2]> = Lazy::new(|| {
     [walk_pet_handle(PET_WALK_RIGHT_BODY_0, false), walk_pet_handle(PET_WALK_RIGHT_BODY_1, false)]
-});
-static RUNNING_STATUS_HANDLES: Lazy<[svg::Handle; 4]> = Lazy::new(|| {
-    [
-        svg::Handle::from_memory(RUNNING_STATUS_SVG_0.as_bytes()),
-        svg::Handle::from_memory(RUNNING_STATUS_SVG_1.as_bytes()),
-        svg::Handle::from_memory(RUNNING_STATUS_SVG_2.as_bytes()),
-        svg::Handle::from_memory(RUNNING_STATUS_SVG_3.as_bytes()),
-    ]
 });
 
 fn walk_pet_handle(body: &str, flipped: bool) -> svg::Handle {
@@ -234,34 +230,6 @@ const PET_WALK_RIGHT_BODY_1: &str = r##"
   <rect x="82" y="82" width="4" height="4" fill="#8cf3ff"/>
   <rect x="86" y="86" width="4" height="4" fill="#8cf3ff"/>
   <rect x="90" y="82" width="9" height="4" fill="#8cf3ff"/>
-"##;
-
-const RUNNING_STATUS_SVG_0: &str = r##"
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18">
-  <path d="M9 2.4a6.6 6.6 0 0 1 6.6 6.6" fill="none" stroke="#c4c8cc" stroke-width="2.2" stroke-linecap="round"/>
-  <path d="M15.6 9a6.6 6.6 0 0 1-2 4.7" fill="none" stroke="#6f7378" stroke-width="2.2" stroke-linecap="round"/>
-</svg>
-"##;
-
-const RUNNING_STATUS_SVG_1: &str = r##"
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18">
-  <path d="M15.6 9a6.6 6.6 0 0 1-6.6 6.6" fill="none" stroke="#c4c8cc" stroke-width="2.2" stroke-linecap="round"/>
-  <path d="M9 15.6a6.6 6.6 0 0 1-4.7-2" fill="none" stroke="#6f7378" stroke-width="2.2" stroke-linecap="round"/>
-</svg>
-"##;
-
-const RUNNING_STATUS_SVG_2: &str = r##"
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18">
-  <path d="M9 15.6a6.6 6.6 0 0 1-6.6-6.6" fill="none" stroke="#c4c8cc" stroke-width="2.2" stroke-linecap="round"/>
-  <path d="M2.4 9a6.6 6.6 0 0 1 2-4.7" fill="none" stroke="#6f7378" stroke-width="2.2" stroke-linecap="round"/>
-</svg>
-"##;
-
-const RUNNING_STATUS_SVG_3: &str = r##"
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18">
-  <path d="M2.4 9a6.6 6.6 0 0 1 6.6-6.6" fill="none" stroke="#c4c8cc" stroke-width="2.2" stroke-linecap="round"/>
-  <path d="M9 2.4a6.6 6.6 0 0 1 4.7 2" fill="none" stroke="#6f7378" stroke-width="2.2" stroke-linecap="round"/>
-</svg>
 "##;
 
 pub fn window(app: &App) -> Element<'_, Message> {
@@ -549,7 +517,7 @@ fn collapse_button() -> Element<'static, Message> {
 
 fn task_card<'a>(app: &'a App, item: &'a TaskPetItem) -> Element<'a, Message> {
     let status_icon = match item.status {
-        TaskPetStatus::Running => running_status_icon(app.status_animation_frame / 2),
+        TaskPetStatus::Running => running_status_icon(app.status_animation_frame),
         TaskPetStatus::Completed => completed_status_icon(),
     };
     let request_id = item.request_id;
@@ -582,11 +550,10 @@ fn task_card<'a>(app: &'a App, item: &'a TaskPetItem) -> Element<'a, Message> {
         ]
         .spacing(2)
         .width(Length::Fill),
-        container(status_icon)
-            .width(Length::Fixed(20.0))
-            .align_x(iced::alignment::Horizontal::Center),
+        task_status_slot(status_icon),
     ]
     .spacing(6)
+    .height(Length::Fill)
     .align_y(Alignment::Center);
 
     let card = iced::widget::stack![
@@ -712,17 +679,24 @@ fn completed_status_icon() -> Element<'static, Message> {
     .into()
 }
 
-fn running_status_icon(frame: usize) -> Element<'static, Message> {
-    container(
-        svg::Svg::new(RUNNING_STATUS_HANDLES[frame % RUNNING_STATUS_HANDLES.len()].clone())
-            .width(Length::Fixed(15.0))
-            .height(Length::Fixed(15.0)),
-    )
-    .width(Length::Fixed(15.0))
-    .height(Length::Fixed(15.0))
+fn running_status_icon(animation_frame: usize) -> Element<'static, Message> {
+    container(text(spinner_frame(animation_frame)).size(14).style(|_theme: &Theme| {
+        iced::widget::text::Style { color: Some(Color::from_rgb8(225, 225, 225)) }
+    }))
+    .width(Length::Fixed(TASK_STATUS_ICON_SIZE))
+    .height(Length::Fixed(TASK_STATUS_ICON_SIZE))
     .align_x(iced::alignment::Horizontal::Center)
     .align_y(iced::alignment::Vertical::Center)
     .into()
+}
+
+fn task_status_slot(status_icon: Element<'static, Message>) -> Element<'static, Message> {
+    container(status_icon)
+        .width(Length::Fixed(TASK_STATUS_SLOT_WIDTH))
+        .height(Length::Fixed(TASK_STATUS_SLOT_HEIGHT))
+        .align_x(iced::alignment::Horizontal::Center)
+        .align_y(iced::alignment::Vertical::Center)
+        .into()
 }
 
 fn expanded_pet_window_style(_theme: &Theme) -> container::Style {
@@ -825,3 +799,7 @@ fn green_badge_button_style(_theme: &Theme, status: button::Status) -> button::S
         ..Default::default()
     }
 }
+
+#[cfg(test)]
+#[path = "task_pet_tests.rs"]
+mod task_pet_tests;

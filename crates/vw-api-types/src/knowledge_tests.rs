@@ -1,6 +1,6 @@
 use super::knowledge::{
-    KnowledgeDatasetCreateRequest, KnowledgeIndexingMode, KnowledgeRetrievalMode,
-    KnowledgeRetrieveRequest,
+    KnowledgeChunkingMode, KnowledgeDatasetCreateRequest, KnowledgeIndexingMode,
+    KnowledgeRetrievalMode, KnowledgeRetrieveRequest,
 };
 
 #[test]
@@ -10,6 +10,12 @@ fn knowledge_dataset_create_defaults_to_local_full_text() {
 
     assert_eq!(request.indexing_mode, KnowledgeIndexingMode::Economy);
     assert_eq!(request.retrieval_mode, KnowledgeRetrievalMode::FullText);
+    assert_eq!(request.chunking_mode, KnowledgeChunkingMode::General);
+    assert_eq!(request.keyword_count, 10);
+    assert_eq!(request.top_k, 10);
+    assert!(!request.score_threshold_enabled);
+    assert_eq!(request.score_threshold, 0.15);
+    assert!(!request.rerank_enabled);
     assert_eq!(request.description, "");
 }
 

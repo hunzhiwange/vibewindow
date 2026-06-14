@@ -68,6 +68,14 @@ fn number_row<'a>(
     )
 }
 
+pub(super) fn execution_mode_options() -> [String; 2] {
+    ["supervised".to_string(), "autonomous".to_string()]
+}
+
+pub(super) fn rounded_u32(value: f32) -> u32 {
+    value.round() as u32
+}
+
 /// 构建或处理 `view` 对应的界面片段与交互数据。
 ///
 /// # 参数
@@ -83,7 +91,6 @@ fn number_row<'a>(
 /// 本函数不直接返回错误；无法交互或缺省状态会在控件状态中显式表达。
 pub fn view(app: &App) -> Element<'_, Message> {
     let s = &app.sop_settings;
-    let execution_mode_options = ["supervised".to_string(), "autonomous".to_string()];
 
     let dir_row = field_row(
         "流程目录",
@@ -109,7 +116,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let execution_mode_row = field_row(
         "默认执行模式",
         "没有显式 SOP.toml 配置时使用的执行策略。",
-        pick_list(execution_mode_options, Some(s.default_execution_mode.clone()), |value| {
+        pick_list(execution_mode_options(), Some(s.default_execution_mode.clone()), |value| {
             Message::Settings(SettingsMessage::Sop(SopMessage::DefaultExecutionModeChanged(value)))
         })
         .padding([10, 14])
@@ -143,7 +150,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     100_000.0,
                     |value| {
                         Message::Settings(SettingsMessage::Sop(SopMessage::MaxFinishedRunsChanged(
-                            value.round() as u32,
+                            rounded_u32(value),
                         )))
                     }
                 ),
@@ -156,7 +163,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     1_000.0,
                     |value| {
                         Message::Settings(SettingsMessage::Sop(
-                            SopMessage::MaxConcurrentTotalChanged(value.round() as u32),
+                            SopMessage::MaxConcurrentTotalChanged(rounded_u32(value)),
                         ))
                     },
                 ),
@@ -169,7 +176,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     86_400.0,
                     |value| {
                         Message::Settings(SettingsMessage::Sop(
-                            SopMessage::ApprovalTimeoutSecsChanged(value.round() as u32),
+                            SopMessage::ApprovalTimeoutSecsChanged(rounded_u32(value)),
                         ))
                     },
                 ),
@@ -187,3 +194,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     content.into()
 }
+#[cfg(test)]
+#[path = "system_settings_sop_tests.rs"]
+mod system_settings_sop_tests;

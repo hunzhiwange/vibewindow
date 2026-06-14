@@ -146,7 +146,8 @@ pub fn update(app: &mut App, message: JsonDiffToolMessage) -> Task<Message> {
                 mouse::ScrollDelta::Pixels { y, .. } => -y / line_height,
             };
 
-            app.json_diff_left_scroll_remainder += delta_lines;
+            app.json_diff_left_scroll_remainder =
+                quantize_scroll_remainder(app.json_diff_left_scroll_remainder + delta_lines);
 
             let whole_lines = if app.json_diff_left_scroll_remainder >= 0.0 {
                 app.json_diff_left_scroll_remainder.floor() as i32
@@ -155,7 +156,9 @@ pub fn update(app: &mut App, message: JsonDiffToolMessage) -> Task<Message> {
             };
 
             if whole_lines != 0 {
-                app.json_diff_left_scroll_remainder -= whole_lines as f32;
+                app.json_diff_left_scroll_remainder = quantize_scroll_remainder(
+                    app.json_diff_left_scroll_remainder - whole_lines as f32,
+                );
                 apply_left_scroll_lines(app, whole_lines);
                 app.json_diff_left_editor
                     .perform(text_editor::Action::Scroll { lines: whole_lines });
@@ -236,7 +239,8 @@ pub fn update(app: &mut App, message: JsonDiffToolMessage) -> Task<Message> {
                 mouse::ScrollDelta::Pixels { y, .. } => -y / line_height,
             };
 
-            app.json_diff_right_scroll_remainder += delta_lines;
+            app.json_diff_right_scroll_remainder =
+                quantize_scroll_remainder(app.json_diff_right_scroll_remainder + delta_lines);
 
             let whole_lines = if app.json_diff_right_scroll_remainder >= 0.0 {
                 app.json_diff_right_scroll_remainder.floor() as i32
@@ -245,7 +249,9 @@ pub fn update(app: &mut App, message: JsonDiffToolMessage) -> Task<Message> {
             };
 
             if whole_lines != 0 {
-                app.json_diff_right_scroll_remainder -= whole_lines as f32;
+                app.json_diff_right_scroll_remainder = quantize_scroll_remainder(
+                    app.json_diff_right_scroll_remainder - whole_lines as f32,
+                );
                 apply_right_scroll_lines(app, whole_lines);
                 app.json_diff_right_editor
                     .perform(text_editor::Action::Scroll { lines: whole_lines });
@@ -478,6 +484,10 @@ pub fn update(app: &mut App, message: JsonDiffToolMessage) -> Task<Message> {
             clear_notification_task()
         }
     }
+}
+
+fn quantize_scroll_remainder(value: f32) -> f32 {
+    (value * 1000.0).round() / 1000.0
 }
 
 fn compare_json_documents(left: &str, right: &str) -> Result<Vec<JsonDiffEntry>, String> {

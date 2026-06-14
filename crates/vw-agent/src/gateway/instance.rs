@@ -49,7 +49,7 @@ pub(crate) fn resolve_directory(query: &InstanceQuery, headers: &HeaderMap) -> S
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")).to_string_lossy().to_string()
+        std::env::current_dir().unwrap_or(PathBuf::from(".")).to_string_lossy().to_string()
     }
     #[cfg(target_arch = "wasm32")]
     {
@@ -61,8 +61,8 @@ fn instance_init() -> Box<dyn FnOnce() -> project::BoxFuture<()> + Send + 'stati
     Box::new(|| {
         Box::pin(async move {
             let wt = instance::worktree();
-            // 只在已有 worktree 时启动实例，避免空路径被解释成进程当前目录。
             if !wt.trim().is_empty() {
+                // 只在已有 worktree 时启动实例，避免空路径被解释成进程当前目录。
                 project::instance_bootstrap(PathBuf::from(wt)).await;
             }
         })
@@ -87,9 +87,12 @@ pub(crate) async fn with_instance<T>(
     directory: String,
     f: impl FnOnce() -> project::BoxFuture<Result<T, ApiError>> + Send + 'static,
 ) -> Result<T, ApiError> {
-    let res = project::instance::provide(PathBuf::from(directory), Some(instance_init()), f)
-        .await
-        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    let provided =
+        project::instance::provide(PathBuf::from(directory), Some(instance_init()), f).await;
+    let res = match provided {
+        Ok(res) => res,
+        Err(e) => return Err(ApiError::bad_request(e.to_string())),
+    };
     res
 }
 
@@ -109,8 +112,8 @@ pub(crate) fn normalize_rel_path(root: &PathBuf, input: &str) -> Option<String> 
     }
     let p = PathBuf::from(input);
     if p.is_absolute() {
-        // 绝对路径必须位于实例根目录下，防止客户端借由路径参数越界访问。
         if let Ok(stripped) = p.strip_prefix(root) {
+            // 绝对路径必须位于实例根目录下，防止客户端借由路径参数越界访问。
             let rel = stripped.to_string_lossy().to_string().replace('\\', "/");
             return Some(rel);
         }

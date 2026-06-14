@@ -1181,7 +1181,9 @@ fn resolve_agent_workspace_root(agent_key: Option<&str>) -> Option<String> {
     std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
-        .map(|home| home.join(".vibewindow").join(format!("workspace{suffix}")))
+        .map(|home| {
+            vw_config_types::paths::home_config_dir(home).join(format!("workspace{suffix}"))
+        })
         .map(|path| path.to_string_lossy().into_owned())
 }
 

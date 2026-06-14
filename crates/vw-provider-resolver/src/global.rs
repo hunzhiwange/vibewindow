@@ -7,7 +7,7 @@ use once_cell::sync::Lazy;
 use std::path::PathBuf;
 
 /// 应用目录名。
-pub const APP: &str = "vibewindow";
+pub const APP: &str = vw_config_types::paths::APP_DIR_NAME;
 /// 缓存目录版本号；变更时会触发缓存清理。
 pub const CACHE_VERSION: &str = "21";
 

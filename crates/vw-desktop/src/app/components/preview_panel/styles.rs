@@ -193,7 +193,7 @@ pub(super) fn truncate_title(s: &str, max: usize) -> String {
 ///
 /// # 返回值
 /// 返回估算的像素宽度值（至少 32.0 像素）
-fn estimate_tab_title_width_px(title: &str) -> f32 {
+pub(super) fn estimate_tab_title_width_px(title: &str) -> f32 {
     // 计算前40个字符的 Unicode 宽度总和
     let width_units = title
         .chars()
@@ -215,7 +215,7 @@ fn estimate_tab_title_width_px(title: &str) -> f32 {
 ///
 /// # 返回值
 /// 返回估算的标签页总宽度（像素）
-fn estimate_tab_width_px(title: &str) -> f32 {
+pub(super) fn estimate_tab_width_px(title: &str) -> f32 {
     // 宽度组成：
     // - 图标: 16px
     // - 关闭按钮区域: 约22px
@@ -235,7 +235,7 @@ fn estimate_tab_width_px(title: &str) -> f32 {
 ///
 /// # 返回值
 /// 返回估算的视口宽度（像素），至少为 1.0
-fn estimate_preview_tabs_viewport_width(app: &App) -> f32 {
+pub(super) fn estimate_preview_tabs_viewport_width(app: &App) -> f32 {
     // 从窗口宽度开始计算
     let mut width = app.window_size.0.max(1.0);
 

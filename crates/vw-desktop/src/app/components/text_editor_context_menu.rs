@@ -257,7 +257,7 @@ pub fn paste_action(content: String) -> text_editor::Action {
     text_editor::Action::Edit(text_editor::Edit::Paste(Arc::new(content)))
 }
 
-fn context_menu<'a, Message: Clone + 'a>(
+pub(super) fn context_menu<'a, Message: Clone + 'a>(
     messages: TextEditorContextMenuMessages<Message>,
 ) -> Element<'a, Message> {
     container(
@@ -287,7 +287,7 @@ fn context_menu<'a, Message: Clone + 'a>(
     .into()
 }
 
-fn popover_style(theme: &Theme) -> iced::widget::container::Style {
+pub(super) fn popover_style(theme: &Theme) -> iced::widget::container::Style {
     let palette = theme.extended_palette();
     let is_dark = is_dark_theme(theme);
     let background =
@@ -305,7 +305,7 @@ fn popover_style(theme: &Theme) -> iced::widget::container::Style {
     }
 }
 
-fn menu_button_style(theme: &Theme, status: button::Status) -> button::Style {
+pub(super) fn menu_button_style(theme: &Theme, status: button::Status) -> button::Style {
     let palette = theme.extended_palette();
     let is_dark = is_dark_theme(theme);
     let hover = if is_dark {
@@ -333,7 +333,7 @@ fn menu_button_style(theme: &Theme, status: button::Status) -> button::Style {
     }
 }
 
-fn is_dark_theme(theme: &Theme) -> bool {
+pub(super) fn is_dark_theme(theme: &Theme) -> bool {
     let background = theme.palette().background;
     background.r + background.g + background.b < 1.5
 }

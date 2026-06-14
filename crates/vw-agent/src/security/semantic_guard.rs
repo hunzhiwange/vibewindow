@@ -832,3 +832,7 @@ async fn load_corpus_source(source: &str) -> Result<String> {
         anyhow::bail!("Cannot read guard corpus file in WASM: {source}")
     }
 }
+
+#[cfg(test)]
+#[path = "semantic_guard_tests.rs"]
+mod semantic_guard_tests;

@@ -489,3 +489,44 @@ fn test_remove_geometry_from_button_with_icon_child() {
     assert!(tree.get("fillGeometry").is_none());
     assert_eq!(tree.get("name").unwrap().as_str(), Some("Button"));
 }
+
+#[test]
+fn test_geometry_primitive_value() {
+    let mut tree = json!(3.5);
+
+    remove_geometry_fields(&mut tree).unwrap();
+
+    assert_eq!(tree.as_f64(), Some(3.5));
+}
+
+#[test]
+fn test_preserve_geometry_for_export_settings_without_name_pattern() {
+    let mut tree = json!({
+        "name": "Asset",
+        "fillGeometry": [
+            {
+                "commands": ["M", 0.0, 0.0, "Z"],
+                "styleID": 0
+            }
+        ],
+        "symbolData": {
+            "symbolOverrides": [
+                {
+                    "exportSettings": [
+                        {
+                            "imageType": {
+                                "__enum__": "ImageType",
+                                "value": "SVG"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    });
+
+    remove_geometry_fields(&mut tree).unwrap();
+
+    assert!(tree.get("fillGeometry").is_some());
+    assert_eq!(tree.get("name").unwrap().as_str(), Some("Asset"));
+}

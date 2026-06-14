@@ -219,7 +219,7 @@ fn truncate_attachment_name_middle(name: &str, max_chars: usize) -> String {
     }
 
     let ellipsis_chars = ATTACHMENT_NAME_ELLIPSIS.chars().count();
-    if max_chars <= ellipsis_chars + 2 {
+    if max_chars <= ellipsis_chars {
         return name.chars().take(max_chars).collect();
     }
 

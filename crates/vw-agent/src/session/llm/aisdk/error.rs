@@ -159,6 +159,6 @@ pub(crate) fn assistant_error_from_aisdk(
         },
     }
 }
-#[cfg(test)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "error_tests.rs"]
 mod error_tests;

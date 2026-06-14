@@ -13,7 +13,7 @@ use crate::app::{App, Message};
 use iced::widget::{button, column, row, text};
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
-fn skill_card_button_style(
+pub(super) fn skill_card_button_style(
     theme: &Theme,
     status: iced::widget::button::Status,
     is_selected: bool,
@@ -57,7 +57,7 @@ fn skill_card_button_style(
     }
 }
 
-fn skill_source_label(source: &str) -> &'static str {
+pub(super) fn skill_source_label(source: &str) -> &'static str {
     match source {
         "workspace" => "项目",
         "ancestor" => "父级",
@@ -67,7 +67,7 @@ fn skill_source_label(source: &str) -> &'static str {
     }
 }
 
-fn scope_source_matches(scope: SkillsDirectoryScope, source: &str) -> bool {
+pub(super) fn scope_source_matches(scope: SkillsDirectoryScope, source: &str) -> bool {
     match scope {
         SkillsDirectoryScope::Project => source == "workspace",
         SkillsDirectoryScope::Ancestor => source == "ancestor",
@@ -77,23 +77,33 @@ fn scope_source_matches(scope: SkillsDirectoryScope, source: &str) -> bool {
     }
 }
 
-fn scope_description(scope: SkillsDirectoryScope) -> &'static str {
+pub(super) fn scope_description(scope: SkillsDirectoryScope) -> &'static str {
     match scope {
         SkillsDirectoryScope::Project => "当前项目 .vibewindow/skills 与 skills 目录。",
         SkillsDirectoryScope::Ancestor => "从项目父级向上发现的 .vibewindow/skills。",
-        SkillsDirectoryScope::Global => "当前用户 ~/.vibewindow/skills。",
+        SkillsDirectoryScope::Global => {
+            #[cfg(debug_assertions)]
+            {
+                "当前用户 ~/.vibewindowdev/skills。"
+            }
+            #[cfg(not(debug_assertions))]
+            {
+                "当前用户 ~/.vibewindow/skills。"
+            }
+        }
         SkillsDirectoryScope::Bundled => "产品随包提供的内置技能。",
         SkillsDirectoryScope::All => "按加载顺序汇总全部技能来源。",
     }
 }
 
-fn discovery_order_text(app: &App) -> String {
+pub(super) fn discovery_order_text(app: &App) -> String {
     if let Some(project_path) = &app.project_path {
         format!(
-            "{project_path}/.vibewindow/skills -> {project_path}/skills -> 父级 .vibewindow/skills -> ~/.vibewindow/skills -> 内置技能"
+            "{project_path}/.vibewindow/skills -> {project_path}/skills -> 父级 .vibewindow/skills -> {}/skills -> 内置技能",
+            vw_config_types::paths::tilde_config_path("")
         )
     } else {
-        "~/.vibewindow/skills -> 内置技能".to_string()
+        format!("{} -> 内置技能", vw_config_types::paths::tilde_config_path("skills"))
     }
 }
 
@@ -116,7 +126,7 @@ fn scope_button(
         .into()
 }
 
-fn enabled_skill_ids(skills: &[&SkillsCatalogItem]) -> Vec<String> {
+pub(super) fn enabled_skill_ids(skills: &[&SkillsCatalogItem]) -> Vec<String> {
     skills.iter().filter(|skill| skill.enabled).map(|skill| skill.id.clone()).collect()
 }
 

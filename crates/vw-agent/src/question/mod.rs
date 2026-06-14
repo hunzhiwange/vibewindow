@@ -207,5 +207,5 @@ fn extra<const N: usize>(pairs: [(&'static str, Value); N]) -> Map<String, Value
 }
 
 #[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
+#[path = "mod_tests.rs"]
+mod mod_tests;

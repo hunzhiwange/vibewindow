@@ -689,3 +689,7 @@ pub fn update(app: &mut App, message: PreviewMessage) -> Task<Message> {
         _ => Task::none(),
     }
 }
+
+#[cfg(test)]
+#[path = "editor_tests.rs"]
+mod editor_tests;

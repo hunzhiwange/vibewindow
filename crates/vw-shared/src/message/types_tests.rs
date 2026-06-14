@@ -1,5 +1,467 @@
+use serde_json::{Map, Value, json};
+
+use super::*;
+use crate::snapshot::{DiffStatus, FileDiff};
+
+fn base(id: &str) -> PartBase {
+    PartBase {
+        id: id.to_string(),
+        session_id: "session-1".to_string(),
+        message_id: "message-1".to_string(),
+    }
+}
+
+fn cache() -> TokenCacheInfo {
+    TokenCacheInfo { read: 3, write: 5 }
+}
+
+fn tokens() -> TokenInfo {
+    TokenInfo { total: Some(21), input: 13, output: 8, reasoning: 2, cache: cache() }
+}
+
+fn path() -> PathInfo {
+    PathInfo { cwd: "/work/current".to_string(), root: "/work".to_string() }
+}
+
+fn user_info() -> UserInfo {
+    let mut tools = std::collections::HashMap::new();
+    tools.insert("shell".to_string(), true);
+
+    UserInfo {
+        id: "user-1".to_string(),
+        session_id: "session-1".to_string(),
+        time: UserTime { created: 10 },
+        summary: Some(FileDiffSummary {
+            title: Some("Changed files".to_string()),
+            body: Some("One file changed".to_string()),
+            diffs: vec![FileDiff {
+                file: "src/lib.rs".to_string(),
+                before: "old".to_string(),
+                after: "new".to_string(),
+                additions: 2,
+                deletions: 1,
+                status: Some(DiffStatus::Modified),
+            }],
+        }),
+        agent: "coder".to_string(),
+        model: ModelRef { provider_id: "openai".to_string(), model_id: "gpt".to_string() },
+        system: Some("system prompt".to_string()),
+        tools: Some(tools),
+        variant: Some("default".to_string()),
+    }
+}
+
+fn assistant_info() -> AssistantInfo {
+    AssistantInfo {
+        id: "assistant-1".to_string(),
+        session_id: "session-1".to_string(),
+        time: AssistantTime { created: 11, completed: Some(12) },
+        error: Some(AssistantError::APIError {
+            message: "rate limited".to_string(),
+            status_code: Some(429),
+            is_retryable: true,
+            response_headers: Some(std::collections::HashMap::from([(
+                "retry-after".to_string(),
+                "1".to_string(),
+            )])),
+            response_body: Some("body".to_string()),
+            metadata: Some(std::collections::HashMap::from([(
+                "request".to_string(),
+                "abc".to_string(),
+            )])),
+        }),
+        parent_id: "user-1".to_string(),
+        model_id: "gpt".to_string(),
+        provider_id: "openai".to_string(),
+        mode: "build".to_string(),
+        agent: "coder".to_string(),
+        path: path(),
+        summary: Some(false),
+        cost: 0.25,
+        tokens: tokens(),
+        variant: Some("default".to_string()),
+        finish: Some("stop".to_string()),
+    }
+}
+
+fn file_source_text() -> FileSourceText {
+    FileSourceText { value: "fn main() {}".to_string(), start: 1, end: 13 }
+}
+
+fn file_source_base() -> FileSourceBase {
+    FileSourceBase { text: file_source_text() }
+}
+
+fn metadata() -> Map<String, Value> {
+    Map::from_iter([("key".to_string(), json!("value"))])
+}
+
+fn part_variants() -> Vec<Part> {
+    vec![
+        Part::Text(TextPart {
+            base: base("text-1"),
+            text: "hello".to_string(),
+            synthetic: Some(true),
+            ignored: Some(false),
+            time: Some(PartTime { start: 1, end: Some(2) }),
+            metadata: Some(metadata()),
+        }),
+        Part::Subtask(SubtaskPart {
+            base: base("subtask-1"),
+            prompt: "Do it".to_string(),
+            description: "A subtask".to_string(),
+            agent: "coder".to_string(),
+            model: Some(SubtaskModel {
+                provider_id: "openai".to_string(),
+                model_id: "gpt".to_string(),
+            }),
+            command: Some("cargo check".to_string()),
+        }),
+        Part::Reasoning(ReasoningPart {
+            base: base("reasoning-1"),
+            text: "thinking".to_string(),
+            metadata: Some(metadata()),
+            time: PartTime { start: 3, end: Some(4) },
+        }),
+        Part::File(FilePart {
+            base: base("file-1"),
+            mime: "text/plain".to_string(),
+            filename: Some("lib.rs".to_string()),
+            url: "file:///lib.rs".to_string(),
+            source: Some(FilePartSource::File(FileSource {
+                base: file_source_base(),
+                path: "src/lib.rs".to_string(),
+            })),
+        }),
+        Part::Tool(ToolPart {
+            base: base("tool-1"),
+            call_id: "call-1".to_string(),
+            tool: "shell".to_string(),
+            state: ToolState::Completed(ToolStateCompleted {
+                input: metadata(),
+                output: "ok".to_string(),
+                title: "Run shell".to_string(),
+                metadata: metadata(),
+                time: ToolStateCompletedTime { start: 5, end: 6, compacted: Some(7) },
+                attachments: Some(vec![ToolAttachment {
+                    mime: "text/plain".to_string(),
+                    url: "file:///out.txt".to_string(),
+                }]),
+            }),
+            metadata: Some(metadata()),
+        }),
+        Part::StepStart(StepStartPart {
+            base: base("step-start-1"),
+            snapshot: Some("snap-1".to_string()),
+        }),
+        Part::StepFinish(StepFinishPart {
+            base: base("step-finish-1"),
+            reason: "done".to_string(),
+            snapshot: Some("snap-2".to_string()),
+            cost: 1.5,
+            tokens: tokens(),
+        }),
+        Part::Snapshot(SnapshotPart { base: base("snapshot-1"), snapshot: "snap-3".to_string() }),
+        Part::Patch(PatchPart {
+            base: base("patch-1"),
+            hash: "hash-1".to_string(),
+            files: vec!["src/lib.rs".to_string()],
+        }),
+        Part::Agent(AgentPart {
+            base: base("agent-1"),
+            name: "reviewer".to_string(),
+            source: Some(file_source_text()),
+        }),
+        Part::Retry(RetryPart {
+            base: base("retry-1"),
+            attempt: 2,
+            error: AssistantError::MessageAbortedError { message: "cancelled".to_string() },
+            time: RetryTime { created: 8 },
+        }),
+        Part::Compaction(CompactionPart { base: base("compaction-1"), auto: true }),
+    ]
+}
+
 #[test]
-fn module_test_anchor() {
-    let stable_value = 1 + 1;
-    assert_eq!(stable_value, 2);
+fn info_user_serializes_wire_names_and_nested_summary() {
+    let info = Info::User(Box::new(user_info()));
+
+    let value = serde_json::to_value(&info).unwrap();
+    let parsed: Info = serde_json::from_value(value.clone()).unwrap();
+
+    assert_eq!(value["role"], "user");
+    assert_eq!(value["sessionID"], "session-1");
+    assert_eq!(value["model"]["providerID"], "openai");
+    assert_eq!(value["summary"]["diffs"][0]["status"], "modified");
+    assert!(matches!(parsed, Info::User(user) if user.id == "user-1"));
+}
+
+#[test]
+fn info_assistant_serializes_error_tokens_and_path() {
+    let info = Info::Assistant(Box::new(assistant_info()));
+
+    let value = serde_json::to_value(&info).unwrap();
+    let parsed: Info = serde_json::from_value(value.clone()).unwrap();
+
+    assert_eq!(value["role"], "assistant");
+    assert_eq!(value["parentID"], "user-1");
+    assert_eq!(value["providerID"], "openai");
+    assert_eq!(value["tokens"]["cache"]["write"], 5);
+    assert_eq!(value["error"]["name"], "APIError");
+    assert_eq!(value["error"]["status_code"], 429);
+    assert!(
+        matches!(parsed, Info::Assistant(assistant) if assistant.finish.as_deref() == Some("stop"))
+    );
+}
+
+#[test]
+fn optional_info_fields_are_omitted_when_absent() {
+    let user = UserInfo { summary: None, system: None, tools: None, variant: None, ..user_info() };
+    let assistant = AssistantInfo {
+        time: AssistantTime { created: 1, completed: None },
+        error: None,
+        summary: None,
+        tokens: TokenInfo { total: None, ..tokens() },
+        variant: None,
+        finish: None,
+        ..assistant_info()
+    };
+
+    let user_value = serde_json::to_value(Info::User(Box::new(user))).unwrap();
+    let assistant_value = serde_json::to_value(Info::Assistant(Box::new(assistant))).unwrap();
+
+    assert!(user_value.get("summary").is_none());
+    assert!(user_value.get("system").is_none());
+    assert!(user_value.get("tools").is_none());
+    assert!(user_value.get("variant").is_none());
+    assert!(assistant_value["time"].get("completed").is_none());
+    assert!(assistant_value.get("error").is_none());
+    assert!(assistant_value["tokens"].get("total").is_none());
+    assert!(assistant_value.get("finish").is_none());
+}
+
+#[test]
+fn assistant_error_variants_use_name_tag_and_optional_fields() {
+    let errors = [
+        AssistantError::ProviderAuthError {
+            provider_id: "openai".to_string(),
+            message: "login required".to_string(),
+        },
+        AssistantError::MessageOutputLengthError,
+        AssistantError::MessageAbortedError { message: "aborted".to_string() },
+        AssistantError::ContextOverflowError {
+            message: "too much context".to_string(),
+            response_body: None,
+        },
+        AssistantError::Unknown { message: "unknown".to_string() },
+    ];
+
+    let names: Vec<String> = errors
+        .into_iter()
+        .map(|error| {
+            let value = serde_json::to_value(error).unwrap();
+            value["name"].as_str().unwrap().to_string()
+        })
+        .collect();
+
+    assert_eq!(
+        names,
+        vec![
+            "ProviderAuthError",
+            "MessageOutputLengthError",
+            "MessageAbortedError",
+            "ContextOverflowError",
+            "Unknown"
+        ]
+    );
+}
+
+#[test]
+fn info_mutators_update_only_supported_fields() {
+    let mut user = Info::User(Box::new(user_info()));
+    let mut assistant = Info::Assistant(Box::new(assistant_info()));
+
+    user.set_id("user-2");
+    user.set_session_id("session-2");
+    user.set_parent_id("ignored-parent");
+    assistant.set_id("assistant-2");
+    assistant.set_session_id("session-2");
+    assistant.set_parent_id("parent-2");
+
+    assert_eq!(user.id(), "user-2");
+    assert!(matches!(
+        user,
+        Info::User(ref user) if user.session_id == "session-2"
+    ));
+    assert_eq!(assistant.id(), "assistant-2");
+    assert!(matches!(
+        assistant,
+        Info::Assistant(ref assistant)
+            if assistant.session_id == "session-2" && assistant.parent_id == "parent-2"
+    ));
+}
+
+#[test]
+fn part_variants_round_trip_with_expected_type_tags() {
+    let expected_types = [
+        "text",
+        "subtask",
+        "reasoning",
+        "file",
+        "tool",
+        "step-start",
+        "step-finish",
+        "snapshot",
+        "patch",
+        "agent",
+        "retry",
+        "compaction",
+    ];
+
+    for (part, expected_type) in part_variants().into_iter().zip(expected_types) {
+        let value = serde_json::to_value(&part).unwrap();
+        let parsed: Part = serde_json::from_value(value.clone()).unwrap();
+
+        assert_eq!(value["type"], expected_type);
+        assert_eq!(parsed.id(), part.id());
+        assert_eq!(parsed.session_id(), "session-1");
+        assert_eq!(parsed.message_id(), "message-1");
+    }
+}
+
+#[test]
+fn part_mutators_update_base_fields_for_every_variant() {
+    for mut part in part_variants() {
+        part.set_id("part-2");
+        part.set_session_id("session-2");
+        part.set_message_id("message-2");
+
+        assert_eq!(part.id(), "part-2");
+        assert_eq!(part.session_id(), "session-2");
+        assert_eq!(part.message_id(), "message-2");
+    }
+}
+
+#[test]
+fn file_part_source_variants_use_lowercase_type_tags() {
+    let sources = [
+        FilePartSource::File(FileSource {
+            base: file_source_base(),
+            path: "src/lib.rs".to_string(),
+        }),
+        FilePartSource::Symbol(SymbolSource {
+            base: file_source_base(),
+            path: "src/main.rs".to_string(),
+            range: LspRange {
+                start: LspPosition { line: 1, character: 2 },
+                end: LspPosition { line: 3, character: 4 },
+            },
+            name: "main".to_string(),
+            kind: 12,
+        }),
+        FilePartSource::Resource(ResourceSource {
+            base: file_source_base(),
+            client_name: "docs".to_string(),
+            uri: "https://example.test/doc".to_string(),
+        }),
+    ];
+
+    let values: Vec<Value> = sources
+        .into_iter()
+        .map(|source| {
+            let value = serde_json::to_value(source).unwrap();
+            serde_json::from_value::<FilePartSource>(value.clone()).unwrap();
+            value
+        })
+        .collect();
+
+    assert_eq!(values[0]["type"], "file");
+    assert_eq!(values[1]["type"], "symbol");
+    assert_eq!(values[1]["range"]["end"]["character"], 4);
+    assert_eq!(values[2]["type"], "resource");
+    assert_eq!(values[2]["clientName"], "docs");
+}
+
+#[test]
+fn tool_state_variants_use_lowercase_status_tags() {
+    let states = [
+        ToolState::Pending(ToolStatePending {
+            input: metadata(),
+            raw: "{\"key\":\"value\"}".to_string(),
+        }),
+        ToolState::Running(ToolStateRunning {
+            input: metadata(),
+            title: None,
+            metadata: None,
+            time: PartTime { start: 1, end: None },
+        }),
+        ToolState::Completed(ToolStateCompleted {
+            input: metadata(),
+            output: "done".to_string(),
+            title: "Complete".to_string(),
+            metadata: metadata(),
+            time: ToolStateCompletedTime { start: 1, end: 2, compacted: None },
+            attachments: None,
+        }),
+        ToolState::Error(ToolStateError {
+            input: metadata(),
+            error: "failed".to_string(),
+            metadata: None,
+            time: PartTime { start: 1, end: Some(2) },
+        }),
+    ];
+
+    let statuses: Vec<String> = states
+        .into_iter()
+        .map(|state| {
+            let value = serde_json::to_value(state).unwrap();
+            serde_json::from_value::<ToolState>(value.clone()).unwrap();
+            value["status"].as_str().unwrap().to_string()
+        })
+        .collect();
+
+    assert_eq!(statuses, vec!["pending", "running", "completed", "error"]);
+}
+
+#[test]
+fn optional_part_fields_are_omitted_when_absent() {
+    let text = TextPart {
+        base: base("text-min"),
+        text: "hello".to_string(),
+        synthetic: None,
+        ignored: None,
+        time: None,
+        metadata: None,
+    };
+    let file = FilePart {
+        base: base("file-min"),
+        mime: "text/plain".to_string(),
+        filename: None,
+        url: "file:///min.txt".to_string(),
+        source: None,
+    };
+
+    let text_value = serde_json::to_value(text).unwrap();
+    let file_value = serde_json::to_value(file).unwrap();
+
+    assert!(text_value.get("synthetic").is_none());
+    assert!(text_value.get("ignored").is_none());
+    assert!(text_value.get("time").is_none());
+    assert!(text_value.get("metadata").is_none());
+    assert!(file_value.get("filename").is_none());
+    assert!(file_value.get("source").is_none());
+}
+
+#[test]
+fn with_parts_round_trips_info_and_parts_together() {
+    let message =
+        WithParts { info: Info::Assistant(Box::new(assistant_info())), parts: part_variants() };
+
+    let value = serde_json::to_value(&message).unwrap();
+    let parsed: WithParts = serde_json::from_value(value.clone()).unwrap();
+
+    assert_eq!(value["info"]["role"], "assistant");
+    assert_eq!(value["parts"].as_array().unwrap().len(), 12);
+    assert_eq!(parsed.info.id(), "assistant-1");
+    assert_eq!(parsed.parts.len(), 12);
 }

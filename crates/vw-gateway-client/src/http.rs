@@ -14,7 +14,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::endpoint::GatewayEndpoint;
 
-/// 为异步请求构造器附加 Basic Auth 与 x-skey 认证头。
+/// 为异步请求构造器附加网关 skey Bearer 认证头。
 ///
 /// 当认证字段为空或仅包含空白字符时，会自动跳过对应认证项。
 pub fn apply_auth(
@@ -25,28 +25,15 @@ pub fn apply_auth(
         return builder;
     };
 
-    let builder = match auth.bearer_token.as_deref().filter(|value| !value.trim().is_empty()) {
-        Some(token) => builder.bearer_auth(token),
-        None => match auth.password.as_deref().filter(|value| !value.trim().is_empty()) {
-            Some(password) => builder.basic_auth(
-                auth.username
-                    .as_deref()
-                    .filter(|value| !value.trim().is_empty())
-                    .unwrap_or("vibewindow"),
-                Some(password),
-            ),
-            None => builder,
-        },
-    };
-
-    match auth.skey.as_deref().filter(|value| !value.trim().is_empty()) {
-        Some(skey) => builder.header("x-skey", skey),
-        None => builder,
+    if let Some(skey) = auth.skey.as_deref().filter(|value| !value.trim().is_empty()) {
+        builder.bearer_auth(skey)
+    } else {
+        builder
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-/// 为阻塞请求构造器附加 Basic Auth 与 x-skey 认证头。
+/// 为阻塞请求构造器附加网关 skey Bearer 认证头。
 ///
 /// 行为与异步版本保持一致，只是作用于阻塞客户端。
 pub fn apply_blocking_auth(
@@ -57,23 +44,10 @@ pub fn apply_blocking_auth(
         return builder;
     };
 
-    let builder = match auth.bearer_token.as_deref().filter(|value| !value.trim().is_empty()) {
-        Some(token) => builder.bearer_auth(token),
-        None => match auth.password.as_deref().filter(|value| !value.trim().is_empty()) {
-            Some(password) => builder.basic_auth(
-                auth.username
-                    .as_deref()
-                    .filter(|value| !value.trim().is_empty())
-                    .unwrap_or("vibewindow"),
-                Some(password),
-            ),
-            None => builder,
-        },
-    };
-
-    match auth.skey.as_deref().filter(|value| !value.trim().is_empty()) {
-        Some(skey) => builder.header("x-skey", skey),
-        None => builder,
+    if let Some(skey) = auth.skey.as_deref().filter(|value| !value.trim().is_empty()) {
+        builder.bearer_auth(skey)
+    } else {
+        builder
     }
 }
 

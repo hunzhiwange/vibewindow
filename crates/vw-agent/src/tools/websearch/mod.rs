@@ -291,16 +291,21 @@ impl WebSearchTool {
             };
 
             // 解析 JSON 数据
-            let value: serde_json::Value = serde_json::from_str(rest).ok()?;
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(rest) else {
+                continue;
+            };
 
             // 按路径提取文本：result -> content -> array[0] -> text
-            let text = value
+            let Some(text) = value
                 .get("result")
                 .and_then(|r| r.get("content"))
                 .and_then(|c| c.as_array())
                 .and_then(|arr| arr.first())
                 .and_then(|item| item.get("text"))
-                .and_then(|t| t.as_str())?;
+                .and_then(|t| t.as_str())
+            else {
+                continue;
+            };
 
             // 只返回非空文本
             if !text.is_empty() {
@@ -714,6 +719,9 @@ impl Tool for WebSearchTool {
 /// 单元测试模块
 ///
 /// 测试文件位于 `tests/websearch.rs`，包含 WebSearchTool 的各种测试用例。
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

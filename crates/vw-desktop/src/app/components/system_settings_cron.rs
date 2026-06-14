@@ -1275,6 +1275,7 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         return dialog;
     }
 
+    let config_path = vw_config_types::paths::tilde_config_path("vibewindow.json");
     let help_text = r#"定时任务配置说明
 
 一、作用
@@ -1338,8 +1339,9 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
 2) 检查任务本身是否 enabled，表达式是否有效。
 3) 检查主进程是否在运行，避免误以为后台仍在调度。
 4) 查看最近 run history，确认是"未触发"还是"触发后执行失败"。
-5) 修改 ~/.vibewindow/vibewindow.json 后，重启应用再观察日志。
+5) 修改 {CONFIG_PATH} 后，重启应用再观察日志。
 "#;
+    let help_text = help_text.replace("{CONFIG_PATH}", &config_path);
 
     crate::app::components::system_settings_common::with_settings_help_modal(
         app,
@@ -1349,3 +1351,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         Message::Settings(message::SettingsMessage::CronHelpClose),
     )
 }
+#[cfg(test)]
+#[path = "system_settings_cron_tests.rs"]
+mod system_settings_cron_tests;

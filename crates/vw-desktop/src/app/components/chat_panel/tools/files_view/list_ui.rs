@@ -288,8 +288,10 @@ fn file_name_tooltip<'a>(label: String) -> Element<'a, Message> {
 }
 
 fn diff_eye_button<'a>(on_press: Message) -> Element<'a, Message> {
-    let eye = icon_svg(Icon::Eye).width(Length::Fixed(12.0)).height(Length::Fixed(12.0)).style(
-        |theme: &Theme, _status| {
+    let eye = icon_svg(Icon::ChevronRight)
+        .width(Length::Fixed(12.0))
+        .height(Length::Fixed(12.0))
+        .style(|theme: &Theme, _status| {
             let is_dark = theme.palette().background.r
                 + theme.palette().background.g
                 + theme.palette().background.b
@@ -301,8 +303,7 @@ fn diff_eye_button<'a>(on_press: Message) -> Element<'a, Message> {
                     theme.extended_palette().secondary.base.text
                 }),
             }
-        },
-    );
+        });
 
     let button: Element<'a, Message> = mouse_area(
         container(eye).style(|_theme: &Theme| iced::widget::container::Style::default()),

@@ -102,10 +102,12 @@ use iced::widget::tooltip::{Position as TooltipPosition, Tooltip};
 use iced::widget::{Space, button, column, container, row, scrollable, text, text_input};
 use iced::{Alignment, Color, Element, Length, Padding, Theme};
 use icons::icon_svg;
-use send_controls::{bottom_bar, cancel_button, full_access_button, pool_button, send_button};
+use send_controls::{
+    bottom_bar, cancel_button, full_access_button, pool_button, send_button, workflow_mode_button,
+};
 use task_mode::task_mode_form;
 
-fn popover_item_style(
+pub(super) fn popover_item_style(
     theme: &Theme,
     status: iced::widget::button::Status,
     selected: bool,
@@ -117,7 +119,7 @@ const ACP_SELECTOR_MAX_HEIGHT: f32 = 240.0;
 const ACP_SELECTOR_SCROLLBAR_WIDTH: f32 = 4.0;
 const ACP_SELECTOR_LIST_RIGHT_PADDING: f32 = 5.0;
 
-fn bottom_bar_round_toggle<'a>(
+pub(super) fn bottom_bar_round_toggle<'a>(
     icon: Element<'a, Message>,
     tooltip_label: &'static str,
     on_press: Message,
@@ -136,7 +138,7 @@ fn bottom_bar_round_toggle<'a>(
     Tooltip::new(toggle, dark_tooltip_content(tooltip_label), TooltipPosition::Top).gap(6.0).into()
 }
 
-fn session_control_button<'a>(app: &'a App) -> Option<Element<'a, Message>> {
+pub(super) fn session_control_button<'a>(app: &'a App) -> Option<Element<'a, Message>> {
     let runtime = app.current_session_runtime();
     let highlight_toggle = app.show_session_tool_selector_popover
         || runtime.agent.is_some()
@@ -163,7 +165,7 @@ fn session_control_button<'a>(app: &'a App) -> Option<Element<'a, Message>> {
     Some(selector)
 }
 
-fn acp_selector_button<'a>(
+pub(super) fn acp_selector_button<'a>(
     app: &'a App,
     selected_acp_agent: Option<String>,
 ) -> Option<Element<'a, Message>> {
@@ -263,7 +265,7 @@ fn acp_selector_button<'a>(
     )
 }
 
-fn dark_tooltip_content<'a>(label: &'a str) -> Element<'a, Message> {
+pub(super) fn dark_tooltip_content<'a>(label: &'a str) -> Element<'a, Message> {
     container(
         text(label)
             .size(12)
@@ -274,11 +276,11 @@ fn dark_tooltip_content<'a>(label: &'a str) -> Element<'a, Message> {
     .into()
 }
 
-fn with_dark_tooltip<'a>(content: Element<'a, Message>, label: &'a str) -> Element<'a, Message> {
+pub(super) fn with_dark_tooltip<'a>(content: Element<'a, Message>, label: &'a str) -> Element<'a, Message> {
     Tooltip::new(content, dark_tooltip_content(label), TooltipPosition::Top).gap(6.0).into()
 }
 
-fn acp_history_controls<'a>(
+pub(super) fn acp_history_controls<'a>(
     mode: AcpHistoryReplayMode,
     recent_count: usize,
 ) -> Element<'a, Message> {
@@ -335,7 +337,7 @@ fn acp_history_controls<'a>(
     container(controls_row).padding(Padding { top: 0.0, right: 8.0, bottom: 0.0, left: 8.0 }).into()
 }
 
-fn skill_title(app: &App, skill_id: &str) -> String {
+pub(super) fn skill_title(app: &App, skill_id: &str) -> String {
     app.skills_settings
         .catalog
         .iter()
@@ -344,7 +346,7 @@ fn skill_title(app: &App, skill_id: &str) -> String {
         .unwrap_or_else(|| skill_id.to_string())
 }
 
-fn summarize_names(names: &[String]) -> String {
+pub(super) fn summarize_names(names: &[String]) -> String {
     const MAX_VISIBLE_NAMES: usize = 3;
     let mut preview = names.iter().take(MAX_VISIBLE_NAMES).cloned().collect::<Vec<_>>().join("、");
     let hidden_count = names.len().saturating_sub(MAX_VISIBLE_NAMES);
@@ -354,7 +356,7 @@ fn summarize_names(names: &[String]) -> String {
     preview
 }
 
-fn selected_context_card<'a>(app: &'a App) -> Option<Element<'a, Message>> {
+pub(super) fn selected_context_card<'a>(app: &'a App) -> Option<Element<'a, Message>> {
     let Some(runtime) = app.current_session_runtime_ref() else {
         return None;
     };
@@ -474,6 +476,7 @@ pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
     let acp_history_mode = runtime.map(|r| r.acp_history_mode).unwrap_or(app.acp_history_mode);
     let acp_recent_count = runtime.map(|r| r.acp_recent_count).unwrap_or(app.acp_recent_count);
     let full_access_enabled = runtime.map(|r| r.full_access_enabled).unwrap_or(false);
+    let workflow_mode_enabled = runtime.map(|r| r.workflow_mode_enabled).unwrap_or(false);
 
     // 任务模式相关状态
     let task_mode_enabled = runtime.map(|r| r.task_mode_enabled).unwrap_or(false);
@@ -513,6 +516,7 @@ pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
     let primary_btn = session_control_button(app);
     let acp_btn = acp_selector_button(app, selected_acp_agent.clone());
     let permission_btn = Some(full_access_button(has_permission_context, full_access_enabled));
+    let workflow_btn = workflow_mode_button(workflow_mode_enabled);
 
     // ========== 计算按钮启用状态 ==========
     let input_text = input_editor.text().to_string();
@@ -549,6 +553,7 @@ pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
         primary_btn,
         acp_btn,
         permission_btn,
+        workflow_btn,
         model_btn,
         usage_btn,
         attach_btn,

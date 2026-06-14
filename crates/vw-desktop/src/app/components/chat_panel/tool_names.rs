@@ -7,6 +7,7 @@ pub fn canonical_tool_name(tool_name: &str) -> &str {
 
     match normalized.as_str() {
         "agent" | "agenttool" | "agent_tool" => "AgentTool",
+        "read" | "file_read" | "read_file" => "read",
         "bash" | "shell" | "execute" | "tool_execute" | "terminal" => "bash",
         "brief" => "brief",
         "edit" | "file_edit" | "edit_file" | "editfile" => "file_edit",
@@ -25,6 +26,7 @@ pub fn canonical_tool_name(tool_name: &str) -> &str {
         "enterworktree" | "enter_worktree" => "enter_worktree",
         "exitworktree" | "exit_worktree" => "exit_worktree",
         "toolsearch" | "tool_search" => "tool_search",
+        "workflownode" | "workflow_node" => "workflow_node",
         _ => trimmed,
     }
 }
@@ -107,6 +109,7 @@ pub fn is_known_tool_name(tool_name: &str) -> bool {
             | "enter_worktree"
             | "exit_worktree"
             | "tool_search"
+            | "workflow_node"
     )
 }
 
@@ -115,8 +118,7 @@ pub fn is_known_tool_name(tool_name: &str) -> bool {
 /// 参数含义保持与函数签名一致；返回值用于调用方继续组合处理，错误由返回类型显式表达。
 pub fn is_compact_tool_call_trace(line: &str) -> bool {
     let trimmed = line.trim();
-    let lower = trimmed.to_ascii_lowercase();
-    let Some(rest) = lower.strip_prefix("tool") else {
+    let Some(rest) = trimmed.strip_prefix("tool") else {
         return false;
     };
     let Some((name, _)) = rest.trim_start().split_once('(') else {

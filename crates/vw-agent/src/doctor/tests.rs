@@ -62,6 +62,16 @@ mod tests {
         assert_eq!(DiagItem::error("t", "m").icon(), "❌");
     }
 
+    #[test]
+    fn diag_item_into_result_preserves_fields_and_result_icon() {
+        let result = DiagItem::warn("daemon", "scheduler component not tracked").into_result();
+
+        assert_eq!(result.severity, Severity::Warn);
+        assert_eq!(result.category, "daemon");
+        assert_eq!(result.message, "scheduler component not tracked");
+        assert_eq!(result.icon(), "⚠️ ");
+    }
+
     /// 测试模型探测错误分类 - 不支持的 Provider 标记为跳过
     ///
     /// 当 Provider 不支持实时模型发现时，应将探测结果标记为 Skipped 状态，

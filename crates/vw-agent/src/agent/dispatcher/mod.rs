@@ -566,5 +566,5 @@ impl ToolDispatcher for NativeToolDispatcher {
 }
 
 #[cfg(test)]
-#[path = "tests.rs"]
+#[path = "mod_tests.rs"]
 mod tests;

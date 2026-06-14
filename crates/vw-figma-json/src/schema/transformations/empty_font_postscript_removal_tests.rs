@@ -174,3 +174,42 @@ fn test_postscript_non_string() {
     assert!(font_name.get("postscript").is_some());
     assert_eq!(font_name.get("postscript").unwrap().as_i64(), Some(123));
 }
+
+#[test]
+fn test_font_name_non_object_is_preserved() {
+    let mut tree = json!({
+        "fontName": "Inter Regular",
+        "children": [true, null, 42]
+    });
+
+    remove_empty_font_postscript(&mut tree).unwrap();
+
+    assert_eq!(tree["fontName"].as_str(), Some("Inter Regular"));
+    assert_eq!(tree["children"][0].as_bool(), Some(true));
+    assert!(tree["children"][1].is_null());
+    assert_eq!(tree["children"][2].as_i64(), Some(42));
+}
+
+#[test]
+fn test_root_array_and_primitive_values() {
+    let mut tree = json!([
+        {
+            "fontName": {
+                "family": "Inter",
+                "postscript": ""
+            }
+        },
+        "text",
+        1
+    ]);
+
+    remove_empty_font_postscript(&mut tree).unwrap();
+
+    assert!(tree[0]["fontName"].get("postscript").is_none());
+    assert_eq!(tree[1].as_str(), Some("text"));
+    assert_eq!(tree[2].as_i64(), Some(1));
+
+    let mut primitive = json!("unchanged");
+    remove_empty_font_postscript(&mut primitive).unwrap();
+    assert_eq!(primitive.as_str(), Some("unchanged"));
+}

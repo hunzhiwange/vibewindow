@@ -19,7 +19,7 @@ use crate::app::assets::Icon;
 
 use super::super::ui::{header_plain_glyph_button, square_icon_button_tiny};
 
-fn mix_color(a: Color, b: Color, ratio: f32) -> Color {
+pub(super) fn mix_color(a: Color, b: Color, ratio: f32) -> Color {
     let ratio = ratio.clamp(0.0, 1.0);
     Color {
         r: a.r + (b.r - a.r) * ratio,

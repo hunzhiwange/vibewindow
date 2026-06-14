@@ -153,6 +153,13 @@ mod tests {
         assert_eq!(runtime.storage_path(), PathBuf::from("/tmp/dummy-runtime"));
     }
 
+    #[test]
+    fn as_any_supports_downcasting_to_concrete_runtime() {
+        let runtime = DummyRuntime;
+        assert!(runtime.as_any().downcast_ref::<DummyRuntime>().is_some());
+        assert!(runtime.as_any().downcast_ref::<String>().is_none());
+    }
+
     /// 测试 shell 命令构建与异步执行
     ///
     /// 验证 `build_shell_command` 方法生成的命令可成功执行。

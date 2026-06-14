@@ -264,3 +264,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         Message::Settings(message::SettingsMessage::ReliabilityHelpClose),
     )
 }
+#[cfg(test)]
+#[path = "system_settings_reliability_tests.rs"]
+mod system_settings_reliability_tests;

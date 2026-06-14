@@ -13,7 +13,7 @@ fn persist_agents_ipc_settings(app: &mut App) -> Task<Message> {
     crate::app::update_agents_ipc_config_async(move |agents_ipc| {
         agents_ipc.enabled = enabled;
         agents_ipc.db_path =
-            if db_path.is_empty() { "~/.vibewindow/agents.db".to_string() } else { db_path };
+            if db_path.is_empty() { vw_config_types::paths::agents_ipc_db_path() } else { db_path };
         agents_ipc.staleness_secs = staleness_secs;
     })
 }

@@ -8,6 +8,40 @@ use iced::{Element, Length};
 /// 重新导出 use iced::{Event, Point, Rectangle, Size, Theme, Vector}，让上层模块通过稳定路径访问。
 use iced::{Event, Point, Rectangle, Size, Theme, Vector};
 
+fn compute_point_below_position(
+    anchor: Point,
+    target_bounds: Rectangle,
+    viewport: Rectangle,
+    overlay_size: Size,
+    gap: f32,
+    snap_within_viewport: bool,
+    snap_within_target_bounds: bool,
+) -> Point {
+    let mut x = anchor.x;
+    let mut y = anchor.y + gap;
+
+    if snap_within_viewport || snap_within_target_bounds {
+        let (min_x, min_y, max_x, max_y) = if snap_within_target_bounds {
+            let min_x = target_bounds.x;
+            let min_y = target_bounds.y;
+            let max_x = (target_bounds.x + target_bounds.width - overlay_size.width).max(min_x);
+            let max_y = (target_bounds.y + target_bounds.height - overlay_size.height).max(min_y);
+            (min_x, min_y, max_x, max_y)
+        } else {
+            let min_x = viewport.x;
+            let min_y = viewport.y;
+            let max_x = (viewport.x + viewport.width - overlay_size.width).max(min_x);
+            let max_y = (viewport.y + viewport.height - overlay_size.height).max(min_y);
+            (min_x, min_y, max_x, max_y)
+        };
+
+        x = x.clamp(min_x, max_x);
+        y = y.clamp(min_y, max_y);
+    }
+
+    Point::new(x, y)
+}
+
 /// PointBelowOverlay 保存 point_below 模块需要跨函数传递的状态。
 ///
 /// 字段保持贴近调用方的真实数据，避免在 UI 边界处隐藏额外转换。
@@ -584,31 +618,17 @@ where
 
         let size = node.size();
 
-        let mut x = self.anchor.x;
-        let mut y = self.anchor.y + self.gap;
+        let position = compute_point_below_position(
+            self.anchor,
+            self.target_bounds,
+            self.viewport,
+            size,
+            self.gap,
+            self.snap_within_viewport,
+            self.snap_within_target_bounds,
+        );
 
-        // snap 开关让浮层在靠近窗口边缘时仍保持可见。
-        if self.snap_within_viewport || self.snap_within_target_bounds {
-            let (min_x, min_y, max_x, max_y) = if self.snap_within_target_bounds {
-                let min_x = self.target_bounds.x;
-                let min_y = self.target_bounds.y;
-                let max_x =
-                    (self.target_bounds.x + self.target_bounds.width - size.width).max(min_x);
-                let max_y =
-                    (self.target_bounds.y + self.target_bounds.height - size.height).max(min_y);
-                (min_x, min_y, max_x, max_y)
-            } else {
-                let min_x = self.viewport.x;
-                let min_y = self.viewport.y;
-                let max_x = (self.viewport.x + self.viewport.width - size.width).max(min_x);
-                let max_y = (self.viewport.y + self.viewport.height - size.height).max(min_y);
-                (min_x, min_y, max_x, max_y)
-            };
-            x = x.clamp(min_x, max_x);
-            y = y.clamp(min_y, max_y);
-        }
-
-        node.move_to(Point::new(x, y))
+        node.move_to(position)
     }
 
     /// 处理 update 对应的局部职责。
@@ -730,3 +750,7 @@ where
             .draw(self.tree, renderer, theme, defaults, layout, cursor, &bounds);
     }
 }
+
+#[cfg(test)]
+#[path = "point_below_tests.rs"]
+mod tests;

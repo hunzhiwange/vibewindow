@@ -92,3 +92,21 @@ fn set_current_model_id_normalizes_current_model() {
     set_current_model_id(&mut record, Some(""));
     assert_eq!(record.vwacp.as_ref().unwrap().current_model_id, None);
 }
+
+#[test]
+fn sync_advertised_model_state_ignores_missing_state() {
+    let mut record = test_record();
+
+    set_current_model_id(&mut record, Some("model-a"));
+    record.vwacp.as_mut().unwrap().available_models =
+        Some(vec!["model-a".to_string(), "model-b".to_string()]);
+
+    sync_advertised_model_state(&mut record, None);
+
+    let vwacp = record.vwacp.as_ref().unwrap();
+    assert_eq!(vwacp.current_model_id.as_deref(), Some("model-a"));
+    assert_eq!(
+        vwacp.available_models.as_ref(),
+        Some(&vec!["model-a".to_string(), "model-b".to_string()])
+    );
+}

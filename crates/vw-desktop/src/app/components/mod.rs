@@ -157,9 +157,6 @@ pub mod text_editor_context_menu;
 mod text_editor_context_menu_tests;
 
 pub mod text_editor_scroll_panel;
-#[cfg(test)]
-#[path = "text_editor_scroll_panel_tests.rs"]
-mod text_editor_scroll_panel_tests;
 
 /// 覆盖层组件
 ///
@@ -198,27 +195,15 @@ pub mod system_settings_agents;
 /// 配置多个代理之间的进程间通信（IPC）机制。
 pub mod system_settings_agents_ipc;
 
-#[cfg(test)]
-#[path = "system_settings_agents_ipc_tests.rs"]
-mod system_settings_agents_ipc_tests;
-
 /// 系统设置：自主性配置
 ///
 /// 配置代理的自主决策级别和行为边界。
 pub mod system_settings_autonomy;
 
-#[cfg(test)]
-#[path = "system_settings_autonomy_tests.rs"]
-mod system_settings_autonomy_tests;
-
 /// 系统设置：ACP 配置
 ///
 /// 管理 Agent Client Protocol 后端目录、初始化说明和启用状态。
 pub mod system_settings_acp;
-
-#[cfg(test)]
-#[path = "system_settings_acp_tests.rs"]
-mod system_settings_acp_tests;
 
 /// 系统设置：通用组件
 ///
@@ -230,165 +215,95 @@ pub mod system_settings_common;
 /// 为尚未内联实现帮助模态框的系统设置页提供统一帮助入口与文案。
 pub mod system_settings_help;
 
-#[cfg(test)]
-#[path = "system_settings_help_tests.rs"]
-mod system_settings_help_tests;
-
 /// 系统设置：多通道集成
 ///
 /// 配置 CLI 与多种消息/语音通道的启用状态和参数。
 pub mod system_settings_channels;
-
-#[cfg(test)]
-#[path = "system_settings_channels_tests.rs"]
-mod system_settings_channels_tests;
 
 /// 系统设置：协调配置
 ///
 /// 配置多代理协作、任务分发和结果汇总机制。
 pub mod system_settings_coordination;
 
-#[cfg(test)]
-#[path = "system_settings_coordination_tests.rs"]
-mod system_settings_coordination_tests;
-
 /// 系统设置：定时任务
 ///
 /// 配置和管理 Cron 定时任务的执行计划。
 pub mod system_settings_cron;
-
-#[cfg(test)]
-#[path = "system_settings_cron_tests.rs"]
-mod system_settings_cron_tests;
 
 /// 系统设置：对话流程
 ///
 /// 配置对话流程、上下文管理、会话持久化等。
 pub mod system_settings_dialogue_flow;
 
-#[cfg(test)]
-#[path = "system_settings_dialogue_flow_tests.rs"]
-mod system_settings_dialogue_flow_tests;
-
 /// 系统设置：编辑器偏好
 ///
 /// 配置编辑器的主题、字体、缩进、快捷键等偏好设置。
 pub mod system_settings_editor;
-
-#[cfg(test)]
-#[path = "system_settings_editor_tests.rs"]
-mod system_settings_editor_tests;
 
 /// 系统设置：嵌入路由
 ///
 /// 配置嵌入模型的 provider、model 和 dimensions 路由规则。
 pub mod system_settings_embedding_routes;
 
-#[cfg(test)]
-#[path = "system_settings_embedding_routes_tests.rs"]
-mod system_settings_embedding_routes_tests;
-
 /// 系统设置：常规设置
 ///
 /// 应用程序的常规设置，如语言、主题、启动行为等。
 pub mod system_settings_general;
-
-#[cfg(test)]
-#[path = "system_settings_general_tests.rs"]
-mod system_settings_general_tests;
 
 /// 系统设置：网关配置
 ///
 /// 配置 HTTP gateway 的监听地址、配对、安全限流与 node-control 行为。
 pub mod system_settings_gateway;
 
-#[cfg(test)]
-#[path = "system_settings_gateway_tests.rs"]
-mod system_settings_gateway_tests;
-
 /// 系统设置：客户端网关连接
 ///
 /// 配置桌面客户端连接哪个网关，以及访问认证参数。
 pub mod system_settings_gateway_client;
-
-#[cfg(test)]
-#[path = "system_settings_gateway_client_tests.rs"]
-mod system_settings_gateway_client_tests;
 
 /// 系统设置：目标循环
 ///
 /// 配置自主 goal loop 的执行开关、节奏与事件投递目标。
 pub mod system_settings_goal_loop;
 
-#[cfg(test)]
-#[path = "system_settings_goal_loop_tests.rs"]
-mod system_settings_goal_loop_tests;
-
 /// 系统设置：心跳监控
 ///
 /// 配置代理健康检查、心跳间隔、故障检测等。
 pub mod system_settings_heartbeat;
-
-#[cfg(test)]
-#[path = "system_settings_heartbeat_tests.rs"]
-mod system_settings_heartbeat_tests;
 
 /// 系统设置：钩子配置
 ///
 /// 配置运行时 hooks 总开关和内置钩子行为。
 pub mod system_settings_hooks;
 
-#[cfg(test)]
-#[path = "system_settings_hooks_tests.rs"]
-mod system_settings_hooks_tests;
-
 /// 系统设置：模型配置
 ///
 /// 配置 AI 模型的参数、上下文长度、响应策略等。
 pub mod system_settings_models;
-#[cfg(test)]
-#[path = "system_settings_models_tests.rs"]
-mod system_settings_models_tests;
 
 /// 系统设置：模型路由
 ///
 /// 配置消息模式到 Provider / Model 的路由规则。
 pub mod system_settings_model_routes;
-#[cfg(test)]
-#[path = "system_settings_model_routes_tests.rs"]
-mod system_settings_model_routes_tests;
 
 /// 系统设置：查询分类
 ///
 /// 配置查询分类启用状态和分类规则。
 pub mod system_settings_query_classification;
-#[cfg(test)]
-#[path = "system_settings_query_classification_tests.rs"]
-mod system_settings_query_classification_tests;
 
 /// 系统设置：可观测性
 ///
 /// 配置日志、指标、追踪等可观测性功能。
 pub mod system_settings_observability;
-#[cfg(test)]
-#[path = "system_settings_observability_tests.rs"]
-mod system_settings_observability_tests;
 
 /// 系统设置：存储配置
 ///
 /// 配置持久化存储 provider、连接参数与 TLS 选项。
 pub mod system_settings_storage;
-#[cfg(test)]
-#[path = "system_settings_storage_tests.rs"]
-mod system_settings_storage_tests;
 
 /// 系统设置：项目管理
 ///
 /// 管理项目列表、项目配置、工作区设置等。
 pub mod system_settings_projects;
-#[cfg(test)]
-#[path = "system_settings_projects_tests.rs"]
-mod system_settings_projects_tests;
 
 /// 系统设置：服务提供商
 ///
@@ -399,100 +314,61 @@ pub mod system_settings_providers;
 ///
 /// 配置网络代理、HTTP/SOCKS 代理等网络设置。
 pub mod system_settings_proxy;
-#[cfg(test)]
-#[path = "system_settings_proxy_tests.rs"]
-mod system_settings_proxy_tests;
 
 /// 系统设置：隧道设置
 ///
 /// 配置公网暴露网关时使用的 tunnel provider 与凭据。
 pub mod system_settings_tunnel;
-#[cfg(test)]
-#[path = "system_settings_tunnel_tests.rs"]
-mod system_settings_tunnel_tests;
 
 /// 系统设置：Composio 集成
 ///
 /// 配置 Composio OAuth 工具集成的启用状态、API 密钥和实体标识。
 pub mod system_settings_composio;
 
-#[cfg(test)]
-#[path = "system_settings_composio_tests.rs"]
-mod system_settings_composio_tests;
-
 /// 系统设置：记忆系统配置
 ///
 /// 配置 memory 后端、嵌入参数、缓存与 Qdrant 连接选项。
 pub mod system_settings_memory;
 
-#[cfg(test)]
-#[path = "system_settings_memory_tests.rs"]
-mod system_settings_memory_tests;
-
 /// 系统设置：可靠性配置
 ///
 /// 配置重试策略、超时设置、故障恢复等可靠性参数。
 pub mod system_settings_reliability;
-#[cfg(test)]
-#[path = "system_settings_reliability_tests.rs"]
-mod system_settings_reliability_tests;
 
 /// 系统设置：多模态配置
 ///
 /// 配置图像输入数量、大小限制与远程抓取开关。
 pub mod system_settings_multimodal;
-#[cfg(test)]
-#[path = "system_settings_multimodal_tests.rs"]
-mod system_settings_multimodal_tests;
 
 /// 系统设置：运行时配置
 ///
 /// 配置 runtime 类型以及 Docker/WASM 执行环境参数。
 pub mod system_settings_runtime;
-#[cfg(test)]
-#[path = "system_settings_runtime_tests.rs"]
-mod system_settings_runtime_tests;
 
 /// 系统设置：研究功能
 ///
 /// 配置代理的研究能力、信息检索、知识库访问等。
 pub mod system_settings_research;
-#[cfg(test)]
-#[path = "system_settings_research_tests.rs"]
-mod system_settings_research_tests;
 
 /// 系统设置：Web 搜索
 ///
 /// 配置 web_search 工具的 provider、凭据、结果数和超时等参数。
 pub mod system_settings_web_search;
-#[cfg(test)]
-#[path = "system_settings_web_search_tests.rs"]
-mod system_settings_web_search_tests;
 
 /// 系统设置：调度器配置
 ///
 /// 配置任务调度器、优先级队列、并发控制等。
 pub mod system_settings_scheduler;
-#[cfg(test)]
-#[path = "system_settings_scheduler_tests.rs"]
-mod system_settings_scheduler_tests;
 
 /// 系统设置：SOP 配置
 ///
 /// 配置 SOP 目录、默认执行模式与运行队列限制。
 pub mod system_settings_sop;
-#[cfg(test)]
-#[path = "system_settings_sop_tests.rs"]
-mod system_settings_sop_tests;
 
 /// 系统设置：浏览器配置
 ///
 /// 配置 browser / browser_open 工具、原生后端与 computer-use sidecar。
 pub mod system_settings_browser;
-
-#[cfg(test)]
-#[path = "system_settings_browser_tests.rs"]
-mod system_settings_browser_tests;
 
 /// 系统设置：HTTP 请求配置
 ///
@@ -500,41 +376,25 @@ mod system_settings_browser_tests;
 /// 配置 http_request 工具的白名单域名、超时、响应大小与 User-Agent。
 pub mod system_settings_http_request;
 
-#[cfg(test)]
-#[path = "system_settings_http_request_tests.rs"]
-mod system_settings_http_request_tests;
-
 /// 系统设置：安全配置
 ///
 /// 配置安全策略、权限控制、敏感数据保护等。
 pub mod system_settings_security;
-#[cfg(test)]
-#[path = "system_settings_security_tests.rs"]
-mod system_settings_security_tests;
 
 /// 系统设置：技能管理
 ///
 /// 管理和配置代理可使用的技能和工具集。
 pub mod system_settings_skills;
-#[cfg(test)]
-#[path = "system_settings_skills_tests.rs"]
-mod system_settings_skills_tests;
 
 /// 系统设置：语音转写
 ///
 /// 配置语音识别、音频转文字等转写功能。
 pub mod system_settings_transcription;
-#[cfg(test)]
-#[path = "system_settings_transcription_tests.rs"]
-mod system_settings_transcription_tests;
 
 /// 标签栏组件
 ///
 /// 提供多标签页界面，支持标签切换、关闭、拖拽排序等。
 pub mod tab_bar;
-#[cfg(test)]
-#[path = "tab_bar_tests.rs"]
-mod tab_bar_tests;
 
 /// 终端面板组件
 ///

@@ -274,21 +274,13 @@ pub use view::ViewMessage;
 mod editor_tests;
 
 #[cfg(test)]
+#[path = "gateway_health_tests.rs"]
+mod gateway_health_tests;
+
+#[cfg(test)]
 #[path = "json_tool_tests.rs"]
 mod json_tool_tests;
 
 #[cfg(test)]
 #[path = "json_yaml_tool_tests.rs"]
 mod json_yaml_tool_tests;
-
-#[cfg(test)]
-#[path = "large_file_tool_tests.rs"]
-mod large_file_tool_tests;
-
-#[cfg(test)]
-#[path = "markdown_tool_tests.rs"]
-mod markdown_tool_tests;
-
-#[cfg(test)]
-#[path = "notification_tests.rs"]
-mod notification_tests;

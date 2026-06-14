@@ -97,32 +97,40 @@ fn build_command_output_entry<'a>(entry: &'a RedisCommandOutputEntry) -> Element
             ]
             .spacing(8)
             .align_y(Alignment::Center),
-            text(&entry.output).size(12).style(move |theme: &Theme| iced::widget::text::Style {
-                color: Some(if entry.is_error {
-                    theme.extended_palette().danger.base.color
-                } else {
-                    Color::from_rgba8(241, 245, 249, 0.94)
-                }),
-            }),
+            if entry.is_error {
+                text(&entry.output).size(12).style(command_error_text_style)
+            } else {
+                text(&entry.output).size(12).style(command_success_text_style)
+            },
         ]
         .spacing(8),
     )
     .padding([12, 14])
     .width(Length::Fill)
-    .style(|theme: &Theme| {
-        let palette = theme.extended_palette();
-        iced::widget::container::Style {
-            background: Some(Background::Color(Color::from_rgba8(18, 24, 33, 0.96))),
-            border: Border {
-                width: 1.0,
-                color: palette.background.strong.color.scale_alpha(0.18),
-                radius: 16.0.into(),
-            },
-            text_color: Some(Color::WHITE),
-            ..Default::default()
-        }
-    })
+    .style(command_output_entry_style)
     .into()
+}
+
+fn command_success_text_style(_theme: &Theme) -> iced::widget::text::Style {
+    iced::widget::text::Style { color: Some(Color::from_rgba8(241, 245, 249, 0.94)) }
+}
+
+fn command_error_text_style(theme: &Theme) -> iced::widget::text::Style {
+    iced::widget::text::Style { color: Some(theme.extended_palette().danger.base.color) }
+}
+
+fn command_output_entry_style(theme: &Theme) -> iced::widget::container::Style {
+    let palette = theme.extended_palette();
+    iced::widget::container::Style {
+        background: Some(Background::Color(Color::from_rgba8(18, 24, 33, 0.96))),
+        border: Border {
+            width: 1.0,
+            color: palette.background.strong.color.scale_alpha(0.18),
+            radius: 16.0.into(),
+        },
+        text_color: Some(Color::WHITE),
+        ..Default::default()
+    }
 }
 
 #[cfg(test)]

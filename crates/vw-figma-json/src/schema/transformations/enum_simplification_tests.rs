@@ -270,3 +270,38 @@ fn test_extract_enum_value() {
     let value = extract_enum_value(&enum_obj).unwrap();
     assert_eq!(value, "NORMAL");
 }
+
+#[test]
+fn test_extract_enum_value_rejects_non_string_value() {
+    let enum_obj = serde_json::from_value::<serde_json::Map<String, JsonValue>>(json!({
+        "__enum__": "BlendMode",
+        "value": 1
+    }))
+    .unwrap();
+
+    assert!(extract_enum_value(&enum_obj).is_none());
+}
+
+#[test]
+fn test_enum_object_with_non_string_value_is_preserved() {
+    let mut tree = json!({
+        "blendMode": {
+            "__enum__": "BlendMode",
+            "value": 1
+        }
+    });
+
+    simplify_enums(&mut tree).unwrap();
+
+    assert_eq!(tree["blendMode"]["__enum__"].as_str(), Some("BlendMode"));
+    assert_eq!(tree["blendMode"]["value"].as_i64(), Some(1));
+}
+
+#[test]
+fn test_simplify_primitive_value() {
+    let mut tree = json!(true);
+
+    simplify_enums(&mut tree).unwrap();
+
+    assert_eq!(tree.as_bool(), Some(true));
+}

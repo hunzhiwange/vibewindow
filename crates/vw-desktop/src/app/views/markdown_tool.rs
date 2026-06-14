@@ -322,6 +322,62 @@ fn build_panel_card<'a>(
     .into()
 }
 
+fn build_markdown_image<'a>(app: &App, src: String) -> Element<'a, Message> {
+    // 处理远程图片 (HTTP/HTTPS)
+    if src.starts_with("http://") || src.starts_with("https://") {
+        // 检查图片是否已缓存（已加载过）
+        if let Some(handle) = app.markdown_tool_remote_images.get(&src).cloned() {
+            return container(Image::new(handle).width(Length::Fill))
+                .padding(10)
+                .width(Length::Fill)
+                .style(editor_surface_style)
+                .into();
+        }
+
+        // 检查图片是否正在加载中
+        if app.markdown_tool_remote_images_loading.contains(&src) {
+            return container(text("远程图片加载中...").size(12).style(settings_muted_text_style))
+                .padding([8, 10])
+                .style(editor_surface_style)
+                .into();
+        }
+
+        // 显示加载按钮，让用户主动触发图片加载
+        return container(
+            button(text("加载远程图片"))
+                .style(rounded_action_btn_style)
+                .on_press(Message::MarkdownTool(MarkdownToolMessage::FetchRemoteImage(src))),
+        )
+        .padding([8, 10])
+        .style(editor_surface_style)
+        .into();
+    }
+
+    // 处理本地文件图片
+    // 移除 file:/// 或 file:// 前缀，获取实际文件路径
+    let path_str = src
+        .strip_prefix("file:///")
+        .or_else(|| src.strip_prefix("file://"))
+        .unwrap_or(src.as_str());
+
+    let path = std::path::Path::new(path_str);
+
+    // 如果文件存在，直接加载显示
+    if path.exists() {
+        return container(Image::new(ImageHandle::from_path(path)).width(Length::Fill))
+            .padding(10)
+            .width(Length::Fill)
+            .style(editor_surface_style)
+            .into();
+    }
+
+    // 文件不存在，显示原始 Markdown 语法
+    container(text(format!("![image]({src})")).size(12).style(settings_muted_text_style))
+        .padding([8, 10])
+        .style(editor_surface_style)
+        .into()
+}
+
 /// 为 App 实现 Markdown 查看器 trait
 ///
 /// 该实现定义了 Markdown 渲染时的自定义行为：
@@ -368,62 +424,7 @@ impl<'a> markdown::Viewer<'a, Message> for App {
         _alt: &markdown::Text,
     ) -> Element<'a, Message> {
         let src = url.to_string();
-
-        // 处理远程图片 (HTTP/HTTPS)
-        if src.starts_with("http://") || src.starts_with("https://") {
-            // 检查图片是否已缓存（已加载过）
-            if let Some(handle) = self.markdown_tool_remote_images.get(&src).cloned() {
-                return container(Image::new(handle).width(Length::Fill))
-                    .padding(10)
-                    .width(Length::Fill)
-                    .style(editor_surface_style)
-                    .into();
-            }
-
-            // 检查图片是否正在加载中
-            if self.markdown_tool_remote_images_loading.contains(&src) {
-                return container(
-                    text("远程图片加载中...").size(12).style(settings_muted_text_style),
-                )
-                .padding([8, 10])
-                .style(editor_surface_style)
-                .into();
-            }
-
-            // 显示加载按钮，让用户主动触发图片加载
-            return container(
-                button(text("加载远程图片"))
-                    .style(rounded_action_btn_style)
-                    .on_press(Message::MarkdownTool(MarkdownToolMessage::FetchRemoteImage(src))),
-            )
-            .padding([8, 10])
-            .style(editor_surface_style)
-            .into();
-        }
-
-        // 处理本地文件图片
-        // 移除 file:/// 或 file:// 前缀，获取实际文件路径
-        let path_str = src
-            .strip_prefix("file:///")
-            .or_else(|| src.strip_prefix("file://"))
-            .unwrap_or(src.as_str());
-
-        let path = std::path::Path::new(path_str);
-
-        // 如果文件存在，直接加载显示
-        if path.exists() {
-            return container(Image::new(ImageHandle::from_path(path)).width(Length::Fill))
-                .padding(10)
-                .width(Length::Fill)
-                .style(editor_surface_style)
-                .into();
-        }
-
-        // 文件不存在，显示原始 Markdown 语法
-        container(text(format!("![image]({})", url)).size(12).style(settings_muted_text_style))
-            .padding([8, 10])
-            .style(editor_surface_style)
-            .into()
+        build_markdown_image(self, src)
     }
 }
 

@@ -296,7 +296,10 @@ fn show_integration_info(config: &Config, name: &str) -> Result<()> {
         }
         "Cron" => {
             println!("  Built-in:");
-            println!("    Schedule tasks in ~/.vibewindow/workspace/cron/");
+            println!(
+                "    Schedule tasks in {}/",
+                vw_config_types::paths::tilde_config_path("workspace/cron")
+            );
             println!("    Run: vibewindow cron list");
         }
         "Webhooks" => {
@@ -321,6 +324,9 @@ fn show_integration_info(_config: &Config, _name: &str) -> Result<()> {
     anyhow::bail!("Showing integration info is not supported on WASM")
 }
 
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

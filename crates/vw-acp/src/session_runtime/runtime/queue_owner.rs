@@ -61,6 +61,9 @@ impl QueueOwnerControlHandlers for QueueOwnerControlBridge {
         if !accepted {
             return Ok(false);
         }
+        if !controller.has_pending_cancel() {
+            return Ok(true);
+        }
         controller.apply_pending_cancel().await
     }
 

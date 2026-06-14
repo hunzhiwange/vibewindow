@@ -1,51 +1,35 @@
-// Tests for plan6 task 815.
-const SOURCE: &str = include_str!("system_settings_runtime.rs");
+use super::*;
+use iced::Element;
+use iced::widget::text;
 
-fn source_declares_symbol(name: &str) -> bool {
-    let needles = [
-        format!("fn {name}"),
-        format!("pub fn {name}"),
-        format!("struct {name}"),
-        format!("pub struct {name}"),
-        format!("enum {name}"),
-        format!("pub enum {name}"),
-        format!("type {name}"),
-        format!("pub type {name}"),
-        format!("const {name}"),
-        format!("pub const {name}"),
-        format!("static {name}"),
-        format!("pub static {name}"),
-        format!("impl {name}"),
-    ];
+#[test]
+fn labeled_option_displays_label_not_value() {
+    let option = LabeledOption { value: "xhigh", label: "超高" };
 
-    needles.iter().any(|needle| SOURCE.contains(needle))
+    assert_eq!(option.to_string(), "超高");
 }
 
 #[test]
-fn system_settings_runtime_tests_keeps_planned_coverage_targets() {
-    for name in ["LabeledOption", "fmt", "field_row", "text_row", "hint_row", "view"] {
-        assert!(source_declares_symbol(name), "expected source to declare coverage target {name}");
-    }
+fn runtime_rows_accept_controls_and_callbacks() {
+    let field: Element<'_, Message> = field_row("运行时类型", "选择执行环境。", text("native"));
+    let input: Element<'_, Message> =
+        text_row("镜像", "默认执行镜像。", "alpine:3.20", "ubuntu:24.04", |_| {
+            Message::GatewayHealthTick
+        });
+    let hint: Element<'_, Message> = hint_row("建议仅放行明确需要挂载的根目录。");
+
+    drop(field);
+    drop(input);
+    drop(hint);
 }
 
 #[test]
-fn runtime_reasoning_coverage_stays_outside_base_behavior_panel() {
-    let base_section = SOURCE
-        .find("settings_section_card(\"基础行为\"")
-        .expect("base behavior section should exist");
-    let base_panel = SOURCE[base_section..]
-        .find("settings_panel(column![kind_row].spacing(0))")
-        .map(|index| base_section + index)
-        .expect("base behavior panel should only contain kind_row");
-    let reasoning_section = SOURCE
-        .find("settings_section_card(\n            \"推理覆盖\"")
-        .expect("reasoning coverage section should exist");
-    let reasoning_panel = SOURCE[reasoning_section..]
-        .find("settings_panel(\n            column![reasoning_enabled_row")
-        .map(|index| reasoning_section + index)
-        .expect("reasoning coverage panel should exist");
+fn runtime_reasoning_options_cover_auto_enabled_disabled_and_levels() {
+    let source = include_str!("system_settings_runtime.rs");
 
-    assert!(base_section < base_panel);
-    assert!(base_panel < reasoning_section);
-    assert!(reasoning_section < reasoning_panel);
+    assert!(source.contains("value: \"auto\", label: \"自动\""));
+    assert!(source.contains("value: \"true\", label: \"启用\""));
+    assert!(source.contains("value: \"false\", label: \"禁用\""));
+    assert!(source.contains("value: \"minimal\", label: \"最小\""));
+    assert!(source.contains("value: \"xhigh\", label: \"超高\""));
 }

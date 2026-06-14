@@ -61,6 +61,40 @@ mod tests {
         )
     }
 
+    #[test]
+    #[cfg(not(feature = "whatsapp-web"))]
+    fn whatsapp_web_stub_channel_name_without_feature() {
+        let channel = WhatsAppWebChannel::new("session.db".into(), None, None, vec![]);
+        assert_eq!(channel.name(), "whatsapp");
+    }
+
+    #[tokio::test]
+    #[cfg(not(feature = "whatsapp-web"))]
+    async fn whatsapp_web_stub_methods_report_missing_feature() {
+        let channel = WhatsAppWebChannel::new("session.db".into(), None, None, vec![]);
+
+        let err =
+            channel.send(&SendMessage::new("hello", "+1234567890")).await.unwrap_err().to_string();
+        assert!(err.contains("whatsapp-web"));
+        assert!(!channel.health_check().await);
+        assert!(
+            channel
+                .start_typing("+1234567890")
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("whatsapp-web")
+        );
+        assert!(
+            channel
+                .stop_typing("+1234567890")
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("whatsapp-web")
+        );
+    }
+
     /// 测试通道名称标识
     ///
     /// 验证 `WhatsAppWebChannel::name()` 返回预期的标识符 "whatsapp"，
@@ -158,6 +192,38 @@ mod tests {
     fn whatsapp_web_normalize_phone_from_jid() {
         let ch = make_channel();
         assert_eq!(ch.normalize_phone("1234567890@s.whatsapp.net"), "+1234567890");
+    }
+
+    #[test]
+    #[cfg(feature = "whatsapp-web")]
+    fn whatsapp_web_normalize_phone_trims_and_strips_plus_from_jid_user() {
+        let ch = make_channel();
+        assert_eq!(ch.normalize_phone(" +1234567890@s.whatsapp.net "), "+1234567890");
+    }
+
+    #[test]
+    #[cfg(feature = "whatsapp-web")]
+    fn whatsapp_web_is_jid_detects_domain_suffix() {
+        assert!(WhatsAppWebChannel::is_jid("123@s.whatsapp.net"));
+        assert!(WhatsAppWebChannel::is_jid(" group@g.us "));
+        assert!(!WhatsAppWebChannel::is_jid("+1234567890"));
+    }
+
+    #[test]
+    #[cfg(feature = "whatsapp-web")]
+    fn whatsapp_web_recipient_to_jid_accepts_full_jid_and_phone_text() {
+        let ch = make_channel();
+
+        assert_eq!(
+            ch.recipient_to_jid("1234567890@s.whatsapp.net").unwrap().to_string(),
+            "1234567890@s.whatsapp.net"
+        );
+        assert_eq!(
+            ch.recipient_to_jid("+1 (234) 567-890").unwrap().to_string(),
+            "1234567890@s.whatsapp.net"
+        );
+        assert!(ch.recipient_to_jid("   ").is_err());
+        assert!(ch.recipient_to_jid("not a phone").is_err());
     }
 
     /// 测试 QR 码配对渲染：拒绝空载荷
@@ -308,5 +374,46 @@ mod tests {
         let (text, attachments) = parse_wa_attachment_markers(msg);
         assert_eq!(text, "Check [UNKNOWN:/foo] out");
         assert!(attachments.is_empty());
+    }
+
+    #[test]
+    #[cfg(feature = "whatsapp-web")]
+    fn parse_wa_markers_case_insensitive_and_trims_target() {
+        let (text, attachments) = parse_wa_attachment_markers("send [video: /tmp/movie.mp4 ] now");
+
+        assert_eq!(text, "send  now");
+        assert_eq!(attachments.len(), 1);
+        assert!(matches!(attachments[0].kind, WaAttachmentKind::Video));
+        assert_eq!(attachments[0].target, "/tmp/movie.mp4");
+    }
+
+    #[test]
+    #[cfg(feature = "whatsapp-web")]
+    fn parse_wa_markers_preserves_empty_target_and_unclosed_markers() {
+        let (text, attachments) = parse_wa_attachment_markers("a [IMAGE:   ] b [AUDIO:/tmp/a.ogg");
+
+        assert_eq!(text, "a [IMAGE:   ] b [AUDIO:/tmp/a.ogg");
+        assert!(attachments.is_empty());
+    }
+
+    #[test]
+    #[cfg(feature = "whatsapp-web")]
+    fn wa_attachment_kind_and_mime_mapping_cover_supported_media() {
+        assert!(matches!(WaAttachmentKind::from_marker("image"), Some(WaAttachmentKind::Image)));
+        assert!(matches!(
+            WaAttachmentKind::from_marker("DOCUMENT"),
+            Some(WaAttachmentKind::Document)
+        ));
+        assert!(matches!(WaAttachmentKind::from_marker("audio"), Some(WaAttachmentKind::Audio)));
+        assert!(WaAttachmentKind::from_marker("other").is_none());
+
+        assert_eq!(mime_from_path(std::path::Path::new("photo.JPG")), "image/jpeg");
+        assert_eq!(mime_from_path(std::path::Path::new("clip.mov")), "video/quicktime");
+        assert_eq!(mime_from_path(std::path::Path::new("sound.opus")), "audio/ogg");
+        assert_eq!(
+            mime_from_path(std::path::Path::new("sheet.xlsx")),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+        assert_eq!(mime_from_path(std::path::Path::new("unknown.bin")), "application/octet-stream");
     }
 }

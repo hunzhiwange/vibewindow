@@ -185,6 +185,30 @@ mod tests {
         assert_eq!(normalize_audio_filename("voice"), "voice");
     }
 
+    #[test]
+    fn normalize_audio_filename_only_rewrites_final_oga_extension() {
+        assert_eq!(normalize_audio_filename("archive.oga.backup"), "archive.oga.backup");
+        assert_eq!(normalize_audio_filename(".oga"), ".ogg");
+        assert_eq!(normalize_audio_filename("folder/clip.oga"), "folder/clip.ogg");
+    }
+
+    #[test]
+    fn mime_for_audio_accepts_mixed_case_compound_aliases() {
+        assert_eq!(mime_for_audio("MPGA"), Some("audio/mpeg"));
+        assert_eq!(mime_for_audio("M4A"), Some("audio/mp4"));
+        assert_eq!(mime_for_audio("OGA"), Some("audio/ogg"));
+    }
+
+    #[tokio::test]
+    async fn unsupported_format_is_checked_before_api_key_lookup() {
+        unsafe { std::env::set_var("GROQ_API_KEY", "test-key-that-should-not-be-used") };
+        let config = TranscriptionConfig::default();
+
+        let err = transcribe_audio(vec![0u8; 8], "clip.txt", &config).await.unwrap_err();
+
+        assert!(err.to_string().contains("Unsupported audio format"));
+    }
+
     /// 测试不支持的音频格式被正确拒绝
     ///
     /// # 测试场景

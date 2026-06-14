@@ -389,7 +389,7 @@ pub fn tool_plan_mode_view<'a>(
     let key = ((msg_idx as u64) << 32) | (tool_idx as u64);
     let is_hovered = app.chat_tool_hovered_idx == Some(key);
     let detail_btn = button(
-        icon_svg(Icon::Eye)
+        icon_svg(Icon::ChevronRight)
             .width(Length::Fixed(10.0))
             .height(Length::Fixed(10.0))
             .style(eye_icon_svg_style),

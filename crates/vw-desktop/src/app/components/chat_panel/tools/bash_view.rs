@@ -101,7 +101,7 @@ pub fn tool_bash_view<'a>(
         .unwrap_or_else(|| "查看详情".to_string());
 
     let detail_btn = button(
-        icon_svg(Icon::Eye)
+        icon_svg(Icon::ChevronRight)
             .width(Length::Fixed(10.0))
             .height(Length::Fixed(10.0))
             .style(eye_icon_svg_style),

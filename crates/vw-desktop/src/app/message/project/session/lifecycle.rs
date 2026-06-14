@@ -196,7 +196,7 @@ fn tool_part_message_content(part: &agent_message::ToolPart) -> String {
 ///
 /// 参数由调用方提供应用状态、用户输入或后台任务结果；返回值会交给上层消息循环继续处理。
 /// 变更范围限制在当前消息处理路径内，不引入额外的流程分支。
-pub(super) fn loaded_chat_from_gateway_messages(
+pub(crate) fn loaded_chat_from_gateway_messages(
     msgs: Vec<agent_message::WithParts>,
 ) -> (Vec<models::ChatMessage>, Vec<Option<String>>) {
     let mut chat = Vec::new();

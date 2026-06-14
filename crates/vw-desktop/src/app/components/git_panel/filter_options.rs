@@ -199,13 +199,11 @@ pub fn view(
         // 关闭按钮，点击后隐藏筛选选项面板
         container(
             button(
-                container(
-                    text("×").size(18).line_height(iced::widget::text::LineHeight::Relative(1.0))
-                )
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .align_x(iced::alignment::Horizontal::Center)
-                .align_y(iced::alignment::Vertical::Center)
+                container(icon_svg(Icon::X, 11.0))
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .align_x(iced::alignment::Horizontal::Center)
+                    .align_y(iced::alignment::Vertical::Center)
             )
             .padding(0)
             .width(Length::Fixed(28.0))

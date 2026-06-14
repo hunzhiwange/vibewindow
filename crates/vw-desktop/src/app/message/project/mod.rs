@@ -20,6 +20,7 @@ mod session;
 #[cfg(target_arch = "wasm32")]
 pub(crate) use helpers::refresh_file_index;
 pub(crate) use helpers::{prepare_session_ui_chunks_task, prepare_session_ui_task};
+pub(crate) use session::loaded_chat_from_gateway_messages;
 
 #[derive(Debug, Clone)]
 /// LoadedProjectInfo 保存该流程中跨函数传递的结构化数据。
@@ -31,6 +32,9 @@ pub struct LoadedProjectInfo {
     pub current_branch: Option<String>,
 }
 
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
 #[cfg(test)]
 mod tests;
 

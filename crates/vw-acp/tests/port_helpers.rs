@@ -56,36 +56,24 @@ fn read_output_suppression_detects_read_like_tools() {
 fn session_event_log_helpers_build_expected_paths() {
     let home_dir = PathBuf::from("/tmp/vwacp-home");
     let session_id = "session 1/中文";
+    let sessions_dir =
+        vw_config_types::paths::home_config_dir(&home_dir).join("acp").join("sessions");
+    let active_path = sessions_dir.join("session%201%2F%E4%B8%AD%E6%96%87.stream.ndjson");
 
     assert_eq!(safe_session_id(session_id), "session%201%2F%E4%B8%AD%E6%96%87");
-    assert_eq!(
-        session_base_dir(&home_dir),
-        PathBuf::from("/tmp/vwacp-home/.vibewindow/acp/sessions")
-    );
-    assert_eq!(
-        session_event_active_path(session_id, &home_dir),
-        PathBuf::from(
-            "/tmp/vwacp-home/.vibewindow/acp/sessions/session%201%2F%E4%B8%AD%E6%96%87.stream.ndjson"
-        )
-    );
+    assert_eq!(session_base_dir(&home_dir), sessions_dir.clone());
+    assert_eq!(session_event_active_path(session_id, &home_dir), active_path.clone());
     assert_eq!(
         session_event_segment_path(session_id, 2, &home_dir),
-        PathBuf::from(
-            "/tmp/vwacp-home/.vibewindow/acp/sessions/session%201%2F%E4%B8%AD%E6%96%87.stream.2.ndjson"
-        )
+        sessions_dir.join("session%201%2F%E4%B8%AD%E6%96%87.stream.2.ndjson")
     );
     assert_eq!(
         session_event_lock_path(session_id, &home_dir),
-        PathBuf::from(
-            "/tmp/vwacp-home/.vibewindow/acp/sessions/session%201%2F%E4%B8%AD%E6%96%87.stream.lock"
-        )
+        sessions_dir.join("session%201%2F%E4%B8%AD%E6%96%87.stream.lock")
     );
 
     let log = session_event_log(session_id, &home_dir);
-    assert_eq!(
-        log.active_path,
-        "/tmp/vwacp-home/.vibewindow/acp/sessions/session%201%2F%E4%B8%AD%E6%96%87.stream.ndjson"
-    );
+    assert_eq!(log.active_path, active_path.to_string_lossy());
     assert_eq!(log.segment_count, DEFAULT_EVENT_MAX_SEGMENTS);
     assert_eq!(log.max_segment_bytes, DEFAULT_EVENT_SEGMENT_MAX_BYTES);
     assert_eq!(log.max_segments, DEFAULT_EVENT_MAX_SEGMENTS);

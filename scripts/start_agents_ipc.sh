@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VIBE_DIR="/Users/xiongjiaojiao/.vibewindow"
+VIBE_DIR="${VIBEWINDOW_CONFIG_DIR:-${HOME}/.vibewindowdev}"
 BASE_CFG="${VIBE_DIR}/vibewindow.json"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -60,7 +60,7 @@ data = json.loads(cfg_path.read_text(encoding="utf-8"))
 agent = data.setdefault("agent", {})
 ipc = agent.setdefault("agents_ipc", {})
 ipc["enabled"] = True
-ipc.setdefault("db_path", "~/.vibewindow/agents.db")
+ipc.setdefault("db_path", "~/.vibewindowdev/agents.db")
 ipc.setdefault("staleness_secs", 300)
 
 cfg_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

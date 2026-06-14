@@ -18,6 +18,114 @@ use super::*;
 #[allow(dead_code)]
 mod tests {
     use super::*;
+    use crate::channels::traits::SendMessage;
+    use axum::{
+        Router,
+        body::Bytes,
+        extract::{OriginalUri, State},
+        http::{Method, StatusCode},
+    };
+    use std::{collections::VecDeque, sync::Arc};
+    use tokio::sync::{Mutex, oneshot};
+
+    #[derive(Clone, Debug)]
+    struct RecordedRequest {
+        method: Method,
+        path: String,
+        body: serde_json::Value,
+    }
+
+    #[derive(Clone, Debug)]
+    struct ResponseSpec {
+        status: StatusCode,
+        body: &'static str,
+    }
+
+    impl ResponseSpec {
+        fn ok(body: &'static str) -> Self {
+            Self { status: StatusCode::OK, body }
+        }
+
+        fn created() -> Self {
+            Self { status: StatusCode::CREATED, body: "" }
+        }
+    }
+
+    struct TestServerState {
+        requests: Mutex<Vec<RecordedRequest>>,
+        responses: Mutex<VecDeque<ResponseSpec>>,
+    }
+
+    struct TestServer {
+        base_url: String,
+        state: Arc<TestServerState>,
+        shutdown: Option<oneshot::Sender<()>>,
+    }
+
+    impl TestServer {
+        async fn spawn(responses: Vec<ResponseSpec>) -> Self {
+            let state = Arc::new(TestServerState {
+                requests: Mutex::new(Vec::new()),
+                responses: Mutex::new(VecDeque::from(responses)),
+            });
+            let app = Router::new().fallback(record_request).with_state(state.clone());
+            let listener =
+                tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.expect("bind test server");
+            let addr = listener.local_addr().expect("server addr");
+            let (shutdown_tx, shutdown_rx) = oneshot::channel();
+
+            tokio::spawn(async move {
+                axum::serve(listener, app)
+                    .with_graceful_shutdown(async {
+                        let _ = shutdown_rx.await;
+                    })
+                    .await
+                    .expect("serve test server");
+            });
+
+            Self { base_url: format!("http://{addr}"), state, shutdown: Some(shutdown_tx) }
+        }
+
+        async fn requests(&self) -> Vec<RecordedRequest> {
+            self.state.requests.lock().await.clone()
+        }
+    }
+
+    impl Drop for TestServer {
+        fn drop(&mut self) {
+            if let Some(shutdown) = self.shutdown.take() {
+                let _ = shutdown.send(());
+            }
+        }
+    }
+
+    async fn record_request(
+        State(state): State<Arc<TestServerState>>,
+        method: Method,
+        uri: OriginalUri,
+        body: Bytes,
+    ) -> (StatusCode, String) {
+        let parsed_body = if body.is_empty() {
+            serde_json::Value::Null
+        } else {
+            serde_json::from_slice(&body).unwrap_or_else(|_| {
+                serde_json::Value::String(String::from_utf8_lossy(&body).into_owned())
+            })
+        };
+        state.requests.lock().await.push(RecordedRequest {
+            method,
+            path: uri.path().to_string(),
+            body: parsed_body,
+        });
+
+        let response = state
+            .responses
+            .lock()
+            .await
+            .pop_front()
+            .unwrap_or_else(|| ResponseSpec::ok(r#"{"result":true}"#));
+        (response.status, response.body.to_string())
+    }
 
     /// 创建一个标准的 SignalChannel 实例用于测试
     ///
@@ -172,6 +280,145 @@ mod tests {
     fn name_returns_signal() {
         let ch = make_channel();
         assert_eq!(ch.name(), "signal");
+    }
+
+    #[tokio::test]
+    async fn rpc_request_returns_result_and_records_json_rpc_body() {
+        let server = TestServer::spawn(vec![ResponseSpec::ok(r#"{"result":{"ok":true}}"#)]).await;
+        let ch = SignalChannel::new(
+            server.base_url.clone(),
+            "+1234567890".to_string(),
+            None,
+            vec!["*".to_string()],
+            false,
+            false,
+        );
+
+        let result = ch
+            .rpc_request("send", serde_json::json!({"message": "hi"}))
+            .await
+            .expect("rpc request");
+
+        assert_eq!(result, Some(serde_json::json!({"ok": true})));
+        let requests = server.requests().await;
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, Method::POST);
+        assert_eq!(requests[0].path, "/api/v1/rpc");
+        assert_eq!(requests[0].body["jsonrpc"], "2.0");
+        assert_eq!(requests[0].body["method"], "send");
+        assert_eq!(requests[0].body["params"]["message"], "hi");
+        assert!(requests[0].body["id"].as_str().is_some());
+    }
+
+    #[tokio::test]
+    async fn rpc_request_treats_created_and_empty_body_as_none() {
+        let created_server = TestServer::spawn(vec![ResponseSpec::created()]).await;
+        let created_channel = SignalChannel::new(
+            created_server.base_url.clone(),
+            "+1234567890".to_string(),
+            None,
+            vec!["*".to_string()],
+            false,
+            false,
+        );
+        assert_eq!(
+            created_channel.rpc_request("sendTyping", serde_json::json!({})).await.unwrap(),
+            None
+        );
+
+        let empty_server = TestServer::spawn(vec![ResponseSpec::ok("")]).await;
+        let empty_channel = SignalChannel::new(
+            empty_server.base_url.clone(),
+            "+1234567890".to_string(),
+            None,
+            vec!["*".to_string()],
+            false,
+            false,
+        );
+        assert_eq!(empty_channel.rpc_request("send", serde_json::json!({})).await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn rpc_request_reports_signal_rpc_error() {
+        let server = TestServer::spawn(vec![ResponseSpec::ok(
+            r#"{"error":{"code":-32602,"message":"bad params"}}"#,
+        )])
+        .await;
+        let ch = SignalChannel::new(
+            server.base_url.clone(),
+            "+1234567890".to_string(),
+            None,
+            vec!["*".to_string()],
+            false,
+            false,
+        );
+
+        let error = ch
+            .rpc_request("send", serde_json::json!({}))
+            .await
+            .expect_err("rpc error should fail")
+            .to_string();
+
+        assert!(error.contains("Signal RPC error -32602: bad params"));
+    }
+
+    #[tokio::test]
+    async fn send_and_start_typing_build_direct_and_group_params() {
+        let server = TestServer::spawn(vec![
+            ResponseSpec::ok(r#"{"result":true}"#),
+            ResponseSpec::created(),
+        ])
+        .await;
+        let ch = SignalChannel::new(
+            server.base_url.clone(),
+            "+1234567890".to_string(),
+            None,
+            vec!["*".to_string()],
+            false,
+            false,
+        );
+
+        ch.send(&SendMessage::new("hello", "+1111111111")).await.expect("send direct");
+        ch.start_typing("group:group-1").await.expect("typing group");
+
+        let requests = server.requests().await;
+        assert_eq!(requests.len(), 2);
+        assert_eq!(requests[0].body["method"], "send");
+        assert_eq!(requests[0].body["params"]["recipient"], serde_json::json!(["+1111111111"]));
+        assert_eq!(requests[0].body["params"]["account"], "+1234567890");
+        assert_eq!(requests[1].body["method"], "sendTyping");
+        assert_eq!(requests[1].body["params"]["groupId"], "group-1");
+    }
+
+    #[tokio::test]
+    async fn health_check_reflects_http_status_and_stop_typing_is_noop() {
+        let ok_server = TestServer::spawn(vec![ResponseSpec::ok("ok")]).await;
+        let ok_channel = SignalChannel::new(
+            ok_server.base_url.clone(),
+            "+1234567890".to_string(),
+            None,
+            vec!["*".to_string()],
+            false,
+            false,
+        );
+        assert!(ok_channel.health_check().await);
+        assert_eq!(ok_server.requests().await[0].path, "/api/v1/check");
+        ok_channel.stop_typing("+1111111111").await.expect("stop typing");
+
+        let bad_server = TestServer::spawn(vec![ResponseSpec {
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            body: "down",
+        }])
+        .await;
+        let bad_channel = SignalChannel::new(
+            bad_server.base_url.clone(),
+            "+1234567890".to_string(),
+            None,
+            vec!["*".to_string()],
+            false,
+            false,
+        );
+        assert!(!bad_channel.health_check().await);
     }
 
     /// 测试无群组 ID 时接受所有消息

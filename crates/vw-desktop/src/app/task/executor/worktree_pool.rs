@@ -66,7 +66,7 @@ pub(super) fn now_ms() -> u64 {
 /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
 pub(super) fn worktree_pool_root(repo_root: &str) -> PathBuf {
     let home = super::programs::user_home_dir().unwrap_or_else(|| PathBuf::from(repo_root));
-    home.join(".vibewindow").join("task-worktrees")
+    vw_config_types::paths::home_config_dir(home).join("task-worktrees")
 }
 
 /// 模块内部可见的 is_managed_worktree_path 函数。

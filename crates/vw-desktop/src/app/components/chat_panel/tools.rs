@@ -69,6 +69,7 @@ mod tool_permission;
 mod tool_renderer;
 mod types;
 mod web_view;
+mod workflow_view;
 
 #[cfg(test)]
 mod advanced_view_tests;
@@ -92,6 +93,8 @@ mod lsp_view_tests;
 mod plan_mode_view_tests;
 #[cfg(test)]
 mod read_view_tests;
+#[cfg(test)]
+mod skill_view_tests;
 #[cfg(test)]
 mod text_view_tests;
 #[cfg(test)]
@@ -142,6 +145,7 @@ pub(crate) use tool_renderer::render_shared_tool_view;
 #[cfg(test)]
 pub(crate) use tool_renderer::{SharedToolRenderKind, shared_tool_render_kind};
 pub use web_view::tool_web_view;
+pub use workflow_view::tool_workflow_view;
 
 // 工具解析功能重导出
 pub use super::tool_names::canonical_tool_name;

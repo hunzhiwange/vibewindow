@@ -50,19 +50,6 @@ fn cache_path() -> PathBuf {
 /// - 带 `data` 字段的对象
 /// - `Vec<Provider>` 数组
 fn parse_models_text(label: &str, text: &str) -> Option<HashMap<String, Provider>> {
-    match serde_json::from_str::<HashMap<String, Provider>>(text) {
-        Ok(json) => {
-            info!(providers = json.len(), "{label}_parsed");
-            return Some(json);
-        }
-        Err(err) => {
-            info!(
-                error = %err,
-                "{label}_parse_failed"
-            );
-        }
-    }
-
     let value = match serde_json::from_str::<Value>(text) {
         Ok(v) => v,
         Err(err) => {
@@ -97,6 +84,19 @@ fn parse_models_text(label: &str, text: &str) -> Option<HashMap<String, Provider
             {
                 info!(providers = json.len(), "{label}_parsed_data");
                 return Some(json);
+            }
+
+            match serde_json::from_value::<HashMap<String, Provider>>(value.clone()) {
+                Ok(json) => {
+                    info!(providers = json.len(), "{label}_parsed");
+                    return Some(json);
+                }
+                Err(err) => {
+                    info!(
+                        error = %err,
+                        "{label}_parse_failed"
+                    );
+                }
             }
         }
         Value::Array(arr) => {
@@ -188,17 +188,20 @@ pub async fn refresh() {
         return;
     }
 
-    let path = cache_path();
+    refresh_from_url(cache_path(), format!("{}/api.json", url())).await;
+}
 
+#[cfg(not(target_arch = "wasm32"))]
+async fn refresh_from_url(path: PathBuf, api_url: String) {
     info!(
         path = %path.to_string_lossy(),
-        url = format!("{}/api.json", url()),
+        url = api_url,
         "refresh"
     );
 
     let client = reqwest::Client::new();
     let resp = client
-        .get(format!("{}/api.json", url()))
+        .get(api_url)
         .header("User-Agent", installation::user_agent())
         .timeout(Duration::from_secs(10))
         .send()

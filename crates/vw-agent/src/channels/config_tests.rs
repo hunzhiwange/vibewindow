@@ -1,9 +1,9 @@
 use crate::app::agent::config::Config;
 
 use super::{
-    channel_message_timeout_budget_secs, effective_channel_message_timeout_secs,
-    resolved_default_model, resolved_default_provider, runtime_autonomy_policy_from_config,
-    runtime_config_store, runtime_defaults_from_config,
+    channel_message_timeout_budget_secs, config_file_stamp, effective_channel_message_timeout_secs,
+    load_runtime_defaults_from_config_file, resolved_default_model, resolved_default_provider,
+    runtime_autonomy_policy_from_config, runtime_config_store, runtime_defaults_from_config,
 };
 
 #[test]
@@ -37,4 +37,57 @@ fn runtime_defaults_preserve_configured_values() {
     let policy = runtime_autonomy_policy_from_config(&config);
     assert_eq!(policy.auto_approve, config.autonomy.auto_approve);
     let _guard = runtime_config_store().lock().unwrap_or_else(|e| e.into_inner());
+}
+
+#[test]
+fn runtime_defaults_use_builtin_provider_and_model_when_unset() {
+    let config = Config::default();
+
+    assert_eq!(resolved_default_provider(&config), "openrouter");
+    assert_eq!(resolved_default_model(&config), "zhipuai-coding-plan/glm-5");
+
+    let defaults = runtime_defaults_from_config(&config);
+    assert_eq!(defaults.default_provider, "openrouter");
+    assert_eq!(defaults.model, "zhipuai-coding-plan/glm-5");
+    assert_eq!(defaults.temperature, config.default_temperature);
+}
+
+#[test]
+fn timeout_budget_saturates_on_large_values() {
+    assert_eq!(channel_message_timeout_budget_secs(u64::MAX, usize::MAX), u64::MAX);
+}
+
+#[tokio::test]
+async fn config_file_stamp_reports_existing_files_only() {
+    let dir = tempfile::tempdir().unwrap();
+    let missing = dir.path().join("missing.toml");
+    assert!(config_file_stamp(&missing).await.is_none());
+
+    let path = dir.path().join("vibewindow.toml");
+    tokio::fs::write(&path, "default_provider = \"provider-a\"\n").await.unwrap();
+    let stamp = config_file_stamp(&path).await.unwrap();
+    assert!(stamp.len > 0);
+}
+
+#[tokio::test]
+async fn load_runtime_defaults_reports_read_and_parse_errors() {
+    let dir = tempfile::tempdir().unwrap();
+    let missing = dir.path().join("missing.toml");
+    assert!(
+        load_runtime_defaults_from_config_file(&missing)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read")
+    );
+
+    let invalid = dir.path().join("invalid.toml");
+    tokio::fs::write(&invalid, "default_provider = [").await.unwrap();
+    assert!(
+        load_runtime_defaults_from_config_file(&invalid)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to parse")
+    );
 }

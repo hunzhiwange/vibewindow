@@ -62,9 +62,26 @@ export RUSTUP_HOME="${RUSTUP_HOME:-$ORIGINAL_HOME/.rustup}"
 export HOME="${TEST_HOME:-$REPO_ROOT/target/test-home}"
 export RUST_TEST_THREADS="${RUST_TEST_THREADS:-1}"
 
-CMD=(cargo llvm-cov --all-features --lib --bins --html --output-dir "$OUTPUT_DIR")
 if [[ -n "$PACKAGE" ]]; then
-    CMD=(cargo llvm-cov -p "$PACKAGE" --all-features --lib --bins --html --output-dir "$OUTPUT_DIR")
+    TARGET_ARGS=(--bins)
+    PACKAGE_MANIFEST="$(
+        cargo metadata --no-deps --format-version=1 \
+            | PACKAGE="$PACKAGE" perl -0ne '
+                my $package = quotemeta($ENV{"PACKAGE"});
+                if (/"name":"$package".*?"manifest_path":"([^"]+)"/s) {
+                    my $path = $1;
+                    $path =~ s#\\\\/#/#g;
+                    print $path;
+                }
+            '
+    )"
+    if [[ -n "$PACKAGE_MANIFEST" ]]; then
+        PACKAGE_DIR="$(cd "$(dirname "$PACKAGE_MANIFEST")" && pwd)"
+        if [[ -f "$PACKAGE_DIR/src/lib.rs" ]] || grep -Eq '^[[:space:]]*\[lib\][[:space:]]*$' "$PACKAGE_MANIFEST"; then
+            TARGET_ARGS=(--lib --bins)
+        fi
+    fi
+    CMD=(cargo llvm-cov -p "$PACKAGE" --all-features "${TARGET_ARGS[@]}" --html --output-dir "$OUTPUT_DIR")
 else
     CMD=(cargo llvm-cov --workspace --all-features --lib --bins --html --output-dir "$OUTPUT_DIR")
 fi

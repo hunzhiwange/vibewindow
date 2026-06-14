@@ -1,14 +1,13 @@
 //! read、glob、grep 等通用文件视图布局。
 
-use iced::widget::svg;
 use iced::widget::{Space, button, container, row, scrollable, text, text_input};
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
 use crate::app::assets::Icon;
 use crate::app::components::chat_panel::utils::{
     chat_context_menu, chat_context_target_key, chat_scroll_direction,
-    chat_secondary_muted_text_color, eye_icon_button_style, icon_svg, simplified_block_style,
-    simplified_code_block_style, truncate_chars, truncate_lines_middle,
+    chat_secondary_muted_text_color, eye_icon_button_style, eye_icon_svg_style, icon_svg,
+    simplified_block_style, simplified_code_block_style, truncate_chars, truncate_lines_middle,
 };
 use crate::app::components::overlays::PointBelowOverlay;
 use crate::app::components::widgets::RightClickArea;
@@ -74,29 +73,19 @@ pub(crate) fn build_common_tool_view<'a>(
         tool_header_label(&view_ctx.tool_name)
     };
 
-    let detail_btn =
-        button(icon_svg(Icon::Eye).width(Length::Fixed(10.0)).height(Length::Fixed(10.0)).style(
-            |theme: &Theme, _status| {
-                let is_dark = theme.palette().background.r
-                    + theme.palette().background.g
-                    + theme.palette().background.b
-                    < 1.5;
-                svg::Style {
-                    color: Some(if is_dark {
-                        theme.palette().text.scale_alpha(0.92)
-                    } else {
-                        theme.extended_palette().secondary.base.text.scale_alpha(0.90)
-                    }),
-                }
-            },
-        ))
-        .padding([2, 4])
-        .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
-        .on_press(Message::Chat(message::ChatMessage::OpenToolDetail(
-            view_ctx.msg_idx,
-            view_ctx.tool_idx,
-            view_ctx.visible.to_string(),
-        )));
+    let detail_btn = button(
+        icon_svg(Icon::ChevronRight)
+            .width(Length::Fixed(10.0))
+            .height(Length::Fixed(10.0))
+            .style(eye_icon_svg_style),
+    )
+    .padding([2, 4])
+    .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
+    .on_press(Message::Chat(message::ChatMessage::OpenToolDetail(
+        view_ctx.msg_idx,
+        view_ctx.tool_idx,
+        view_ctx.visible.to_string(),
+    )));
 
     let mut title_row = row![tool_header_title(&view_ctx.tool_name, title, view_ctx.is_error)]
         .spacing(10)

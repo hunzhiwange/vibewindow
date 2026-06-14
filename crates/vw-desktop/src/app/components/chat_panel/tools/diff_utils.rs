@@ -70,7 +70,7 @@ pub fn parse_apply_patch_summary(output: &str) -> Vec<(char, String)> {
         }
         let kind = l.chars().next().unwrap_or('\0');
         if !matches!(kind, 'A' | 'M' | 'D') {
-            continue;
+            return Vec::new();
         }
         let rest = l.get(1..).unwrap_or("").trim();
         if !is_likely_file_path(rest) {

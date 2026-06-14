@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// 网关服务配置（`[gateway]` 配置段）。
 ///
-/// 用于控制 webhook 与配对端点所使用的 HTTP 网关。
+/// 用于控制 webhook、REST API 与可选 skey 鉴权所使用的 HTTP 网关。
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct GatewayConfig {
     /// 网关监听端口，默认值为 `42617`。
@@ -12,18 +12,26 @@ pub struct GatewayConfig {
     /// 网关监听主机，默认值为 `127.0.0.1`。
     #[serde(default = "default_gateway_host")]
     pub host: String,
-    /// 是否在接受请求前要求先完成配对，默认值为 `true`。
-    #[serde(default = "default_true")]
-    pub require_pairing: bool,
+    /// 是否在接受受保护请求前要求 `Authorization: Bearer <skey>`，默认关闭。
+    #[serde(default)]
+    pub auth_enabled: bool,
     /// 是否允许在未使用隧道时绑定到非 localhost 地址，默认值为 `false`。
     #[serde(default)]
     pub allow_public_bind: bool,
-    /// 已配对的 bearer token 列表，由系统自动管理，不建议手工编辑。
+    /// 服务端网关 skey 列表。原始 skey 只作为输入字段使用，保存时不会写入配置。
+    #[serde(default)]
+    pub skeys: Vec<GatewaySkey>,
+
+    /// 旧版 pairing 开关，仅用于读取旧配置，不再作为运行时鉴权依据。
+    #[serde(default, skip_serializing)]
+    pub require_pairing: bool,
+    /// 旧版 paired bearer token，用于兼容 `/pair` 流程并在保存时加密持久化。
     #[serde(default)]
     pub paired_tokens: Vec<String>,
 
-    /// 每个客户端键每分钟允许的 `/pair` 请求上限。
+    /// 旧版 `/pair` 限流配置，仅用于读取旧配置。
     #[serde(default = "default_pair_rate_limit")]
+    #[serde(skip_serializing)]
     pub pair_rate_limit_per_minute: u32,
 
     /// 每个客户端键每分钟允许的 `/webhook` 请求上限。
@@ -52,6 +60,36 @@ pub struct GatewayConfig {
     pub node_control: NodeControlConfig,
 }
 
+/// 服务端网关 skey 条目。
+///
+/// `skey` 是一次性输入字段，保存配置时会跳过；运行时只使用 `skey_hash`。
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub struct GatewaySkey {
+    /// 是否启用该 skey。旧配置缺省时按启用处理。
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// 一次性原始 skey 输入。该字段不会被序列化到配置文件。
+    #[serde(default, skip_serializing)]
+    pub skey: Option<String>,
+
+    /// skey 的 SHA-256 哈希值（小写十六进制）。
+    #[serde(default)]
+    pub skey_hash: String,
+
+    /// skey 的脱敏展示值，例如 `sk-4234324234324***************111111111`。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub masked_skey: String,
+
+    /// 展示名称，用于在管理界面识别该 skey。
+    #[serde(default)]
+    pub name: String,
+
+    /// 可选过期时间，RFC3339 格式，例如 `2026-12-31T23:59:59Z`。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+}
+
 /// `[gateway.node_control]` 下的 Node-control 脚手架配置。
 #[derive(Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
 pub struct NodeControlConfig {
@@ -78,6 +116,10 @@ fn default_gateway_host() -> String {
     "127.0.0.1".into()
 }
 
+fn default_true() -> bool {
+    true
+}
+
 fn default_pair_rate_limit() -> u32 {
     10
 }
@@ -98,17 +140,15 @@ fn default_gateway_idempotency_max_keys() -> usize {
     10_000
 }
 
-fn default_true() -> bool {
-    true
-}
-
 impl Default for GatewayConfig {
     fn default() -> Self {
         Self {
             port: default_gateway_port(),
             host: default_gateway_host(),
-            require_pairing: true,
+            auth_enabled: false,
             allow_public_bind: false,
+            skeys: Vec::new(),
+            require_pairing: false,
             paired_tokens: Vec::new(),
             pair_rate_limit_per_minute: default_pair_rate_limit(),
             webhook_rate_limit_per_minute: default_webhook_rate_limit(),

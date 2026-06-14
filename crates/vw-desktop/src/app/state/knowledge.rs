@@ -1,7 +1,7 @@
 use iced::widget::text_editor;
 use vw_gateway_client::{
-    KnowledgeChunkDto, KnowledgeDatasetDto, KnowledgeDocumentDto, KnowledgeIndexingMode,
-    KnowledgeRetrievalMode, KnowledgeRuntimeStatus,
+    KnowledgeChunkDto, KnowledgeChunkingMode, KnowledgeDatasetDto, KnowledgeDocumentDto,
+    KnowledgeIndexingMode, KnowledgeRetrievalMode, KnowledgeRuntimeStatus,
 };
 
 /// 知识库详情页签。
@@ -38,12 +38,22 @@ pub struct KnowledgeUiState {
     pub(crate) document_search_query: String,
     pub(crate) dataset_name_input: String,
     pub(crate) dataset_description_input: String,
+    pub(crate) dataset_chunking_mode: KnowledgeChunkingMode,
     pub(crate) dataset_indexing_mode: KnowledgeIndexingMode,
     pub(crate) dataset_retrieval_mode: KnowledgeRetrievalMode,
+    pub(crate) dataset_keyword_count_input: String,
+    pub(crate) dataset_embedding_model_input: String,
+    pub(crate) dataset_top_k_input: String,
+    pub(crate) dataset_score_threshold_enabled: bool,
+    pub(crate) dataset_score_threshold_input: String,
+    pub(crate) dataset_rerank_enabled: bool,
+    pub(crate) dataset_rerank_model_input: String,
     pub(crate) document_name_input: String,
     pub(crate) document_content_editor: text_editor::Content,
     pub(crate) retrieve_query_input: String,
     pub(crate) retrieve_top_k_input: String,
+    pub(crate) retrieve_score_threshold_enabled: bool,
+    pub(crate) retrieve_score_threshold_input: String,
     pub(crate) loading_status: bool,
     pub(crate) loading_datasets: bool,
     pub(crate) loading_documents: bool,
@@ -68,12 +78,22 @@ impl Default for KnowledgeUiState {
             document_search_query: String::new(),
             dataset_name_input: String::new(),
             dataset_description_input: String::new(),
+            dataset_chunking_mode: KnowledgeChunkingMode::General,
             dataset_indexing_mode: KnowledgeIndexingMode::Economy,
             dataset_retrieval_mode: KnowledgeRetrievalMode::FullText,
+            dataset_keyword_count_input: "10".to_string(),
+            dataset_embedding_model_input: String::new(),
+            dataset_top_k_input: "10".to_string(),
+            dataset_score_threshold_enabled: false,
+            dataset_score_threshold_input: "0.15".to_string(),
+            dataset_rerank_enabled: false,
+            dataset_rerank_model_input: String::new(),
             document_name_input: String::new(),
             document_content_editor: text_editor::Content::new(),
             retrieve_query_input: String::new(),
             retrieve_top_k_input: "10".to_string(),
+            retrieve_score_threshold_enabled: false,
+            retrieve_score_threshold_input: "0.15".to_string(),
             loading_status: false,
             loading_datasets: false,
             loading_documents: false,
@@ -111,4 +131,25 @@ impl KnowledgeUiState {
         }
         self.selected_dataset_id = self.datasets.first().map(|dataset| dataset.id.clone());
     }
+
+    pub(crate) fn sync_retrieve_defaults_from_selected_dataset(&mut self) {
+        let Some(dataset) = self.selected_dataset().cloned() else {
+            return;
+        };
+        self.retrieve_top_k_input = dataset.top_k.clamp(1, 50).to_string();
+        self.retrieve_score_threshold_enabled = dataset.score_threshold_enabled;
+        self.retrieve_score_threshold_input =
+            format_score_threshold(dataset.score_threshold.clamp(0.0, 1.0));
+    }
+}
+
+fn format_score_threshold(value: f64) -> String {
+    let mut formatted = format!("{value:.2}");
+    while formatted.contains('.') && formatted.ends_with('0') {
+        formatted.pop();
+    }
+    if formatted.ends_with('.') {
+        formatted.push('0');
+    }
+    formatted
 }

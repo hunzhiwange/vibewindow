@@ -1,4 +1,6 @@
+use super::*;
+
 #[test]
-fn data_router_test_module_is_loaded() {
-    assert!(true);
+fn data_router_builds_all_routes() {
+    let _router: Router<AppState> = router();
 }

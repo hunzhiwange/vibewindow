@@ -424,3 +424,7 @@ fn validate_report_upsert(body: &AiDataReportUpsertBody) -> Result<(), ApiError>
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "data_handlers_tests.rs"]
+mod data_handlers_tests;

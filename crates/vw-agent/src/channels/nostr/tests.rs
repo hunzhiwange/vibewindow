@@ -225,4 +225,16 @@ mod tests {
             assert_eq!(map.get(&pk), Some(&NostrProtocol::Nip17));
         }
     }
+
+    /// 测试发送消息时在任何网络调用前拒绝无效收件人公钥。
+    #[tokio::test]
+    async fn send_rejects_invalid_recipient_pubkey() {
+        let keys = Keys::generate();
+        let ch = NostrChannel::new(&keys.secret_key().to_secret_hex(), vec![], &[]).await.unwrap();
+        let message = SendMessage::new("hello", "not-a-valid-pubkey");
+
+        let err = ch.send(&message).await.expect_err("invalid recipient should fail");
+
+        assert!(err.to_string().contains("无效的接收者 Nostr 公钥"));
+    }
 }

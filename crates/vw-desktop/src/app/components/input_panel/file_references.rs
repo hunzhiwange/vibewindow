@@ -28,7 +28,7 @@ use crate::app::assets::{self, Icon};
 ///
 /// 表示文件引用中的不同位置精度级别，从单行到精确的行列范围。
 #[derive(Debug, Clone, Copy)]
-enum FileReferenceLocation {
+pub(super) enum FileReferenceLocation {
     /// 单行位置，如 `file.rs:10`
     Line { line: usize },
     /// 行列位置，如 `file.rs:10:5`
@@ -43,11 +43,11 @@ enum FileReferenceLocation {
 ///
 /// 包含文件路径和可选的位置信息。
 #[derive(Debug, Clone)]
-struct ParsedFileReference {
+pub(super) struct ParsedFileReference {
     /// 文件路径（不含位置后缀）
-    path: String,
+    pub(super) path: String,
     /// 可选的位置信息
-    location: Option<FileReferenceLocation>,
+    pub(super) location: Option<FileReferenceLocation>,
 }
 
 /// 解析文件引用字符串
@@ -66,7 +66,7 @@ struct ParsedFileReference {
 /// # 返回值
 ///
 /// 返回解析后的 [`ParsedFileReference`]，即使解析失败也会返回路径部分
-fn parse_file_reference(reference: &str) -> ParsedFileReference {
+pub(super) fn parse_file_reference(reference: &str) -> ParsedFileReference {
     /// 解析数字字符串为 usize
     ///
     /// 空字符串返回 None，否则尝试解析
@@ -148,7 +148,7 @@ fn parse_file_reference(reference: &str) -> ParsedFileReference {
 /// # 返回值
 ///
 /// 返回格式化的中文位置描述字符串
-fn format_reference_location(location: FileReferenceLocation) -> String {
+pub(super) fn format_reference_location(location: FileReferenceLocation) -> String {
     match location {
         FileReferenceLocation::Line { line } => format!("第 {} 行", line),
         FileReferenceLocation::LineColumn { line, column } => {
@@ -178,7 +178,7 @@ fn format_reference_location(location: FileReferenceLocation) -> String {
 /// # 返回值
 ///
 /// 返回紧凑格式的位置字符串
-fn format_reference_location_compact(location: FileReferenceLocation) -> String {
+pub(super) fn format_reference_location_compact(location: FileReferenceLocation) -> String {
     match location {
         FileReferenceLocation::Line { line } => line.to_string(),
         FileReferenceLocation::LineColumn { line, column } => format!("{}:{}", line, column),
@@ -202,7 +202,7 @@ fn format_reference_location_compact(location: FileReferenceLocation) -> String 
 /// # 返回值
 ///
 /// 返回配置好的容器样式
-fn tooltip_dark_style(_theme: &Theme) -> iced::widget::container::Style {
+pub(super) fn tooltip_dark_style(_theme: &Theme) -> iced::widget::container::Style {
     iced::widget::container::Style {
         // 深色半透明背景
         background: Some(Background::Color(Color::from_rgba8(24, 24, 24, 0.96))),
@@ -232,7 +232,7 @@ fn tooltip_dark_style(_theme: &Theme) -> iced::widget::container::Style {
 /// # 返回值
 ///
 /// 返回配置好的容器样式
-fn file_reference_style(theme: &Theme, is_hovered: bool) -> iced::widget::container::Style {
+pub(super) fn file_reference_style(theme: &Theme, is_hovered: bool) -> iced::widget::container::Style {
     let p = theme.extended_palette();
     // 悬停时背景更不透明
     let bg = if is_hovered {
@@ -269,7 +269,7 @@ fn file_reference_style(theme: &Theme, is_hovered: bool) -> iced::widget::contai
 /// # 返回值
 ///
 /// 返回渲染好的 Element 组件
-fn file_reference_card<'a>(file_path: String, is_hovered: bool) -> Element<'a, Message> {
+pub(super) fn file_reference_card<'a>(file_path: String, is_hovered: bool) -> Element<'a, Message> {
     let icon = Icon::FileText;
     let file_path_for_display = file_path.clone();
     let file_path_for_delete = file_path;

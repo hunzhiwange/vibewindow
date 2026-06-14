@@ -100,21 +100,50 @@ fn extract_global_flags_ignores_invalid_optional_values() {
         "vwacp",
         "--auth-policy",
         "unknown",
+        "--non-interactive-permissions",
+        "unknown",
         "--format",
         "xml",
         "--timeout",
+        "not-a-number",
+        "--ttl",
         "not-a-number",
         "--allowed-tools",
         " ",
         "--max-turns",
         "0",
+        "--prompt-retries",
+        "not-a-number",
     ]);
 
     let flags = extract_global_flags(&matches);
 
     assert_eq!(flags.auth_policy, None);
+    assert_eq!(flags.non_interactive_permissions, None);
     assert_eq!(flags.format, None);
     assert_eq!(flags.timeout, None);
+    assert_eq!(flags.ttl, None);
     assert_eq!(flags.allowed_tools, None);
     assert_eq!(flags.max_turns, None);
+    assert_eq!(flags.prompt_retries, None);
+}
+
+#[test]
+fn extract_global_flags_uses_empty_defaults() {
+    let matches = command().get_matches_from(["vwacp"]);
+
+    let flags = extract_global_flags(&matches);
+
+    assert_eq!(flags, GlobalFlagOptions::default());
+}
+
+#[test]
+fn extract_global_flags_preserves_permission_switches() {
+    let matches = command().get_matches_from(["vwacp", "--approve-all", "--deny-all"]);
+
+    let flags = extract_global_flags(&matches);
+
+    assert!(flags.approve_all);
+    assert!(!flags.approve_reads);
+    assert!(flags.deny_all);
 }

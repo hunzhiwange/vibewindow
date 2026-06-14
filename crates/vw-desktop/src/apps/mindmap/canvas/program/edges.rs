@@ -303,7 +303,7 @@ fn draw_bracket_group(
     }
 }
 
-fn edge_endpoints(
+pub(super) fn edge_endpoints(
     canvas: &MindMapCanvas<'_>,
     edge: &crate::apps::mindmap::canvas::layout::EdgeLayout,
     a: &crate::apps::mindmap::canvas::layout::NodeLayout,
@@ -395,7 +395,7 @@ fn edge_endpoints(
     }
 }
 
-fn edge_path(
+pub(super) fn edge_path(
     canvas: &MindMapCanvas<'_>,
     edge: &crate::apps::mindmap::canvas::layout::EdgeLayout,
     start: Point,
@@ -486,7 +486,7 @@ fn edge_path(
     })
 }
 
-fn edge_color(
+pub(super) fn edge_color(
     canvas: &MindMapCanvas<'_>,
     current_theme: &ThemeView<'_>,
     path: &[usize],
@@ -503,7 +503,12 @@ fn edge_color(
     })
 }
 
-fn edge_stroke(style: EdgeStyle, color: Color, width: f32, zoom: f32) -> Stroke<'static> {
+pub(super) fn edge_stroke(
+    style: EdgeStyle,
+    color: Color,
+    width: f32,
+    zoom: f32,
+) -> Stroke<'static> {
     let mut stroke = Stroke { style: color.into(), width, ..Stroke::default() };
     let dash_segments = dash_segments_px(style, zoom);
     if let Some(segments) = dash_segments.as_ref() {

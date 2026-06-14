@@ -101,9 +101,10 @@ pub fn with_settings_help_modal<'a>(
     app: &App,
     base: Element<'a, Message>,
     title: &'a str,
-    help_text: &'a str,
+    help_text: impl Into<String>,
     close_message: Message,
 ) -> Element<'a, Message> {
+    let help_text = help_text.into();
     let close_btn = settings_close_button(close_message.clone());
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     help_text.hash(&mut hasher);
@@ -111,7 +112,7 @@ pub fn with_settings_help_modal<'a>(
     let help_copied = app.last_copied_code_hash == Some(help_text_hash);
     let copy_icon = if help_copied { Icon::Check } else { Icon::Copy };
     let copy_tip = if help_copied { "已复制" } else { "复制帮助" };
-    let copy_btn = icon_btn(copy_icon, copy_tip, Some(Message::CopyCode(help_text.to_string())));
+    let copy_btn = icon_btn(copy_icon, copy_tip, Some(Message::CopyCode(help_text.clone())));
     let header = row![text(title).size(16), Space::new().width(Length::Fill), copy_btn, close_btn,]
         .spacing(10)
         .align_y(Alignment::Center);

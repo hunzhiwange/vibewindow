@@ -30,7 +30,7 @@ pub fn safe_session_id(session_id: &str) -> String {
 }
 
 pub fn session_base_dir(home_dir: impl AsRef<Path>) -> PathBuf {
-    home_dir.as_ref().join(".vibewindow").join("acp").join("sessions")
+    vw_config_types::paths::home_config_dir(home_dir).join("acp").join("sessions")
 }
 
 pub fn default_session_base_dir() -> Option<PathBuf> {

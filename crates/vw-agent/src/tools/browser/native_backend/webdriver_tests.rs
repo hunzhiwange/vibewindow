@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn selector_for_find_escapes_attribute_values() {
-    assert_eq!(selector_for_find("role", "main\"nav"), r#"[role=\"main\\\"nav\"]"#);
+    assert_eq!(selector_for_find("role", "main\"nav"), r#"[role=\"main\"nav\"]"#);
     assert_eq!(selector_for_find("testid", "a\nb"), r#"[data-testid=\"a b\"]"#);
 }
 

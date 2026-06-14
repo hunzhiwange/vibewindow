@@ -164,3 +164,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     col.into()
 }
+#[cfg(test)]
+#[path = "system_settings_dialogue_flow_tests.rs"]
+mod system_settings_dialogue_flow_tests;

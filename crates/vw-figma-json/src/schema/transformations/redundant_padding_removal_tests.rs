@@ -160,6 +160,15 @@ fn test_handles_empty_object() {
 }
 
 #[test]
+fn test_handles_primitive_value() {
+    let mut tree = json!("padding");
+
+    remove_redundant_padding(&mut tree).unwrap();
+
+    assert_eq!(tree.as_str(), Some("padding"));
+}
+
+#[test]
 fn test_preserves_other_fields() {
     let mut tree = json!({
         "name": "Button",

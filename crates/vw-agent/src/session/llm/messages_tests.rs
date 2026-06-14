@@ -1,5 +1,306 @@
+use super::super::types::{AgentInfo, StreamInput};
+use super::*;
+
+use crate::app::agent::permission::next;
+use crate::app::agent::provider::provider;
+use crate::app::agent::session::message;
+use crate::app::agent::tools::ToolSpec;
+use serde_json::{Value, json};
+use std::collections::HashMap;
+
+fn test_model(provider_id: &str, api_id: &str, adapter: &str) -> provider::Model {
+    serde_json::from_value(json!({
+        "id": api_id,
+        "providerID": provider_id,
+        "api": {
+            "id": api_id,
+            "url": "http://localhost",
+            "adapter": adapter
+        },
+        "name": api_id,
+        "family": null,
+        "capabilities": {
+            "temperature": true,
+            "reasoning": true,
+            "attachment": false,
+            "toolcall": true,
+            "input": {
+                "text": true,
+                "audio": false,
+                "image": false,
+                "video": false,
+                "pdf": false
+            },
+            "output": {
+                "text": true,
+                "audio": false,
+                "image": false,
+                "video": false,
+                "pdf": false
+            },
+            "interleaved": false
+        },
+        "cost": {
+            "input": 0.0,
+            "output": 0.0,
+            "cache": {
+                "read": 0.0,
+                "write": 0.0
+            },
+            "experimental_over_200k": null
+        },
+        "limit": {
+            "context": 8192,
+            "input": null,
+            "output": 4096
+        },
+        "status": "active",
+        "options": {},
+        "headers": {},
+        "release_date": "2026-01-01",
+        "variants": {}
+    }))
+    .expect("test model should deserialize")
+}
+
+fn test_input(model: provider::Model) -> StreamInput {
+    StreamInput {
+        user: message::UserInfo {
+            id: "user-1".to_string(),
+            session_id: "session-1".to_string(),
+            time: message::UserTime { created: 123 },
+            summary: None,
+            agent: "build".to_string(),
+            model: message::ModelRef {
+                provider_id: model.provider_id.clone(),
+                model_id: model.id.clone(),
+            },
+            system: Some("user system".to_string()),
+            tools: None,
+            variant: None,
+        },
+        session_id: "session-1".to_string(),
+        model,
+        agent: AgentInfo {
+            name: "build".to_string(),
+            mode: "build".to_string(),
+            prompt: Some("agent prompt".to_string()),
+            temperature: None,
+            top_p: None,
+            options: HashMap::new(),
+            permission: Default::default(),
+        },
+        system: vec![" ".to_string(), "session system".to_string()],
+        abort: None,
+        messages: Vec::new(),
+        small: false,
+        tools: HashMap::new(),
+        retries: 0,
+    }
+}
+
 #[test]
-fn messages_tests_module_is_wired() {
-    let marker = String::from("messages_tests");
-    assert_eq!(marker.as_str(), "messages_tests");
+fn build_system_messages_merges_non_empty_sources_in_order() {
+    let model = test_model("test-provider", "custom-model", "openai-compatible");
+    let input = test_input(model);
+
+    let system = build_system_messages(&input, false);
+
+    assert_eq!(system.len(), 1);
+    let joined = &system[0];
+    let agent_idx = joined.find("agent prompt").expect("agent prompt should be present");
+    let session_idx = joined.find("session system").expect("session system should be present");
+    let user_idx = joined.find("user system").expect("user system should be present");
+    assert!(agent_idx < session_idx);
+    assert!(session_idx < user_idx);
+    assert!(!joined.contains("\n \n"));
+}
+
+#[test]
+fn build_system_messages_adds_codex_instructions_when_requested() {
+    let model = test_model("openai", "gpt-5-test", "openai");
+    let input = test_input(model);
+
+    let without_codex = build_system_messages(&input, false).join("\n");
+    let with_codex = build_system_messages(&input, true).join("\n");
+
+    assert!(with_codex.len() > without_codex.len());
+    assert!(with_codex.contains("agent prompt"));
+    assert!(with_codex.contains("session system"));
+}
+
+#[test]
+fn build_chat_messages_prepends_system_messages_and_preserves_user_messages() {
+    let model = test_model("test-provider", "custom-model", "openai-compatible");
+    let messages = vec![json!({ "role": "user", "content": "hello" })];
+
+    let out = build_chat_messages(&["system one".to_string()], &messages, &model);
+    let arr = out.as_array().expect("chat messages should be an array");
+
+    assert_eq!(arr[0], json!({ "role": "system", "content": "system one" }));
+    assert_eq!(arr[1], json!({ "role": "user", "content": "hello" }));
+}
+
+#[test]
+fn build_chat_messages_fills_missing_openai_tool_results() {
+    let model = test_model("test-provider", "custom-model", "openai-compatible");
+    let messages = vec![
+        json!({
+            "role": "assistant",
+            "tool_calls": [
+                { "id": "call-1", "type": "function", "function": { "name": "A", "arguments": "{}" } },
+                { "id": "call-2", "type": "function", "function": { "name": "B", "arguments": "{}" } }
+            ]
+        }),
+        json!({ "role": "tool", "tool_call_id": "call-1", "content": "done" }),
+        json!({ "role": "user", "content": "next" }),
+    ];
+
+    let out = build_chat_messages(&[], &messages, &model);
+    let arr = out.as_array().expect("chat messages should be an array");
+
+    assert_eq!(arr[0]["content"], json!(" "));
+    assert_eq!(arr[1]["tool_call_id"], json!("call-1"));
+    assert_eq!(arr[2]["role"], json!("tool"));
+    assert_eq!(arr[2]["tool_call_id"], json!("call-2"));
+    assert!(arr[2]["content"].as_str().unwrap().contains("missing_tool_result: true"));
+    assert_eq!(arr[3], json!({ "role": "user", "content": "next" }));
+}
+
+#[test]
+fn build_chat_messages_does_not_duplicate_existing_tool_results() {
+    let model = test_model("test-provider", "custom-model", "openai-compatible");
+    let messages = vec![
+        json!({
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                { "id": "call-1", "type": "function", "function": { "name": "A", "arguments": "{}" } }
+            ]
+        }),
+        json!({ "role": "tool", "tool_call_id": "call-1", "content": "done" }),
+    ];
+
+    let out = build_chat_messages(&[], &messages, &model);
+    let arr = out.as_array().expect("chat messages should be an array");
+
+    assert_eq!(arr.len(), 2);
+    assert_eq!(arr[1]["content"], json!("done"));
+}
+
+#[test]
+fn build_chat_messages_removes_reasoning_content_except_for_deepseek() {
+    let regular = test_model("test-provider", "custom-model", "openai-compatible");
+    let deepseek = test_model("deepseek", "custom-model", "openai-compatible");
+    let messages = vec![json!({
+        "role": "assistant",
+        "content": "answer",
+        "reasoning_content": "private reasoning"
+    })];
+
+    let regular_out = build_chat_messages(&[], &messages, &regular);
+    let deepseek_out = build_chat_messages(&[], &messages, &deepseek);
+
+    assert!(regular_out.as_array().unwrap()[0].get("reasoning_content").is_none());
+    assert_eq!(
+        deepseek_out.as_array().unwrap()[0]["reasoning_content"],
+        json!("private reasoning")
+    );
+}
+
+#[test]
+fn build_chat_messages_applies_provider_options_key_remap() {
+    let model = test_model("openai", "claude-test", "anthropic");
+    let messages = vec![json!({
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": "hello",
+                "providerOptions": {
+                    "openai": {
+                        "cacheControl": { "type": "ephemeral" }
+                    }
+                }
+            }
+        ],
+        "providerOptions": {
+            "openai": {
+                "foo": true
+            }
+        }
+    })];
+
+    let out = build_chat_messages(&[], &messages, &model);
+    let msg = &out.as_array().unwrap()[0];
+
+    assert_eq!(msg["providerOptions"]["anthropic"]["foo"], json!(true));
+    assert!(msg["providerOptions"].get("openai").is_none());
+    assert_eq!(
+        msg["content"][0]["providerOptions"]["anthropic"]["cacheControl"]["type"],
+        json!("ephemeral")
+    );
+}
+
+#[test]
+fn resolve_tools_removes_user_disabled_and_permission_denied_tools() {
+    let tools = HashMap::from([
+        ("Bash".to_string(), ToolSpec::new("Bash", "run a command", json!({ "type": "object" }))),
+        ("Read".to_string(), ToolSpec::new("Read", "read a file", json!({ "type": "object" }))),
+        ("Write".to_string(), ToolSpec::new("Write", "write a file", json!({ "type": "object" }))),
+    ]);
+    let permission = next::from_config(&json!({ "Bash": "deny" }));
+    let user = message::UserInfo {
+        id: "user-1".to_string(),
+        session_id: "session-1".to_string(),
+        time: message::UserTime { created: 123 },
+        summary: None,
+        agent: "build".to_string(),
+        model: message::ModelRef {
+            provider_id: "provider".to_string(),
+            model_id: "model".to_string(),
+        },
+        system: None,
+        tools: Some(HashMap::from([("Write".to_string(), false)])),
+        variant: None,
+    };
+
+    let resolved = resolve_tools(&tools, &permission, &user);
+
+    assert!(!resolved.contains_key("Bash"));
+    assert!(!resolved.contains_key("Write"));
+    assert!(resolved.contains_key("Read"));
+}
+
+#[test]
+fn has_tool_calls_detects_all_supported_shapes() {
+    assert!(has_tool_calls(&[json!({
+        "role": "assistant",
+        "tool_calls": [{ "id": "call-1" }]
+    })]));
+    assert!(has_tool_calls(&[json!({
+        "role": "tool",
+        "tool_call_id": "call-1",
+        "content": "done"
+    })]));
+    assert!(has_tool_calls(&[json!({
+        "role": "assistant",
+        "content": [{ "type": "tool-call", "toolCallId": "call-1" }]
+    })]));
+    assert!(has_tool_calls(&[json!({
+        "role": "user",
+        "content": [{ "type": "tool-result", "toolCallId": "call-1" }]
+    })]));
+}
+
+#[test]
+fn has_tool_calls_ignores_empty_or_unrelated_messages() {
+    let messages: Vec<Value> = vec![
+        json!({ "role": "assistant", "tool_calls": [] }),
+        json!({ "role": "tool", "content": "missing id" }),
+        json!({ "role": "user", "content": [{ "type": "text", "text": "hello" }] }),
+        json!("not an object"),
+    ];
+
+    assert!(!has_tool_calls(&messages));
 }

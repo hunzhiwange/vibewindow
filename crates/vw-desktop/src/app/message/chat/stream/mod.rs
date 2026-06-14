@@ -117,6 +117,9 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         ChatMessage::AgentStreamDelta(id, delta) => {
             stream_events::handle_agent_stream_delta(app, id, delta)
         }
+        ChatMessage::AgentWorkflowNodeUpdate(id, raw_tool_block) => {
+            stream_events::handle_agent_workflow_node_update(app, id, raw_tool_block)
+        }
         ChatMessage::AgentStepStart(id, session_id, step_index, created_ms, model) => {
             steps::handle_agent_step_start(app, id, session_id, step_index, created_ms, model)
         }
@@ -180,6 +183,9 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         ChatMessage::QuestionRejected(res) => questions::handle_question_rejected(res),
         ChatMessage::PermissionApproveOnce => permissions::handle_permission_approve_once(app),
         ChatMessage::PermissionApproveAlways => permissions::handle_permission_approve_always(app),
+        ChatMessage::PermissionApproveAllAlways => {
+            permissions::handle_permission_approve_all_always(app)
+        }
         ChatMessage::PermissionReject => permissions::handle_permission_reject(app),
         ChatMessage::PermissionSelectRequest(request_id) => {
             permissions::handle_permission_select_request(app, request_id)

@@ -267,3 +267,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     container(content).width(Length::Fill).into()
 }
+#[cfg(test)]
+#[path = "system_settings_http_request_tests.rs"]
+mod system_settings_http_request_tests;

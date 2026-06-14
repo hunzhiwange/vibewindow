@@ -577,7 +577,6 @@ pub fn update(app: &mut App, message: ViewMessage) -> Task<Message> {
         ViewMessage::GlobalKeyPressed(key, modifiers) => handle_global_key(app, key, modifiers),
         ViewMessage::ActivityAnimationTick => {
             app.advance_status_animation_frame();
-            app.sync_task_pet_from_runtime();
             if let Some(window_id) = app.task_pet_window_id
                 && let Some((size, position)) = app.advance_task_pet_expand_animation()
             {

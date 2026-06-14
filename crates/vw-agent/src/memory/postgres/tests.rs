@@ -46,6 +46,17 @@ fn invalid_identifiers_are_rejected() {
     assert!(validate_identifier("bad-name", "table").is_err());
 }
 
+#[test]
+fn category_to_str_maps_all_category_variants() {
+    assert_eq!(PostgresMemory::category_to_str(&MemoryCategory::Core), "core");
+    assert_eq!(PostgresMemory::category_to_str(&MemoryCategory::Daily), "daily");
+    assert_eq!(PostgresMemory::category_to_str(&MemoryCategory::Conversation), "conversation");
+    assert_eq!(
+        PostgresMemory::category_to_str(&MemoryCategory::Custom("archive".into())),
+        "archive"
+    );
+}
+
 /// 测试分类解析功能能够正确映射已知值和自定义值
 ///
 /// `parse_category` 方法应支持：
@@ -64,6 +75,44 @@ fn parse_category_maps_known_and_custom_values() {
         PostgresMemory::parse_category("custom_notes"),
         MemoryCategory::Custom("custom_notes".into())
     );
+}
+
+#[test]
+fn new_rejects_invalid_schema_before_url_parsing_or_connection() {
+    let err = PostgresMemory::new("not a postgres url", "bad-schema", "memories", Some(999), true)
+        .err()
+        .expect("invalid schema should fail before URL parsing");
+    let message = err.to_string();
+
+    assert!(message.contains("storage schema"));
+    assert!(!message.contains("PostgreSQL connection URL"));
+}
+
+#[test]
+fn new_rejects_invalid_table_before_url_parsing_or_connection() {
+    let err = PostgresMemory::new("not a postgres url", "public", "bad-table", None, false)
+        .err()
+        .expect("invalid table should fail before URL parsing");
+    let message = err.to_string();
+
+    assert!(message.contains("storage table"));
+    assert!(!message.contains("PostgreSQL connection URL"));
+}
+
+#[test]
+fn new_reports_invalid_postgres_url_after_identifier_validation() {
+    let err = PostgresMemory::new("not a postgres url", "public", "memories", Some(30), false)
+        .err()
+        .expect("invalid URL should be reported after valid identifiers");
+    let message = format!("{err:#}");
+
+    assert!(message.contains("invalid PostgreSQL connection URL"));
+}
+
+#[test]
+fn quote_identifier_preserves_valid_identifier_text_inside_quotes() {
+    assert_eq!(quote_identifier("public"), "\"public\"");
+    assert_eq!(quote_identifier("_memories_01"), "\"_memories_01\"");
 }
 
 /// 测试在 tokio 运行时中 `PostgresMemory::new` 不会 panic

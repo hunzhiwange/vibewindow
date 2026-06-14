@@ -17,6 +17,10 @@ pub(super) fn prompt_cli_interactive(request: &ApprovalRequest) -> ApprovalRespo
         return ApprovalResponse::No;
     }
 
+    parse_cli_response(&line)
+}
+
+pub(super) fn parse_cli_response(line: &str) -> ApprovalResponse {
     match line.trim().to_ascii_lowercase().as_str() {
         "y" | "yes" => ApprovalResponse::Yes,
         "a" | "always" => ApprovalResponse::Always,

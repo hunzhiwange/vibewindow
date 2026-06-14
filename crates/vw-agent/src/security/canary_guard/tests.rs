@@ -34,6 +34,32 @@ mod tests {
         assert!(token.is_none());
     }
 
+    #[test]
+    fn disabled_guard_strips_stale_canary_block() {
+        let guard = CanaryGuard::new(true);
+        let (prompt_with_canary, token) = guard.inject_turn_token("system prompt");
+        assert!(token.is_some());
+
+        let disabled = CanaryGuard::new(false);
+        let (clean_prompt, clean_token) = disabled.inject_turn_token(&prompt_with_canary);
+
+        assert_eq!(clean_prompt, "system prompt\n");
+        assert!(clean_token.is_none());
+        assert!(!clean_prompt.contains(CANARY_START_MARKER));
+    }
+
+    #[test]
+    fn enabled_injection_adds_newline_when_prompt_lacks_one() {
+        let guard = CanaryGuard::new(true);
+        let (prompt, token) = guard.inject_turn_token("base");
+
+        let token = token.expect("enabled guard should return token");
+        assert!(prompt.starts_with("base\n"));
+        assert!(prompt.contains(&token));
+        assert!(token.starts_with("ZCSEC-"));
+        assert_eq!(token.len(), "ZCSEC-".len() + 12);
+    }
+
     /// 测试金丝雀令牌的轮换机制
     ///
     /// 当连续多次调用令牌注入时，应该：
@@ -79,5 +105,20 @@ mod tests {
         let redacted = guard.redact_token_from_text(&leaked, Some(token));
         assert!(!redacted.contains(token));
         assert!(redacted.contains("[REDACTED_CANARY]"));
+    }
+
+    #[test]
+    fn blank_or_disabled_tokens_do_not_match_or_redact() {
+        let enabled = CanaryGuard::new(true);
+        assert!(!enabled.response_contains_canary("token", None));
+        assert!(!enabled.response_contains_canary("token", Some("  ")));
+        assert_eq!(enabled.redact_token_from_text("token", Some("  ")), "token");
+
+        let disabled = CanaryGuard::new(false);
+        assert!(!disabled.response_contains_canary("ZCSEC-ABC", Some("ZCSEC-ABC")));
+        assert_eq!(
+            disabled.redact_token_from_text("ZCSEC-ABC", Some("ZCSEC-ABC")),
+            "[REDACTED_CANARY]"
+        );
     }
 }

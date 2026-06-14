@@ -94,7 +94,10 @@ pub async fn handle_command(command: ChannelCommands, config: &Config) -> Result
         }
         // Remove 命令：移除通道（需要直接编辑配置文件）
         ChannelCommands::Remove { name } => {
-            anyhow::bail!("Remove channel '{name}' — edit ~/.vibewindow/vibewindow.json directly")
+            anyhow::bail!(
+                "Remove channel '{name}' — edit {} directly",
+                config.config_path.display()
+            )
         }
         // BindTelegram 命令：绑定 Telegram 身份标识
         ChannelCommands::BindTelegram { identity } => {

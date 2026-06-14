@@ -55,6 +55,15 @@ fn settings_tab_button(
         .into()
 }
 
+pub(super) fn skills_tab_labels() -> &'static [(&'static str, SkillsSettingsTab)] {
+    &[
+        ("技能", SkillsSettingsTab::Skills),
+        ("顺序", SkillsSettingsTab::DiscoveryOrder),
+        ("插件", SkillsSettingsTab::Plugins),
+        ("系统配置", SkillsSettingsTab::SystemConfig),
+    ]
+}
+
 fn plugins_placeholder() -> Element<'static, Message> {
     column![
         settings_section_card("插件", "预留占位，后续在这里接入插件浏览与管理能力。"),
@@ -167,14 +176,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
             help_btn,
         ]
         .align_y(Alignment::Start),
-        row![
-            settings_tab_button("技能", SkillsSettingsTab::Skills, s.active_tab),
-            settings_tab_button("顺序", SkillsSettingsTab::DiscoveryOrder, s.active_tab),
-            settings_tab_button("插件", SkillsSettingsTab::Plugins, s.active_tab),
-            settings_tab_button("系统配置", SkillsSettingsTab::SystemConfig, s.active_tab),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
+        skills_tab_labels()
+            .iter()
+            .fold(row![].spacing(8).align_y(Alignment::Center), |row, (label, tab)| {
+                row.push(settings_tab_button(label, *tab, s.active_tab))
+            }),
         content,
     ]
     .spacing(16)
@@ -193,3 +199,6 @@ mod browser_tests;
 mod catalog_tests;
 #[cfg(test)]
 mod help_tests;
+#[cfg(test)]
+#[path = "system_settings_skills_tests.rs"]
+mod system_settings_skills_tests;

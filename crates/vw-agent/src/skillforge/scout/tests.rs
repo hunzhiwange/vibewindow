@@ -148,3 +148,48 @@ mod tests {
         assert_eq!(urlencoding("a&b#c"), "a%26b%23c");
     }
 }
+
+#[test]
+fn parse_items_uses_defaults_and_skips_incomplete_entries() {
+    let json = serde_json::json!({
+        "items": [
+            {
+                "name": "minimal",
+                "html_url": "https://github.com/user/minimal",
+                "description": null,
+                "stargazers_count": null,
+                "language": null,
+                "updated_at": "not-a-date",
+                "owner": {},
+                "license": null
+            },
+            {
+                "name": "missing-url"
+            }
+        ]
+    });
+
+    let items = GitHubScout::parse_items(&json);
+
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].name, "minimal");
+    assert_eq!(items[0].description, "");
+    assert_eq!(items[0].stars, 0);
+    assert!(items[0].language.is_none());
+    assert!(items[0].updated_at.is_none());
+    assert_eq!(items[0].owner, "unknown");
+    assert!(!items[0].has_license);
+}
+
+#[test]
+fn parse_items_returns_empty_without_items_array() {
+    assert!(GitHubScout::parse_items(&serde_json::json!({})).is_empty());
+    assert!(GitHubScout::parse_items(&serde_json::json!({"items": "nope"})).is_empty());
+}
+
+#[test]
+fn github_scout_uses_default_queries() {
+    let scout = GitHubScout::new(None);
+
+    assert_eq!(scout.queries, vec!["vibewindow skill", "ai agent skill"]);
+}

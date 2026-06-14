@@ -1,5 +1,36 @@
-#[test]
-fn module_test_anchor() {
-    let stable_value = 1 + 1;
-    assert_eq!(stable_value, 2);
+use serde_json::json;
+
+use crate::client::test_support;
+
+#[tokio::test]
+async fn tools_list_maps_tool_specs_to_ids() {
+    let server = test_support::server(vec![(
+        200,
+        json!({
+            "items": [
+                {
+                    "id": "file_read",
+                    "display_name": "Read",
+                    "description": "Read a file",
+                    "input_schema": {"type": "object"},
+                    "read_only": true
+                },
+                {
+                    "id": "shell",
+                    "display_name": "Shell",
+                    "description": "Run command",
+                    "input_schema": {"type": "object"},
+                    "destructive": true
+                }
+            ]
+        }),
+    )]);
+
+    let tools = server.client().tools_list().await.expect("tools");
+
+    assert_eq!(tools, vec!["file_read".to_string(), "shell".to_string()]);
+    let request = server.take_request();
+    assert_eq!(request.method, "GET");
+    assert_eq!(request.path, "/v1/tools");
+    server.join();
 }

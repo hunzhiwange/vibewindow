@@ -17,16 +17,10 @@ pub struct GatewayEndpoint {
 
 /// 网关支持的认证参数集合。
 ///
-/// 当前同时支持 Basic Auth 与 `x-skey` 请求头，两者都为空时表示匿名访问。
+/// 当前使用 skey 的 Bearer 认证；为空时表示匿名访问。
 #[derive(Debug, Clone, Default)]
 pub struct GatewayAuth {
-    /// Bearer Token。
-    pub bearer_token: Option<String>,
-    /// Basic Auth 用户名。
-    pub username: Option<String>,
-    /// Basic Auth 密码。
-    pub password: Option<String>,
-    /// 附加的 x-skey 请求头值。
+    /// 作为 `Authorization: Bearer <skey>` 发送的网关 skey。
     pub skey: Option<String>,
 }
 

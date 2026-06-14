@@ -18,8 +18,7 @@ use crate::app::assets::{self, Icon};
 use crate::app::components::animated_text::neutral_sweep_text_color;
 use crate::app::components::chat_panel::tool_text_support::{chat_text_font, tool_text_key};
 use crate::app::components::chat_panel::utils::{
-    bold_font, chat_secondary_subtle_text_color, chat_secondary_text_color, eye_icon_svg_style,
-    icon_svg, truncate_chars,
+    chat_secondary_subtle_text_color, chat_secondary_text_color, icon_svg, truncate_chars,
 };
 use crate::app::components::status_animation::{EXPLORE_SUMMARY_FLIP_DURATION_MS, spinner_frame};
 use crate::app::{App, Message, message};
@@ -231,7 +230,7 @@ fn running_explore_title<'a>(
     .align_y(Alignment::Center);
 
     for (char_idx, character) in title.chars().enumerate() {
-        content = content.push(text(character.to_string()).size(13).font(bold_font()).style(
+        content = content.push(text(character.to_string()).size(13).font(chat_text_font()).style(
             move |theme: &Theme| iced::widget::text::Style {
                 color: Some(neutral_sweep_text_color(
                     theme,
@@ -253,7 +252,7 @@ fn completed_explore_title<'a>(title: &str) -> Element<'a, Message> {
         .size(13)
         .font(chat_text_font())
         .style(|theme: &Theme| iced::widget::text::Style {
-            color: Some(chat_secondary_text_color(theme)),
+            color: Some(chat_secondary_subtle_text_color(theme)),
         })
         .into()
 }
@@ -265,7 +264,7 @@ fn compact_eye_button_style(
     iced::widget::button::Style {
         background: None,
         border: iced::Border { width: 0.0, color: iced::Color::TRANSPARENT, radius: 0.0.into() },
-        text_color: chat_secondary_text_color(theme),
+        text_color: chat_secondary_subtle_text_color(theme),
         shadow: iced::Shadow::default(),
         ..Default::default()
     }
@@ -377,13 +376,15 @@ fn explore_item_compact_view<'a>(
 
     let key = ((msg_idx as u64) << 32) | (item.tool_idx as u64);
     let is_hovered = app.chat_tool_hovered_idx == Some(key);
-    let eye_icon = iced::widget::svg::Svg::new(assets::get_icon(Icon::Eye))
-        .width(Length::Fixed(7.0))
-        .height(Length::Fixed(7.0))
-        .style(eye_icon_svg_style);
+    let eye_icon = iced::widget::svg::Svg::new(assets::get_icon(Icon::ChevronRight))
+        .width(Length::Fixed(5.0))
+        .height(Length::Fixed(5.0))
+        .style(|theme: &Theme, _status| iced::widget::svg::Style {
+            color: Some(chat_secondary_subtle_text_color(theme)),
+        });
     let detail_btn = button(eye_icon)
-        .width(Length::Fixed(16.0))
-        .height(Length::Fixed(16.0))
+        .width(Length::Fixed(10.0))
+        .height(Length::Fixed(10.0))
         .padding(0)
         .style(compact_eye_button_style)
         .on_press(Message::Chat(message::ChatMessage::OpenToolDetail(
@@ -394,14 +395,18 @@ fn explore_item_compact_view<'a>(
     let detail_slot: Element<'a, Message> = if is_hovered {
         detail_btn.into()
     } else {
-        Space::new().width(Length::Fixed(16.0)).height(Length::Fixed(16.0)).into()
+        Space::new().width(Length::Fixed(10.0)).height(Length::Fixed(10.0)).into()
     };
 
     let row_container = container(
         row![
-            text(tool_header_label(tool_name)).size(13).font(bold_font()).style(|theme: &Theme| {
-                iced::widget::text::Style { color: Some(chat_secondary_text_color(theme)) }
-            },),
+            text(tool_header_label(tool_name)).size(13).font(chat_text_font()).style(
+                |theme: &Theme| {
+                    iced::widget::text::Style {
+                        color: Some(chat_secondary_text_color(theme).scale_alpha(0.82)),
+                    }
+                },
+            ),
             text(summary).size(13).font(chat_text_font()).style(|theme: &Theme| {
                 iced::widget::text::Style { color: Some(chat_secondary_subtle_text_color(theme)) }
             }),
@@ -412,7 +417,7 @@ fn explore_item_compact_view<'a>(
         .align_y(Alignment::Center),
     )
     .width(Length::Fill)
-    .padding([2, 0]);
+    .padding([1, 0]);
     Some(
         mouse_area(row_container)
             .on_enter(Message::Chat(message::ChatMessage::ToolHover(msg_idx, item.tool_idx)))
@@ -421,7 +426,7 @@ fn explore_item_compact_view<'a>(
     )
 }
 
-fn latest_explore_items(items: &[ExploreItem]) -> Vec<&ExploreItem> {
+pub(super) fn latest_explore_items(items: &[ExploreItem]) -> Vec<&ExploreItem> {
     let item_keys = items.iter().map(|item| explore_item_dedupe_key(&item.raw)).collect::<Vec<_>>();
     let mut last_index_by_key: HashMap<&str, usize> = HashMap::new();
 
@@ -567,30 +572,30 @@ pub fn tool_explore_summary_view<'a>(
             .width(Length::Fixed(10.0))
             .height(Length::Fixed(10.0))
             .style(|theme: &Theme, _status| iced::widget::svg::Style {
-                color: Some(chat_secondary_text_color(theme)),
+                color: Some(chat_secondary_subtle_text_color(theme)),
             }),
     )
     .padding([0, 1])
     .style(|theme: &Theme, _status| iced::widget::button::Style {
         background: None,
         border: iced::Border { width: 0.0, color: iced::Color::TRANSPARENT, radius: 0.0.into() },
-        text_color: chat_secondary_text_color(theme),
+        text_color: chat_secondary_subtle_text_color(theme),
         ..Default::default()
     })
     .on_press(Message::Chat(message::ChatMessage::ToggleExploreSummary(msg_idx, group_tool_idx)));
     let toggle_slot: Element<'a, Message> = toggle_btn.into();
     let head_row =
         row![title_view, summary_slot, toggle_slot, container(Space::new()).width(Length::Fill)]
-            .spacing(8)
+            .spacing(7)
             .align_y(Alignment::Center);
 
     // 创建可交互的头部区域
     let head =
-        container(column![Space::new().height(Length::Fixed(4.0)), head_row]).width(Length::Fill);
+        container(column![Space::new().height(Length::Fixed(1.0)), head_row]).width(Length::Fill);
 
-    let mut content = column![head].spacing(4);
+    let mut content = column![head].spacing(3);
     if expanded {
-        let mut list = column![].spacing(4);
+        let mut list = column![].spacing(3);
         for item in latest_items {
             if let Some(view) = explore_item_compact_view(app, msg_idx, item) {
                 list = list.push(view);

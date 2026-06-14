@@ -129,7 +129,8 @@ pub fn update(app: &mut App, message: JsonYamlToolMessage) -> Task<Message> {
                 mouse::ScrollDelta::Pixels { y, .. } => -y / line_height,
             };
 
-            app.json_yaml_left_scroll_remainder += delta_lines;
+            app.json_yaml_left_scroll_remainder =
+                quantize_scroll_remainder(app.json_yaml_left_scroll_remainder + delta_lines);
 
             let whole_lines = if app.json_yaml_left_scroll_remainder >= 0.0 {
                 app.json_yaml_left_scroll_remainder.floor() as i32
@@ -138,7 +139,9 @@ pub fn update(app: &mut App, message: JsonYamlToolMessage) -> Task<Message> {
             };
 
             if whole_lines != 0 {
-                app.json_yaml_left_scroll_remainder -= whole_lines as f32;
+                app.json_yaml_left_scroll_remainder = quantize_scroll_remainder(
+                    app.json_yaml_left_scroll_remainder - whole_lines as f32,
+                );
                 apply_left_scroll_lines(app, whole_lines);
                 app.json_yaml_left_editor
                     .perform(text_editor::Action::Scroll { lines: whole_lines });
@@ -218,7 +221,8 @@ pub fn update(app: &mut App, message: JsonYamlToolMessage) -> Task<Message> {
                 mouse::ScrollDelta::Pixels { y, .. } => -y / line_height,
             };
 
-            app.json_yaml_right_scroll_remainder += delta_lines;
+            app.json_yaml_right_scroll_remainder =
+                quantize_scroll_remainder(app.json_yaml_right_scroll_remainder + delta_lines);
 
             let whole_lines = if app.json_yaml_right_scroll_remainder >= 0.0 {
                 app.json_yaml_right_scroll_remainder.floor() as i32
@@ -227,7 +231,9 @@ pub fn update(app: &mut App, message: JsonYamlToolMessage) -> Task<Message> {
             };
 
             if whole_lines != 0 {
-                app.json_yaml_right_scroll_remainder -= whole_lines as f32;
+                app.json_yaml_right_scroll_remainder = quantize_scroll_remainder(
+                    app.json_yaml_right_scroll_remainder - whole_lines as f32,
+                );
                 apply_right_scroll_lines(app, whole_lines);
                 app.json_yaml_right_editor
                     .perform(text_editor::Action::Scroll { lines: whole_lines });
@@ -336,6 +342,10 @@ pub fn update(app: &mut App, message: JsonYamlToolMessage) -> Task<Message> {
             )
         }
     }
+}
+
+fn quantize_scroll_remainder(value: f32) -> f32 {
+    (value * 1000.0).round() / 1000.0
 }
 
 fn left_visible_line_count(app: &App) -> f32 {

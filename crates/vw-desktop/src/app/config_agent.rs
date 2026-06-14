@@ -6,6 +6,8 @@
 use crate::app::Message;
 use iced::Task;
 use std::collections::{BTreeMap, HashMap};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
 use vw_config_types::{
     agent::{AgentConfig, AgentsIpcConfig, CoordinationConfig, DelegateAgentConfig},
     automation::{
@@ -58,6 +60,89 @@ fn resolve_enabled_acp_config(
     if enabled.is_empty() { default_enabled_acp_config(catalog) } else { enabled }
 }
 
+fn build_acp_agent_enabled_patch(
+    agent_name: &str,
+    enabled: bool,
+    spec: Option<AcpAgentConfig>,
+    catalog: &HashMap<String, AcpAgentConfig>,
+    configured: HashMap<String, AcpAgentConfig>,
+) -> Result<serde_json::Value, String> {
+    let agent_name = agent_name.trim().to_string();
+    if agent_name.is_empty() {
+        return Err("acp agent name must not be empty".to_string());
+    }
+
+    let mut effective = resolve_enabled_acp_config(catalog, configured.clone());
+    let spec = match spec {
+        Some(spec) => spec,
+        None => catalog
+            .get(&agent_name)
+            .cloned()
+            .ok_or_else(|| format!("unknown acp agent: {agent_name}"))?,
+    };
+
+    let mut acp_patch = serde_json::Map::new();
+    if enabled {
+        effective.insert(agent_name.clone(), spec);
+        if configured.is_empty() {
+            for (name, config) in effective {
+                acp_patch
+                    .insert(name, serde_json::to_value(config).map_err(|err| err.to_string())?);
+            }
+        } else {
+            let config = effective
+                .remove(&agent_name)
+                .ok_or_else(|| format!("unknown acp agent: {agent_name}"))?;
+            acp_patch
+                .insert(agent_name, serde_json::to_value(config).map_err(|err| err.to_string())?);
+        }
+    } else {
+        effective.remove(&agent_name);
+        if configured.is_empty() {
+            for (name, config) in effective {
+                acp_patch
+                    .insert(name, serde_json::to_value(config).map_err(|err| err.to_string())?);
+            }
+        }
+        acp_patch.insert(agent_name, serde_json::Value::Null);
+    }
+
+    let mut root_patch = serde_json::Map::new();
+    root_patch.insert("acp".to_string(), serde_json::Value::Object(acp_patch));
+    Ok(serde_json::Value::Object(root_patch))
+}
+
+fn build_main_agent_overrides_patch(config: &Config) -> Result<Option<serde_json::Value>, String> {
+    let Some(main) = config.agents.get("main") else {
+        return Ok(None);
+    };
+
+    let provider = main.provider.trim().to_string();
+    let model = main.model.trim().to_string();
+    let identity =
+        IdentityConfig { format: "openclaw".to_string(), aieos_path: None, aieos_inline: None };
+
+    let mut patch = serde_json::Map::new();
+    if !provider.is_empty() {
+        patch.insert("default_provider".to_string(), serde_json::Value::String(provider.clone()));
+    }
+    if !provider.is_empty() && !model.is_empty() {
+        patch.insert(
+            "default_model".to_string(),
+            serde_json::Value::String(format!("{provider}/{model}")),
+        );
+    }
+    if let Some(temperature) = main.temperature
+        && let Some(number) = serde_json::Number::from_f64(temperature)
+    {
+        patch.insert("default_temperature".to_string(), serde_json::Value::Number(number));
+    }
+    let identity_value = serde_json::to_value(identity).map_err(|err| err.to_string())?;
+    patch.insert("identity".to_string(), identity_value);
+
+    Ok(Some(serde_json::Value::Object(patch)))
+}
+
 async fn fetch_agent_config_via_gateway() -> Result<Config, String> {
     let client = gateway_client()?;
     let value = client.config_get(None).await?;
@@ -72,6 +157,132 @@ async fn fetch_global_agent_config_via_gateway() -> Result<Config, String> {
     let mut config = serde_json::from_value::<Config>(value).map_err(|err| err.to_string())?;
     apply_main_agent_overrides(&mut config);
     Ok(config)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn env_path(key: &str) -> Option<std::path::PathBuf> {
+    std::env::var_os(key).map(std::path::PathBuf::from).filter(|path| !path.as_os_str().is_empty())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn config_file_dir_from_env() -> Option<std::path::PathBuf> {
+    env_path("VIBEWINDOW_CONFIG")
+        .and_then(|path| path.parent().map(Path::to_path_buf))
+        .filter(|path| !path.as_os_str().is_empty())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn default_vibewindow_dir() -> Option<std::path::PathBuf> {
+    std::env::var_os("HOME")
+        .map(std::path::PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+        .map(vw_config_types::paths::home_config_dir)
+        .or_else(|| {
+            directories::UserDirs::new()
+                .map(|user_dirs| vw_config_types::paths::home_config_dir(user_dirs.home_dir()))
+        })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn gateway_skey_config_dir() -> Option<std::path::PathBuf> {
+    config_file_dir_from_env()
+        .or_else(|| env_path("VIBEWINDOW_CONFIG_DIR"))
+        .or_else(default_vibewindow_dir)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn gateway_skey_db_path_for_config_dir(config_dir: &Path) -> std::path::PathBuf {
+    config_dir.join("gateway").join("skeys.sqlite")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn gateway_skey_db_path() -> Option<std::path::PathBuf> {
+    gateway_skey_config_dir().map(|config_dir| gateway_skey_db_path_for_config_dir(&config_dir))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn legacy_gateway_skey_db_path() -> Option<std::path::PathBuf> {
+    directories::BaseDirs::new().map(|base| {
+        base.data_dir()
+            .join(vw_config_types::paths::APP_DIR_NAME)
+            .join("gateway")
+            .join("skeys.sqlite")
+    })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn gateway_skey_db_paths() -> Vec<std::path::PathBuf> {
+    let mut paths = Vec::new();
+    if let Some(path) = gateway_skey_db_path() {
+        paths.push(path);
+    }
+    if let Some(path) = legacy_gateway_skey_db_path() {
+        if !paths.contains(&path) {
+            paths.push(path);
+        }
+    }
+    paths
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn load_gateway_skeys_from_sqlite(
+    db_path: &Path,
+) -> Result<Vec<vw_config_types::gateway::GatewaySkey>, String> {
+    let conn = rusqlite::Connection::open(db_path)
+        .map_err(|error| format!("gateway skey sqlite error: {error}"))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT enabled, skey_hash, masked_skey, name, expires_at \
+             FROM gateway_skeys \
+             ORDER BY created_at ASC, rowid ASC",
+        )
+        .map_err(|error| format!("gateway skey sqlite error: {error}"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(vw_config_types::gateway::GatewaySkey {
+                enabled: row.get::<_, i64>(0)? != 0,
+                skey: None,
+                skey_hash: row.get(1)?,
+                masked_skey: row.get(2)?,
+                name: row.get(3)?,
+                expires_at: row.get(4)?,
+            })
+        })
+        .map_err(|error| format!("gateway skey sqlite error: {error}"))?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("gateway skey sqlite error: {error}"))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn hydrate_gateway_skeys_from_sqlite(config: &mut Config) {
+    for db_path in gateway_skey_db_paths() {
+        if !db_path.exists() {
+            continue;
+        }
+        match load_gateway_skeys_from_sqlite(&db_path) {
+            Ok(skeys) => {
+                config.gateway.skeys = skeys;
+                return;
+            }
+            Err(err) => {
+                tracing::warn!(target: "vw_desktop", path = %db_path.display(), error = %err, "failed to hydrate gateway skeys from sqlite");
+            }
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn load_local_agent_config_with_gateway_skeys() -> Option<Config> {
+    let mut config = load_config_value_at_path::<Config>(&[])?;
+    hydrate_gateway_skeys_from_sqlite(&mut config);
+    apply_main_agent_overrides(&mut config);
+    Some(config)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn load_local_agent_config_with_gateway_skeys() -> Option<Config> {
+    None
 }
 
 async fn fetch_global_acp_config_via_gateway() -> Result<HashMap<String, AcpAgentConfig>, String> {
@@ -91,8 +302,7 @@ fn load_agent_config_via_gateway() -> Config {
         Ok(config) => config,
         Err(err) => {
             tracing::warn!(target: "vw_desktop", error = %err, "failed to load agent config via gateway");
-            if let Some(mut config) = load_config_value_at_path::<Config>(&[]) {
-                apply_main_agent_overrides(&mut config);
+            if let Some(config) = load_local_agent_config_with_gateway_skeys() {
                 return config;
             }
             Config::default()
@@ -160,8 +370,12 @@ pub async fn load_browser_config_async() -> Result<BrowserConfig, String> {
 ///
 /// 当底层配置、文件或运行时调用失败时，错误会通过 `Result` 返回给上层统一处理。
 pub fn load_gateway_config_result() -> Result<GatewayConfig, String> {
-    run_gateway_call(async { fetch_global_agent_config_via_gateway().await })
-        .map(|config| config.gateway)
+    match run_gateway_call(async { fetch_global_agent_config_via_gateway().await }) {
+        Ok(config) => Ok(config.gateway),
+        Err(err) => {
+            load_local_agent_config_with_gateway_skeys().map(|config| config.gateway).ok_or(err)
+        }
+    }
 }
 
 /// 读取、保存或转换 `load_global_acp_config_result` 对应的配置数据与运行时状态。
@@ -228,51 +442,11 @@ pub async fn set_global_acp_agent_enabled_async(
     enabled: bool,
     spec: Option<AcpAgentConfig>,
 ) -> Result<AcpSettingsSnapshot, String> {
-    let agent_name = agent_name.trim().to_string();
-    if agent_name.is_empty() {
-        return Err("acp agent name must not be empty".to_string());
-    }
-
     let catalog = fetch_global_acp_config_via_gateway().await?;
     let configured = fetch_global_agent_config_via_gateway().await?.acp;
-    let mut effective = resolve_enabled_acp_config(&catalog, configured.clone());
-    let spec = match spec {
-        Some(spec) => spec,
-        None => catalog
-            .get(&agent_name)
-            .cloned()
-            .ok_or_else(|| format!("unknown acp agent: {agent_name}"))?,
-    };
+    let patch = build_acp_agent_enabled_patch(&agent_name, enabled, spec, &catalog, configured)?;
 
-    let mut acp_patch = serde_json::Map::new();
-    if enabled {
-        effective.insert(agent_name.clone(), spec);
-        if configured.is_empty() {
-            for (name, config) in effective {
-                acp_patch
-                    .insert(name, serde_json::to_value(config).map_err(|err| err.to_string())?);
-            }
-        } else {
-            let config = effective
-                .remove(&agent_name)
-                .ok_or_else(|| format!("unknown acp agent: {agent_name}"))?;
-            acp_patch
-                .insert(agent_name, serde_json::to_value(config).map_err(|err| err.to_string())?);
-        }
-    } else {
-        effective.remove(&agent_name);
-        if configured.is_empty() {
-            for (name, config) in effective {
-                acp_patch
-                    .insert(name, serde_json::to_value(config).map_err(|err| err.to_string())?);
-            }
-        }
-        acp_patch.insert(agent_name, serde_json::Value::Null);
-    }
-    let mut root_patch = serde_json::Map::new();
-    root_patch.insert("acp".to_string(), serde_json::Value::Object(acp_patch));
-
-    patch_agent_config_via_gateway(&serde_json::Value::Object(root_patch)).await?;
+    patch_agent_config_via_gateway(&patch).await?;
 
     load_acp_settings_snapshot_async().await
 }
@@ -960,7 +1134,10 @@ pub fn load_full_agent_config() -> Config {
 ///
 /// 当底层配置、文件或运行时调用失败时，错误会通过 `Result` 返回给上层统一处理。
 pub fn load_full_agent_config_result() -> Result<Config, String> {
-    run_gateway_call(async { fetch_agent_config_via_gateway().await })
+    match run_gateway_call(async { fetch_agent_config_via_gateway().await }) {
+        Ok(config) => Ok(config),
+        Err(err) => load_local_agent_config_with_gateway_skeys().ok_or(err),
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -1766,39 +1943,11 @@ pub fn update_main_agent_overrides_from_delegate_agents() {
 /// 当底层配置、文件或运行时调用失败时，错误会通过 `Result` 返回给上层统一处理。
 pub async fn update_main_agent_overrides_from_delegate_agents_async() -> Result<(), String> {
     let cfg = load_full_agent_config_async().await?;
-    let Some(main) = cfg.agents.get("main") else {
+    let Some(patch) = build_main_agent_overrides_patch(&cfg)? else {
         return Ok(());
     };
 
-    let provider = main.provider.trim().to_string();
-    let model = main.model.trim().to_string();
-    let temperature = main.temperature;
-    let identity =
-        IdentityConfig { format: "openclaw".to_string(), aieos_path: None, aieos_inline: None };
-
-    let mut patch = serde_json::Map::new();
-    if !provider.is_empty() {
-        patch.insert("default_provider".to_string(), serde_json::Value::String(provider.clone()));
-    }
-    if !provider.is_empty() && !model.is_empty() {
-        patch.insert(
-            "default_model".to_string(),
-            serde_json::Value::String(format!("{provider}/{model}")),
-        );
-    }
-    if let Some(temperature) = temperature
-        && let Some(number) = serde_json::Number::from_f64(temperature)
-    {
-        patch.insert("default_temperature".to_string(), serde_json::Value::Number(number));
-    }
-    let identity_value = serde_json::to_value(identity).map_err(|err| err.to_string())?;
-    patch.insert("identity".to_string(), identity_value);
-
-    if patch.is_empty() {
-        return Ok(());
-    }
-
-    patch_full_agent_config_async(serde_json::Value::Object(patch)).await
+    patch_full_agent_config_async(patch).await
 }
 
 /// 读取、保存或转换 `update_gateway_config_result_async` 对应的配置数据与运行时状态。

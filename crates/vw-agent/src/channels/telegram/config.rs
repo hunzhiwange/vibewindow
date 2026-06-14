@@ -330,7 +330,7 @@ impl TelegramChannel {
             .context("Could not find home directory")?;
 
         // 构建配置文件路径
-        let vibewindow_dir = home.join(".vibewindow");
+        let vibewindow_dir = vw_config_types::paths::home_config_dir(home);
         let config_path = vibewindow_dir.join("vibewindow.json");
 
         // 读取并解析配置文件

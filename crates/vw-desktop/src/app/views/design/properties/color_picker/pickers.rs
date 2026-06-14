@@ -2,11 +2,27 @@
 
 use iced::mouse;
 use iced::widget::canvas::{Action, Event, Geometry, Program};
-use iced::{Rectangle, Theme};
+use iced::{Point, Rectangle, Theme};
 
 use crate::app::Message;
 
 use super::hsv::Hsv;
+
+fn cursor_position_inclusive(cursor: mouse::Cursor, bounds: Rectangle) -> Option<Point> {
+    let position = cursor.position()?;
+    if position.x < bounds.x
+        || position.y < bounds.y
+        || position.x > bounds.x + bounds.width
+        || position.y > bounds.y + bounds.height
+    {
+        return None;
+    }
+
+    Some(Point::new(
+        (position.x - bounds.x).clamp(0.0, bounds.width),
+        (position.y - bounds.y).clamp(0.0, bounds.height),
+    ))
+}
 
 /// SaturationValuePicker 状态结构，保存当前 UI 或导入流程需要跨消息传递的数据。
 pub struct SaturationValuePicker {
@@ -42,7 +58,7 @@ impl Program<Message> for SaturationValuePicker {
         bounds: Rectangle,
         cursor: mouse::Cursor,
     ) -> Option<Action<Message>> {
-        let cursor_position = cursor.position_in(bounds)?;
+        let cursor_position = cursor_position_inclusive(cursor, bounds)?;
 
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
@@ -109,7 +125,7 @@ impl Program<Message> for HuePicker {
         bounds: Rectangle,
         cursor: mouse::Cursor,
     ) -> Option<Action<Message>> {
-        let cursor_position = cursor.position_in(bounds)?;
+        let cursor_position = cursor_position_inclusive(cursor, bounds)?;
 
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
@@ -175,7 +191,7 @@ impl Program<Message> for AlphaPicker {
         bounds: Rectangle,
         cursor: mouse::Cursor,
     ) -> Option<Action<Message>> {
-        let cursor_position = cursor.position_in(bounds)?;
+        let cursor_position = cursor_position_inclusive(cursor, bounds)?;
 
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {

@@ -107,30 +107,37 @@ pub fn print_sessions_by_format(
 ) -> io::Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+    write_sessions_by_format(&mut stdout, sessions, format)
+}
 
+pub(crate) fn write_sessions_by_format<W: Write>(
+    writer: &mut W,
+    sessions: &[SessionRecord],
+    format: OutputFormat,
+) -> io::Result<()> {
     if format == OutputFormat::Json {
-        serde_json::to_writer(&mut stdout, sessions).map_err(io::Error::other)?;
-        stdout.write_all(b"\n")?;
+        serde_json::to_writer(&mut *writer, sessions).map_err(io::Error::other)?;
+        writer.write_all(b"\n")?;
         return Ok(());
     }
 
     if format == OutputFormat::Quiet {
         for session in sessions {
             let closed_marker = if session.closed.unwrap_or(false) { " [closed]" } else { "" };
-            writeln!(stdout, "{}{}", session.vwacp_record_id, closed_marker)?;
+            writeln!(writer, "{}{}", session.vwacp_record_id, closed_marker)?;
         }
         return Ok(());
     }
 
     if sessions.is_empty() {
-        writeln!(stdout, "No sessions")?;
+        writeln!(writer, "No sessions")?;
         return Ok(());
     }
 
     for session in sessions {
         let closed_marker = if session.closed.unwrap_or(false) { " [closed]" } else { "" };
         writeln!(
-            stdout,
+            writer,
             "{}{}\t{}\t{}\t{}",
             session.vwacp_record_id,
             closed_marker,
@@ -149,9 +156,16 @@ pub fn print_closed_session_by_format(
 ) -> io::Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+    write_closed_session_by_format(&mut stdout, record, format)
+}
 
+pub(crate) fn write_closed_session_by_format<W: Write>(
+    writer: &mut W,
+    record: &SessionRecord,
+    format: OutputFormat,
+) -> io::Result<()> {
     if emit_json_result(
-        &mut stdout,
+        writer,
         format,
         &json!({
             "action": "session_closed",
@@ -167,7 +181,7 @@ pub fn print_closed_session_by_format(
         return Ok(());
     }
 
-    writeln!(stdout, "{}", record.vwacp_record_id)?;
+    writeln!(writer, "{}", record.vwacp_record_id)?;
     Ok(())
 }
 
@@ -178,9 +192,17 @@ pub fn print_new_session_by_format(
 ) -> io::Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+    write_new_session_by_format(&mut stdout, record, replaced, format)
+}
 
+pub(crate) fn write_new_session_by_format<W: Write>(
+    writer: &mut W,
+    record: &SessionRecord,
+    replaced: Option<&SessionRecord>,
+    format: OutputFormat,
+) -> io::Result<()> {
     if emit_json_result(
-        &mut stdout,
+        writer,
         format,
         &json!({
             "action": "session_ensured",
@@ -196,16 +218,16 @@ pub fn print_new_session_by_format(
     }
 
     if format == OutputFormat::Quiet {
-        writeln!(stdout, "{}", record.vwacp_record_id)?;
+        writeln!(writer, "{}", record.vwacp_record_id)?;
         return Ok(());
     }
 
     if let Some(replaced) = replaced {
-        writeln!(stdout, "{}\t(replaced {})", record.vwacp_record_id, replaced.vwacp_record_id)?;
+        writeln!(writer, "{}\t(replaced {})", record.vwacp_record_id, replaced.vwacp_record_id)?;
         return Ok(());
     }
 
-    writeln!(stdout, "{}", record.vwacp_record_id)?;
+    writeln!(writer, "{}", record.vwacp_record_id)?;
     Ok(())
 }
 
@@ -216,9 +238,17 @@ pub fn print_ensured_session_by_format(
 ) -> io::Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+    write_ensured_session_by_format(&mut stdout, record, created, format)
+}
 
+pub(crate) fn write_ensured_session_by_format<W: Write>(
+    writer: &mut W,
+    record: &SessionRecord,
+    created: bool,
+    format: OutputFormat,
+) -> io::Result<()> {
     if emit_json_result(
-        &mut stdout,
+        writer,
         format,
         &json!({
             "action": "session_ensured",
@@ -233,12 +263,12 @@ pub fn print_ensured_session_by_format(
     }
 
     if format == OutputFormat::Quiet {
-        writeln!(stdout, "{}", record.vwacp_record_id)?;
+        writeln!(writer, "{}", record.vwacp_record_id)?;
         return Ok(());
     }
 
     let action = if created { "created" } else { "existing" };
-    writeln!(stdout, "{}\t({action})", record.vwacp_record_id)?;
+    writeln!(writer, "{}\t({action})", record.vwacp_record_id)?;
     Ok(())
 }
 
@@ -248,9 +278,16 @@ pub fn print_queued_prompt_by_format(
 ) -> io::Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+    write_queued_prompt_by_format(&mut stdout, result, format)
+}
 
+pub(crate) fn write_queued_prompt_by_format<W: Write>(
+    writer: &mut W,
+    result: &SessionEnqueueResult,
+    format: OutputFormat,
+) -> io::Result<()> {
     if emit_json_result(
-        &mut stdout,
+        writer,
         format,
         &json!({
             "action": "prompt_queued",
@@ -265,7 +302,7 @@ pub fn print_queued_prompt_by_format(
         return Ok(());
     }
 
-    writeln!(stdout, "[queued] {}", result.request_id)?;
+    writeln!(writer, "[queued] {}", result.request_id)?;
     Ok(())
 }
 
@@ -550,12 +587,20 @@ pub fn print_created_session_banner(
         return Ok(());
     }
 
-    let label = format_session_label(record);
     let stderr = io::stderr();
     let mut stderr = stderr.lock();
-    writeln!(stderr, "[vwacp] created session {label} ({})", record.vwacp_record_id)?;
-    writeln!(stderr, "[vwacp] agent: {agent_name}")?;
-    writeln!(stderr, "[vwacp] cwd: {}", record.cwd)?;
+    write_created_session_banner(&mut stderr, record, agent_name)
+}
+
+pub(crate) fn write_created_session_banner<W: Write>(
+    writer: &mut W,
+    record: &SessionRecord,
+    agent_name: &str,
+) -> io::Result<()> {
+    let label = format_session_label(record);
+    writeln!(writer, "[vwacp] created session {label} ({})", record.vwacp_record_id)?;
+    writeln!(writer, "[vwacp] agent: {agent_name}")?;
+    writeln!(writer, "[vwacp] cwd: {}", record.cwd)?;
     Ok(())
 }
 
@@ -578,9 +623,16 @@ pub fn agent_session_id_payload(agent_session_id: Option<&str>) -> AgentSessionI
 pub fn print_cancel_result_by_format(result: bool, format: OutputFormat) -> io::Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+    write_cancel_result_by_format(&mut stdout, result, format)
+}
 
+pub(crate) fn write_cancel_result_by_format<W: Write>(
+    writer: &mut W,
+    result: bool,
+    format: OutputFormat,
+) -> io::Result<()> {
     if emit_json_result(
-        &mut stdout,
+        writer,
         format,
         &json!({
             "action": "cancel",
@@ -594,16 +646,23 @@ pub fn print_cancel_result_by_format(result: bool, format: OutputFormat) -> io::
         return Ok(());
     }
 
-    writeln!(stdout, "{}", if result { "Cancelled" } else { "Not cancelled" })?;
+    writeln!(writer, "{}", if result { "Cancelled" } else { "Not cancelled" })?;
     Ok(())
 }
 
 pub fn print_set_mode_result_by_format(mode_id: &str, format: OutputFormat) -> io::Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+    write_set_mode_result_by_format(&mut stdout, mode_id, format)
+}
 
+pub(crate) fn write_set_mode_result_by_format<W: Write>(
+    writer: &mut W,
+    mode_id: &str,
+    format: OutputFormat,
+) -> io::Result<()> {
     if emit_json_result(
-        &mut stdout,
+        writer,
         format,
         &json!({
             "action": "set_mode",
@@ -617,16 +676,23 @@ pub fn print_set_mode_result_by_format(mode_id: &str, format: OutputFormat) -> i
         return Ok(());
     }
 
-    writeln!(stdout, "Mode set to {mode_id}")?;
+    writeln!(writer, "Mode set to {mode_id}")?;
     Ok(())
 }
 
 pub fn print_set_model_result_by_format(model_id: &str, format: OutputFormat) -> io::Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+    write_set_model_result_by_format(&mut stdout, model_id, format)
+}
 
+pub(crate) fn write_set_model_result_by_format<W: Write>(
+    writer: &mut W,
+    model_id: &str,
+    format: OutputFormat,
+) -> io::Result<()> {
     if emit_json_result(
-        &mut stdout,
+        writer,
         format,
         &json!({
             "action": "set_model",
@@ -640,7 +706,7 @@ pub fn print_set_model_result_by_format(model_id: &str, format: OutputFormat) ->
         return Ok(());
     }
 
-    writeln!(stdout, "Model set to {model_id}")?;
+    writeln!(writer, "Model set to {model_id}")?;
     Ok(())
 }
 
@@ -651,9 +717,17 @@ pub fn print_set_config_option_result_by_format(
 ) -> io::Result<()> {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+    write_set_config_option_result_by_format(&mut stdout, config_id, value, format)
+}
 
+pub(crate) fn write_set_config_option_result_by_format<W: Write>(
+    writer: &mut W,
+    config_id: &str,
+    value: &str,
+    format: OutputFormat,
+) -> io::Result<()> {
     if emit_json_result(
-        &mut stdout,
+        writer,
         format,
         &json!({
             "action": "set_config_option",
@@ -668,6 +742,6 @@ pub fn print_set_config_option_result_by_format(
         return Ok(());
     }
 
-    writeln!(stdout, "Config option {config_id} set to {value}")?;
+    writeln!(writer, "Config option {config_id} set to {value}")?;
     Ok(())
 }

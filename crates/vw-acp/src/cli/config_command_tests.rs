@@ -96,3 +96,70 @@ fn write_config_show_emits_pretty_json_for_text_format() {
     assert!(text.contains("\"defaultAgent\": \"codex\""));
     assert!(text.ends_with('\n'));
 }
+
+#[test]
+fn write_config_init_result_emits_json_for_json_format() {
+    let mut output = Vec::new();
+    let payload = config_init_payload(InitGlobalConfigFileResult {
+        path: "/tmp/config.json".to_string(),
+        created: true,
+    });
+
+    write_config_init_result(&mut output, &flags(OutputFormat::Json), &payload)
+        .expect("write config init");
+    let value: Value = serde_json::from_slice(&output).expect("json output");
+
+    assert_eq!(value["path"], "/tmp/config.json");
+    assert_eq!(value["created"].as_bool(), Some(true));
+}
+
+#[test]
+fn write_config_init_result_emits_path_only_for_quiet_format() {
+    let mut output = Vec::new();
+    let payload = config_init_payload(InitGlobalConfigFileResult {
+        path: "/tmp/config.json".to_string(),
+        created: true,
+    });
+
+    write_config_init_result(&mut output, &flags(OutputFormat::Quiet), &payload)
+        .expect("write config init");
+
+    assert_eq!(String::from_utf8(output).expect("utf8 output"), "/tmp/config.json\n");
+}
+
+#[test]
+fn write_config_init_result_reports_created_config_for_text_format() {
+    let mut output = Vec::new();
+    let payload = config_init_payload(InitGlobalConfigFileResult {
+        path: "/tmp/config.json".to_string(),
+        created: true,
+    });
+
+    write_config_init_result(&mut output, &flags(OutputFormat::Text), &payload)
+        .expect("write config init");
+
+    assert_eq!(String::from_utf8(output).expect("utf8 output"), "Created /tmp/config.json\n");
+}
+
+#[test]
+fn write_config_init_result_reports_existing_config_for_text_format() {
+    let mut output = Vec::new();
+    let payload = config_init_payload(InitGlobalConfigFileResult {
+        path: "/tmp/config.json".to_string(),
+        created: false,
+    });
+
+    write_config_init_result(&mut output, &flags(OutputFormat::Text), &payload)
+        .expect("write config init");
+
+    assert_eq!(
+        String::from_utf8(output).expect("utf8 output"),
+        "Config already exists: /tmp/config.json\n"
+    );
+}
+
+#[test]
+fn config_command_variants_are_distinct() {
+    assert_eq!(ConfigCommand::Show, ConfigCommand::Show);
+    assert_ne!(ConfigCommand::Show, ConfigCommand::Init);
+}

@@ -305,38 +305,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
             )))
         },
     );
-    let bearer_row = secure_text_row(
-        "Bearer Token",
-        "优先使用的配对令牌；填写后会作为 Authorization: Bearer 发送。",
-        "已配对 Bearer Token",
-        &s.bearer_token_input,
-        |value| {
-            Message::Settings(SettingsMessage::GatewayClient(
-                GatewayClientMessage::BearerTokenChanged(value),
-            ))
-        },
-    );
-    let username_row =
-        text_row("用户名", "Basic Auth 用户名。", "vibewindow", &s.username_input, |value| {
-            Message::Settings(SettingsMessage::GatewayClient(
-                GatewayClientMessage::UsernameChanged(value),
-            ))
-        });
-    let password_row = secure_text_row(
-        "密码",
-        "Basic Auth 密码；留空时不发送 Authorization 头。",
-        "Basic Auth 密码",
-        &s.password_input,
-        |value| {
-            Message::Settings(SettingsMessage::GatewayClient(
-                GatewayClientMessage::PasswordChanged(value),
-            ))
-        },
-    );
     let skey_row = secure_text_row(
-        "SKey",
-        "可选共享密钥，会作为 x-skey 头发送。",
-        "可选共享密钥",
+        "skey",
+        "可选 skey，会作为 Authorization: Bearer 发送。",
+        "可选 skey",
         &s.skey_input,
         |value| {
             Message::Settings(SettingsMessage::GatewayClient(GatewayClientMessage::SkeyChanged(
@@ -372,9 +344,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
         ),
         settings_section_card(
             "认证",
-            "可选填写 Bearer Token、Basic Auth 用户名/密码，以及额外的 SKey。Bearer Token 存在时优先发送 Authorization: Bearer。",
+            "可选填写 skey。请求会通过 Authorization: Bearer <skey> 发送。",
         ),
-        settings_panel(column![bearer_row, username_row, password_row, skey_row].spacing(0)),
+        settings_panel(column![skey_row].spacing(0)),
     ]
     .spacing(16)
     .width(Length::Fill);
@@ -446,17 +418,8 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
 2) port
 - 目标 Gateway 端口，默认 42617。
 
-3) username
-- Basic Auth 用户名。仅在同时提供密码时才会随请求发送。
-
-4) bearer_token
-- 已配对 Bearer Token。填写后会优先作为 Authorization: Bearer 发送。
-
-5) password
-- Basic Auth 密码。仅在 Bearer Token 为空时用于发送 Authorization 头。
-
-6) skey
-- 可选共享密钥。填写后会作为 x-skey 请求头发送给网关。
+3) skey
+- 可选 skey。填写后会作为 Authorization: Bearer <skey> 发送给网关。
 
 三、示例
 {
@@ -468,17 +431,11 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         "name": "本地网关",
         "host": "127.0.0.1",
         "port": 42617,
-        "bearer_token": "",
-        "username": "vibewindow",
-        "password": "",
         "skey": ""
       }
     ],
     "host": "127.0.0.1",
     "port": 42617,
-    "bearer_token": "",
-    "username": "vibewindow",
-    "password": "",
     "skey": ""
   }
 }
@@ -492,3 +449,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         Message::Settings(SettingsMessage::GatewayClient(GatewayClientMessage::HelpClose)),
     )
 }
+#[cfg(test)]
+#[path = "system_settings_gateway_client_tests.rs"]
+mod system_settings_gateway_client_tests;

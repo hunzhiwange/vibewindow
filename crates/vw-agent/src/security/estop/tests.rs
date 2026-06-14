@@ -56,6 +56,31 @@ mod tests {
         }
     }
 
+    #[test]
+    fn default_state_is_not_engaged_and_fail_closed_is_engaged() {
+        assert!(!EstopState::default().is_engaged());
+
+        let state = EstopState::fail_closed();
+        assert!(state.is_engaged());
+        assert!(state.kill_all);
+        assert!(state.updated_at.is_some());
+    }
+
+    #[test]
+    fn load_missing_state_uses_default_and_resolves_relative_path() {
+        let dir = tempdir().unwrap();
+        let cfg = EstopConfig {
+            enabled: true,
+            state_file: "state/estop.json".into(),
+            require_otp_to_resume: false,
+        };
+
+        let manager = EstopManager::load(&cfg, dir.path()).unwrap();
+
+        assert_eq!(manager.state_path(), dir.path().join("state/estop.json"));
+        assert!(!manager.status().is_engaged());
+    }
+
     /// 测试多级别紧急停止的组合触发与选择性恢复
     ///
     /// # 测试场景
@@ -110,6 +135,59 @@ mod tests {
         // 选择性恢复工具冻结
         manager.resume(ResumeSelector::Tools(vec!["shell".into()]), None, None).unwrap();
         assert!(manager.status().frozen_tools.is_empty());
+    }
+
+    #[test]
+    fn engage_normalizes_dedupes_and_resumes_network() {
+        let dir = tempdir().unwrap();
+        let state_path = dir.path().join("estop-state.json");
+        let cfg = estop_config(&state_path);
+        let mut manager = EstopManager::load(&cfg, dir.path()).unwrap();
+
+        manager
+            .engage(EstopLevel::DomainBlock(vec![
+                " B.EXAMPLE.COM ".into(),
+                "a.example.com".into(),
+                "b.example.com".into(),
+            ]))
+            .unwrap();
+        manager
+            .engage(EstopLevel::ToolFreeze(vec![
+                "Shell".into(),
+                "apply_patch".into(),
+                "shell".into(),
+            ]))
+            .unwrap();
+        manager.engage(EstopLevel::NetworkKill).unwrap();
+
+        let state = manager.status();
+        assert_eq!(
+            state.blocked_domains,
+            vec!["a.example.com".to_string(), "b.example.com".to_string()]
+        );
+        assert_eq!(state.frozen_tools, vec!["apply_patch".to_string(), "shell".to_string()]);
+        assert!(state.network_kill);
+
+        manager.resume(ResumeSelector::Network, None, None).unwrap();
+        assert!(!manager.status().network_kill);
+    }
+
+    #[test]
+    fn engage_rejects_invalid_domains_and_tools() {
+        let dir = tempdir().unwrap();
+        let state_path = dir.path().join("estop-state.json");
+        let cfg = estop_config(&state_path);
+        let mut manager = EstopManager::load(&cfg, dir.path()).unwrap();
+
+        let domain_err = manager
+            .engage(EstopLevel::DomainBlock(vec!["bad domain.com".into()]))
+            .expect_err("invalid domain should be rejected");
+        assert!(domain_err.to_string().contains("invalid characters"));
+
+        let tool_err = manager
+            .engage(EstopLevel::ToolFreeze(vec!["shell;rm".into()]))
+            .expect_err("invalid tool should be rejected");
+        assert!(tool_err.to_string().contains("invalid characters"));
     }
 
     /// 测试紧急停止状态在重载后的持久化
@@ -182,6 +260,34 @@ mod tests {
         assert!(manager.status().kill_all);
     }
 
+    #[test]
+    fn readable_state_is_normalized_on_load() {
+        let dir = tempdir().unwrap();
+        let state_path = dir.path().join("estop-state.json");
+        fs::write(
+            &state_path,
+            r#"{
+                "kill_all": false,
+                "network_kill": false,
+                "blocked_domains": ["z.example.com", "a.example.com", "a.example.com", ""],
+                "frozen_tools": ["shell", "apply_patch", "shell", " "]
+            }"#,
+        )
+        .unwrap();
+
+        let cfg = estop_config(&state_path);
+        let manager = EstopManager::load(&cfg, dir.path()).unwrap();
+
+        assert_eq!(
+            manager.status().blocked_domains,
+            vec!["a.example.com".to_string(), "z.example.com".to_string()]
+        );
+        assert_eq!(
+            manager.status().frozen_tools,
+            vec!["apply_patch".to_string(), "shell".to_string()]
+        );
+    }
+
     /// 测试启用 OTP 时恢复操作需要有效的 OTP 验证码
     ///
     /// # 测试场景
@@ -216,6 +322,37 @@ mod tests {
 
         // 验证错误信息包含 OTP 要求提示
         assert!(err.to_string().contains("OTP code is required"));
+    }
+
+    #[test]
+    fn resume_requires_validator_when_otp_code_is_present() {
+        let dir = tempdir().unwrap();
+        let state_path = dir.path().join("estop-state.json");
+        let mut cfg = estop_config(&state_path);
+        cfg.require_otp_to_resume = true;
+        let mut manager = EstopManager::load(&cfg, dir.path()).unwrap();
+
+        let err = manager
+            .resume(ResumeSelector::KillAll, Some("123456"), None)
+            .expect_err("validator should be required");
+
+        assert!(err.to_string().contains("OTP validator is required"));
+    }
+
+    #[test]
+    fn resume_rejects_invalid_tool_selector_before_persisting() {
+        let dir = tempdir().unwrap();
+        let state_path = dir.path().join("estop-state.json");
+        let cfg = estop_config(&state_path);
+        let mut manager = EstopManager::load(&cfg, dir.path()).unwrap();
+        manager.engage(EstopLevel::ToolFreeze(vec!["shell".into()])).unwrap();
+
+        let err = manager
+            .resume(ResumeSelector::Tools(vec!["bad/tool".into()]), None, None)
+            .expect_err("invalid tool selector should fail");
+
+        assert!(err.to_string().contains("invalid characters"));
+        assert_eq!(manager.status().frozen_tools, vec!["shell".to_string()]);
     }
 
     /// 测试使用有效的 OTP 验证码成功恢复系统

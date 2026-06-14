@@ -1,6 +1,6 @@
 //! SQLite-backed knowledge storage and retrieval.
 
-use super::chunker::chunk_text;
+use super::chunker::{chunk_text, chunk_text_with_limits};
 use crate::app::agent::gateway::ApiError;
 use crate::memory::embeddings::{EmbeddingProvider, NoopEmbedding};
 use crate::memory::vector;
@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
 use vw_api_types::knowledge::{
-    KnowledgeChunkDto, KnowledgeDatasetCreateRequest, KnowledgeDatasetDto,
+    KnowledgeChunkDto, KnowledgeChunkingMode, KnowledgeDatasetCreateRequest, KnowledgeDatasetDto,
     KnowledgeDocumentCreateRequest, KnowledgeDocumentDto, KnowledgeIndexingMode,
     KnowledgeRetrievalMode, KnowledgeRetrieveRequest, KnowledgeRetrieveResponse,
     KnowledgeRuntimeStatus,
@@ -26,8 +26,14 @@ CREATE TABLE IF NOT EXISTS knowledge_datasets (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     description TEXT NOT NULL,
+    chunking_mode TEXT NOT NULL DEFAULT 'general',
     indexing_mode TEXT NOT NULL,
     retrieval_mode TEXT NOT NULL,
+    keyword_count INTEGER NOT NULL DEFAULT 10,
+    top_k INTEGER NOT NULL DEFAULT 10,
+    score_threshold_enabled INTEGER NOT NULL DEFAULT 0,
+    score_threshold REAL NOT NULL DEFAULT 0.15,
+    rerank_enabled INTEGER NOT NULL DEFAULT 0,
     embedding_model TEXT,
     rerank_model TEXT,
     created_at_ms INTEGER NOT NULL,
@@ -105,7 +111,10 @@ pub struct SqliteKnowledgeStore {
 #[derive(Debug, Clone)]
 struct PreparedKnowledgeChunk {
     ordinal: usize,
+    title: String,
     content: String,
+    index_content: String,
+    metadata: Value,
     embedding: Option<Vec<u8>>,
 }
 
@@ -113,6 +122,7 @@ struct PreparedKnowledgeChunk {
 struct RetrievalScope {
     keyword_dataset_ids: Vec<String>,
     vector_dataset_ids: Vec<String>,
+    rerank_dataset_ids: Vec<String>,
 }
 
 impl SqliteKnowledgeStore {
@@ -146,13 +156,13 @@ impl SqliteKnowledgeStore {
                 "embedding provider is configured as none".to_string(),
             );
         }
-        notes.insert("rerank".to_string(), "rerank provider is not configured".to_string());
+        notes.insert("rerank".to_string(), "local deterministic reranker is available".to_string());
         let vector_enabled = self.embedder.dimensions() > 0;
         KnowledgeRuntimeStatus {
             full_text: true,
             vector: vector_enabled,
             hybrid: vector_enabled,
-            rerank: false,
+            rerank: true,
             notes,
         }
     }
@@ -203,7 +213,7 @@ impl SqliteKnowledgeStore {
     ) -> Result<KnowledgeDocumentDto, ApiError> {
         validate_document_request(&body)?;
         let dataset = self.get_dataset(dataset_id.clone()).await?;
-        let chunks = chunk_text(&body.content);
+        let chunks = prepare_chunks_for_dataset(&dataset, &body)?;
         if chunks.is_empty() {
             return Err(ApiError::bad_request("document content produced no chunks"));
         }
@@ -218,7 +228,7 @@ impl SqliteKnowledgeStore {
         let mut prepared_chunks = Vec::with_capacity(chunks.len());
         for chunk in chunks {
             let embedding = if needs_embedding {
-                self.get_or_compute_embedding(&chunk.content)
+                self.get_or_compute_embedding(&chunk.index_content)
                     .await?
                     .map(|embedding| vector::vec_to_bytes(&embedding))
             } else {
@@ -226,7 +236,10 @@ impl SqliteKnowledgeStore {
             };
             prepared_chunks.push(PreparedKnowledgeChunk {
                 ordinal: chunk.ordinal,
+                title: chunk.title,
                 content: chunk.content,
+                index_content: chunk.index_content,
+                metadata: chunk.metadata,
                 embedding,
             });
         }
@@ -355,8 +368,9 @@ fn list_datasets_blocking(db_path: PathBuf) -> Result<Vec<KnowledgeDatasetDto>, 
     let conn = open_db(&db_path)?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, description, indexing_mode, retrieval_mode, embedding_model, \
-             rerank_model, created_at_ms, updated_at_ms FROM knowledge_datasets \
+            "SELECT id, name, description, chunking_mode, indexing_mode, retrieval_mode, \
+             keyword_count, top_k, score_threshold_enabled, score_threshold, rerank_enabled, \
+             embedding_model, rerank_model, created_at_ms, updated_at_ms FROM knowledge_datasets \
              ORDER BY updated_at_ms DESC, name ASC",
         )
         .map_err(sql_error)?;
@@ -383,15 +397,22 @@ fn create_dataset_blocking(
     let now = now_ms();
     conn.execute(
         "INSERT INTO knowledge_datasets \
-         (id, name, description, indexing_mode, retrieval_mode, embedding_model, rerank_model, \
-          created_at_ms, updated_at_ms) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+         (id, name, description, chunking_mode, indexing_mode, retrieval_mode, keyword_count, \
+          top_k, score_threshold_enabled, score_threshold, rerank_enabled, embedding_model, \
+          rerank_model, created_at_ms, updated_at_ms) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
         params![
             id,
             body.name.trim(),
             body.description.trim(),
+            chunking_mode_as_str(&body.chunking_mode),
             indexing_mode_as_str(&body.indexing_mode),
             retrieval_mode_as_str(&body.retrieval_mode),
+            i64::try_from(body.keyword_count).unwrap_or(i64::MAX),
+            i64::try_from(body.top_k.clamp(1, MAX_TOP_K)).unwrap_or(i64::MAX),
+            bool_to_i64(body.score_threshold_enabled),
+            body.score_threshold,
+            bool_to_i64(body.rerank_enabled),
             body.embedding_model.as_deref(),
             body.rerank_model.as_deref(),
             now,
@@ -441,6 +462,203 @@ fn list_documents_blocking(
     rows.collect::<Result<Vec<_>, _>>().map_err(sql_error)
 }
 
+fn prepare_chunks_for_dataset(
+    dataset: &KnowledgeDatasetDto,
+    body: &KnowledgeDocumentCreateRequest,
+) -> Result<Vec<PreparedKnowledgeChunk>, ApiError> {
+    match dataset.chunking_mode {
+        KnowledgeChunkingMode::General => Ok(chunk_text(&body.content)
+            .into_iter()
+            .map(|chunk| PreparedKnowledgeChunk {
+                ordinal: chunk.ordinal,
+                title: body.name.trim().to_string(),
+                index_content: chunk.content.clone(),
+                content: chunk.content,
+                metadata: json!({ "chunking_mode": "general" }),
+                embedding: None,
+            })
+            .collect()),
+        KnowledgeChunkingMode::ParentChild => Ok(prepare_parent_child_chunks(body)),
+        KnowledgeChunkingMode::Qa => prepare_qa_chunks(body),
+    }
+}
+
+fn prepare_parent_child_chunks(
+    body: &KnowledgeDocumentCreateRequest,
+) -> Vec<PreparedKnowledgeChunk> {
+    let parents = chunk_text_with_limits(&body.content, 1600, 120);
+    let mut chunks = Vec::new();
+    for parent in parents {
+        let children = chunk_text_with_limits(&parent.content, 360, 40);
+        for child in children {
+            chunks.push(PreparedKnowledgeChunk {
+                ordinal: chunks.len(),
+                title: format!(
+                    "{} · {}.{}",
+                    body.name.trim(),
+                    parent.ordinal + 1,
+                    child.ordinal + 1
+                ),
+                content: parent.content.clone(),
+                index_content: child.content.clone(),
+                metadata: json!({
+                    "chunking_mode": "parent_child",
+                    "parent_index": parent.ordinal,
+                    "child_index": child.ordinal,
+                    "child_content": child.content,
+                }),
+                embedding: None,
+            });
+        }
+    }
+    chunks
+}
+
+fn prepare_qa_chunks(
+    body: &KnowledgeDocumentCreateRequest,
+) -> Result<Vec<PreparedKnowledgeChunk>, ApiError> {
+    let pairs = parse_qa_pairs(&body.content);
+    if pairs.is_empty() {
+        return Err(ApiError::bad_request(
+            "Q&A knowledge document must contain question and answer pairs",
+        ));
+    }
+    Ok(pairs
+        .into_iter()
+        .enumerate()
+        .map(|(index, (question, answer))| PreparedKnowledgeChunk {
+            ordinal: index,
+            title: question.clone(),
+            index_content: question.clone(),
+            content: answer.clone(),
+            metadata: json!({
+                "chunking_mode": "qa",
+                "question": question,
+                "answer": answer,
+            }),
+            embedding: None,
+        })
+        .collect())
+}
+
+fn parse_qa_pairs(content: &str) -> Vec<(String, String)> {
+    let mut pairs = Vec::new();
+    let mut question = String::new();
+    let mut answer = String::new();
+    let mut answer_started = false;
+
+    for raw_line in content.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(value) = strip_question_prefix(line) {
+            push_qa_pair(&mut pairs, &mut question, &mut answer);
+            question = value.to_string();
+            answer_started = false;
+            continue;
+        }
+        if let Some(value) = strip_answer_prefix(line) {
+            if !question.is_empty() {
+                push_joined_line(&mut answer, value);
+                answer_started = true;
+            }
+            continue;
+        }
+        if !question.is_empty() {
+            push_joined_line(&mut answer, line);
+            answer_started = true;
+        }
+    }
+    if answer_started {
+        push_qa_pair(&mut pairs, &mut question, &mut answer);
+    }
+
+    if pairs.is_empty() { parse_paragraph_qa_pairs(content) } else { pairs }
+}
+
+fn parse_paragraph_qa_pairs(content: &str) -> Vec<(String, String)> {
+    content
+        .split("\n\n")
+        .filter_map(|block| {
+            let lines =
+                block.lines().map(str::trim).filter(|line| !line.is_empty()).collect::<Vec<_>>();
+            if lines.len() < 2 {
+                return None;
+            }
+            let question = lines[0].to_string();
+            let answer = lines[1..].join("\n");
+            (!question.is_empty() && !answer.trim().is_empty()).then_some((question, answer))
+        })
+        .collect()
+}
+
+fn strip_question_prefix(line: &str) -> Option<&str> {
+    strip_prefixed_line(
+        line,
+        &[
+            "Q:",
+            "Q：",
+            "q:",
+            "q：",
+            "Question:",
+            "Question：",
+            "question:",
+            "question：",
+            "问题:",
+            "问题：",
+            "问:",
+            "问：",
+        ],
+    )
+}
+
+fn strip_answer_prefix(line: &str) -> Option<&str> {
+    strip_prefixed_line(
+        line,
+        &[
+            "A:",
+            "A：",
+            "a:",
+            "a：",
+            "Answer:",
+            "Answer：",
+            "answer:",
+            "answer：",
+            "答案:",
+            "答案：",
+            "答:",
+            "答：",
+        ],
+    )
+}
+
+fn strip_prefixed_line<'a>(line: &'a str, prefixes: &[&str]) -> Option<&'a str> {
+    for prefix in prefixes {
+        if let Some(value) = line.strip_prefix(prefix) {
+            return Some(value.trim());
+        }
+    }
+    None
+}
+
+fn push_qa_pair(pairs: &mut Vec<(String, String)>, question: &mut String, answer: &mut String) {
+    let question_value = question.trim();
+    let answer_value = answer.trim();
+    if !question_value.is_empty() && !answer_value.is_empty() {
+        pairs.push((question_value.to_string(), answer_value.to_string()));
+    }
+    question.clear();
+    answer.clear();
+}
+
+fn push_joined_line(target: &mut String, line: &str) {
+    if !target.is_empty() {
+        target.push('\n');
+    }
+    target.push_str(line);
+}
+
 fn create_document_blocking(
     db_path: PathBuf,
     dataset_id: &str,
@@ -474,11 +692,14 @@ fn create_document_blocking(
 
     for chunk in chunks {
         let chunk_id = Uuid::new_v4().to_string();
-        let chunk_metadata = chunk_metadata(&body.metadata, body.name.trim(), chunk.ordinal);
+        let chunk_metadata =
+            chunk_metadata(&body.metadata, body.name.trim(), chunk.ordinal, &chunk.metadata);
         let chunk_metadata_json = serde_json::to_string(&chunk_metadata).map_err(|error| {
             ApiError::bad_request(format!("document chunk metadata is invalid: {error}"))
         })?;
+        let title = chunk.title;
         let content = chunk.content;
+        let index_content = chunk.index_content;
         let embedding = chunk.embedding;
         conn.execute(
             "INSERT INTO knowledge_chunks \
@@ -490,7 +711,7 @@ fn create_document_blocking(
                 dataset_id,
                 document_id,
                 i64::try_from(chunk.ordinal).unwrap_or(i64::MAX),
-                body.name.trim(),
+                title.as_str(),
                 content.as_str(),
                 chunk_metadata_json,
                 embedding,
@@ -503,7 +724,7 @@ fn create_document_blocking(
         conn.execute(
             "INSERT INTO knowledge_chunks_fts \
              (chunk_id, dataset_id, document_id, title, content) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![chunk_id, dataset_id, document_id, body.name.trim(), content.as_str()],
+            params![chunk_id, dataset_id, document_id, title.as_str(), index_content.as_str()],
         )
         .map_err(sql_error)?;
     }
@@ -578,10 +799,14 @@ fn retrieve_blocking(
             continue;
         }
         chunks.push(chunk);
-        if chunks.len() >= top_k {
+        if chunks.len() >= candidate_limit {
             break;
         }
     }
+    if !scope.rerank_dataset_ids.is_empty() {
+        rerank_chunks(&request.query, &scope.rerank_dataset_ids, &mut chunks);
+    }
+    chunks.truncate(top_k);
 
     Ok(KnowledgeRetrieveResponse { chunks })
 }
@@ -746,13 +971,62 @@ fn merge_retrieval_scores(
     results
 }
 
+fn rerank_chunks(query: &str, rerank_dataset_ids: &[String], chunks: &mut [KnowledgeChunkDto]) {
+    chunks.sort_by(|left, right| {
+        let left_score = rerank_score(query, rerank_dataset_ids, left);
+        let right_score = rerank_score(query, rerank_dataset_ids, right);
+        right_score.partial_cmp(&left_score).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    for chunk in chunks {
+        if rerank_dataset_ids.iter().any(|dataset_id| dataset_id == &chunk.dataset_id) {
+            chunk.score = Some(rerank_score(query, rerank_dataset_ids, chunk));
+        }
+    }
+}
+
+fn rerank_score(query: &str, rerank_dataset_ids: &[String], chunk: &KnowledgeChunkDto) -> f64 {
+    let base = chunk.score.unwrap_or_default();
+    if !rerank_dataset_ids.iter().any(|dataset_id| dataset_id == &chunk.dataset_id) {
+        return base;
+    }
+    let lexical = lexical_match_score(query, chunk);
+    (base * 0.70 + lexical * 0.30).clamp(0.0, 1.0)
+}
+
+fn lexical_match_score(query: &str, chunk: &KnowledgeChunkDto) -> f64 {
+    let query = query.trim().to_lowercase();
+    if query.is_empty() {
+        return 0.0;
+    }
+    let mut haystack = format!("{}\n{}", chunk.title, chunk.content).to_lowercase();
+    if let Some(child_content) = chunk.metadata.get("child_content").and_then(Value::as_str) {
+        haystack.push('\n');
+        haystack.push_str(&child_content.to_lowercase());
+    }
+    if let Some(question) = chunk.metadata.get("question").and_then(Value::as_str) {
+        haystack.push('\n');
+        haystack.push_str(&question.to_lowercase());
+    }
+    if haystack.contains(&query) {
+        return 1.0;
+    }
+    let terms = query.split_whitespace().filter(|term| !term.is_empty()).collect::<Vec<_>>();
+    if terms.is_empty() {
+        return 0.0;
+    }
+    let matched = terms.iter().filter(|term| haystack.contains(**term)).count();
+    matched as f64 / terms.len() as f64
+}
+
 fn query_dataset(
     conn: &Connection,
     dataset_id: &str,
 ) -> Result<Option<KnowledgeDatasetDto>, ApiError> {
     conn.query_row(
-        "SELECT id, name, description, indexing_mode, retrieval_mode, embedding_model, \
-         rerank_model, created_at_ms, updated_at_ms FROM knowledge_datasets WHERE id = ?1",
+        "SELECT id, name, description, chunking_mode, indexing_mode, retrieval_mode, \
+         keyword_count, top_k, score_threshold_enabled, score_threshold, rerank_enabled, \
+         embedding_model, rerank_model, created_at_ms, updated_at_ms \
+         FROM knowledge_datasets WHERE id = ?1",
         params![dataset_id],
         |row| dataset_from_row(conn, row),
     )
@@ -798,14 +1072,20 @@ fn dataset_from_row(
         id: id.clone(),
         name: row.get(1)?,
         description: row.get(2)?,
-        indexing_mode: parse_indexing_mode(row.get::<_, String>(3)?.as_str()),
-        retrieval_mode: parse_retrieval_mode(row.get::<_, String>(4)?.as_str()),
-        embedding_model: row.get(5)?,
-        rerank_model: row.get(6)?,
+        chunking_mode: parse_chunking_mode(row.get::<_, String>(3)?.as_str()),
+        indexing_mode: parse_indexing_mode(row.get::<_, String>(4)?.as_str()),
+        retrieval_mode: parse_retrieval_mode(row.get::<_, String>(5)?.as_str()),
+        keyword_count: read_usize(row, 6)?,
+        top_k: read_usize(row, 7)?,
+        score_threshold_enabled: row.get::<_, i64>(8)? != 0,
+        score_threshold: row.get(9)?,
+        rerank_enabled: row.get::<_, i64>(10)? != 0,
+        embedding_model: row.get(11)?,
+        rerank_model: row.get(12)?,
         document_count: count_by_dataset(conn, "knowledge_documents", &id)?,
         chunk_count: count_by_dataset(conn, "knowledge_chunks", &id)?,
-        created_at_ms: read_u64(row, 7)?,
-        updated_at_ms: read_u64(row, 8)?,
+        created_at_ms: read_u64(row, 13)?,
+        updated_at_ms: read_u64(row, 14)?,
     })
 }
 
@@ -882,7 +1162,11 @@ fn resolve_retrieval_scope_blocking(
     validate_dataset_scope(&conn, dataset_ids)?;
     let mut keyword_dataset_ids = Vec::new();
     let mut vector_dataset_ids = Vec::new();
-    for (dataset_id, retrieval_mode) in query_retrieval_modes(&conn, dataset_ids)? {
+    let mut rerank_dataset_ids = Vec::new();
+    for (dataset_id, retrieval_mode, rerank_enabled) in query_retrieval_modes(&conn, dataset_ids)? {
+        if rerank_enabled {
+            rerank_dataset_ids.push(dataset_id.clone());
+        }
         match retrieval_mode {
             KnowledgeRetrievalMode::FullText => keyword_dataset_ids.push(dataset_id),
             KnowledgeRetrievalMode::Vector => vector_dataset_ids.push(dataset_id),
@@ -892,18 +1176,20 @@ fn resolve_retrieval_scope_blocking(
             }
         }
     }
-    Ok(RetrievalScope { keyword_dataset_ids, vector_dataset_ids })
+    Ok(RetrievalScope { keyword_dataset_ids, vector_dataset_ids, rerank_dataset_ids })
 }
 
 fn query_retrieval_modes(
     conn: &Connection,
     dataset_ids: &[String],
-) -> Result<Vec<(String, KnowledgeRetrievalMode)>, ApiError> {
+) -> Result<Vec<(String, KnowledgeRetrievalMode, bool)>, ApiError> {
     let sql = if dataset_ids.is_empty() {
-        "SELECT id, retrieval_mode FROM knowledge_datasets".to_string()
+        "SELECT id, retrieval_mode, rerank_enabled FROM knowledge_datasets".to_string()
     } else {
         let placeholders = (0..dataset_ids.len()).map(|_| "?").collect::<Vec<_>>().join(", ");
-        format!("SELECT id, retrieval_mode FROM knowledge_datasets WHERE id IN ({placeholders})")
+        format!(
+            "SELECT id, retrieval_mode, rerank_enabled FROM knowledge_datasets WHERE id IN ({placeholders})"
+        )
     };
     let mut params_vec = Vec::<&dyn rusqlite::ToSql>::new();
     for dataset_id in dataset_ids {
@@ -914,7 +1200,8 @@ fn query_retrieval_modes(
         .query_map(params_from_iter(params_vec), |row| {
             let id: String = row.get(0)?;
             let retrieval_mode: String = row.get(1)?;
-            Ok((id, parse_retrieval_mode(&retrieval_mode)))
+            let rerank_enabled = row.get::<_, i64>(2)? != 0;
+            Ok((id, parse_retrieval_mode(&retrieval_mode), rerank_enabled))
         })
         .map_err(sql_error)?;
     rows.collect::<Result<Vec<_>, _>>().map_err(sql_error)
@@ -927,6 +1214,15 @@ fn validate_dataset_request(
 ) -> Result<(), ApiError> {
     if body.name.trim().is_empty() {
         return Err(ApiError::bad_request("knowledge dataset name is required"));
+    }
+    if body.keyword_count == 0 {
+        return Err(ApiError::bad_request("knowledge keyword_count must be greater than 0"));
+    }
+    if body.top_k == 0 {
+        return Err(ApiError::bad_request("knowledge top_k must be greater than 0"));
+    }
+    if !(0.0..=1.0).contains(&body.score_threshold) {
+        return Err(ApiError::bad_request("knowledge score_threshold must be between 0 and 1"));
     }
     if body.indexing_mode == KnowledgeIndexingMode::HighQuality && !vector_available {
         return Err(ApiError::not_implemented(
@@ -953,9 +1249,12 @@ fn validate_dataset_request(
         }
     }
     if body.rerank_model.as_deref().is_some_and(|value| !value.trim().is_empty()) {
-        return Err(ApiError::not_implemented(
-            "rerank_model is reserved until rerank provider support is configured",
-        ));
+        let requested_model = body.rerank_model.as_deref().unwrap_or_default().trim();
+        if requested_model != "local-rerank-v1" {
+            return Err(ApiError::bad_request(
+                "knowledge rerank_model only supports local-rerank-v1",
+            ));
+        }
     }
     Ok(())
 }
@@ -1014,9 +1313,57 @@ fn open_db(db_path: &Path) -> Result<Connection, ApiError> {
 }
 
 fn migrate_schema(conn: &Connection) -> Result<(), ApiError> {
+    add_column_if_missing(
+        conn,
+        "knowledge_datasets",
+        "chunking_mode",
+        "ALTER TABLE knowledge_datasets ADD COLUMN chunking_mode TEXT NOT NULL DEFAULT 'general'",
+    )?;
+    add_column_if_missing(
+        conn,
+        "knowledge_datasets",
+        "keyword_count",
+        "ALTER TABLE knowledge_datasets ADD COLUMN keyword_count INTEGER NOT NULL DEFAULT 10",
+    )?;
+    add_column_if_missing(
+        conn,
+        "knowledge_datasets",
+        "top_k",
+        "ALTER TABLE knowledge_datasets ADD COLUMN top_k INTEGER NOT NULL DEFAULT 10",
+    )?;
+    add_column_if_missing(
+        conn,
+        "knowledge_datasets",
+        "score_threshold_enabled",
+        "ALTER TABLE knowledge_datasets ADD COLUMN score_threshold_enabled INTEGER NOT NULL DEFAULT 0",
+    )?;
+    add_column_if_missing(
+        conn,
+        "knowledge_datasets",
+        "score_threshold",
+        "ALTER TABLE knowledge_datasets ADD COLUMN score_threshold REAL NOT NULL DEFAULT 0.15",
+    )?;
+    add_column_if_missing(
+        conn,
+        "knowledge_datasets",
+        "rerank_enabled",
+        "ALTER TABLE knowledge_datasets ADD COLUMN rerank_enabled INTEGER NOT NULL DEFAULT 0",
+    )?;
     if !column_exists(conn, "knowledge_chunks", "embedding")? {
         conn.execute("ALTER TABLE knowledge_chunks ADD COLUMN embedding BLOB", [])
             .map_err(sql_error)?;
+    }
+    Ok(())
+}
+
+fn add_column_if_missing(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    sql: &str,
+) -> Result<(), ApiError> {
+    if !column_exists(conn, table, column)? {
+        conn.execute(sql, []).map_err(sql_error)?;
     }
     Ok(())
 }
@@ -1039,11 +1386,19 @@ fn metadata_or_object(value: Value) -> Value {
     }
 }
 
-fn chunk_metadata(metadata: &Value, document_name: &str, ordinal: usize) -> Value {
+fn chunk_metadata(
+    metadata: &Value,
+    document_name: &str,
+    ordinal: usize,
+    chunk_metadata: &Value,
+) -> Value {
     let mut object = match metadata {
         Value::Object(map) => map.clone(),
         _ => Map::new(),
     };
+    if let Value::Object(map) = chunk_metadata {
+        object.extend(map.clone());
+    }
     object.insert("document_name".to_string(), Value::String(document_name.to_string()));
     object.insert("chunk_index".to_string(), json!(ordinal));
     Value::Object(object)
@@ -1176,6 +1531,14 @@ fn bool_to_i64(value: bool) -> i64 {
     if value { 1 } else { 0 }
 }
 
+fn chunking_mode_as_str(mode: &KnowledgeChunkingMode) -> &'static str {
+    match mode {
+        KnowledgeChunkingMode::General => "general",
+        KnowledgeChunkingMode::ParentChild => "parent_child",
+        KnowledgeChunkingMode::Qa => "qa",
+    }
+}
+
 fn indexing_mode_as_str(mode: &KnowledgeIndexingMode) -> &'static str {
     match mode {
         KnowledgeIndexingMode::Economy => "economy",
@@ -1188,6 +1551,14 @@ fn retrieval_mode_as_str(mode: &KnowledgeRetrievalMode) -> &'static str {
         KnowledgeRetrievalMode::FullText => "full_text",
         KnowledgeRetrievalMode::Vector => "vector",
         KnowledgeRetrievalMode::Hybrid => "hybrid",
+    }
+}
+
+fn parse_chunking_mode(value: &str) -> KnowledgeChunkingMode {
+    match value {
+        "parent_child" => KnowledgeChunkingMode::ParentChild,
+        "qa" => KnowledgeChunkingMode::Qa,
+        _ => KnowledgeChunkingMode::General,
     }
 }
 
@@ -1211,6 +1582,11 @@ fn read_u64(row: &rusqlite::Row<'_>, index: usize) -> rusqlite::Result<u64> {
     Ok(u64::try_from(value).unwrap_or_default())
 }
 
+fn read_usize(row: &rusqlite::Row<'_>, index: usize) -> rusqlite::Result<usize> {
+    let value: i64 = row.get(index)?;
+    Ok(usize::try_from(value).unwrap_or_default())
+}
+
 fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1223,3 +1599,7 @@ fn now_ms() -> u64 {
 fn sql_error(error: rusqlite::Error) -> ApiError {
     ApiError::internal(format!("knowledge sqlite error: {error}"))
 }
+
+#[cfg(test)]
+#[path = "store_tests.rs"]
+mod store_tests;

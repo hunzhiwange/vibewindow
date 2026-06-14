@@ -262,6 +262,6 @@ pub async fn do_stream_request_aisdk(
     )
     .await
 }
-#[cfg(test)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "request_tests.rs"]
 mod request_tests;

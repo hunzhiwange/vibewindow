@@ -94,7 +94,7 @@ pub(super) fn handle_set_model(
     current: &mut ChannelRouteSelection,
     raw_model: String,
 ) -> String {
-    let model = raw_model.trim().trim_matches('`').to_string();
+    let model = raw_model.trim().trim_matches('`').trim().to_string();
     if model.is_empty() {
         "Model ID cannot be empty. Use `/model <model-id>`.".to_string()
     } else {

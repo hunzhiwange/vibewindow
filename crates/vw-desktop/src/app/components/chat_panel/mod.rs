@@ -20,6 +20,7 @@
 
 pub mod chunk_loader;
 pub mod empty;
+mod global_status;
 pub mod header;
 pub mod height_index;
 pub mod message_view;
@@ -33,6 +34,9 @@ pub mod utils;
 #[path = "chunk_loader_tests.rs"]
 mod chunk_loader_tests;
 #[cfg(test)]
+#[path = "global_status_tests.rs"]
+mod global_status_tests;
+#[cfg(test)]
 #[path = "height_index_tests.rs"]
 mod height_index_tests;
 #[cfg(test)]
@@ -41,6 +45,9 @@ mod latest_user_question_button_tests;
 #[cfg(test)]
 #[path = "message_view_tests.rs"]
 mod message_view_tests;
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
 #[cfg(test)]
 #[path = "permission_view_tests.rs"]
 mod permission_view_tests;
@@ -73,6 +80,7 @@ use crate::app::models::{ChatMessage, ChatRenderCacheEntry, ChatRole};
 use crate::app::{App, Message, TodoPanelPlacement, message};
 
 use self::empty::{empty_session_placeholder, session_loading_placeholder};
+use self::global_status::chat_global_status_view;
 use self::header::chat_header_view;
 use self::height_index::{CHAT_MESSAGE_GAP, ChatHeightIndex};
 use self::message_view::estimate_message_height_rough;
@@ -141,6 +149,15 @@ fn user_question_preview(content: &str) -> String {
     let flattened = content.replace(['\n', '\r'], " ");
     let trimmed = flattened.split_whitespace().collect::<Vec<_>>().join(" ");
     if trimmed.is_empty() { "空提问".to_string() } else { truncate_chars(trimmed.trim(), 100) }
+}
+
+pub(crate) fn live_message_meta_fallback(
+    role: ChatRole,
+    _is_requesting: bool,
+    _is_last: bool,
+    model: &str,
+) -> Option<String> {
+    matches!(role, ChatRole::Assistant | ChatRole::User).then(|| format!("{model} · 刚刚"))
 }
 
 fn user_question_tooltip_content(label: String) -> Element<'static, Message> {
@@ -224,8 +241,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         );
     let user_question_idxs = user_question_indices(&app.chat);
 
-    // 构建消息列，每条消息之间间隔 12px
-    let mut col = column![].spacing(CHAT_MESSAGE_GAP).max_width(980);
+    // 构建消息列，每条消息之间间隔 18px
+    let mut col = column![].spacing(CHAT_MESSAGE_GAP).max_width(1180);
 
     if top_spacer_h > 0.0 {
         col = col.push(Space::new().height(Length::Fixed(top_spacer_h)));
@@ -240,8 +257,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
             break;
         }
 
-        let is_last = i + 1 == app.chat.len();
         // 流式响应标志：当前消息是助手消息、正在请求中且是最后一条消息
+        let is_last = i + 1 == app.chat.len();
         let _is_streaming =
             m.role == ChatRole::Assistant && app.current_session_runtime().is_requesting && is_last;
 
@@ -255,8 +272,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .and_then(|meta| meta.as_deref())
             .map(Cow::Borrowed)
             .or_else(|| {
-                matches!(m.role, ChatRole::Assistant | ChatRole::User)
-                    .then(|| Cow::Owned(format!("{} · 刚刚", runtime.model)))
+                live_message_meta_fallback(m.role, runtime.is_requesting, is_last, &runtime.model)
+                    .map(Cow::Owned)
             });
 
         col = col.push(message_view(
@@ -278,10 +295,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
     // 创建可滚动容器，包含消息列
     let scroll_content = scrollable(
         container(col).width(Length::Fill).center_x(Length::Fill).padding(iced::Padding {
-            top: 16.0,
-            right: 28.0,
-            bottom: 20.0,
-            left: 28.0,
+            top: 22.0,
+            right: 34.0,
+            bottom: 28.0,
+            left: 34.0,
         }),
     )
     .direction(chat_scroll_direction())
@@ -313,19 +330,31 @@ pub fn view(app: &App) -> Element<'_, Message> {
         let body_base = stack![scroll_content, question_jump_button, jump_button, todo_overlay]
             .width(Length::Fill)
             .height(Length::Fill);
-        let panel_base =
-            column![header, body_base].spacing(6).width(Length::Fill).height(Length::Fill);
+        let panel_base = column![header, body_base, chat_global_status_view(app)]
+            .spacing(6)
+            .width(Length::Fill)
+            .height(Length::Fill);
         panel_base.into()
     } else if is_loading_session_ui {
-        stack![session_loading_placeholder(app), empty_fullscreen_controls(app)]
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .into()
+        column![
+            stack![session_loading_placeholder(app), empty_fullscreen_controls(app)]
+                .width(Length::Fill)
+                .height(Length::Fill),
+            chat_global_status_view(app)
+        ]
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
     } else {
-        stack![empty_session_placeholder(app), empty_fullscreen_controls(app)]
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .into()
+        column![
+            stack![empty_session_placeholder(app), empty_fullscreen_controls(app)]
+                .width(Length::Fill)
+                .height(Length::Fill),
+            chat_global_status_view(app)
+        ]
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
     }
 }
 

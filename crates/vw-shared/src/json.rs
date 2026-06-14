@@ -25,14 +25,12 @@ pub fn extract_json_values(input: &str) -> Vec<serde_json::Value> {
 
             if let Some(Ok(value)) = stream.next() {
                 let consumed = stream.byte_offset();
-                if consumed > 0 {
-                    values.push(value);
-                    let next_byte = byte_idx + consumed;
-                    while idx < char_positions.len() && char_positions[idx].0 < next_byte {
-                        idx += 1;
-                    }
-                    continue;
+                values.push(value);
+                let next_byte = byte_idx + consumed;
+                while idx < char_positions.len() && char_positions[idx].0 < next_byte {
+                    idx += 1;
                 }
+                continue;
             }
         }
         idx += 1;

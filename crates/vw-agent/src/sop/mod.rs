@@ -358,7 +358,10 @@ pub fn handle_command(
             if sops.is_empty() {
                 println!("No SOPs found.");
                 println!();
-                println!("  Create one: mkdir -p ~/.vibewindow/workspace/sops/my-sop");
+                println!(
+                    "  Create one: mkdir -p {}",
+                    config.workspace_dir.join("sops").join("my-sop").display()
+                );
                 println!("              # Add SOP.toml and SOP.md");
                 println!();
                 println!(

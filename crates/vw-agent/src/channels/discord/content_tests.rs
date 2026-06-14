@@ -22,3 +22,20 @@ fn normalize_incoming_content_requires_and_removes_bot_mention() {
     );
     assert_eq!(normalize_incoming_content("  hello  ", false, "42"), Some("hello".to_string()));
 }
+
+#[test]
+fn mention_helpers_cover_plain_nick_and_absent_mentions() {
+    let tags = mention_tags("42");
+
+    assert_eq!(tags, ["<@42>".to_string(), "<@!42>".to_string()]);
+    assert!(contains_bot_mention("hi <@42>", "42"));
+    assert!(contains_bot_mention("hi <@!42>", "42"));
+    assert!(!contains_bot_mention("hi <@24>", "42"));
+}
+
+#[test]
+fn normalize_incoming_content_rejects_empty_or_mention_only_messages() {
+    assert_eq!(normalize_incoming_content("", false, "42"), None);
+    assert_eq!(normalize_incoming_content("   ", false, "42"), None);
+    assert_eq!(normalize_incoming_content("<@42> <@!42>", true, "42"), None);
+}

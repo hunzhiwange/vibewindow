@@ -8,7 +8,7 @@
 //! - 与 ApprovalManager 协同工作，管理审批请求的生命周期
 
 use crate::app::agent::approval::{ApprovalManager, ApprovalResponse};
-use std::time::{Duration, Instant};
+use tokio::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 
 /// 非 CLI 环境下等待审批响应的超时时间（秒）

@@ -14,3 +14,21 @@ fn split_message_for_discord_respects_unicode_character_limit() {
     assert!(chunks.iter().all(|chunk| chunk.chars().count() <= DISCORD_MAX_MESSAGE_LENGTH));
     assert_eq!(chunks.concat(), message);
 }
+
+#[test]
+fn split_message_for_discord_prefers_newline_then_space_then_hard_split() {
+    let newline = format!("{}\n{}", "a".repeat(1500), "b".repeat(700));
+    let chunks = split_message_for_discord(&newline);
+    assert_eq!(chunks.len(), 2);
+    assert!(chunks[0].ends_with('\n'));
+
+    let spaced = format!("{} {}", "a".repeat(1500), "b".repeat(700));
+    let chunks = split_message_for_discord(&spaced);
+    assert_eq!(chunks.len(), 2);
+    assert!(chunks[0].ends_with(' '));
+
+    let solid = "x".repeat(DISCORD_MAX_MESSAGE_LENGTH * 2 + 3);
+    let chunks = split_message_for_discord(&solid);
+    assert_eq!(chunks.len(), 3);
+    assert_eq!(chunks[2].len(), 3);
+}

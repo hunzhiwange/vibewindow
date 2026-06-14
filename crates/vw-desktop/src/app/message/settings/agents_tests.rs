@@ -1,7 +1,9 @@
 //! 处理系统设置页面中对应功能区的消息、校验和配置持久化。
 
-use super::summarize_models;
-use super::{bundled_workspace_identity_content, bundled_workspace_identity_path};
+use super::{
+    bundled_workspace_identity_content, bundled_workspace_identity_path, normalize_agent_key,
+    summarize_models, summarize_providers, tool_in_preset, tools_for_preset,
+};
 use std::collections::HashMap;
 use vw_shared::provider::types::{
     ApiInfo, Capabilities, CapabilityIO, Info, InterleavedCapability, Model, ModelCost,
@@ -96,4 +98,91 @@ fn summarize_models_keeps_builtin_provider_models_even_when_all_disabled() {
     assert_eq!(summary[0].models.len(), 1);
     assert_eq!(summary[0].models[0].id, "gpt-4.1");
     assert!(!summary[0].models[0].enabled);
+}
+
+#[test]
+fn summarize_providers_labels_sources_and_sorts_by_name_then_id() {
+    let providers = HashMap::from([
+        (
+            "z".to_string(),
+            Info {
+                id: "z".to_string(),
+                name: "Zulu".to_string(),
+                source: ProviderSource::Api,
+                env: vec![],
+                key: None,
+                options: HashMap::new(),
+                models: HashMap::new(),
+            },
+        ),
+        (
+            "a".to_string(),
+            Info {
+                id: "a".to_string(),
+                name: "Alpha".to_string(),
+                source: ProviderSource::Env,
+                env: vec!["ALPHA_KEY".to_string()],
+                key: None,
+                options: HashMap::new(),
+                models: HashMap::new(),
+            },
+        ),
+        (
+            "builtin".to_string(),
+            Info {
+                id: "builtin".to_string(),
+                name: "Builtin".to_string(),
+                source: ProviderSource::Custom,
+                env: vec![],
+                key: None,
+                options: HashMap::new(),
+                models: HashMap::new(),
+            },
+        ),
+    ]);
+
+    let summary = summarize_providers(providers);
+
+    assert_eq!(
+        summary.iter().map(|provider| provider.id.as_str()).collect::<Vec<_>>(),
+        vec!["a", "builtin", "z"]
+    );
+    assert_eq!(summary[0].source_label, "环境变量");
+    assert!(summary[0].connected);
+    assert_eq!(summary[1].source_label, "内置");
+    assert!(!summary[1].connected);
+    assert_eq!(summary[2].source_label, "API 密钥");
+    assert!(summary[2].connected);
+}
+
+#[test]
+fn normalize_agent_key_trims_and_removes_unsupported_characters() {
+    assert_eq!(normalize_agent_key("  Agent-01_beta  "), "Agent-01_beta");
+    assert_eq!(normalize_agent_key(" agent key!@#中文 "), "agentkey");
+    assert_eq!(normalize_agent_key("   "), "");
+}
+
+#[test]
+fn tool_presets_include_expected_tools_and_sort_results() {
+    let available_tools = vec![
+        "bash".to_string(),
+        "read".to_string(),
+        "browser".to_string(),
+        "apply_patch".to_string(),
+        "question".to_string(),
+        "unknown".to_string(),
+    ];
+
+    assert!(tool_in_preset("read", "minimal"));
+    assert!(tool_in_preset("apply_patch", "coding"));
+    assert!(tool_in_preset("browser", "research"));
+    assert!(tool_in_preset("question", "collab"));
+    assert!(tool_in_preset("unknown", "full"));
+    assert!(!tool_in_preset("unknown", "minimal"));
+    assert!(!tool_in_preset("read", "unknown"));
+
+    assert_eq!(
+        tools_for_preset(&available_tools, "coding"),
+        vec!["apply_patch".to_string(), "bash".to_string(), "question".to_string(), "read".to_string()]
+    );
 }

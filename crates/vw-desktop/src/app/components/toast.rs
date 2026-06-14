@@ -14,26 +14,26 @@ use iced::widget::svg::{self, Svg};
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme, Vector};
 
-fn is_dark_theme(theme: &Theme) -> bool {
+pub(super) fn is_dark_theme(theme: &Theme) -> bool {
     let palette = theme.palette();
     palette.background.r + palette.background.g + palette.background.b < 1.5
 }
 
-fn icon_svg(icon: Icon, size: f32, color: Color) -> Svg<'static> {
+pub(super) fn icon_svg(icon: Icon, size: f32, color: Color) -> Svg<'static> {
     Svg::new(assets::get_icon(icon))
         .width(Length::Fixed(size))
         .height(Length::Fixed(size))
         .style(move |_theme: &Theme, _status| svg::Style { color: Some(color) })
 }
 
-struct ToastPalette {
-    icon: Icon,
-    accent: Color,
-    background: Color,
-    title: &'static str,
+pub(super) struct ToastPalette {
+    pub(super) icon: Icon,
+    pub(super) accent: Color,
+    pub(super) background: Color,
+    pub(super) title: &'static str,
 }
 
-fn toast_palette(kind: ToastKind) -> ToastPalette {
+pub(super) fn toast_palette(kind: ToastKind) -> ToastPalette {
     match kind {
         ToastKind::Success => ToastPalette {
             icon: Icon::Check,
@@ -60,6 +60,55 @@ fn toast_palette(kind: ToastKind) -> ToastPalette {
             title: "操作失败",
         },
     }
+}
+
+pub(super) fn toast_icon_badge_style(
+    theme: &Theme,
+    accent: Color,
+) -> iced::widget::container::Style {
+    iced::widget::container::Style {
+        background: Some(Background::Color(if is_dark_theme(theme) {
+            accent.scale_alpha(0.18)
+        } else {
+            accent.scale_alpha(0.12)
+        })),
+        border: Border {
+            width: 1.0,
+            color: accent.scale_alpha(if is_dark_theme(theme) { 0.36 } else { 0.18 }),
+            radius: 999.0.into(),
+        },
+        ..Default::default()
+    }
+}
+
+pub(super) fn toast_message_text_color(theme: &Theme) -> Color {
+    if is_dark_theme(theme) {
+        theme.extended_palette().background.base.text.scale_alpha(0.94)
+    } else {
+        theme.palette().text.scale_alpha(0.88)
+    }
+}
+
+pub(super) fn toast_card_style(
+    theme: &Theme,
+    accent: Color,
+    background: Color,
+) -> iced::widget::container::Style {
+    let mut style = settings_panel_style(theme);
+    let is_dark = is_dark_theme(theme);
+    style.background =
+        Some(Background::Color(if is_dark { background.scale_alpha(0.22) } else { background }));
+    style.border = Border {
+        width: 1.0,
+        color: accent.scale_alpha(if is_dark { 0.54 } else { 0.22 }),
+        radius: 12.0.into(),
+    };
+    style.shadow = iced::Shadow {
+        color: Color::BLACK.scale_alpha(if is_dark { 0.18 } else { 0.08 }),
+        offset: Vector::new(0.0, 14.0),
+        blur_radius: 26.0,
+    };
+    style
 }
 
 /// 构建或处理 `view` 对应的界面片段与交互数据。
@@ -89,19 +138,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .height(Length::Fixed(34.0))
         .align_x(iced::alignment::Horizontal::Center)
         .align_y(iced::alignment::Vertical::Center)
-        .style(move |theme: &Theme| iced::widget::container::Style {
-            background: Some(Background::Color(if is_dark_theme(theme) {
-                accent.scale_alpha(0.18)
-            } else {
-                accent.scale_alpha(0.12)
-            })),
-            border: Border {
-                width: 1.0,
-                color: accent.scale_alpha(if is_dark_theme(theme) { 0.36 } else { 0.18 }),
-                radius: 999.0.into(),
-            },
-            ..Default::default()
-        });
+        .style(move |theme: &Theme| toast_icon_badge_style(theme, accent));
 
     let content = row![
         icon_badge,
@@ -110,11 +147,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .size(11)
                 .style(move |_theme: &Theme| iced::widget::text::Style { color: Some(accent) }),
             text(&toast.message).size(13).style(|theme: &Theme| iced::widget::text::Style {
-                color: Some(if is_dark_theme(theme) {
-                    theme.extended_palette().background.base.text.scale_alpha(0.94)
-                } else {
-                    theme.palette().text.scale_alpha(0.88)
-                }),
+                color: Some(toast_message_text_color(theme)),
             })
         ]
         .spacing(3)
@@ -124,26 +157,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     container(content)
         .padding([12, 14])
-        .style(move |theme: &Theme| {
-            let mut style = settings_panel_style(theme);
-            let is_dark = is_dark_theme(theme);
-            style.background = Some(Background::Color(if is_dark {
-                background.scale_alpha(0.22)
-            } else {
-                background
-            }));
-            style.border = Border {
-                width: 1.0,
-                color: accent.scale_alpha(if is_dark { 0.54 } else { 0.22 }),
-                radius: 12.0.into(),
-            };
-            style.shadow = iced::Shadow {
-                color: Color::BLACK.scale_alpha(if is_dark { 0.18 } else { 0.08 }),
-                offset: Vector::new(0.0, 14.0),
-                blur_radius: 26.0,
-            };
-            style
-        })
+        .style(move |theme: &Theme| toast_card_style(theme, accent, background))
         .width(Length::Shrink)
         .into()
 }

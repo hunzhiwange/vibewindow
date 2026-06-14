@@ -10,6 +10,11 @@ use crate::app::agent::session as agent_session;
 use crate::session::ui_types as ui_models;
 
 #[test]
+fn session_router_can_be_constructed() {
+    let _router = crate::app::agent::gateway::api::handlers::session::router();
+}
+
+#[test]
 fn split_stream_model_ref_uses_model_id_when_provider_is_missing() {
     let model_ref = split_stream_model_ref(Some("claude-sonnet-4"));
 
@@ -40,6 +45,7 @@ async fn persist_stream_chat_turn_creates_user_and_assistant_messages() {
                     &usage,
                     Some("stop"),
                     None,
+                    &[],
                 )
                 .await
                 .expect("stream turn should persist");
@@ -127,6 +133,7 @@ async fn persist_stream_chat_turn_reuses_preallocated_message_ids() {
                     &usage,
                     Some("stop"),
                     Some(&preallocated),
+                    &[],
                 )
                 .await
                 .expect("stream turn should persist");
@@ -144,4 +151,57 @@ async fn persist_stream_chat_turn_reuses_preallocated_message_ids() {
     assert_eq!(user_id, "msg_user_preallocated");
     assert!(stored.iter().any(|message| message.info.id() == assistant_id));
     assert!(stored.iter().any(|message| message.info.id() == user_id));
+}
+
+#[tokio::test]
+async fn persist_stream_chat_turn_stores_extra_assistant_patch_parts() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let session_id = "ses_stream_patch_part";
+    let preallocated = StreamTurnMessageIds::new("msg_assistant_patch", "msg_user_patch");
+    let patch_part = agent_session::message::Part::Patch(agent_session::message::PatchPart {
+        base: agent_session::message::PartBase {
+            id: "prt_patch".to_string(),
+            session_id: session_id.to_string(),
+            message_id: "msg_assistant_patch".to_string(),
+        },
+        hash: "tree_hash_before_tools".to_string(),
+        files: vec!["/tmp/project/src/main.rs".to_string()],
+    });
+
+    let stored = project::instance::provide(temp.path(), None, move || {
+        let preallocated = preallocated.clone();
+        let patch_part = patch_part.clone();
+        Box::pin(async move {
+            let usage = ui_models::TokenUsage::default();
+            persist_stream_chat_turn(
+                session_id,
+                "change file",
+                "changed",
+                None,
+                &usage,
+                Some("stop"),
+                Some(&preallocated),
+                &[patch_part],
+            )
+            .await
+            .expect("stream turn should persist");
+            agent_session::message::messages(session_id, None).await.map_err(|err| err.to_string())
+        })
+    })
+    .await
+    .expect("instance context should be provided")
+    .expect("stored messages should load");
+
+    let assistant = stored
+        .iter()
+        .find(|message| message.info.id() == "msg_assistant_patch")
+        .expect("assistant message should be present");
+    assert!(assistant.parts.iter().any(|part| {
+        matches!(
+            part,
+            agent_session::message::Part::Patch(p)
+                if p.hash == "tree_hash_before_tools"
+                    && p.files == vec!["/tmp/project/src/main.rs".to_string()]
+        )
+    }));
 }

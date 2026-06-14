@@ -1,6 +1,48 @@
 use iced::advanced::{Clipboard, Layout, Shell, layout, mouse, overlay, renderer, widget};
 use iced::{Element, Event, Point, Rectangle, Size};
 
+pub(super) fn compute_above_position(
+    position: Point,
+    target_bounds: Rectangle,
+    viewport: Rectangle,
+    overlay_size: Size,
+    gap: f32,
+    snap_within_viewport: bool,
+) -> Point {
+    let mut x = position.x;
+    let mut y = target_bounds.y - gap - overlay_size.height;
+
+    if snap_within_viewport {
+        let min_x = viewport.x;
+        let max_x = (viewport.x + viewport.width - overlay_size.width).max(viewport.x);
+        let min_y = viewport.y;
+        let max_y = (viewport.y + viewport.height - overlay_size.height).max(viewport.y);
+
+        x = x.clamp(min_x, max_x);
+        y = y.clamp(min_y, max_y);
+    }
+
+    Point::new(x, y)
+}
+
+pub(super) fn compute_point_above_position(
+    anchor: Point,
+    viewport: Rectangle,
+    overlay_size: Size,
+    gap: f32,
+    snap_within_viewport: bool,
+) -> Point {
+    let mut x = anchor.x - overlay_size.width / 2.0;
+    let mut y = anchor.y - gap - overlay_size.height;
+
+    if snap_within_viewport {
+        x = x.clamp(0.0, (viewport.width - overlay_size.width).max(0.0));
+        y = y.clamp(0.0, (viewport.height - overlay_size.height).max(0.0));
+    }
+
+    Point::new(x, y)
+}
+
 /// 上方覆盖层元素（内部实现）
 ///
 /// 这是实际渲染覆盖层的内部结构，实现了 `overlay::Overlay` trait。
@@ -64,21 +106,16 @@ where
         let size = node.size();
 
         // 计算覆盖层的初始位置（目标位置上方，考虑间距）
-        let mut x = self.position.x;
-        let mut y = self.target_bounds.y - self.gap - size.height;
+        let position = compute_above_position(
+            self.position,
+            self.target_bounds,
+            self.viewport,
+            size,
+            self.gap,
+            self.snap_within_viewport,
+        );
 
-        // 如果启用视口限制，调整位置以确保覆盖层完全可见
-        if self.snap_within_viewport {
-            let min_x = self.viewport.x;
-            let max_x = (self.viewport.x + self.viewport.width - size.width).max(self.viewport.x);
-            let min_y = self.viewport.y;
-            let max_y = (self.viewport.y + self.viewport.height - size.height).max(self.viewport.y);
-
-            x = x.clamp(min_x, max_x);
-            y = y.clamp(min_y, max_y);
-        }
-
-        node.move_to(Point::new(x, y))
+        node.move_to(position)
     }
 
     /// 处理覆盖层的事件
@@ -223,16 +260,15 @@ where
         let size = node.size();
 
         // 计算覆盖层位置：水平居中于锚点，垂直方向在锚点上方
-        let mut x = self.anchor.x - size.width / 2.0;
-        let mut y = self.anchor.y - self.gap - size.height;
+        let position = compute_point_above_position(
+            self.anchor,
+            self.viewport,
+            size,
+            self.gap,
+            self.snap_within_viewport,
+        );
 
-        // 如果启用视口限制，调整位置
-        if self.snap_within_viewport {
-            x = x.clamp(0.0, (self.viewport.width - size.width).max(0.0));
-            y = y.clamp(0.0, (self.viewport.height - size.height).max(0.0));
-        }
-
-        node.move_to(Point::new(x, y))
+        node.move_to(position)
     }
 
     /// 处理覆盖层的事件

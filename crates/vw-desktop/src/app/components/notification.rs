@@ -33,7 +33,7 @@ use iced::{Alignment, Background, Border, Color, Element, Length, Theme, Vector}
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn is_dark_theme(theme: &Theme) -> bool {
+pub(super) fn is_dark_theme(theme: &Theme) -> bool {
     let palette = theme.palette();
     palette.background.r + palette.background.g + palette.background.b < 1.5
 }
@@ -51,7 +51,7 @@ fn is_dark_theme(theme: &Theme) -> bool {
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn panel_style(theme: &Theme) -> iced::widget::container::Style {
+pub(super) fn panel_style(theme: &Theme) -> iced::widget::container::Style {
     let mut style = settings_panel_style(theme);
     let is_dark = is_dark_theme(theme);
     style.border.radius = 22.0.into();
@@ -85,7 +85,10 @@ fn panel_style(theme: &Theme) -> iced::widget::container::Style {
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn accent_badge_style(theme: &Theme, accent: Color) -> iced::widget::container::Style {
+pub(super) fn accent_badge_style(
+    theme: &Theme,
+    accent: Color,
+) -> iced::widget::container::Style {
     // iced 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
     iced::widget::container::Style {
         // background 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
@@ -120,7 +123,7 @@ fn accent_badge_style(theme: &Theme, accent: Color) -> iced::widget::container::
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn item_style(theme: &Theme, accent: Color) -> iced::widget::container::Style {
+pub(super) fn item_style(theme: &Theme, accent: Color) -> iced::widget::container::Style {
     let palette = theme.extended_palette();
     let is_dark = is_dark_theme(theme);
     iced::widget::container::Style {
@@ -171,7 +174,7 @@ fn item_style(theme: &Theme, accent: Color) -> iced::widget::container::Style {
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn compact_action_btn_style(
+pub(super) fn compact_action_btn_style(
     theme: &Theme,
     // status 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
     status: iced::widget::button::Status,
@@ -194,7 +197,7 @@ fn compact_action_btn_style(
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn copy_action_btn_style(
+pub(super) fn copy_action_btn_style(
     theme: &Theme,
     // status 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
     status: iced::widget::button::Status,
@@ -223,7 +226,7 @@ fn copy_action_btn_style(
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn delete_action_btn_style(
+pub(super) fn delete_action_btn_style(
     theme: &Theme,
     // status 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
     status: iced::widget::button::Status,

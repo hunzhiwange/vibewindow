@@ -114,6 +114,16 @@ fn fake_vcs() -> Option<Vcs> {
     None
 }
 
+fn project_discovery_changed(previous: &Info, next: &Info) -> bool {
+    previous.worktree != next.worktree
+        || previous.vcs != next.vcs
+        || previous.name != next.name
+        || previous.sandboxes != next.sandboxes
+        || serde_json::to_value(&previous.icon).ok() != serde_json::to_value(&next.icon).ok()
+        || serde_json::to_value(&previous.commands).ok()
+            != serde_json::to_value(&next.commands).ok()
+}
+
 #[cfg(target_arch = "wasm32")]
 /// 从目录创建 wasm 目标下的项目信息。
 ///
@@ -237,6 +247,7 @@ pub async fn from_directory(directory: impl AsRef<Path>) -> Result<(Info, String
         });
     }
 
+    let is_new_project = existing.is_none();
     let mut result = existing.unwrap_or_else(|| {
         let now = now_ms();
         Info {
@@ -250,6 +261,7 @@ pub async fn from_directory(directory: impl AsRef<Path>) -> Result<(Info, String
             sandboxes: Vec::new(),
         }
     });
+    let previous = result.clone();
 
     if result.sandboxes.iter().all(|s| s != &sandbox_s) && sandbox_s != result.worktree {
         result.sandboxes.push(sandbox_s.clone());
@@ -258,7 +270,10 @@ pub async fn from_directory(directory: impl AsRef<Path>) -> Result<(Info, String
     result.sandboxes = result.sandboxes.into_iter().filter(|p| Path::new(p).is_dir()).collect();
     result.worktree = worktree_s.clone();
     result.vcs = vcs.clone();
-    result.time.updated = now_ms();
+    let changed = is_new_project || project_discovery_changed(&previous, &result);
+    if changed {
+        result.time.updated = now_ms();
+    }
 
     if *flag::VIBEWINDOW_EXPERIMENTAL_ICON_DISCOVERY {
         let _ = discover(&result).await;
@@ -267,8 +282,10 @@ pub async fn from_directory(directory: impl AsRef<Path>) -> Result<(Info, String
         }
     }
 
-    storage::write::<Info>(&["project", &id], &result).await?;
-    let _ = bus::publish(event::UPDATED, &result, None);
+    if changed || *flag::VIBEWINDOW_EXPERIMENTAL_ICON_DISCOVERY {
+        storage::write::<Info>(&["project", &id], &result).await?;
+        let _ = bus::publish(event::UPDATED, &result, None);
+    }
 
     Ok((result, sandbox_s))
 }

@@ -965,5 +965,5 @@ impl RuntimeAdapter for WasmRuntime {
 // ── 测试 ───────────────────────────────────────────────────────
 
 #[cfg(test)]
-#[path = "tests.rs"]
+#[path = "mod_tests.rs"]
 mod tests;

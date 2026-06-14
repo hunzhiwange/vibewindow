@@ -197,3 +197,47 @@ fn advanced_surface_specs_mark_available_and_planned() {
         Some(AdvancedToolSurfaceState::Available)
     );
 }
+
+#[test]
+fn labels_and_descriptions_cover_all_groups() {
+    let labels = SessionToolGroup::ALL
+        .into_iter()
+        .map(|group| (group.label(), group.description()))
+        .collect::<Vec<_>>();
+
+    assert_eq!(labels.len(), 8);
+    assert!(labels.contains(&("文件", "读取、写入和修改工作区文件。")));
+    assert!(labels.contains(&("其他", "当前未归类的工具。")));
+}
+
+#[test]
+fn manual_context_selection_trims_and_ignores_empty_values() {
+    let mut selector = SessionToolSelectorState::default();
+
+    selector.toggle_manual_tool("  bash  ");
+    selector.toggle_manual_tool("   ");
+    selector.toggle_manual_skill("  skill-a  ");
+    selector.toggle_manual_skill("");
+
+    assert_eq!(selector.selected_manual_tools(), vec!["bash".to_string()]);
+    assert_eq!(selector.selected_manual_skills(), vec!["skill-a".to_string()]);
+}
+
+#[test]
+fn reconcile_drops_explicit_tools_no_longer_available() {
+    let mut selector = SessionToolSelectorState::default();
+    let tools = vec!["read".to_string(), "bash".to_string(), "browser".to_string()];
+
+    assert!(selector.toggle_tool(&tools, "browser"));
+    assert_eq!(selector.filter_tools(&tools), vec!["read".to_string(), "bash".to_string()]);
+
+    selector.reconcile_tools(&["read".to_string()]);
+
+    assert_eq!(selector.filter_tools(&["read".to_string()]), vec!["read".to_string()]);
+    assert!(!selector.has_custom_tool_selection());
+}
+
+#[test]
+fn tool_display_name_title_cases_unknown_ids() {
+    assert_eq!(tool_display_name("custom-tool_id"), "Custom Tool Id");
+}

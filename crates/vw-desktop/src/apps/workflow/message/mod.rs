@@ -33,6 +33,9 @@ mod canvas_tests;
 #[path = "document_tests.rs"]
 mod document_tests;
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "node_tests.rs"]
 mod node_tests;
 #[cfg(test)]
@@ -54,6 +57,7 @@ pub enum WorkflowMessage {
     CancelDeleteSavedApp,
     DeleteSavedApp(String),
     DeleteSavedAppFinished(Result<String, String>),
+    OpenInlineYaml { workflow_yaml: String, focus_node_id: Option<String> },
     OpenFile,
     OpenFileFinished(Result<Option<LoadedWorkflow>, String>),
     SelectApp(String),

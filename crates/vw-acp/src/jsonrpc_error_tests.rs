@@ -4,6 +4,22 @@ use super::jsonrpc_error::*;
 use super::types::{OutputErrorAcpPayload, OutputErrorCode, OutputErrorOrigin};
 
 #[test]
+fn output_error_codes_map_to_jsonrpc_codes() {
+    let cases = [
+        (OutputErrorCode::NoSession, -32002),
+        (OutputErrorCode::Timeout, -32070),
+        (OutputErrorCode::PermissionDenied, -32071),
+        (OutputErrorCode::PermissionPromptUnavailable, -32072),
+        (OutputErrorCode::Runtime, -32603),
+        (OutputErrorCode::Usage, -32602),
+    ];
+
+    for (code, jsonrpc_code) in cases {
+        assert_eq!(output_error_jsonrpc_code(code), jsonrpc_code);
+    }
+}
+
+#[test]
 fn fallback_error_response_preserves_metadata() {
     let response = build_json_rpc_error_response(BuildJsonRpcErrorParams {
         id: Some(json!("request-1")),
@@ -56,4 +72,33 @@ fn valid_acp_error_takes_precedence_over_fallback_fields() {
     assert_eq!(response.error.code, -32000);
     assert_eq!(response.error.message, "agent message");
     assert_eq!(response.error.data, Some(json!({ "methodId": "token" })));
+}
+
+#[test]
+fn blank_acp_error_message_uses_fallback_error() {
+    let response = build_json_rpc_error_response(BuildJsonRpcErrorParams {
+        id: Some(json!(7)),
+        output_code: OutputErrorCode::PermissionDenied,
+        detail_code: None,
+        origin: None,
+        message: "permission denied".to_string(),
+        retryable: None,
+        timestamp: None,
+        session_id: None,
+        acp: Some(OutputErrorAcpPayload {
+            code: -32000,
+            message: " \t\n".to_string(),
+            data: Some(json!({ "ignored": true })),
+        }),
+    });
+
+    assert_eq!(response.id, json!(7));
+    assert_eq!(response.error.code, -32071);
+    assert_eq!(response.error.message, "permission denied");
+    assert_eq!(
+        response.error.data,
+        Some(json!({
+            "vwacpCode": "PERMISSION_DENIED"
+        }))
+    );
 }

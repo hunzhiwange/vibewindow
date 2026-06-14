@@ -70,6 +70,7 @@ pub fn bottom_panel(app: &App) -> Element<'_, Message> {
 
         // 获取垂直调整手柄的点击区域高度
         let handle_h = VResizeHandle::HIT_HEIGHT;
+        let content_h = terminal_content_height(terminal_h, handle_h);
 
         // 创建可拖动的垂直调整手柄
         // 当用户按下时，触发终端面板拖动开始消息
@@ -80,7 +81,7 @@ pub fn bottom_panel(app: &App) -> Element<'_, Message> {
         // 使用无边框样式，填充全部可用空间
         let terminal_content = container(terminal_panel::view(app))
             .width(Length::Fill)
-            .height(Length::Fill)
+            .height(Length::Fixed(content_h))
             .style(panel_style_no_border)
             .padding(0);
 
@@ -102,6 +103,11 @@ pub fn bottom_panel(app: &App) -> Element<'_, Message> {
         container(Space::new()).width(Length::Fill).into()
     }
 }
+
+fn terminal_content_height(terminal_h: f32, handle_h: f32) -> f32 {
+    (terminal_h.max(0.0) - handle_h.max(0.0)).max(0.0)
+}
+
 #[cfg(test)]
 #[path = "bottom_tests.rs"]
 mod bottom_tests;

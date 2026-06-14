@@ -139,6 +139,15 @@ fn test_handles_empty_object() {
 }
 
 #[test]
+fn test_handles_primitive_value() {
+    let mut tree = json!("CENTER");
+
+    remove_stack_align_items(&mut tree).unwrap();
+
+    assert_eq!(tree.as_str(), Some("CENTER"));
+}
+
+#[test]
 fn test_preserves_other_stack_properties() {
     let mut tree = json!({
         "name": "Button",

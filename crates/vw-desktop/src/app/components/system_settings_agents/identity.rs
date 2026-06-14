@@ -18,9 +18,9 @@ use iced::{Alignment, Element, Length, Theme};
 
 pub(super) fn default_workspace_identity_root(agent_key: &str) -> String {
     if agent_key == "main" {
-        "~/.vibewindow/workspace".to_string()
+        vw_config_types::paths::tilde_config_path("workspace")
     } else {
-        format!("~/.vibewindow/workspace-{agent_key}")
+        vw_config_types::paths::tilde_config_path(&format!("workspace-{agent_key}"))
     }
 }
 

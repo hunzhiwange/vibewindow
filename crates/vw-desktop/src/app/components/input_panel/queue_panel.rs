@@ -33,11 +33,11 @@ use crate::app::state::QueueItem;
 const MAX_QUEUE_PANEL_HEIGHT: f32 = 132.0;
 const QUEUE_SCROLLBAR_WIDTH: u32 = 4;
 
-fn is_dark_theme(theme: &Theme) -> bool {
+pub(super) fn is_dark_theme(theme: &Theme) -> bool {
     theme.palette().background.r + theme.palette().background.g + theme.palette().background.b < 1.5
 }
 
-fn queue_item_style(theme: &Theme, is_next: bool) -> iced::widget::container::Style {
+pub(super) fn queue_item_style(theme: &Theme, is_next: bool) -> iced::widget::container::Style {
     let is_dark = is_dark_theme(theme);
     let background = if is_next {
         if is_dark {
@@ -74,7 +74,7 @@ fn queue_item_style(theme: &Theme, is_next: bool) -> iced::widget::container::St
     }
 }
 
-fn queue_panel_style(theme: &Theme) -> iced::widget::container::Style {
+pub(super) fn queue_panel_style(theme: &Theme) -> iced::widget::container::Style {
     let is_dark = is_dark_theme(theme);
     let palette = theme.extended_palette();
 
@@ -122,7 +122,7 @@ fn queue_panel_style(theme: &Theme) -> iced::widget::container::Style {
 /// let formatted = format_queue_time(1740675600000);
 /// // 返回类似 "2025-02-27 18:20:00" 的字符串
 /// ```
-fn format_queue_time(created_ms: u64) -> String {
+pub(super) fn format_queue_time(created_ms: u64) -> String {
     /// 时间格式描述符，用于将日期时间格式化为 "YYYY-MM-DD HH:MM:SS" 格式
     ///
     /// 使用 `Lazy` 延迟初始化，避免每次调用函数时重新解析格式字符串。

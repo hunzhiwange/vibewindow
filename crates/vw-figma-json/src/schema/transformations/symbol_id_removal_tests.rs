@@ -211,6 +211,15 @@ fn test_symbol_id_not_object() {
 }
 
 #[test]
+fn test_root_primitive_value() {
+    let mut input = json!("symbol");
+
+    remove_symbol_id_fields(&mut input).unwrap();
+
+    assert_eq!(input.as_str(), Some("symbol"));
+}
+
+#[test]
 fn test_deeply_nested_structure() {
     let mut input = json!({
         "level1": {

@@ -127,6 +127,15 @@ fn test_handles_empty_object() {
 }
 
 #[test]
+fn test_handles_primitive_value() {
+    let mut tree = json!("FIXED");
+
+    remove_stack_sizing_properties(&mut tree).unwrap();
+
+    assert_eq!(tree.as_str(), Some("FIXED"));
+}
+
+#[test]
 fn test_preserves_other_fields() {
     let mut tree = json!({
         "name": "Frame",

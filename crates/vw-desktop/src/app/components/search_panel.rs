@@ -26,7 +26,7 @@ use iced::{Background, Color, Element, Length, Theme};
 
 use crate::app::{App, Message, message};
 
-fn result_button_style(
+pub(super) fn result_button_style(
     theme: &Theme,
     status: iced::widget::button::Status,
 ) -> iced::widget::button::Style {
@@ -45,7 +45,7 @@ fn result_button_style(
     }
 }
 
-fn search_input_style(
+pub(super) fn search_input_style(
     theme: &Theme,
     status: iced::widget::text_input::Status,
 ) -> iced::widget::text_input::Style {

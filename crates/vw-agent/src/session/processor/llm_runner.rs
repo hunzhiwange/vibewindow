@@ -84,110 +84,46 @@ fn is_acp_retryable_error(error: &str) -> bool {
         || normalized.contains("queue owner disconnected before prompt completion")
 }
 
-/// 执行单次 LLM 调用并处理流式响应
-///
-/// 此函数是 LLM 交互的核心入口，负责：
-/// 1. 准备工具规范并过滤允许的工具
-/// 2. 在独立线程中启动 LLM 流式调用
-/// 3. 接收并处理流式事件
-/// 4. 管理内容的缓冲和刷新策略
-/// 5. 处理推理内容和普通内容的分离
-/// 6. 收集并返回完整的调用结果
-///
-/// # 参数
-///
-/// * `messages` - 对话消息历史，包含用户和助手的历史交互
-/// * `system` - 系统提示词列表，用于设定模型行为
-/// * `model` - 指定使用的模型名称（可选，使用默认模型）
-/// * `allowed_tools` - 允许调用的工具 ID 集合
-/// * `on_event` - 流式事件回调函数，返回 `false` 可中断处理
-///
-/// # 返回值
-///
-/// 成功时返回 [`LlmStep`] 包含完整的调用结果，失败时返回错误信息字符串。
-///
-/// # 错误情况
-///
-/// - 模型响应超时（默认 90 秒无响应）
-/// - 模型调用失败（网络错误、API 错误等）
-/// - 模型未返回任何内容（文本和工具调用都为空）
-///
-/// # 流式处理策略
-///
-/// 采用双重缓冲机制：
-/// - **时间维度**：最小刷新间隔 33ms，避免事件过于频繁
-/// - **内容维度**：最小刷新字符数 1024，减少小包传输
-///
-/// # 推理内容处理
-///
-/// 当模型返回推理内容时，会自动：
-/// 1. 在推理内容前添加 `<thinking>` 开始标签
-/// 2. 流式输出推理过程
-/// 3. 在开始返回普通内容时添加 `</thinking>` 结束标签
-/// 4. 如果推理内容未流式输出，则在最后统一输出
-///
-/// # 示例
-///
-/// ```ignore
-/// let messages = vec![json!({"role": "user", "content": "你好"})];
-/// let system = vec!["你是一个有帮助的助手".to_string()];
-/// let tools = std::collections::HashSet::from(["search"]);
-///
-/// let result = run_llm_step(
-///     &messages,
-///     &system,
-///     Some("gpt-4".to_string()),
-///     &tools,
-///     &mut |event| {
-///         if let StreamEvent::Delta(text) = event {
-///             print!("{}", text);
-///         }
-///         true
-///     },
-/// )?;
-/// ```
-pub(crate) fn run_llm_step(
-    session_id: &str,
-    messages: &[serde_json::Value],
-    system: &[String],
-    model: Option<String>,
-    options: &serde_json::Value,
-    allowed_tools: &std::collections::HashSet<String>,
+fn llm_error_message(error: &str) -> String {
+    serde_json::from_str::<Value>(error)
+        .ok()
+        .and_then(|value| value.get("message").and_then(Value::as_str).map(str::to_string))
+        .unwrap_or_else(|| error.to_string())
+}
+
+fn is_non_retryable_llm_error(error: &str) -> bool {
+    let message = llm_error_message(error);
+    let normalized = message.to_ascii_lowercase();
+    [
+        "未找到模型",
+        "模型格式错误",
+        "模型id存在歧义",
+        "model not found",
+        "unknown model",
+        "unsupported model",
+    ]
+    .iter()
+    .any(|marker| normalized.contains(marker))
+}
+
+fn llm_step_retry_allowed(error: &str, is_acp: bool) -> bool {
+    if is_acp {
+        return is_acp_retryable_error(error);
+    }
+
+    !is_non_retryable_llm_error(error)
+}
+
+fn collect_llm_step_from_stream(
+    rx: std::sync::mpsc::Receiver<llm::StreamEvent>,
     on_event: &mut impl FnMut(StreamEvent) -> bool,
+    idle_timeout: std::time::Duration,
 ) -> Result<LlmStep, String> {
-    // 创建用于跨线程通信的通道
-    let (tx, rx) = std::sync::mpsc::channel::<llm::StreamEvent>();
+    /// 流式内容刷新的最小时间间隔（约 30 FPS）
+    const FLUSH_MIN_INTERVAL: std::time::Duration = std::time::Duration::from_millis(33);
+    /// 流式内容刷新的最小字符数
+    const FLUSH_MIN_CHARS: usize = 1024;
 
-    // 克隆数据以便在独立线程中使用
-    let session_id = session_id.to_string();
-    let messages = messages.to_vec();
-    let system = system.to_vec();
-    let options = options.clone();
-
-    // 获取工具规范并根据允许列表过滤
-    let tools = crate::tools::registry::specs(model.as_deref());
-    let tools = tools
-        .into_iter()
-        .filter(|s| allowed_tools.contains(&s.id)) // 仅保留允许的工具
-        .map(|s| (s.id.clone(), s))
-        .collect::<std::collections::HashMap<_, _>>();
-
-    // 在独立线程中启动 LLM 流式调用，避免阻塞当前线程
-    std::thread::spawn(move || {
-        llm::stream_chat_with_tools_for_session(
-            &session_id,
-            messages,
-            system,
-            model,
-            options,
-            tools,
-            move |ev| {
-                let _ = tx.send(ev); // 将事件发送到主线程
-            },
-        );
-    });
-
-    // === 初始化结果收集变量 ===
     let mut reasoning_content = String::new(); // 推理内容缓冲区
     let mut text = String::new(); // 普通文本内容缓冲区
     let mut fallback_text = String::new(); // 回退文本（当没有普通文本时使用推理内容）
@@ -195,15 +131,6 @@ pub(crate) fn run_llm_step(
     let mut finish_reason: Option<String> = None; // 完成原因
     let mut tool_calls: Vec<llm::ToolCall> = Vec::new(); // 工具调用列表
     let mut full_messages: Vec<serde_json::Value> = Vec::new(); // 完整消息历史
-
-    // === 流式处理配置常量 ===
-    use std::time::Duration;
-    /// 流式内容刷新的最小时间间隔（约 30 FPS）
-    const FLUSH_MIN_INTERVAL: Duration = Duration::from_millis(33);
-    /// 流式内容刷新的最小字符数
-    const FLUSH_MIN_CHARS: usize = 1024;
-    /// 无响应超时时间（90 秒）
-    const IDLE_TIMEOUT: Duration = Duration::from_secs(90);
 
     // === 状态追踪变量 ===
     let mut pending = String::new(); // 待刷新的普通文本缓冲区
@@ -217,7 +144,7 @@ pub(crate) fn run_llm_step(
     // === 主事件处理循环 ===
     loop {
         // 尝试接收事件，设置超时以检测无响应情况
-        let ev = match rx.recv_timeout(IDLE_TIMEOUT) {
+        let ev = match rx.recv_timeout(idle_timeout) {
             Ok(v) => v,
             // 超时处理：刷新所有待输出内容并返回错误
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
@@ -369,6 +296,112 @@ pub(crate) fn run_llm_step(
     Ok(LlmStep { usage, finish_reason, reasoning_content, text, tool_calls, full_messages })
 }
 
+/// 执行单次 LLM 调用并处理流式响应
+///
+/// 此函数是 LLM 交互的核心入口，负责：
+/// 1. 准备工具规范并过滤允许的工具
+/// 2. 在独立线程中启动 LLM 流式调用
+/// 3. 接收并处理流式事件
+/// 4. 管理内容的缓冲和刷新策略
+/// 5. 处理推理内容和普通内容的分离
+/// 6. 收集并返回完整的调用结果
+///
+/// # 参数
+///
+/// * `messages` - 对话消息历史，包含用户和助手的历史交互
+/// * `system` - 系统提示词列表，用于设定模型行为
+/// * `model` - 指定使用的模型名称（可选，使用默认模型）
+/// * `allowed_tools` - 允许调用的工具 ID 集合
+/// * `on_event` - 流式事件回调函数，返回 `false` 可中断处理
+///
+/// # 返回值
+///
+/// 成功时返回 [`LlmStep`] 包含完整的调用结果，失败时返回错误信息字符串。
+///
+/// # 错误情况
+///
+/// - 模型响应超时（默认 90 秒无响应）
+/// - 模型调用失败（网络错误、API 错误等）
+/// - 模型未返回任何内容（文本和工具调用都为空）
+///
+/// # 流式处理策略
+///
+/// 采用双重缓冲机制：
+/// - **时间维度**：最小刷新间隔 33ms，避免事件过于频繁
+/// - **内容维度**：最小刷新字符数 1024，减少小包传输
+///
+/// # 推理内容处理
+///
+/// 当模型返回推理内容时，会自动：
+/// 1. 在推理内容前添加 `<thinking>` 开始标签
+/// 2. 流式输出推理过程
+/// 3. 在开始返回普通内容时添加 `</thinking>` 结束标签
+/// 4. 如果推理内容未流式输出，则在最后统一输出
+///
+/// # 示例
+///
+/// ```ignore
+/// let messages = vec![json!({"role": "user", "content": "你好"})];
+/// let system = vec!["你是一个有帮助的助手".to_string()];
+/// let tools = std::collections::HashSet::from(["search"]);
+///
+/// let result = run_llm_step(
+///     &messages,
+///     &system,
+///     Some("gpt-4".to_string()),
+///     &tools,
+///     &mut |event| {
+///         if let StreamEvent::Delta(text) = event {
+///             print!("{}", text);
+///         }
+///         true
+///     },
+/// )?;
+/// ```
+pub(crate) fn run_llm_step(
+    session_id: &str,
+    messages: &[serde_json::Value],
+    system: &[String],
+    model: Option<String>,
+    options: &serde_json::Value,
+    allowed_tools: &std::collections::HashSet<String>,
+    on_event: &mut impl FnMut(StreamEvent) -> bool,
+) -> Result<LlmStep, String> {
+    // 创建用于跨线程通信的通道
+    let (tx, rx) = std::sync::mpsc::channel::<llm::StreamEvent>();
+
+    // 克隆数据以便在独立线程中使用
+    let session_id = session_id.to_string();
+    let messages = messages.to_vec();
+    let system = system.to_vec();
+    let options = options.clone();
+
+    // 获取工具规范并根据允许列表过滤
+    let tools = crate::tools::registry::specs(model.as_deref());
+    let tools = tools
+        .into_iter()
+        .filter(|s| allowed_tools.contains(&s.id)) // 仅保留允许的工具
+        .map(|s| (s.id.clone(), s))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    // 在独立线程中启动 LLM 流式调用，避免阻塞当前线程
+    std::thread::spawn(move || {
+        llm::stream_chat_with_tools_for_session(
+            &session_id,
+            messages,
+            system,
+            model,
+            options,
+            tools,
+            move |ev| {
+                let _ = tx.send(ev); // 将事件发送到主线程
+            },
+        );
+    });
+
+    collect_llm_step_from_stream(rx, on_event, std::time::Duration::from_secs(90))
+}
+
 /// 执行带重试机制的 LLM 调用
 ///
 /// 此函数在 [`run_llm_step`] 的基础上添加了自动重试机制，当 LLM 调用失败时会自动重试，
@@ -453,6 +486,7 @@ pub(crate) fn run_llm_step_with_retry(
             Ok(v) => return Ok(v),
             // 失败则记录错误并考虑重试
             Err(e) => {
+                let retry_allowed = llm_step_retry_allowed(&e, is_acp);
                 last_err = Some(e);
                 let error_preview = crate::app::agent::util::truncate_with_ellipsis(
                     &crate::agent::loop_::scrub_credentials(
@@ -466,14 +500,15 @@ pub(crate) fn run_llm_step_with_retry(
                     attempt,
                     attempts,
                     is_acp,
+                    retry_allowed,
                     acp_retry_allowed = last_err
                         .as_deref()
-                        .is_some_and(is_acp_retryable_error),
+                        .is_some_and(|err| is_acp && is_acp_retryable_error(err)),
                     error_preview = %error_preview,
-                    "session processor retryable llm step attempt failed"
+                    "session processor llm step attempt failed"
                 );
 
-                if is_acp && !last_err.as_deref().is_some_and(is_acp_retryable_error) {
+                if !retry_allowed {
                     break;
                 }
 

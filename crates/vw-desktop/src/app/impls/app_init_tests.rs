@@ -1,29 +1,203 @@
-// Tests for plan6 task 848.
-const SOURCE: &str = include_str!("app_init.rs");
+use super::*;
+use serde_json::json;
+use vw_config_types::config::AcpAgentConfig;
 
-fn source_declares_symbol(name: &str) -> bool {
-    let needles = [
-        format!("fn {name}"),
-        format!("pub fn {name}"),
-        format!("struct {name}"),
-        format!("pub struct {name}"),
-        format!("enum {name}"),
-        format!("pub enum {name}"),
-        format!("type {name}"),
-        format!("pub type {name}"),
-        format!("const {name}"),
-        format!("pub const {name}"),
-        format!("static {name}"),
-        format!("pub static {name}"),
-        format!("impl {name}"),
-    ];
-
-    needles.iter().any(|needle| SOURCE.contains(needle))
+fn recent_project_meta(path: &str, name: &str) -> RecentProjectMeta {
+    RecentProjectMeta {
+        path: path.to_string(),
+        name: name.to_string(),
+        task_board_settings: None,
+        session_auto_refresh: true,
+        session_refresh_interval_seconds: 60,
+        icon: None,
+        icon_color: None,
+        worktree_start_command: None,
+    }
 }
 
 #[test]
-fn app_init_tests_keeps_planned_coverage_targets() {
-    for name in ["sort_acp_agents", "display_name_for_path", "load_web_bookmarks"] {
-        assert!(source_declares_symbol(name), "expected source to declare coverage target {name}");
-    }
+fn sort_acp_agents_puts_codex_first_then_sorts_remaining_names() {
+    let acp_cfg = HashMap::from([
+        ("zeta".to_string(), AcpAgentConfig::default()),
+        ("codex".to_string(), AcpAgentConfig::default()),
+        ("alpha".to_string(), AcpAgentConfig::default()),
+    ]);
+
+    assert_eq!(sort_acp_agents(&acp_cfg), ["codex", "alpha", "zeta"]);
+}
+
+#[test]
+fn sort_acp_agents_sorts_without_codex() {
+    let acp_cfg = HashMap::from([
+        ("shell".to_string(), AcpAgentConfig::default()),
+        ("browser".to_string(), AcpAgentConfig::default()),
+    ]);
+
+    assert_eq!(sort_acp_agents(&acp_cfg), ["browser", "shell"]);
+}
+
+#[test]
+fn display_name_for_path_uses_recent_project_meta_name() {
+    let meta = vec![recent_project_meta("/workspace/app", "App Workspace")];
+
+    assert_eq!(display_name_for_path(&meta, "/workspace/app"), "App Workspace");
+}
+
+#[test]
+fn display_name_for_path_falls_back_to_last_path_segment() {
+    let meta = vec![recent_project_meta("/workspace/other", "Other")];
+
+    assert_eq!(display_name_for_path(&meta, "/workspace/app"), "app");
+}
+
+#[test]
+fn display_name_for_path_returns_original_path_when_segment_is_unavailable() {
+    let meta = Vec::new();
+
+    assert_eq!(display_name_for_path(&meta, "/"), "/");
+}
+
+#[test]
+fn display_name_for_path_handles_relative_and_non_utf8_like_fallbacks() {
+    let meta = Vec::new();
+
+    assert_eq!(display_name_for_path(&meta, "workspace/app"), "app");
+    assert_eq!(display_name_for_path(&meta, ""), "");
+}
+
+#[test]
+fn load_web_bookmarks_returns_default_when_config_key_is_missing() {
+    let bookmarks = load_web_bookmarks(&json!({}));
+
+    assert_eq!(bookmarks.len(), 1);
+    assert_eq!(bookmarks[0].title, "订货宝管理端");
+    assert_eq!(bookmarks[0].url, "https://example.com/");
+    assert_eq!(bookmarks[0].width, None);
+    assert_eq!(bookmarks[0].height, None);
+    assert!(bookmarks[0].cookie_configs.is_none());
+}
+
+#[test]
+fn load_web_bookmarks_parses_valid_bookmarks_and_cookie_configs() {
+    let bookmarks = load_web_bookmarks(&json!({
+        "web_bookmarks": [
+            {
+                "title": "Console",
+                "url": "https://console.example.com/",
+                "width": 1280,
+                "height": 720,
+                "cookie_configs": [
+                    {
+                        "name": "session",
+                        "domain": ".example.com",
+                        "days": 7,
+                        "url_filter": "console"
+                    }
+                ]
+            }
+        ]
+    }));
+
+    assert_eq!(bookmarks.len(), 1);
+    assert_eq!(bookmarks[0].title, "Console");
+    assert_eq!(bookmarks[0].url, "https://console.example.com/");
+    assert_eq!(bookmarks[0].width, Some(1280));
+    assert_eq!(bookmarks[0].height, Some(720));
+
+    let cookie_configs =
+        bookmarks[0].cookie_configs.as_ref().expect("valid bookmark should keep cookie configs");
+    assert_eq!(cookie_configs.len(), 1);
+    assert_eq!(cookie_configs[0].name, "session");
+    assert_eq!(cookie_configs[0].domain.as_deref(), Some(".example.com"));
+    assert_eq!(cookie_configs[0].days, Some(7));
+    assert_eq!(cookie_configs[0].url_filter.as_deref(), Some("console"));
+}
+
+#[test]
+fn load_web_bookmarks_ignores_non_numeric_window_size_and_non_array_cookies() {
+    let bookmarks = load_web_bookmarks(&json!({
+        "web_bookmarks": [
+            {
+                "title": "Tool",
+                "url": "https://tool.example.com/",
+                "width": "wide",
+                "height": false,
+                "cookie_configs": "not an array"
+            }
+        ]
+    }));
+
+    assert_eq!(bookmarks.len(), 1);
+    assert_eq!(bookmarks[0].title, "Tool");
+    assert_eq!(bookmarks[0].width, None);
+    assert_eq!(bookmarks[0].height, None);
+    assert!(bookmarks[0].cookie_configs.is_none());
+}
+
+#[test]
+fn load_web_bookmarks_filters_invalid_bookmarks_and_cookie_configs() {
+    let bookmarks = load_web_bookmarks(&json!({
+        "web_bookmarks": [
+            {
+                "title": "Missing URL"
+            },
+            {
+                "url": "https://missing-title.example.com/"
+            },
+            {
+                "title": "Valid",
+                "url": "https://valid.example.com/",
+                "cookie_configs": [
+                    {
+                        "domain": ".example.com"
+                    },
+                    {
+                        "name": "auth"
+                    }
+                ]
+            }
+        ]
+    }));
+
+    assert_eq!(bookmarks.len(), 1);
+    assert_eq!(bookmarks[0].title, "Valid");
+
+    let cookie_configs = bookmarks[0]
+        .cookie_configs
+        .as_ref()
+        .expect("valid bookmark should keep filtered cookie configs");
+    assert_eq!(cookie_configs.len(), 1);
+    assert_eq!(cookie_configs[0].name, "auth");
+    assert_eq!(cookie_configs[0].domain, None);
+    assert_eq!(cookie_configs[0].days, None);
+    assert_eq!(cookie_configs[0].url_filter, None);
+}
+
+#[test]
+fn load_web_bookmarks_keeps_valid_bookmark_without_cookie_configs() {
+    let bookmarks = load_web_bookmarks(&json!({
+        "web_bookmarks": [
+            {
+                "title": "Docs",
+                "url": "https://docs.example.com/"
+            }
+        ]
+    }));
+
+    assert_eq!(bookmarks.len(), 1);
+    assert_eq!(bookmarks[0].title, "Docs");
+    assert_eq!(bookmarks[0].url, "https://docs.example.com/");
+    assert_eq!(bookmarks[0].width, None);
+    assert_eq!(bookmarks[0].height, None);
+    assert!(bookmarks[0].cookie_configs.is_none());
+}
+
+#[test]
+fn load_web_bookmarks_returns_default_when_config_key_is_not_an_array() {
+    let bookmarks = load_web_bookmarks(&json!({
+        "web_bookmarks": "not an array"
+    }));
+
+    assert_eq!(bookmarks.len(), 1);
+    assert_eq!(bookmarks[0].title, "订货宝管理端");
 }

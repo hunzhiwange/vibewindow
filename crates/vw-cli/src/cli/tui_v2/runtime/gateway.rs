@@ -62,11 +62,7 @@ pub(crate) struct GatewayClientBootstrapConfig {
     pub(crate) host: String,
     /// 目标网关端口。
     pub(crate) port: u16,
-    /// 可选的 Basic Auth 用户名。
-    pub(crate) username: Option<String>,
-    /// 可选的 Basic Auth 密码。
-    pub(crate) password: Option<String>,
-    /// 可选的 `x-skey` 请求头。
+    /// 可选 skey，会作为 Bearer token 发送。
     pub(crate) skey: Option<String>,
 }
 
@@ -75,8 +71,6 @@ impl Default for GatewayClientBootstrapConfig {
         Self {
             host: "127.0.0.1".to_string(),
             port: 42617,
-            username: None,
-            password: None,
             skey: None,
         }
     }
@@ -148,25 +142,15 @@ impl GatewayClientBootstrapConfig {
             self.port = port;
         }
 
-        self.username = gateway_optional_string(gateway.get("username"));
-        self.password = gateway_optional_string(gateway.get("password"));
-        self.skey = gateway_optional_string(gateway.get("skey"));
+        self.skey = gateway_optional_string(gateway.get("skey"))
+            .or_else(|| gateway_optional_string(gateway.get("bearer_token")));
     }
 
     /// 仅当配置中存在至少一种认证信息时才生成认证对象。
     fn auth(&self) -> Option<GatewayAuth> {
-        let auth = GatewayAuth {
-            bearer_token: None,
-            username: self.username.clone(),
-            password: self.password.clone(),
-            skey: self.skey.clone(),
-        };
+        let auth = GatewayAuth { skey: self.skey.clone() };
 
-        if auth.bearer_token.is_none()
-            && auth.username.is_none()
-            && auth.password.is_none()
-            && auth.skey.is_none()
-        {
+        if auth.skey.is_none() {
             None
         } else {
             Some(auth)

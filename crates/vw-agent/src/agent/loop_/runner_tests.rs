@@ -1,6 +1,6 @@
 use crate::app::agent::config::Config;
 
-use super::runner::process_message;
+use super::process_message;
 
 #[tokio::test]
 async fn process_message_returns_error_for_unknown_provider() {

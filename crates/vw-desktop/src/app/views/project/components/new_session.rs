@@ -79,26 +79,184 @@ fn worktree_action_button_style(
     theme: &Theme,
     status: iced::widget::button::Status,
 ) -> iced::widget::button::Style {
-    let _p = theme.extended_palette();
-    // 根据主题类型设置基础颜色
-    let base = if is_dark_theme(theme) {
-        Color::from_rgba(0.34, 0.36, 0.40, 0.92)
-    } else {
-        Color::from_rgba(0.72, 0.74, 0.78, 0.95)
-    };
-    // 根据按钮状态确定背景色
-    let bg = match status {
-        iced::widget::button::Status::Hovered => Color::from_rgb8(220, 38, 38),
-        iced::widget::button::Status::Pressed => Color::from_rgb8(185, 28, 28),
-        iced::widget::button::Status::Disabled => base,
-        _ => base,
-    };
+    let bg = worktree_action_button_background(theme, status);
     iced::widget::button::Style {
         background: Some(Background::Color(bg)),
         text_color: Color::WHITE,
         border: iced::Border { width: 0.0, color: Color::TRANSPARENT, radius: 999.0.into() },
         ..Default::default()
     }
+}
+
+fn worktree_action_button_background(theme: &Theme, status: iced::widget::button::Status) -> Color {
+    let base = if is_dark_theme(theme) {
+        Color::from_rgba(0.34, 0.36, 0.40, 0.92)
+    } else {
+        Color::from_rgba(0.72, 0.74, 0.78, 0.95)
+    };
+    match status {
+        iced::widget::button::Status::Hovered => Color::from_rgb8(220, 38, 38),
+        iced::widget::button::Status::Pressed => Color::from_rgb8(185, 28, 28),
+        iced::widget::button::Status::Disabled => base,
+        _ => base,
+    }
+}
+
+fn create_worktree_button_style(
+    _theme: &Theme,
+    status: iced::widget::button::Status,
+) -> iced::widget::button::Style {
+    let bg = match status {
+        iced::widget::button::Status::Hovered => Color::from_rgb8(37, 99, 235),
+        iced::widget::button::Status::Pressed => Color::from_rgb8(29, 78, 216),
+        _ => Color::from_rgb8(59, 130, 246),
+    };
+    iced::widget::button::Style {
+        background: Some(Background::Color(bg)),
+        text_color: Color::WHITE,
+        border: iced::Border { radius: 4.0.into(), ..iced::Border::default() },
+        ..Default::default()
+    }
+}
+
+fn list_item_button_style(
+    theme: &Theme,
+    status: iced::widget::button::Status,
+) -> iced::widget::button::Style {
+    let p = theme.extended_palette();
+    let bg = match status {
+        iced::widget::button::Status::Hovered => p.background.weak.color,
+        iced::widget::button::Status::Pressed => p.background.strong.color,
+        _ => Color::TRANSPARENT,
+    };
+    iced::widget::button::Style {
+        background: Some(Background::Color(bg)),
+        text_color: theme.palette().text,
+        border: iced::Border { radius: 4.0.into(), ..iced::Border::default() },
+        ..Default::default()
+    }
+}
+
+fn neutral_button_style(
+    theme: &Theme,
+    status: iced::widget::button::Status,
+) -> iced::widget::button::Style {
+    let p = theme.extended_palette();
+    let bg = match status {
+        iced::widget::button::Status::Hovered => p.background.weak.color,
+        iced::widget::button::Status::Pressed => p.background.strong.color,
+        _ => p.background.weak.color,
+    };
+    iced::widget::button::Style {
+        background: Some(Background::Color(bg)),
+        text_color: theme.palette().text,
+        border: iced::Border { width: 0.0, color: Color::TRANSPARENT, radius: 4.0.into() },
+        ..Default::default()
+    }
+}
+
+fn close_button_style(
+    theme: &Theme,
+    status: iced::widget::button::Status,
+) -> iced::widget::button::Style {
+    let mut style = neutral_button_style(theme, status);
+    style.border.radius = 999.0.into();
+    style
+}
+
+fn danger_soft_button_style(
+    _theme: &Theme,
+    status: iced::widget::button::Status,
+) -> iced::widget::button::Style {
+    let bg = match status {
+        iced::widget::button::Status::Hovered => Color::from_rgb8(220, 38, 38).scale_alpha(0.18),
+        iced::widget::button::Status::Pressed => Color::from_rgb8(220, 38, 38).scale_alpha(0.26),
+        _ => Color::from_rgb8(220, 38, 38).scale_alpha(0.12),
+    };
+    iced::widget::button::Style {
+        background: Some(Background::Color(bg)),
+        text_color: Color::from_rgb8(220, 38, 38),
+        border: iced::Border { width: 0.0, color: Color::TRANSPARENT, radius: 4.0.into() },
+        ..Default::default()
+    }
+}
+
+fn confirmation_panel_style(theme: &Theme) -> container::Style {
+    let p = theme.extended_palette();
+    container::Style {
+        background: Some(Background::Color(p.background.weak.color)),
+        border: iced::Border { width: 1.0, color: p.background.strong.color, radius: 6.0.into() },
+        ..Default::default()
+    }
+}
+
+fn picker_panel_style(theme: &Theme) -> container::Style {
+    let p = theme.extended_palette();
+    container::Style {
+        background: Some(p.background.base.color.into()),
+        border: iced::Border { width: 1.0, color: p.background.strong.color, radius: 10.0.into() },
+        shadow: iced::Shadow {
+            color: Color::BLACK.scale_alpha(0.24),
+            offset: iced::Vector::new(0.0, 8.0),
+            blur_radius: 24.0,
+        },
+        ..Default::default()
+    }
+}
+
+fn overlay_style(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(Color::from_rgba(0.04, 0.05, 0.07, 0.28))),
+        ..Default::default()
+    }
+}
+
+fn worktree_display_name(directory: &str) -> &str {
+    std::path::Path::new(directory).file_name().and_then(|s| s.to_str()).unwrap_or(directory)
+}
+
+fn project_display_title(
+    path: &str,
+    recent_projects: &[String],
+    recent_project_edits: &[String],
+) -> String {
+    recent_projects
+        .iter()
+        .position(|p| p == path)
+        .and_then(|i| recent_project_edits.get(i))
+        .map(|name| if name.trim().is_empty() { path.to_owned() } else { name.to_owned() })
+        .unwrap_or_else(|| path.to_owned())
+}
+
+fn create_session_message(path: &str) -> Message {
+    Message::Project(message::ProjectMessage::ProjectCreateSession(path.to_owned()))
+}
+
+fn pick_session_message(project_path: &str, directory: &str) -> Message {
+    Message::Project(message::ProjectMessage::ProjectCreateSessionPicked {
+        project_path: project_path.to_owned(),
+        directory: directory.to_owned(),
+    })
+}
+
+fn create_worktree_message(project_path: &str) -> Message {
+    Message::Project(message::ProjectMessage::ProjectCreateSessionWorktree(project_path.to_owned()))
+}
+
+fn worktree_name_changed_message(value: String) -> Message {
+    Message::Project(message::ProjectMessage::ProjectCreateSessionWorktreeNameChanged(value))
+}
+
+fn delete_worktree_message(directory: &str) -> Message {
+    Message::Project(message::ProjectMessage::ProjectCreateSessionDeleteWorktree(
+        directory.to_owned(),
+    ))
+}
+
+fn reset_worktree_message(directory: &str) -> Message {
+    Message::Project(message::ProjectMessage::ProjectCreateSessionResetWorktree(
+        directory.to_owned(),
+    ))
 }
 
 /// 创建新建会话按钮
@@ -145,7 +303,7 @@ pub fn new_session_button<'a>(app: &crate::app::App, path: String) -> Element<'a
         .width(Length::Fill)
         .align_x(iced::alignment::Horizontal::Center),
     )
-    .on_press(Message::Project(message::ProjectMessage::ProjectCreateSession(path.clone())))
+    .on_press(create_session_message(&path))
     .width(Length::Fill)
     .padding([10, 14])
     .style(move |theme: &Theme, status| {
@@ -222,41 +380,13 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
                         .padding([2, 6]),
                     // 工作区名称输入框
                     text_input("例如: feature-login", &app.new_session_worktree_name)
-                        .on_input(|v| {
-                            Message::Project(
-                                message::ProjectMessage::ProjectCreateSessionWorktreeNameChanged(v),
-                            )
-                        })
+                        .on_input(worktree_name_changed_message)
                         .padding([6, 8])
                         .size(12),
                     // 创建按钮
                     button(container(text("创建并使用该工作区").size(12)).width(Length::Fill))
-                        .on_press(Message::Project(
-                            message::ProjectMessage::ProjectCreateSessionWorktree(
-                                path.as_str().to_owned()
-                            ),
-                        ))
-                        .style(|_theme: &Theme, status| {
-                            // 创建按钮的蓝色主题样式
-                            let bg = match status {
-                                iced::widget::button::Status::Hovered => {
-                                    Color::from_rgb8(37, 99, 235)
-                                }
-                                iced::widget::button::Status::Pressed => {
-                                    Color::from_rgb8(29, 78, 216)
-                                }
-                                _ => Color::from_rgb8(59, 130, 246),
-                            };
-                            iced::widget::button::Style {
-                                background: Some(Background::Color(bg)),
-                                text_color: Color::WHITE,
-                                border: iced::Border {
-                                    radius: 4.0.into(),
-                                    ..iced::Border::default()
-                                },
-                                ..Default::default()
-                            }
-                        })
+                        .on_press(create_worktree_message(&path))
+                        .style(create_worktree_button_style)
                         .width(Length::Fill)
                 ]
                 .spacing(4)
@@ -275,18 +405,10 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
                     // 非主工作区显示重置和删除按钮
                     row![
                         button(container(text("重置").size(10)).padding([2, 8]))
-                            .on_press(Message::Project(
-                                message::ProjectMessage::ProjectCreateSessionResetWorktree(
-                                    directory.as_str().to_owned(),
-                                ),
-                            ))
+                            .on_press(reset_worktree_message(directory))
                             .style(worktree_action_button_style),
                         button(container(text("删除").size(10)).padding([2, 8]))
-                            .on_press(Message::Project(
-                                message::ProjectMessage::ProjectCreateSessionDeleteWorktree(
-                                    directory.as_str().to_owned(),
-                                ),
-                            ))
+                            .on_press(delete_worktree_message(directory))
                             .style(worktree_action_button_style),
                     ]
                     .spacing(6)
@@ -306,24 +428,8 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
                     .width(Length::Fill)
                     .padding([2, 6]),
                 )
-                .on_press(Message::Project(message::ProjectMessage::ProjectCreateSessionPicked {
-                    project_path: path.clone(),
-                    directory: directory.clone(),
-                }))
-                .style(|theme: &Theme, status| {
-                    let p = theme.extended_palette();
-                    let bg = match status {
-                        iced::widget::button::Status::Hovered => p.background.weak.color,
-                        iced::widget::button::Status::Pressed => p.background.strong.color,
-                        _ => Color::TRANSPARENT,
-                    };
-                    iced::widget::button::Style {
-                        background: Some(Background::Color(bg)),
-                        text_color: theme.palette().text,
-                        border: iced::Border { radius: 4.0.into(), ..iced::Border::default() },
-                        ..Default::default()
-                    }
-                })
+                .on_press(pick_session_message(&path, directory))
+                .style(list_item_button_style)
                 .width(Length::Fill)
                 .into()
             };
@@ -360,10 +466,7 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
     // 删除确认对话框
     if let Some(directory) = app.new_session_confirm_delete_directory.as_ref() {
         // 提取目录名称用于显示
-        let name = std::path::Path::new(directory)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or(directory);
+        let name = worktree_display_name(directory);
         picker_col = picker_col.push(
             container(
                 column![
@@ -374,79 +477,27 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
                             .on_press(Message::Project(
                                 message::ProjectMessage::ProjectCreateSessionDeleteWorktreeCancel,
                             ))
-                            .style(|theme: &Theme, status| {
-                                let p = theme.extended_palette();
-                                let bg = match status {
-                                    iced::widget::button::Status::Hovered => p.background.weak.color,
-                                    iced::widget::button::Status::Pressed => p.background.strong.color,
-                                    _ => p.background.weak.color,
-                                };
-                                iced::widget::button::Style {
-                                    background: Some(Background::Color(bg)),
-                                    text_color: theme.palette().text,
-                                    border: iced::Border {
-                                        width: 0.0,
-                                        color: Color::TRANSPARENT,
-                                        radius: 4.0.into(),
-                                    },
-                                    ..Default::default()
-                                }
-                            }),
+                            .style(neutral_button_style),
                         // 确认删除按钮
                         button(container(text("确认删除").size(11)).padding([2, 8]))
                             .on_press(Message::Project(
                                 message::ProjectMessage::ProjectCreateSessionDeleteWorktreeConfirmed,
                             ))
-                            .style(|_theme: &Theme, status| {
-                                // 红色危险操作样式
-                                let bg = match status {
-                                    iced::widget::button::Status::Hovered => {
-                                        Color::from_rgb8(220, 38, 38).scale_alpha(0.18)
-                                    }
-                                    iced::widget::button::Status::Pressed => {
-                                        Color::from_rgb8(220, 38, 38).scale_alpha(0.26)
-                                    }
-                                    _ => Color::from_rgb8(220, 38, 38).scale_alpha(0.12),
-                                };
-                                iced::widget::button::Style {
-                                    background: Some(Background::Color(bg)),
-                                    text_color: Color::from_rgb8(220, 38, 38),
-                                    border: iced::Border {
-                                        width: 0.0,
-                                        color: Color::TRANSPARENT,
-                                        radius: 4.0.into(),
-                                    },
-                                    ..Default::default()
-                                }
-                            }),
+                            .style(danger_soft_button_style),
                     ]
                     .spacing(8)
                 ]
                 .spacing(6),
             )
             .padding([6, 8])
-            .style(|theme: &Theme| {
-                let p = theme.extended_palette();
-                container::Style {
-                    background: Some(Background::Color(p.background.weak.color)),
-                    border: iced::Border {
-                        width: 1.0,
-                        color: p.background.strong.color,
-                        radius: 6.0.into(),
-                    },
-                    ..Default::default()
-                }
-            }),
+            .style(confirmation_panel_style),
         );
     }
 
     // 强制删除确认对话框（删除失败后显示）
     if let Some(directory) = app.new_session_force_delete_directory.as_ref() {
         // 提取目录名称用于显示
-        let name = std::path::Path::new(directory)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or(directory);
+        let name = worktree_display_name(directory);
         picker_col = picker_col.push(
             container(
                 column![
@@ -457,79 +508,27 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
                             .on_press(Message::Project(
                                 message::ProjectMessage::ProjectCreateSessionDeleteWorktreeCancel,
                             ))
-                            .style(|theme: &Theme, status| {
-                                let p = theme.extended_palette();
-                                let bg = match status {
-                                    iced::widget::button::Status::Hovered => p.background.weak.color,
-                                    iced::widget::button::Status::Pressed => p.background.strong.color,
-                                    _ => p.background.weak.color,
-                                };
-                                iced::widget::button::Style {
-                                    background: Some(Background::Color(bg)),
-                                    text_color: theme.palette().text,
-                                    border: iced::Border {
-                                        width: 0.0,
-                                        color: Color::TRANSPARENT,
-                                        radius: 4.0.into(),
-                                    },
-                                    ..Default::default()
-                                }
-                            }),
+                            .style(neutral_button_style),
                         // 强制删除按钮
                         button(container(text("强制删除").size(11)).padding([2, 8]))
                             .on_press(Message::Project(
                                 message::ProjectMessage::ProjectCreateSessionDeleteWorktreeForceConfirmed,
                             ))
-                            .style(|_theme: &Theme, status| {
-                                // 红色危险操作样式
-                                let bg = match status {
-                                    iced::widget::button::Status::Hovered => {
-                                        Color::from_rgb8(220, 38, 38).scale_alpha(0.18)
-                                    }
-                                    iced::widget::button::Status::Pressed => {
-                                        Color::from_rgb8(220, 38, 38).scale_alpha(0.26)
-                                    }
-                                    _ => Color::from_rgb8(220, 38, 38).scale_alpha(0.12),
-                                };
-                                iced::widget::button::Style {
-                                    background: Some(Background::Color(bg)),
-                                    text_color: Color::from_rgb8(220, 38, 38),
-                                    border: iced::Border {
-                                        width: 0.0,
-                                        color: Color::TRANSPARENT,
-                                        radius: 4.0.into(),
-                                    },
-                                    ..Default::default()
-                                }
-                            }),
+                            .style(danger_soft_button_style),
                     ]
                     .spacing(8)
                 ]
                 .spacing(6),
             )
             .padding([6, 8])
-            .style(|theme: &Theme| {
-                let p = theme.extended_palette();
-                container::Style {
-                    background: Some(Background::Color(p.background.weak.color)),
-                    border: iced::Border {
-                        width: 1.0,
-                        color: p.background.strong.color,
-                        radius: 6.0.into(),
-                    },
-                    ..Default::default()
-                }
-            }),
+            .style(confirmation_panel_style),
         );
     }
 
     // 重置确认对话框
     if let Some(directory) = app.new_session_confirm_reset_directory.as_ref() {
         // 提取目录名称用于显示
-        let name = std::path::Path::new(directory)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or(directory);
+        let name = worktree_display_name(directory);
         picker_col = picker_col.push(
             container(
                 column![
@@ -546,28 +545,7 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
                             .on_press(Message::Project(
                                 message::ProjectMessage::ProjectCreateSessionResetWorktreeCancel,
                             ))
-                            .style(|theme: &Theme, status| {
-                                let p = theme.extended_palette();
-                                let bg = match status {
-                                    iced::widget::button::Status::Hovered => {
-                                        p.background.weak.color
-                                    }
-                                    iced::widget::button::Status::Pressed => {
-                                        p.background.strong.color
-                                    }
-                                    _ => p.background.weak.color,
-                                };
-                                iced::widget::button::Style {
-                                    background: Some(Background::Color(bg)),
-                                    text_color: theme.palette().text,
-                                    border: iced::Border {
-                                        width: 0.0,
-                                        color: Color::TRANSPARENT,
-                                        radius: 4.0.into(),
-                                    },
-                                    ..Default::default()
-                                }
-                            }),
+                            .style(neutral_button_style),
                         // 确认重置按钮
                         button(container(text("确认重置").size(11)).padding([2, 8]))
                             .on_press(Message::Project(
@@ -580,32 +558,13 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
                 .spacing(6),
             )
             .padding([6, 8])
-            .style(|theme: &Theme| {
-                let p = theme.extended_palette();
-                container::Style {
-                    background: Some(Background::Color(p.background.weak.color)),
-                    border: iced::Border {
-                        width: 1.0,
-                        color: p.background.strong.color,
-                        radius: 6.0.into(),
-                    },
-                    ..Default::default()
-                }
-            }),
+            .style(confirmation_panel_style),
         );
     }
 
     // 获取项目显示标题
     // 优先使用用户自定义的项目名称，如果为空则使用路径
-    let title = app
-        .recent_projects
-        .iter()
-        .position(|p| p == &path)
-        .and_then(|i| app.recent_projects_edits.get(i))
-        .map(|name: &String| {
-            if name.trim().is_empty() { path.as_str().to_owned() } else { name.as_str().to_owned() }
-        })
-        .unwrap_or_else(|| path.as_str().to_owned());
+    let title = project_display_title(&path, &app.recent_projects, &app.recent_projects_edits);
 
     // 主面板容器
     let picker_panel = container(
@@ -629,24 +588,7 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
                         message::ProjectMessage::ProjectCreateSessionPickerClose,
                     ))
                     .padding([4, 8])
-                    .style(|theme: &Theme, status| {
-                        let p = theme.extended_palette();
-                        let bg = match status {
-                            iced::widget::button::Status::Hovered => p.background.weak.color,
-                            iced::widget::button::Status::Pressed => p.background.strong.color,
-                            _ => p.background.weak.color,
-                        };
-                        iced::widget::button::Style {
-                            background: Some(Background::Color(bg)),
-                            text_color: theme.palette().text,
-                            border: iced::Border {
-                                width: 0.0,
-                                color: Color::TRANSPARENT,
-                                radius: 999.0.into(),
-                            },
-                            ..Default::default()
-                        }
-                    })
+                    .style(close_button_style)
             ]
             .align_y(iced::alignment::Vertical::Center),
             // 可滚动的工作区列表
@@ -657,24 +599,7 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
     .width(Length::Fixed(360.0))
     .max_height((app.window_size.1 * 0.72).max(220.0)) // 最大高度为窗口高度的 72%
     .padding([10, 12])
-    .style(|theme: &Theme| {
-        let p = theme.extended_palette();
-        container::Style {
-            background: Some(p.background.base.color.into()),
-            border: iced::Border {
-                width: 1.0,
-                color: p.background.strong.color,
-                radius: 10.0.into(),
-            },
-            // 添加阴影效果
-            shadow: iced::Shadow {
-                color: Color::BLACK.scale_alpha(0.24),
-                offset: iced::Vector::new(0.0, 8.0),
-                blur_radius: 24.0,
-            },
-            ..Default::default()
-        }
-    });
+    .style(picker_panel_style);
 
     // 全屏覆盖层
     // 点击背景关闭选择器，点击面板内容不关闭
@@ -690,10 +615,7 @@ pub fn new_session_picker_layer<'a>(app: &crate::app::App) -> Element<'a, Messag
     )
     .width(Length::Fill)
     .height(Length::Fill)
-    .style(|_theme: &Theme| container::Style {
-        background: Some(Background::Color(Color::from_rgba(0.04, 0.05, 0.07, 0.28))),
-        ..Default::default()
-    })
+    .style(overlay_style)
     .into()
 }
 #[cfg(test)]

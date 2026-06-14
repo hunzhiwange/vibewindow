@@ -350,6 +350,6 @@ pub(crate) fn merge_tool_call_delta(
 pub(crate) fn should_abort(rx: Option<&tokio::sync::watch::Receiver<bool>>) -> bool {
     rx.is_some_and(|r| *r.borrow())
 }
-#[cfg(test)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "util_tests.rs"]
 mod util_tests;

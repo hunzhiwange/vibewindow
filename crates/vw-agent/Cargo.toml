@@ -1,6 +1,6 @@
 [package]
 name = "vw-agent"
-version = "0.2.7"
+version = "0.2.8"
 edition = "2024"
 repository = "https://github.com/hunzhiwange/vibewindow"
 homepage = "https://github.com/hunzhiwange/vibewindow"
@@ -9,7 +9,6 @@ license = "MIT"
 autotests = false
 
 [lib]
-test = false
 doctest = false
 
 [dependencies]
@@ -70,12 +69,12 @@ uuid = { version = "1.11", features = ["v4", "js"] }
 walkdir = "2"
 webpki-roots = "0.26"
 web-time = "1.1.0"
-vw-config-types = { path = "../vw-config-types", version = "0.2.7" }
-vw-gateway-client = { path = "../vw-gateway-client", version = "0.2.7" }
-vw-api-types = { path = "../vw-api-types", version = "0.2.7" }
-vw-acp = { path = "../vw-acp", version = "0.2.7" }
-vw-provider-resolver = { path = "../vw-provider-resolver", version = "0.2.7" }
-vw-shared = { path = "../vw-shared", version = "0.2.7", features = ["shell-tokio"] }
+vw-config-types = { path = "../vw-config-types", version = "0.2.8" }
+vw-gateway-client = { path = "../vw-gateway-client", version = "0.2.8" }
+vw-api-types = { path = "../vw-api-types", version = "0.2.8" }
+vw-acp = { path = "../vw-acp", version = "0.2.8" }
+vw-provider-resolver = { path = "../vw-provider-resolver", version = "0.2.8" }
+vw-shared = { path = "../vw-shared", version = "0.2.8", features = ["shell-tokio"] }
 agent-client-protocol = { version = "0.10.4", features = ["unstable_session_usage", "unstable_session_resume"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -109,7 +108,7 @@ rmcp = { version = "0.8.0", features = ["server", "transport-io", "transport-chi
 rustls = { version = "0.23.37", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 rustyline = "17.0"
 tempfile = "3"
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time", "process", "signal"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time", "test-util", "process", "signal"] }
 tokio-postgres-rustls = { version = "0.13.0", optional = true }
 tokio-rustls = { version = "0.26.4", default-features = false, features = ["ring", "logging", "tls12"] }
 tokio-serial = "5.4.5"
@@ -147,6 +146,9 @@ tokio-stream = { version = "0.1.18", features = ["sync"] }
 wasm-bindgen = "=0.2.105"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", default-features = false, features = ["Window"] }
+
+[dev-dependencies]
+tower = "0.5"
 
 [features]
 default = ["rag-pdf", "firecrawl", "web-fetch-html2md", "web-fetch-plaintext", "shell-ast"]

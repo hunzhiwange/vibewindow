@@ -379,3 +379,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
 
     base
 }
+#[cfg(test)]
+#[path = "system_settings_models_tests.rs"]
+mod system_settings_models_tests;

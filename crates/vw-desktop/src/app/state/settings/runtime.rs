@@ -345,15 +345,26 @@ impl Default for BrowserSettingsState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GatewaySettingsTab {
+    Config,
+    Skeys,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct GatewaySettingsState {
+    pub(crate) active_tab: GatewaySettingsTab,
     pub(crate) port: u16,
     pub(crate) host_input: String,
-    pub(crate) require_pairing: bool,
+    pub(crate) auth_enabled: bool,
+    pub(crate) skeys: Vec<vw_config_types::gateway::GatewaySkey>,
+    pub(crate) new_skey_name_input: String,
+    pub(crate) new_skey_expires_at_input: String,
+    pub(crate) new_skey_calendar_month: String,
+    pub(crate) new_skey_calendar_open: bool,
+    pub(crate) last_created_skey: Option<String>,
+    pub(crate) last_created_skey_copied: bool,
     pub(crate) allow_public_bind: bool,
-    pub(crate) paired_tokens: Vec<String>,
-    pub(crate) new_paired_token_input: String,
-    pub(crate) pair_rate_limit_per_minute: u32,
     pub(crate) webhook_rate_limit_per_minute: u32,
     pub(crate) trust_forwarded_headers: bool,
     pub(crate) rate_limit_max_keys: u32,
@@ -362,6 +373,8 @@ pub(crate) struct GatewaySettingsState {
     pub(crate) node_control_enabled: bool,
     pub(crate) node_control_auth_token_input: String,
     pub(crate) node_control_allowed_node_ids_input: String,
+    pub(crate) service_action_running: Option<String>,
+    pub(crate) service_action_output: Option<String>,
     pub(crate) show_help_modal: bool,
     pub(crate) save_error: Option<String>,
 }
@@ -369,13 +382,18 @@ pub(crate) struct GatewaySettingsState {
 impl Default for GatewaySettingsState {
     fn default() -> Self {
         Self {
+            active_tab: GatewaySettingsTab::Config,
             port: 42617,
             host_input: "127.0.0.1".to_string(),
-            require_pairing: true,
+            auth_enabled: false,
+            skeys: Vec::new(),
+            new_skey_name_input: String::new(),
+            new_skey_expires_at_input: String::new(),
+            new_skey_calendar_month: String::new(),
+            new_skey_calendar_open: false,
+            last_created_skey: None,
+            last_created_skey_copied: false,
             allow_public_bind: false,
-            paired_tokens: Vec::new(),
-            new_paired_token_input: String::new(),
-            pair_rate_limit_per_minute: 10,
             webhook_rate_limit_per_minute: 60,
             trust_forwarded_headers: false,
             rate_limit_max_keys: 10_000,
@@ -384,6 +402,8 @@ impl Default for GatewaySettingsState {
             node_control_enabled: false,
             node_control_auth_token_input: String::new(),
             node_control_allowed_node_ids_input: String::new(),
+            service_action_running: None,
+            service_action_output: None,
             show_help_modal: false,
             save_error: None,
         }
@@ -396,9 +416,6 @@ pub(crate) struct GatewayClientServerDraft {
     pub(crate) name: String,
     pub(crate) host: String,
     pub(crate) port: u16,
-    pub(crate) bearer_token: String,
-    pub(crate) username: String,
-    pub(crate) password: String,
     pub(crate) skey: String,
 }
 
@@ -409,10 +426,11 @@ impl GatewayClientServerDraft {
             name: server.name.clone(),
             host: server.host.clone(),
             port: server.port.clamp(1, u16::MAX),
-            bearer_token: server.bearer_token.clone(),
-            username: server.username.clone(),
-            password: server.password.clone(),
-            skey: server.skey.clone(),
+            skey: if server.skey.trim().is_empty() {
+                server.bearer_token.clone()
+            } else {
+                server.skey.clone()
+            },
         }
     }
 
@@ -422,9 +440,9 @@ impl GatewayClientServerDraft {
             name: self.name.clone(),
             host: self.host.clone(),
             port: self.port.clamp(1, u16::MAX),
-            bearer_token: self.bearer_token.clone(),
-            username: self.username.clone(),
-            password: self.password.clone(),
+            bearer_token: String::new(),
+            username: String::new(),
+            password: String::new(),
             skey: self.skey.clone(),
         }
     }
@@ -438,9 +456,6 @@ pub(crate) struct GatewayClientSettingsState {
     pub(crate) name_input: String,
     pub(crate) host_input: String,
     pub(crate) port: u16,
-    pub(crate) bearer_token_input: String,
-    pub(crate) username_input: String,
-    pub(crate) password_input: String,
     pub(crate) skey_input: String,
     pub(crate) pending_remove_server_id: Option<String>,
     pub(crate) show_help_modal: bool,
@@ -459,9 +474,6 @@ impl Default for GatewayClientSettingsState {
             health: HashMap::new(),
             host_input: "127.0.0.1".to_string(),
             port: 42617,
-            bearer_token_input: String::new(),
-            username_input: String::new(),
-            password_input: String::new(),
             skey_input: String::new(),
             pending_remove_server_id: None,
             show_help_modal: false,
@@ -491,7 +503,7 @@ impl Default for AgentsIpcSettingsState {
     fn default() -> Self {
         Self {
             enabled: false,
-            db_path_input: "~/.vibewindow/agents.db".to_string(),
+            db_path_input: vw_config_types::paths::agents_ipc_db_path(),
             staleness_secs: 300,
             show_help_modal: false,
             save_error: None,

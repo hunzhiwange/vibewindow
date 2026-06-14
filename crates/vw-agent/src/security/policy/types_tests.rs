@@ -6,3 +6,19 @@ fn display_formats_command_risk_levels() {
     assert_eq!(CommandRiskLevel::Medium.to_string(), "medium");
     assert_eq!(CommandRiskLevel::High.to_string(), "high");
 }
+
+#[test]
+fn lightweight_policy_enums_are_copy_and_comparable() {
+    let read = ToolOperation::Read;
+    let act = ToolOperation::Act;
+    assert_eq!(read, ToolOperation::Read);
+    assert_ne!(read, act);
+
+    let quote = QuoteState::Double;
+    assert_eq!(quote, QuoteState::Double);
+    assert_ne!(quote, QuoteState::Single);
+
+    let risk = CommandRiskLevel::Medium;
+    assert_eq!(risk, CommandRiskLevel::Medium);
+    assert_ne!(risk, CommandRiskLevel::High);
+}

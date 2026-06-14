@@ -18,6 +18,7 @@ use crate::app::{App, Message, TodoPanelPlacement, message, models};
 use iced::Task;
 use iced::widget::{scrollable, text_editor};
 use std::time::Duration;
+use vw_shared::message::types as agent_message;
 
 pub mod context;
 pub mod input;
@@ -93,6 +94,14 @@ pub enum ForkSessionTarget {
 pub enum MessageIndexedSessionAction {
     Fork(ForkSessionTarget),
     Reset { revert_code: bool },
+}
+
+#[derive(Debug, Clone)]
+pub struct ForkSessionLoaded {
+    pub info: vw_shared::session::info::Info,
+    pub target: ForkSessionTarget,
+    pub messages: Vec<agent_message::WithParts>,
+    pub usage: models::TokenUsage,
 }
 
 /// 聊天消息枚举
@@ -182,6 +191,11 @@ pub enum ChatMessage {
     /// 启用/禁用任务模式（Task Mode），任务模式用于复杂的多步骤任务
     TaskModeToggled(bool),
 
+    /// 工作流模式开关切换
+    ///
+    /// 启用后，本轮聊天会先生成临时 Dify 工作流，再通过 workflow 流式执行。
+    WorkflowModeToggled(bool),
+
     /// 任务优先级变化
     ///
     /// 修改当前任务的优先级
@@ -261,6 +275,11 @@ pub enum ChatMessage {
     ///
     /// 接收 Agent 响应的增量文本内容
     AgentStreamDelta(u64, String),
+
+    /// Workflow 节点卡片更新
+    ///
+    /// 接收 workflow 流式执行中的节点状态卡片。
+    AgentWorkflowNodeUpdate(u64, String),
 
     /// Agent 步骤开始
     ///
@@ -365,6 +384,9 @@ pub enum ChatMessage {
 
     /// 永久批准权限请求
     PermissionApproveAlways,
+
+    /// 永久批准当前所有待处理权限请求
+    PermissionApproveAllAlways,
 
     /// 拒绝权限请求
     PermissionReject,
@@ -601,11 +623,14 @@ pub enum ChatMessage {
     },
 
     ForkSessionFinished {
+        result: Result<ForkSessionLoaded, String>,
+    },
+
+    LocalForkSessionCreated {
         result: Result<(vw_shared::session::info::Info, Option<String>), String>,
-        base_chat: Vec<crate::app::models::ChatMessage>,
-        base_message_ids: Vec<Option<String>>,
-        branch_query: String,
-        model: Option<String>,
+        target: ForkSessionTarget,
+        retained_chat: Vec<crate::app::models::ChatMessage>,
+        retained_message_ids: Vec<Option<String>>,
     },
 
     ResetSessionToMessage {
@@ -816,6 +841,7 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         | ChatMessage::RemoveFileReference(_)
         | ChatMessage::FileReferenceHoverChanged(_)
         | ChatMessage::TaskModeToggled(_)
+        | ChatMessage::WorkflowModeToggled(_)
         | ChatMessage::TaskModePriorityChanged(_)
         | ChatMessage::TaskModeExecutorChanged(_)
         | ChatMessage::TaskModeModelChanged(_)
@@ -833,6 +859,7 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
 
         // 流式响应相关消息：Agent 增量更新、步骤状态、会话标题、问题应答等
         ChatMessage::AgentStreamDelta(_, _)
+        | ChatMessage::AgentWorkflowNodeUpdate(_, _)
         | ChatMessage::AgentStepStart(_, _, _, _, _)
         | ChatMessage::AgentStepFinish(_, _, _, _, _, _, _)
         | ChatMessage::AgentStepCostLoaded(_, _, _, _, _)
@@ -856,6 +883,7 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         | ChatMessage::QuestionRejected(_)
         | ChatMessage::PermissionApproveOnce
         | ChatMessage::PermissionApproveAlways
+        | ChatMessage::PermissionApproveAllAlways
         | ChatMessage::PermissionReject
         | ChatMessage::PermissionSelectRequest(_)
         | ChatMessage::ToggleFullAccessPermission
@@ -899,6 +927,7 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
         | ChatMessage::ForkSessionAt { .. }
         | ChatMessage::MessageIdsRecoveredForAction { .. }
         | ChatMessage::ForkSessionFinished { .. }
+        | ChatMessage::LocalForkSessionCreated { .. }
         | ChatMessage::ResetSessionToMessage { .. }
         | ChatMessage::ResetSessionFinished { .. } => session::update(app, message),
     };

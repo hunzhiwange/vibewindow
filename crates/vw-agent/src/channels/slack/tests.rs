@@ -35,6 +35,17 @@ mod tests {
     }
 
     #[test]
+    fn slack_group_reply_policy_handles_empty_and_wildcard_sender_ids() {
+        let ch = SlackChannel::new("xoxb-fake".into(), None, vec!["*".into()])
+            .with_group_reply_policy(true, vec![" ".into(), "*".into(), "U111".into()]);
+
+        assert_eq!(ch.group_reply_allowed_sender_ids, vec!["*".to_string(), "U111".to_string()]);
+        assert!(ch.is_group_sender_trigger_enabled("U999"));
+        assert!(!ch.is_group_sender_trigger_enabled(""));
+        assert!(!ch.is_group_sender_trigger_enabled("   "));
+    }
+
+    #[test]
     fn normalized_channel_id_respects_wildcard_and_blank() {
         assert_eq!(SlackChannel::normalized_channel_id(None), None);
         assert_eq!(SlackChannel::normalized_channel_id(Some("")), None);
@@ -45,6 +56,15 @@ mod tests {
             SlackChannel::normalized_channel_id(Some(" C12345 ")),
             Some("C12345".to_string())
         );
+    }
+
+    #[test]
+    fn configured_channel_id_uses_normalized_value() {
+        let scoped = SlackChannel::new("xoxb-fake".into(), Some(" C12345 ".into()), vec![]);
+        let wildcard = SlackChannel::new("xoxb-fake".into(), Some("*".into()), vec![]);
+
+        assert_eq!(scoped.configured_channel_id().as_deref(), Some("C12345"));
+        assert_eq!(wildcard.configured_channel_id(), None);
     }
 
     #[test]
@@ -71,6 +91,20 @@ mod tests {
     }
 
     #[test]
+    fn extract_channel_ids_handles_missing_or_malformed_channel_list() {
+        assert!(SlackChannel::extract_channel_ids(&serde_json::json!({})).is_empty());
+        assert!(
+            SlackChannel::extract_channel_ids(&serde_json::json!({"channels": "bad"})).is_empty()
+        );
+        assert!(
+            SlackChannel::extract_channel_ids(&serde_json::json!({
+                "channels": [{"name": "missing-id"}, {"id": 42}]
+            }))
+            .is_empty()
+        );
+    }
+
+    #[test]
     fn empty_allowlist_denies_everyone() {
         let ch = SlackChannel::new("xoxb-fake".into(), None, vec![]);
         assert!(!ch.is_user_allowed("U12345"));
@@ -90,6 +124,21 @@ mod tests {
             SlackChannel::normalize_incoming_content("<@U_BOT> run", true, "U_BOT").as_deref(),
             Some("run")
         );
+    }
+
+    #[test]
+    fn mention_helpers_handle_empty_bot_id_and_multiple_mentions() {
+        assert!(!SlackChannel::contains_bot_mention("<@U_BOT> hi", ""));
+        assert!(SlackChannel::contains_bot_mention("hi <@U_BOT>", "U_BOT"));
+        assert_eq!(SlackChannel::strip_bot_mentions(" <@U_BOT> run <@U_BOT> ", "U_BOT"), "run");
+        assert_eq!(SlackChannel::strip_bot_mentions(" <@U_BOT> run ", ""), "<@U_BOT> run");
+    }
+
+    #[test]
+    fn normalize_incoming_content_rejects_empty_after_stripping_mention() {
+        assert!(SlackChannel::normalize_incoming_content("   ", false, "U_BOT").is_none());
+        assert!(SlackChannel::normalize_incoming_content("<@U_BOT>", true, "U_BOT").is_none());
+        assert!(SlackChannel::normalize_incoming_content("<@U_BOT>   ", true, "U_BOT").is_none());
     }
 
     #[test]
@@ -230,5 +279,16 @@ mod tests {
 
         assert_eq!(cursor, "1700000000.000001");
         assert_eq!(cursors.get("C123").map(String::as_str), Some("1700000000.000001"));
+    }
+
+    #[test]
+    fn slack_now_ts_has_slack_timestamp_shape() {
+        let ts = SlackChannel::slack_now_ts();
+        let (seconds, micros) = ts.split_once('.').expect("timestamp has dot");
+
+        assert!(!seconds.is_empty());
+        assert_eq!(micros.len(), 6);
+        assert!(seconds.chars().all(|c| c.is_ascii_digit()));
+        assert!(micros.chars().all(|c| c.is_ascii_digit()));
     }
 }

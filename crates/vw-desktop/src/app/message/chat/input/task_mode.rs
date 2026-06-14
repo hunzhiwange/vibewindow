@@ -12,6 +12,14 @@ pub(super) fn handle_task_mode_toggled(app: &mut App, enabled: bool) -> Task<Mes
     Task::none()
 }
 
+/// 模块内可见函数，执行 handle_workflow_mode_toggled 对应的应用流程。
+/// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
+pub(super) fn handle_workflow_mode_toggled(app: &mut App, enabled: bool) -> Task<Message> {
+    let runtime = app.current_session_runtime_mut();
+    runtime.workflow_mode_enabled = enabled;
+    Task::none()
+}
+
 /// 模块内可见函数，执行 handle_task_mode_priority_changed 对应的应用流程。
 /// 返回值表达处理结果；失败通过错误值、日志或任务消息显式传递。
 pub(super) fn handle_task_mode_priority_changed(app: &mut App, value: String) -> Task<Message> {
@@ -54,6 +62,7 @@ pub(super) fn handle_task_mode_subtask_changed(
     }
     if let Some(editor) = runtime.task_mode_subtask_editors.get_mut(index) {
         *editor = text_editor::Content::with_text(&value);
+        editor.perform(text_editor::Action::Move(text_editor::Motion::DocumentEnd));
     }
     Task::none()
 }

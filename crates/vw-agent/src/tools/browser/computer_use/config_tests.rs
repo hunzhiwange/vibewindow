@@ -7,13 +7,26 @@ fn default_is_local_and_bounded() {
     assert_eq!(config.timeout_ms, 15_000);
     assert!(!config.allow_remote_endpoint);
     assert!(config.window_allowlist.is_empty());
+    assert!(config.api_key.is_none());
+    assert_eq!(config.max_coordinate_x, None);
+    assert_eq!(config.max_coordinate_y, None);
 }
 
 #[test]
 fn debug_does_not_expose_api_key() {
-    let config = ComputerUseConfig { api_key: Some("secret-token".into()), ..Default::default() };
+    let config = ComputerUseConfig {
+        api_key: Some("secret-token".into()),
+        allow_remote_endpoint: true,
+        window_allowlist: vec!["VibeWindow".into()],
+        max_coordinate_x: Some(1920),
+        max_coordinate_y: Some(1080),
+        ..Default::default()
+    };
     let rendered = format!("{config:?}");
     assert!(rendered.contains("ComputerUseConfig"));
+    assert!(rendered.contains("allow_remote_endpoint"));
+    assert!(rendered.contains("VibeWindow"));
+    assert!(rendered.contains("1920"));
     assert!(!rendered.contains("secret-token"));
     assert!(!rendered.contains("api_key"));
 }

@@ -30,7 +30,7 @@ pub(super) fn worktree_root(project: &project::Info) -> Result<PathBuf, Error> {
     }
     let base = UserDirs::new()
         .map_or_else(|| PathBuf::from(&project.worktree), |dirs| dirs.home_dir().to_path_buf());
-    Ok(base.join(".vibewindow").join("project-worktrees"))
+    Ok(vw_config_types::paths::home_config_dir(base).join("project-worktrees"))
 }
 
 /// 验证并获取当前 Git 项目信息
@@ -75,6 +75,7 @@ pub(super) fn parse_worktree_list(input: &str) -> Vec<WorktreeEntry> {
 
 /// 在 worktree 条目列表中查找指定路径的条目
 pub(super) async fn find_entry(entries: &[WorktreeEntry], target: &Path) -> Option<WorktreeEntry> {
+    let target = canonical(target).await;
     for entry in entries {
         let key = canonical(&entry.path).await;
         if key == target {

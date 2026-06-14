@@ -425,12 +425,11 @@ pub fn build_integration_settings_payload(config: &Config) -> IntegrationSetting
 
     // 遍历每个仪表盘集成规范
     for spec in DASHBOARD_AI_INTEGRATION_SPECS {
-        // 查找对应的注册条目，如果找不到则跳过
-        let Some(registry_entry) =
-            all_integrations.iter().find(|entry| entry.name == spec.integration_name)
-        else {
-            continue;
-        };
+        // 查找对应的注册条目；静态仪表盘规范必须与集成注册表保持同步。
+        let registry_entry = all_integrations
+            .iter()
+            .find(|entry| entry.name == spec.integration_name)
+            .expect("dashboard AI integration spec missing from registry");
 
         // 获取集成状态
         let status = (registry_entry.status_fn)(config);

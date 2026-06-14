@@ -14,8 +14,10 @@ pub use runner::{
     WorkflowAgentProvider, WorkflowAgentRequest, WorkflowAgentResult, WorkflowAgentTool,
     WorkflowDocumentExtractor, WorkflowDocumentFile, WorkflowDocumentRequest,
     WorkflowExtractedDocument, WorkflowKnowledgeChunk, WorkflowKnowledgeProvider,
-    WorkflowKnowledgeRequest, WorkflowPauseState, WorkflowPauseStore, WorkflowRuntime,
-    WorkflowToolProvider, WorkflowToolRequest, WorkflowToolResult, resume_workflow, run_workflow,
+    WorkflowKnowledgeRequest, WorkflowNodeDeltaEvent, WorkflowNodeFinishedEvent,
+    WorkflowNodeStartedEvent, WorkflowPauseState, WorkflowPauseStore, WorkflowRunEvent,
+    WorkflowRuntime, WorkflowToolProvider, WorkflowToolRequest, WorkflowToolResult,
+    resume_workflow, run_workflow, run_workflow_with_events,
 };
 
 #[cfg(test)]

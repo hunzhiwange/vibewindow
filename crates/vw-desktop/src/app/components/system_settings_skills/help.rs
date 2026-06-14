@@ -6,29 +6,8 @@
 use crate::app::{App, Message, message};
 use iced::Element;
 
-/// 构建或处理 `view_overlays` 对应的界面片段与交互数据。
-///
-/// # 参数
-///
-/// 参数来自调用方持有的应用状态、配置快照或控件输入，用于保持渲染结果与当前状态同步。
-///
-/// # 返回值
-///
-/// 返回可交给 Iced 渲染树使用的 `Element`，其中已绑定必要的消息回调。
-///
-/// # 错误处理
-///
-/// 本函数不直接返回错误；无法交互或缺省状态会在控件状态中显式表达。
-pub(super) fn view_overlays<'a>(
-    app: &'a App,
-    dialog: Element<'a, Message>,
-) -> Element<'a, Message> {
-    let s = &app.skills_settings;
-    if !s.show_help_modal {
-        return dialog;
-    }
-
-    let help_text = r#"技能配置说明
+pub(super) fn help_text() -> &'static str {
+    r#"技能配置说明
 
 一、作用
 - skills 用于控制技能系统加载来源与系统提示词注入方式。
@@ -76,13 +55,36 @@ pub(super) fn view_overlays<'a>(
 五、启用/禁用说明
 - 本地技能通过技能目录下的 `SKILL.disabled` 标记文件控制启用状态。
 - 禁用后仍会在目录页显示，但运行时会跳过加载，便于后续重新启用。
-"#;
+"#
+}
+
+/// 构建或处理 `view_overlays` 对应的界面片段与交互数据。
+///
+/// # 参数
+///
+/// 参数来自调用方持有的应用状态、配置快照或控件输入，用于保持渲染结果与当前状态同步。
+///
+/// # 返回值
+///
+/// 返回可交给 Iced 渲染树使用的 `Element`，其中已绑定必要的消息回调。
+///
+/// # 错误处理
+///
+/// 本函数不直接返回错误；无法交互或缺省状态会在控件状态中显式表达。
+pub(super) fn view_overlays<'a>(
+    app: &'a App,
+    dialog: Element<'a, Message>,
+) -> Element<'a, Message> {
+    let s = &app.skills_settings;
+    if !s.show_help_modal {
+        return dialog;
+    }
 
     crate::app::components::system_settings_common::with_settings_help_modal(
         app,
         dialog,
         "Skills 配置帮助",
-        help_text,
+        help_text(),
         Message::Settings(message::SettingsMessage::SkillsHelpClose),
     )
 }

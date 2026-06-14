@@ -5,7 +5,8 @@
 use super::GitMessage;
 use super::shared::{
     build_selected_commit_request, execute_selected_commit_via_gateway, git_context_path_for_app,
-    refresh_git_panel_data_task, reset_commit_form_state, schedule_commit_button_animation_tick,
+    refresh_git_panel_data_after_repo_mutation_task, reset_commit_form_state,
+    schedule_commit_button_animation_tick,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use super::shared::{
@@ -261,7 +262,7 @@ pub(super) fn update(app: &mut App, message: GitMessage) -> Task<Message> {
                     app.refresh_branches();
                     app.push_notification("提交完成".to_string());
                     Task::batch(vec![
-                        refresh_git_panel_data_task(),
+                        refresh_git_panel_data_after_repo_mutation_task(app),
                         app.show_success_toast("提交成功"),
                     ])
                 }

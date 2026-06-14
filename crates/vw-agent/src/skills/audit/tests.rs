@@ -36,6 +36,17 @@ fn audit_accepts_safe_skill() {
     assert!(report.is_clean(), "{:#?}", report.findings);
 }
 
+#[test]
+fn audit_rejects_missing_or_non_directory_sources() {
+    let dir = tempfile::tempdir().unwrap();
+    let missing = dir.path().join("missing");
+    let file = dir.path().join("not-a-directory");
+    std::fs::write(&file, "plain file").unwrap();
+
+    assert!(audit_skill_directory(&missing).is_err());
+    assert!(audit_skill_directory(&file).is_err());
+}
+
 /// 测试审核器拒绝包含 shell 脚本文件的技能包
 ///
 /// 创建一个包含 install.sh 脚本文件的技能目录，
@@ -305,6 +316,38 @@ fn audit_rejects_missing_local_markdown_file() {
         "{:#?}",
         report.findings
     );
+}
+
+#[test]
+fn open_skill_markdown_checks_repo_boundaries_and_missing_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path().join("repo");
+    std::fs::create_dir_all(repo.join("skills")).unwrap();
+    let skill = repo.join("skills").join("demo.md");
+    std::fs::write(dir.path().join("outside.md"), "outside\n").unwrap();
+    std::fs::write(&skill, "[missing](docs/missing.md)\n[outside](../../outside.md)\n").unwrap();
+
+    let report = audit_open_skill_markdown(&skill, &repo).unwrap();
+    let summary = report.summary();
+
+    assert!(summary.contains("missing file"));
+    assert!(summary.contains("escapes skill root"));
+}
+
+#[test]
+fn open_skill_markdown_rejects_missing_and_outside_repo_paths() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = dir.path().join("repo");
+    let outside = dir.path().join("outside.md");
+    std::fs::create_dir_all(&repo).unwrap();
+    std::fs::write(&outside, "# Outside\n").unwrap();
+
+    let missing =
+        audit_open_skill_markdown(&repo.join("missing.md"), &repo).unwrap_err().to_string();
+    assert!(missing.contains("not found"));
+
+    let escaped = audit_open_skill_markdown(&outside, &repo).unwrap_err().to_string();
+    assert!(escaped.contains("escapes repository root"));
 }
 
 /// 测试附加 Markdown 资源中的示例链接不会阻断技能加载

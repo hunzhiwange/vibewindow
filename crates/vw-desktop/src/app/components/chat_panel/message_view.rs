@@ -27,6 +27,8 @@ mod think_block;
 mod tool_summaries;
 
 #[cfg(test)]
+mod assistant_body_tests;
+#[cfg(test)]
 mod assistant_error_tests;
 #[cfg(test)]
 mod parse_tests;
@@ -60,8 +62,7 @@ use self::assistant_body::render_assistant_body;
 use self::render_cache::resolve_visible_text_and_copy_hash;
 use self::styles::{
     COMPACT_ACTION_BUTTON_RADIUS, COMPACT_ACTION_BUTTON_SIZE, MESSAGE_META_TEXT_SIZE,
-    is_dark_theme, message_meta_text_color, neutral_card_surface, subtle_card_shadow,
-    user_bubble_surface,
+    is_dark_theme, message_meta_text_color, subtle_card_shadow, user_bubble_surface,
 };
 use self::text::{
     MAX_EDITOR_CHARS, message_editor_body, message_text_body, session_control_selection_card,
@@ -186,7 +187,7 @@ pub fn message_view<'a>(
                            highlighted: bool,
                            compact_square: bool|
      -> Element<'a, Message> {
-        let icon_size = if compact_square { 7.5 } else { 12.0 };
+        let icon_size = if compact_square { 9.0 } else { 12.0 };
         let btn = button(
             icon_svg(icon).width(Length::Fixed(icon_size)).height(Length::Fixed(icon_size)).style(
                 move |theme: &Theme, _status| svg::Style {
@@ -227,14 +228,7 @@ pub fn message_view<'a>(
                         (Color::from_rgb8(0xE8, 0xEC, 0xF1), true)
                     }
                 }
-                _ => {
-                    if compact_square {
-                        (Color::TRANSPARENT, false)
-                    } else {
-                        let (idle_bg, _) = neutral_card_surface(theme);
-                        (idle_bg, true)
-                    }
-                }
+                _ => (Color::TRANSPARENT, false),
             };
             iced::widget::button::Style {
                 background: if show_bg { Some(Background::Color(bg)) } else { None },
@@ -385,7 +379,7 @@ pub fn message_view<'a>(
 
     let bubble_inner = container(body)
         .padding(if is_user {
-            iced::Padding { top: 12.0, right: 14.0, bottom: 12.0, left: 14.0 }
+            iced::Padding { top: 10.0, right: 14.0, bottom: 10.0, left: 14.0 }
         } else {
             iced::Padding { top: 2.0, right: 2.0, bottom: 2.0, left: 0.0 }
         })
@@ -423,7 +417,7 @@ pub fn message_view<'a>(
             let (bubble_bg, bubble_border) = user_bubble_surface(theme);
             iced::widget::container::Style {
                 background: Some(Background::Color(bubble_bg)),
-                border: Border { width: 1.0, color: bubble_border, radius: 18.0.into() },
+                border: Border { width: 1.0, color: bubble_border, radius: 15.0.into() },
                 shadow: subtle_card_shadow(theme),
                 ..Default::default()
             }
@@ -605,7 +599,7 @@ pub fn message_view<'a>(
     };
 
     let footer_container = container(footer_element)
-        .padding([2, 8])
+        .padding([0, 6])
         .width(if is_user { Length::FillPortion(7) } else { Length::Fill })
         .align_x(if is_user {
             iced::alignment::Horizontal::Right
@@ -620,14 +614,14 @@ pub fn message_view<'a>(
             row![container(Space::new()).width(Length::FillPortion(3)), footer_container]
                 .align_y(Alignment::Center)
         ]
-        .spacing(4)
+        .spacing(5)
         .into()
     } else {
         column![
             row![bubble_inner].align_y(Alignment::Start),
             row![footer_container].align_y(Alignment::Center)
         ]
-        .spacing(4)
+        .spacing(5)
         .into()
     }
 }

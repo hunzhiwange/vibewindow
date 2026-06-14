@@ -226,3 +226,30 @@ fn test_remove_export_settings_complex_config() {
     assert!(tree.get("exportSettings").is_none());
     assert_eq!(tree.get("name").unwrap().as_str(), Some("ComplexAsset"));
 }
+
+#[test]
+fn test_remove_export_settings_primitive_value() {
+    let mut tree = json!("asset");
+
+    remove_export_settings(&mut tree).unwrap();
+
+    assert_eq!(tree.as_str(), Some("asset"));
+}
+
+#[test]
+fn test_remove_export_settings_mixed_array_primitives() {
+    let mut tree = json!([
+        {"exportSettings": [{"imageType": "SVG"}], "name": "Icon"},
+        "plain",
+        7,
+        false
+    ]);
+
+    remove_export_settings(&mut tree).unwrap();
+
+    assert!(tree[0].get("exportSettings").is_none());
+    assert_eq!(tree[0]["name"].as_str(), Some("Icon"));
+    assert_eq!(tree[1].as_str(), Some("plain"));
+    assert_eq!(tree[2].as_i64(), Some(7));
+    assert_eq!(tree[3].as_bool(), Some(false));
+}

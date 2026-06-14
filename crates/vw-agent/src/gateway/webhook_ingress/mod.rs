@@ -6,14 +6,14 @@
 //! # 核心功能
 //!
 //! - **请求处理**: 解析和验证 Webhook 请求，执行 LLM 推理并返回响应
-//! - **安全控制**: 支持配对认证、Webhook 密钥验证以及速率限制
+//! - **安全控制**: 支持 gateway skey、Webhook 密钥验证以及速率限制
 //! - **幂等性保证**: 通过幂等键防止重复请求处理
 //! - **可观测性**: 记录遥测数据，包括请求延迟、成功/失败状态等指标
 //!
 //! # 认证机制
 //!
 //! 模块支持三种认证方式（按优先级）：
-//! 1. **配对认证**: 通过 `/pair` 端点获取 Bearer Token
+//! 1. **Gateway 鉴权**: 通过 `Authorization: Bearer <skey>` 发送 skey
 //! 2. **Webhook 密钥**: 通过 `X-Webhook-Secret` 头传递预共享密钥
 //! 3. **本地回环地址**: 允许来自 `127.0.0.1` 或 `::1` 的请求（仅当其他认证方式未配置时）
 //!
@@ -33,7 +33,7 @@ use crate::app::agent::security::pairing::constant_time_eq;
 use axum::{
     Json,
     extract::rejection::JsonRejection,
-    http::{HeaderMap, StatusCode, header},
+    http::{HeaderMap, StatusCode},
 };
 use serde_json::Value;
 use std::net::SocketAddr;
@@ -197,7 +197,7 @@ impl WebhookTelemetry {
 /// # 处理流程
 ///
 /// 1. **限流检查**: 基于 IP 或认证标识限制请求频率
-/// 2. **认证授权**: 验证配对状态、Bearer Token 或 Webhook 密钥
+/// 2. **认证授权**: 验证 gateway skey 或 Webhook 密钥
 /// 3. **请求体解析**: 解析 JSON 格式的请求体
 /// 4. **幂等性检查**: 如果提供幂等键且已处理过，直接返回重复响应
 /// 5. **消息持久化**: 根据配置保存入站消息到记忆系统
@@ -299,13 +299,13 @@ fn enforce_rate_limit(
 ///
 /// 按照以下优先级顺序验证请求的身份：
 /// 1. 检查是否需要认证（配对启用、Webhook 密钥配置、非本地请求）
-/// 2. 如果启用了配对，验证 Bearer Token
+/// 2. 如果启用了 gateway skey 鉴权，验证 Authorization Bearer
 /// 3. 如果配置了 Webhook 密钥，验证 X-Webhook-Secret 头
 ///
 /// # 安全策略
 ///
 /// - **本地请求**: 当配对未启用且无 Webhook 密钥时，允许来自回环地址的请求
-/// - **远程请求**: 必须提供有效的 Bearer Token 或 Webhook 密钥
+/// - **远程请求**: 必须提供有效的 skey Bearer 或 Webhook 密钥
 ///
 /// # 参数
 ///
@@ -323,32 +323,30 @@ fn authorize_webhook_request(
     headers: &HeaderMap,
 ) -> Option<(StatusCode, Json<Value>)> {
     // 检查是否需要认证：非本地请求且未配置任何认证机制时拒绝
-    if !state.pairing.require_pairing()
+    if !state.pairing.auth_enabled()
         && state.webhook_secret_hash.is_none()
         && !peer_addr.ip().is_loopback()
     {
         tracing::warn!(
-            "Webhook: rejected unauthenticated non-loopback request (pairing disabled and no webhook secret configured)"
+            "Webhook: rejected unauthenticated non-loopback request (gateway auth disabled and no webhook secret configured)"
         );
         return Some((
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
-                "error": "Unauthorized — configure pairing or X-Webhook-Secret for non-local webhook access"
+                "error": "Unauthorized — configure gateway auth or X-Webhook-Secret for non-local webhook access"
             })),
         ));
     }
 
-    // 如果启用了配对，验证 Bearer Token
-    if state.pairing.require_pairing() {
-        let auth =
-            headers.get(header::AUTHORIZATION).and_then(|value| value.to_str().ok()).unwrap_or("");
-        let token = auth.strip_prefix("Bearer ").unwrap_or("");
-        if !state.pairing.is_authenticated(token) {
-            tracing::warn!("Webhook: rejected — not paired / invalid bearer token");
+    // 如果启用了 gateway skey 鉴权，验证 Authorization Bearer
+    if state.pairing.auth_enabled() {
+        let skey = super::api::auth::extract_auth_skey(headers).unwrap_or("");
+        if !state.pairing.is_authenticated(skey) {
+            tracing::warn!("Webhook: rejected — invalid gateway skey");
             return Some((
                 StatusCode::UNAUTHORIZED,
                 Json(serde_json::json!({
-                    "error": "Unauthorized — pair first via POST /pair, then send Authorization: Bearer <token>"
+                    "error": "Unauthorized — send a valid skey as Authorization: Bearer <skey>"
                 })),
             ));
         }

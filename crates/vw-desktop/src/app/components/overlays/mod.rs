@@ -15,15 +15,6 @@ pub mod point_below;
 pub mod side;
 
 #[cfg(test)]
-#[path = "inline_right_tests.rs"]
-mod inline_right_tests;
-#[cfg(test)]
-#[path = "left_tests.rs"]
-mod left_tests;
-#[cfg(test)]
-#[path = "point_below_tests.rs"]
-mod point_below_tests;
-#[cfg(test)]
 #[path = "side_tests.rs"]
 mod side_tests;
 

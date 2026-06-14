@@ -210,5 +210,8 @@ impl MemoryLoader for DefaultMemoryLoader {
 }
 
 #[cfg(test)]
+#[path = "memory_loader_tests.rs"]
+mod memory_loader_tests;
+#[cfg(test)]
 #[path = "tests/memory_loader.rs"]
 mod tests;

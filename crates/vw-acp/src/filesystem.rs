@@ -16,7 +16,6 @@ use agent_client_protocol::{
 };
 
 use crate::errors::{AcpxErrorOptions, ErrorSource, PermissionDeniedError};
-use crate::permission_prompt::{PermissionPromptOptions, prompt_for_permission};
 use crate::types::{
     ClientOperation, ClientOperationMethod, ClientOperationStatus, NonInteractivePermissionPolicy,
     OutputErrorCode, OutputErrorOrigin, PermissionMode,
@@ -45,20 +44,17 @@ pub struct FileSystemHandlers {
     root_dir: PathBuf,
     permission_mode: PermissionMode,
     on_operation: Option<FileSystemOperationCallback>,
-    uses_default_confirm_write: bool,
-    confirm_write: FileSystemConfirmWriteFn,
+    confirm_write: Option<FileSystemConfirmWriteFn>,
 }
 
 impl FileSystemHandlers {
     pub fn new(options: FileSystemHandlersOptions) -> Self {
         let root_dir = normalize_absolute_path(&options.cwd);
-        let uses_default_confirm_write = options.confirm_write.is_none();
         Self {
             root_dir,
             permission_mode: options.permission_mode,
             on_operation: options.on_operation,
-            uses_default_confirm_write,
-            confirm_write: options.confirm_write.unwrap_or_else(|| Arc::new(default_confirm_write)),
+            confirm_write: options.confirm_write,
         }
     }
 
@@ -154,10 +150,10 @@ impl FileSystemHandlers {
             PermissionMode::ApproveAll => Ok(true),
             PermissionMode::DenyAll => Ok(false),
             PermissionMode::ApproveReads => {
-                if self.uses_default_confirm_write {
-                    return Ok(true);
+                if let Some(confirm_write) = &self.confirm_write {
+                    return confirm_write(file_path.to_path_buf(), preview.to_string()).await;
                 }
-                (self.confirm_write)(file_path.to_path_buf(), preview.to_string()).await
+                Ok(true)
             }
         }
     }
@@ -203,17 +199,6 @@ impl FileSystemHandlers {
     }
 }
 
-fn default_confirm_write(file_path: PathBuf, preview: String) -> FileSystemConfirmWriteFuture {
-    Box::pin(async move {
-        prompt_for_permission(&PermissionPromptOptions {
-            prompt: "Allow write? (y/N) ".to_string(),
-            header: Some(format!("[permission] Allow write to {}?", file_path.display())),
-            details: Some(preview),
-        })
-        .map_err(|error| Box::new(error) as ErrorSource)
-    })
-}
-
 fn permission_denied_error(message: impl Into<String>) -> PermissionDeniedError {
     PermissionDeniedError::new(
         message,
@@ -228,7 +213,7 @@ fn permission_denied_error(message: impl Into<String>) -> PermissionDeniedError 
 fn now_iso() -> String {
     time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc3339)
-        .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
+        .expect("RFC3339 formatting should succeed for UTC timestamps")
 }
 
 fn normalize_absolute_path(path: &Path) -> PathBuf {

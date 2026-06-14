@@ -495,8 +495,10 @@ impl RuntimeAdapter for NativeRuntime {
     /// println!("存储路径: {:?}", storage);
     /// ```
     fn storage_path(&self) -> PathBuf {
-        directories::UserDirs::new()
-            .map_or_else(|| PathBuf::from(".vibewindow"), |u| u.home_dir().join(".vibewindow"))
+        directories::UserDirs::new().map_or_else(
+            || PathBuf::from(vw_config_types::paths::HOME_CONFIG_DIR_NAME),
+            |u| vw_config_types::paths::home_config_dir(u.home_dir()),
+        )
     }
 
     /// 检查是否支持长时间运行的进程

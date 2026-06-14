@@ -21,7 +21,7 @@ use crate::app::agent::cron::store::{
     list_jobs, list_runs, record_run, remove_job, reschedule_after_run, update_job,
     with_connection,
 };
-use crate::app::agent::cron::{CronJobPatch, JobType, Schedule, TRUNCATED_OUTPUT_MARKER};
+use crate::app::agent::cron::{CronJobPatch, JobType, Schedule};
 use anyhow::Result;
 use chrono::{Duration as ChronoDuration, Utc};
 use rusqlite::params;

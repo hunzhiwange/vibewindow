@@ -654,7 +654,7 @@ fn build_client(record: &SessionRecord, options: &WithConnectedSessionOptions) -
     client
 }
 
-fn session_options_from_record(record: &SessionRecord) -> Option<AcpSessionOptions> {
+pub(crate) fn session_options_from_record(record: &SessionRecord) -> Option<AcpSessionOptions> {
     let stored = record.vwacp.as_ref().and_then(|state| state.session_options.as_ref())?;
 
     let mut session_options = AcpSessionOptions::default();
@@ -675,7 +675,7 @@ fn session_options_from_record(record: &SessionRecord) -> Option<AcpSessionOptio
     .then_some(session_options)
 }
 
-fn clone_non_empty_tools(stored: &SessionStateOptions) -> Option<Vec<String>> {
+pub(crate) fn clone_non_empty_tools(stored: &SessionStateOptions) -> Option<Vec<String>> {
     let allowed_tools = stored
         .allowed_tools
         .as_ref()?
@@ -688,7 +688,7 @@ fn clone_non_empty_tools(stored: &SessionStateOptions) -> Option<Vec<String>> {
     (!allowed_tools.is_empty()).then_some(allowed_tools)
 }
 
-fn non_empty_trimmed(value: Option<&str>) -> Option<String> {
+pub(crate) fn non_empty_trimmed(value: Option<&str>) -> Option<String> {
     let trimmed = value?.trim();
     (!trimmed.is_empty()).then(|| trimmed.to_string())
 }

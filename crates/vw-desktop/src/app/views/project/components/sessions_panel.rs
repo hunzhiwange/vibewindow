@@ -738,6 +738,7 @@ pub fn project_sessions_panel(
     let panel_w = ((settings_panel_width - left_rail_width) * session_panel_width_scale).max(0.0);
 
     if let Some(path) = target_path {
+        let horizontal_padding = 14.0;
         let title = app
             .recent_projects
             .iter()
@@ -752,7 +753,7 @@ pub fn project_sessions_panel(
             app.project_session_has_vertical_scrollbar.get(&path).copied().unwrap_or(false);
         let session_list_width_reduction = if has_vertical_scrollbar { 5.0 } else { 0.0 };
         let sessions = app.project_sessions.get(&path);
-        let inner_w = (panel_w - 24.0).max(0.0);
+        let inner_w = (panel_w - horizontal_padding * 2.0).max(0.0);
         let path_max_chars = (inner_w / 5.5).max(8.0) as usize;
         let title_max_chars =
             session_title_max_chars((inner_w - session_list_width_reduction).max(0.0));
@@ -828,14 +829,19 @@ pub fn project_sessions_panel(
         return column![
             container(static_content).width(Length::Fill).padding(iced::Padding {
                 top: 16.0,
-                right: 6.0,
+                right: horizontal_padding,
                 bottom: 0.0,
-                left: 6.0,
+                left: horizontal_padding,
             }),
             container(sessions_scroll)
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .padding(iced::Padding { top: 0.0, right: 4.0, bottom: 14.0, left: 6.0 }),
+                .padding(iced::Padding {
+                    top: 0.0,
+                    right: horizontal_padding,
+                    bottom: 14.0,
+                    left: horizontal_padding,
+                }),
         ]
         .width(Length::Fill)
         .height(Length::Fill)

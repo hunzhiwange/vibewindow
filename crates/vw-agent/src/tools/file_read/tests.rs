@@ -308,6 +308,38 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[tokio::test]
+    async fn file_read_accepts_duplicate_path_aliases_when_equal() {
+        let dir = std::env::temp_dir().join("vibewindow_test_file_read_duplicate_aliases");
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+        tokio::fs::write(dir.join("test.txt"), "alias ok").await.unwrap();
+
+        let tool = FileReadTool::new(test_security(dir.clone()));
+        let result = tool
+            .execute(json!({
+                "path": "test.txt",
+                "filePath": "test.txt",
+                "file_path": "test.txt"
+            }))
+            .await
+            .unwrap();
+
+        assert!(result.success);
+        assert!(result.output.contains("alias ok"));
+
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+    }
+
+    #[tokio::test]
+    async fn file_read_rejects_conflicting_path_aliases() {
+        let tool = FileReadTool::new(test_security(std::env::temp_dir()));
+        let result = tool.execute(json!({"path": "a.txt", "filePath": "b.txt"})).await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("conflicting path aliases"));
+    }
+
     /// 测试读取空文件
     ///
     /// 空文件应成功读取，输出为空字符串而非报错。

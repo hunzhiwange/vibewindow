@@ -154,3 +154,7 @@ mod injection_tests;
 #[cfg(test)]
 #[path = "obfuscation_tests.rs"]
 mod obfuscation_tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

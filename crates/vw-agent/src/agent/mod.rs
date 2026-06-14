@@ -40,6 +40,9 @@ pub mod prompt;
 pub mod research;
 
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 mod tests;
 
 #[cfg(not(target_arch = "wasm32"))]

@@ -285,7 +285,12 @@ fn draw_toggle_button(
     });
 }
 
-fn dashed_stroke(style: EdgeStyle, color: Color, width: f32, zoom: f32) -> Stroke<'static> {
+pub(super) fn dashed_stroke(
+    style: EdgeStyle,
+    color: Color,
+    width: f32,
+    zoom: f32,
+) -> Stroke<'static> {
     let mut stroke = Stroke { style: color.into(), width, ..Stroke::default() };
     let dash_segments = dash_segments_px(style, zoom);
     if let Some(segments) = dash_segments.as_ref() {

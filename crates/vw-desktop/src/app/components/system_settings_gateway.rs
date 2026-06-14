@@ -3,15 +3,19 @@
 //! 本模块主要负责把应用状态转换为桌面端可渲染的 Iced 控件，并把用户操作映射回上层消息。
 //! 注释聚焦调用边界、返回值和错误传播方式，便于后续维护设置页与工具栏行为时快速定位职责。
 
+use crate::app::components::overlays::BelowOverlay;
 use crate::app::components::system_settings_common::{
     SETTINGS_CONTROL_PADDING, SETTINGS_CONTROL_TEXT_SIZE, SETTINGS_LABEL_WIDTH,
     rounded_action_btn_style, settings_checkbox_style, settings_divider, settings_error_banner,
     settings_help_button, settings_muted_text_style, settings_page_intro, settings_panel,
-    settings_section_card, settings_text_input_style, settings_value_badge,
+    settings_section_card, settings_segment_button_style, settings_text_input_style,
+    settings_value_badge,
 };
 use crate::app::message::settings::{GatewayMessage, SettingsMessage};
+use crate::app::state::{GatewaySettingsState, GatewaySettingsTab};
 use crate::app::views::design::properties::number_input::NumberInput;
 use crate::app::{App, Message};
+use chrono::{Datelike, NaiveDate, Utc};
 use iced::widget::scrollable::{Direction, Scrollbar};
 use iced::widget::{button, checkbox, column, container, row, scrollable, text, text_input};
 use iced::{Alignment, Element, Length};
@@ -20,6 +24,7 @@ pub(super) const GATEWAY_PAIRED_TOKEN_VISIBLE_ROWS: usize = 10;
 pub(super) const GATEWAY_PAIRED_TOKEN_ROW_HEIGHT: f32 = 36.0;
 pub(super) const GATEWAY_PAIRED_TOKEN_ROW_SPACING: f32 = 10.0;
 pub(super) const GATEWAY_PAIRED_TOKEN_SCROLLBAR_WIDTH: u32 = 4;
+const GATEWAY_SKEY_CALENDAR_CELL_SIZE: f32 = 34.0;
 
 pub(super) fn paired_token_list_max_height(token_count: usize) -> f32 {
     let visible_rows = token_count.min(GATEWAY_PAIRED_TOKEN_VISIBLE_ROWS);
@@ -145,6 +150,234 @@ fn number_row<'a>(
     )
 }
 
+fn gateway_tab_button(
+    label: &'static str,
+    tab: GatewaySettingsTab,
+    active_tab: GatewaySettingsTab,
+) -> Element<'static, Message> {
+    let is_active = tab == active_tab;
+
+    button(text(label).size(13))
+        .padding([8, 14])
+        .on_press(Message::Settings(SettingsMessage::Gateway(GatewayMessage::TabSelected(tab))))
+        .style(move |theme: &iced::Theme, status| {
+            settings_segment_button_style(theme, status, is_active)
+        })
+        .into()
+}
+
+fn gateway_tab_labels() -> &'static [(&'static str, GatewaySettingsTab)] {
+    &[("配置", GatewaySettingsTab::Config), ("skey 管理", GatewaySettingsTab::Skeys)]
+}
+
+fn service_action_button(
+    label: &'static str,
+    command: &'static str,
+    running_command: Option<&str>,
+) -> Element<'static, Message> {
+    let is_running = running_command == Some(command);
+    let text_label = if is_running { format!("{label}...") } else { label.to_string() };
+    let btn = button(text(text_label).size(12))
+        .padding([6, 12])
+        .width(Length::Fill)
+        .style(rounded_action_btn_style);
+
+    if running_command.is_none() {
+        btn.on_press(Message::Settings(SettingsMessage::Gateway(
+            GatewayMessage::ServiceCommandRequested(command.to_string()),
+        )))
+        .into()
+    } else {
+        btn.into()
+    }
+}
+
+fn service_controls_panel(app: &App) -> Element<'_, Message> {
+    let s = &app.gateway_settings;
+    let running = s.service_action_running.as_deref();
+    let actions = column![
+        row![
+            service_action_button("安装服务", "install", running),
+            service_action_button("启动服务", "start", running),
+            service_action_button("停止服务", "stop", running),
+        ]
+        .spacing(10),
+        row![
+            service_action_button("重启服务", "restart", running),
+            service_action_button("查询状态", "status", running),
+            service_action_button("卸载服务", "uninstall", running),
+        ]
+        .spacing(10),
+    ]
+    .spacing(10)
+    .width(Length::Fill);
+
+    let mut content = column![actions].spacing(12).width(Length::Fill);
+    if let Some(output) = s.service_action_output.as_ref().filter(|value| !value.trim().is_empty())
+    {
+        content = content.push(
+            container(text(output.as_str()).size(12).style(settings_muted_text_style))
+                .padding([10, 12])
+                .width(Length::Fill),
+        );
+    }
+
+    settings_panel(content).into()
+}
+
+fn parse_skey_date(raw: &str) -> Option<NaiveDate> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    NaiveDate::parse_from_str(trimmed, "%Y-%m-%d").ok().or_else(|| {
+        chrono::DateTime::parse_from_rfc3339(trimmed).ok().map(|value| value.date_naive())
+    })
+}
+
+fn month_start(date: NaiveDate) -> NaiveDate {
+    NaiveDate::from_ymd_opt(date.year(), date.month(), 1).unwrap_or(date)
+}
+
+fn parse_calendar_month(raw: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(&format!("{}-01", raw.trim()), "%Y-%m-%d").ok()
+}
+
+fn skey_calendar_month(state: &GatewaySettingsState) -> NaiveDate {
+    parse_calendar_month(&state.new_skey_calendar_month)
+        .or_else(|| parse_skey_date(&state.new_skey_expires_at_input).map(month_start))
+        .unwrap_or_else(|| month_start(Utc::now().date_naive()))
+}
+
+fn days_in_month(year: i32, month: u32) -> u32 {
+    let (next_year, next_month) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+    NaiveDate::from_ymd_opt(next_year, next_month, 1)
+        .and_then(|first_next| first_next.pred_opt())
+        .map(|date| date.day())
+        .unwrap_or(31)
+}
+
+fn skey_calendar_popover(app: &App) -> Element<'_, Message> {
+    let s = &app.gateway_settings;
+    let month = skey_calendar_month(s);
+    let selected_date = parse_skey_date(&s.new_skey_expires_at_input);
+
+    let header = row![
+        button(text("<"))
+            .padding([6, 10])
+            .on_press(Message::Settings(SettingsMessage::Gateway(
+                GatewayMessage::NewSkeyExpiresMonthChanged(-1)
+            )))
+            .style(rounded_action_btn_style),
+        text(month.format("%Y-%m").to_string()).size(13).width(Length::Fixed(96.0)),
+        button(text(">"))
+            .padding([6, 10])
+            .on_press(Message::Settings(SettingsMessage::Gateway(
+                GatewayMessage::NewSkeyExpiresMonthChanged(1)
+            )))
+            .style(rounded_action_btn_style),
+        button(text("永不过期"))
+            .padding([6, 12])
+            .on_press(Message::Settings(SettingsMessage::Gateway(
+                GatewayMessage::NewSkeyExpiresAtCleared
+            )))
+            .style(rounded_action_btn_style),
+    ]
+    .spacing(10)
+    .align_y(Alignment::Center);
+
+    let weekdays = ["一", "二", "三", "四", "五", "六", "日"].into_iter().fold(
+        row![].spacing(6),
+        |row, label| {
+            row.push(
+                container(text(label).size(11).style(settings_muted_text_style))
+                    .width(Length::Fixed(GATEWAY_SKEY_CALENDAR_CELL_SIZE))
+                    .center_x(Length::Fixed(GATEWAY_SKEY_CALENDAR_CELL_SIZE)),
+            )
+        },
+    );
+
+    let first_weekday = month.weekday().num_days_from_monday() as i32;
+    let days = days_in_month(month.year(), month.month()) as i32;
+    let mut calendar = column![header, weekdays].spacing(8);
+    for week in 0..6 {
+        let mut days_row = row![].spacing(6);
+        for weekday in 0..7 {
+            let day = week * 7 + weekday - first_weekday + 1;
+            if day < 1 || day > days {
+                days_row = days_row.push(
+                    container(text(""))
+                        .width(Length::Fixed(GATEWAY_SKEY_CALENDAR_CELL_SIZE))
+                        .height(Length::Fixed(GATEWAY_SKEY_CALENDAR_CELL_SIZE)),
+                );
+                continue;
+            }
+
+            let date =
+                NaiveDate::from_ymd_opt(month.year(), month.month(), day as u32).unwrap_or(month);
+            let label =
+                if selected_date == Some(date) { format!("[{day}]") } else { day.to_string() };
+            days_row = days_row.push(
+                button(text(label).size(12))
+                    .padding([6, 0])
+                    .width(Length::Fixed(GATEWAY_SKEY_CALENDAR_CELL_SIZE))
+                    .on_press(Message::Settings(SettingsMessage::Gateway(
+                        GatewayMessage::NewSkeyExpiresDateSelected(
+                            date.format("%Y-%m-%d").to_string(),
+                        ),
+                    )))
+                    .style(rounded_action_btn_style),
+            );
+        }
+        calendar = calendar.push(days_row);
+    }
+
+    settings_panel(calendar).width(Length::Fixed(340.0)).into()
+}
+
+fn skey_date_picker(app: &App) -> Element<'_, Message> {
+    let s = &app.gateway_settings;
+    let selected_date = parse_skey_date(&s.new_skey_expires_at_input);
+    let action_label = if s.new_skey_calendar_open { "收起" } else { "日历" };
+
+    let mut trigger = row![
+        text_input("YYYY-MM-DD，可手写", &s.new_skey_expires_at_input)
+            .on_input(|value| Message::Settings(SettingsMessage::Gateway(
+                GatewayMessage::NewSkeyExpiresAtChanged(value)
+            )))
+            .padding(SETTINGS_CONTROL_PADDING)
+            .size(SETTINGS_CONTROL_TEXT_SIZE)
+            .style(settings_text_input_style)
+            .width(Length::Fill),
+        button(text(action_label))
+            .padding([6, 12])
+            .on_press(Message::Settings(SettingsMessage::Gateway(
+                GatewayMessage::NewSkeyCalendarToggled
+            )))
+            .style(rounded_action_btn_style),
+    ]
+    .spacing(10)
+    .align_y(Alignment::Center);
+    if selected_date.is_some() {
+        trigger = trigger.push(
+            button(text("永不过期"))
+                .padding([6, 12])
+                .on_press(Message::Settings(SettingsMessage::Gateway(
+                    GatewayMessage::NewSkeyExpiresAtCleared,
+                )))
+                .style(rounded_action_btn_style),
+        );
+    }
+
+    BelowOverlay::new(trigger, skey_calendar_popover(app))
+        .show(s.new_skey_calendar_open)
+        .gap(6.0)
+        .on_close(Message::Settings(SettingsMessage::Gateway(
+            GatewayMessage::NewSkeyCalendarClosed,
+        )))
+        .into()
+}
+
 /// 构建或处理 `view` 对应的界面片段与交互数据。
 ///
 /// # 参数
@@ -183,15 +416,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
         |value| Message::Settings(SettingsMessage::Gateway(GatewayMessage::HostChanged(value))),
     );
 
-    let require_pairing_row = bool_row(
-        "需要配对",
-        "未配对请求必须先通过 /v1/pair。",
-        s.require_pairing,
-        "未配对请求必须先通过 /v1/pair",
+    let auth_enabled_row = bool_row(
+        "启用 skey 鉴权",
+        "开启后，受保护请求必须通过 Authorization: Bearer 提供有效 skey。",
+        s.auth_enabled,
+        "通过 Authorization: Bearer 校验 skey",
         |value| {
-            Message::Settings(SettingsMessage::Gateway(GatewayMessage::RequirePairingToggled(
-                value,
-            )))
+            Message::Settings(SettingsMessage::Gateway(GatewayMessage::AuthEnabledToggled(value)))
         },
     );
     let allow_public_bind_row = bool_row(
@@ -217,37 +448,72 @@ pub fn view(app: &App) -> Element<'_, Message> {
         },
     );
 
-    let paired_tokens_section = settings_panel(
-        column![field_row(
-            "新增令牌",
-            "手动添加已配对 bearer token。",
-            row![
-                text_input("输入 bearer token", &s.new_paired_token_input)
-                    .secure(true)
-                    .on_input(|value| Message::Settings(SettingsMessage::Gateway(
-                        GatewayMessage::NewPairedTokenChanged(value)
-                    )))
-                    .padding(SETTINGS_CONTROL_PADDING)
-                    .size(SETTINGS_CONTROL_TEXT_SIZE)
-                    .style(settings_text_input_style)
-                    .width(Length::Fill),
-                button(text("添加"))
-                    .padding([6, 12])
-                    .on_press(Message::Settings(SettingsMessage::Gateway(
-                        GatewayMessage::AddPairedToken
-                    )))
-                    .style(rounded_action_btn_style),
-            ]
-            .spacing(12)
-            .align_y(Alignment::Center)
-        )]
+    let skeys_section = settings_panel(
+        column![
+            field_row(
+                "skey 名称",
+                "用于列表展示和识别该 skey。",
+                row![
+                    text_input("例如 iPhone / CI Runner", &s.new_skey_name_input)
+                        .on_input(|value| Message::Settings(SettingsMessage::Gateway(
+                            GatewayMessage::NewSkeyNameChanged(value)
+                        )))
+                        .padding(SETTINGS_CONTROL_PADDING)
+                        .size(SETTINGS_CONTROL_TEXT_SIZE)
+                        .style(settings_text_input_style)
+                        .width(Length::Fill),
+                    button(text("生成 skey"))
+                        .padding([6, 12])
+                        .on_press(Message::Settings(SettingsMessage::Gateway(
+                            GatewayMessage::AddSkey
+                        )))
+                        .style(rounded_action_btn_style),
+                ]
+                .spacing(12)
+                .align_y(Alignment::Center)
+            ),
+            settings_divider(),
+            field_row(
+                "过期日期",
+                "可手写 YYYY-MM-DD，也可点日历选择；为空表示永不过期。",
+                skey_date_picker(app)
+            )
+        ]
         .spacing(0),
     );
 
-    let paired_tokens_list: Element<'_, Message> = if s.paired_tokens.is_empty() {
+    let last_created_skey_panel = s.last_created_skey.as_ref().map(|raw_skey| {
+        let copy_label = if s.last_created_skey_copied { "✓" } else { "复制" };
+        settings_panel(
+            row![
+                column![
+                    text("原始 skey").size(13),
+                    text("仅展示一次，请立即复制。").size(11).style(settings_muted_text_style),
+                ]
+                .spacing(4)
+                .width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
+                row![
+                    container(text(raw_skey.as_str()).size(12)).width(Length::Fill),
+                    button(text(copy_label))
+                        .padding([6, 12])
+                        .on_press(Message::Settings(SettingsMessage::Gateway(
+                            GatewayMessage::CopyLastCreatedSkey
+                        )))
+                        .style(rounded_action_btn_style),
+                ]
+                .spacing(12)
+                .align_y(Alignment::Center)
+                .width(Length::Fill),
+            ]
+            .spacing(22)
+            .align_y(Alignment::Center),
+        )
+    });
+
+    let skeys_list: Element<'_, Message> = if s.skeys.is_empty() {
         settings_panel(
             column![
-                text("当前没有已保存的配对令牌。开启 require_pairing 后，未配对客户端将被拒绝。",)
+                text("当前没有 skey。开启 skey 鉴权后，缺少有效 skey 的请求会被拒绝。",)
                     .size(12)
                     .style(settings_muted_text_style)
             ]
@@ -255,26 +521,40 @@ pub fn view(app: &App) -> Element<'_, Message> {
         )
         .into()
     } else {
-        let list = s.paired_tokens.iter().enumerate().fold(
+        let list = s.skeys.iter().enumerate().fold(
             column![].spacing(GATEWAY_PAIRED_TOKEN_ROW_SPACING),
-            |column, (index, token)| {
-                let masked = if token.len() <= 8 {
-                    "*".repeat(token.len().max(1))
+            |column, (index, skey)| {
+                let name = if skey.name.trim().is_empty() {
+                    format!("skey #{}", index + 1)
                 } else {
-                    format!("{}***{}", &token[..4], &token[token.len() - 4..])
+                    skey.name.clone()
                 };
+                let skey_display = if skey.masked_skey.trim().is_empty() {
+                    format!("{}...", skey.skey_hash.chars().take(12).collect::<String>())
+                } else {
+                    skey.masked_skey.clone()
+                };
+                let expires_at = skey.expires_at.as_deref().unwrap_or("永不过期");
+                let status = if skey.enabled { "启用" } else { "禁用" };
 
                 column.push(
                     container(
                         row![
-                            text(format!("令牌 #{}", index + 1))
-                                .size(13)
-                                .width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
-                            text(masked).width(Length::Fill),
+                            checkbox(skey.enabled)
+                                .label(status)
+                                .on_toggle(move |value| {
+                                    Message::Settings(SettingsMessage::Gateway(
+                                        GatewayMessage::SkeyEnabledToggled(index, value),
+                                    ))
+                                })
+                                .style(settings_checkbox_style)
+                                .width(Length::Fixed(84.0)),
+                            text(name).size(13).width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
+                            text(format!("{skey_display} · {expires_at}")).width(Length::Fill),
                             button(text("删除"))
                                 .padding([6, 12])
                                 .on_press(Message::Settings(SettingsMessage::Gateway(
-                                    GatewayMessage::RemovePairedToken(index),
+                                    GatewayMessage::RemoveSkey(index),
                                 )))
                                 .style(rounded_action_btn_style),
                         ]
@@ -286,7 +566,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             },
         );
 
-        let list_height = paired_token_list_max_height(s.paired_tokens.len());
+        let list_height = paired_token_list_max_height(s.skeys.len());
         let scrollable_list = container(
             scrollable(
                 container(list)
@@ -308,19 +588,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
         settings_panel(scrollable_list).into()
     };
 
-    let pair_rate_row = number_row(
-        "配对速率限制/分钟",
-        "限制 /pair 每分钟可接受的请求数。",
-        s.pair_rate_limit_per_minute,
-        1,
-        10_000,
-        "次/分钟",
-        |value| {
-            Message::Settings(SettingsMessage::Gateway(
-                GatewayMessage::PairRateLimitPerMinuteChanged(value),
-            ))
-        },
-    );
     let webhook_rate_row = number_row(
         "Webhook速率限制/分钟",
         "限制 /webhook 每分钟可接受的请求数。",
@@ -409,18 +676,24 @@ pub fn view(app: &App) -> Element<'_, Message> {
         },
     );
 
-    let mut content = column![
-        row![
-            container(settings_page_intro(
-                "服务端网关配置",
-                "配置 Gateway 的监听地址、配对安全、限流和实验性 node-control 行为。",
-            ))
-            .width(Length::Fill),
-            container(help_btn).width(Length::Shrink),
-        ]
-        .spacing(12)
-        .align_y(Alignment::Start)
-        .width(Length::Fill),
+    let mut skey_management = column![skeys_section].spacing(16).width(Length::Fill);
+    if let Some(panel) = last_created_skey_panel {
+        skey_management = skey_management.push(panel);
+    }
+    skey_management = skey_management.push(skeys_list);
+
+    let tab_bar = gateway_tab_labels()
+        .iter()
+        .fold(row![].spacing(8).align_y(Alignment::Center), |row, (label, tab)| {
+            row.push(gateway_tab_button(label, *tab, s.active_tab))
+        });
+
+    let config_content: Element<'_, Message> = column![
+        settings_section_card(
+            "服务管理",
+            "通过本机 gateway 调用 vibewindow service 管理 OS 服务生命周期。"
+        ),
+        service_controls_panel(app),
         settings_section_card(
             "监听地址",
             "控制网关监听 host / port。默认仅绑定回环地址，避免意外暴露到公网。"
@@ -435,10 +708,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
             ]
             .spacing(0)
         ),
-        settings_section_card("安全开关", "控制配对要求、公网绑定与反向代理头信任策略。"),
+        settings_section_card("安全开关", "控制 skey 鉴权、公网绑定与反向代理头信任策略。"),
         settings_panel(
             column![
-                require_pairing_row,
+                auth_enabled_row,
                 settings_divider(),
                 allow_public_bind_row,
                 settings_divider(),
@@ -448,25 +721,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
             ]
             .spacing(0),
         ),
-        settings_section_card(
-            "配对令牌",
-            "维护 gateway.paired_tokens 列表。此列表会被写入加密配置存储，用于已配对客户端访问。",
-        ),
-        paired_tokens_section,
-        paired_tokens_list,
-        settings_section_card(
-            "速率限制",
-            "限制 /pair 和 /webhook 请求频率，并约束网关内部 key map 规模。"
-        ),
+        settings_section_card("速率限制", "限制 /webhook 请求频率，并约束网关内部 key map 规模。"),
         settings_panel(
-            column![
-                pair_rate_row,
-                settings_divider(),
-                webhook_rate_row,
-                settings_divider(),
-                rate_limit_max_keys_row
-            ]
-            .spacing(0),
+            column![webhook_rate_row, settings_divider(), rate_limit_max_keys_row].spacing(0),
         ),
         settings_section_card("幂等性", "控制 webhook 幂等 key 的存活时间与内存上限。"),
         settings_panel(
@@ -488,6 +745,41 @@ pub fn view(app: &App) -> Element<'_, Message> {
             ]
             .spacing(0),
         ),
+    ]
+    .spacing(16)
+    .width(Length::Fill)
+    .into();
+
+    let skeys_content: Element<'_, Message> = column![
+        settings_section_card(
+            "skey 管理",
+            "维护 gateway.skeys 列表。原始 skey 不保存，仅保存哈希、脱敏 skey、名称和过期时间。",
+        ),
+        skey_management,
+    ]
+    .spacing(16)
+    .width(Length::Fill)
+    .into();
+
+    let active_content = match s.active_tab {
+        GatewaySettingsTab::Config => config_content,
+        GatewaySettingsTab::Skeys => skeys_content,
+    };
+
+    let mut content = column![
+        row![
+            container(settings_page_intro(
+                "服务端网关配置",
+                "配置 Gateway 的监听地址、skey 鉴权、限流和实验性 node-control 行为。",
+            ))
+            .width(Length::Fill),
+            container(help_btn).width(Length::Shrink),
+        ]
+        .spacing(12)
+        .align_y(Alignment::Start)
+        .width(Length::Fill),
+        tab_bar,
+        active_content,
     ]
     .spacing(16)
     .width(Length::Fill);
@@ -524,13 +816,15 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
 - gateway.port / gateway.host 控制 HTTP gateway 的监听地址。
 - allow_public_bind 默认关闭，防止在无隧道/代理保护的情况下直接暴露公网。
 
-二、安全与配对
-- require_pairing 开启后，客户端需先完成 /pair 才能访问受保护端点。
-- paired_tokens 保存已经配对的 bearer token，通常由自动配对流程维护，也可在桌面端手动管理。
+二、安全与 skey
+- auth_enabled 开启后，客户端需通过 Authorization: Bearer <skey> 访问受保护端点。
+- 新增 skey 时只填写名称和可选过期日期；原始 skey 自动生成且仅展示一次。
+- skeys 只保存 enabled、skey_hash、脱敏 skey、名称和过期时间，原始 skey 不会写入配置。
+- 单个 skey 可禁用；禁用后不会通过鉴权。
 - trust_forwarded_headers 仅应在可信反向代理后开启。
 
 三、限流与幂等
-- pair_rate_limit_per_minute / webhook_rate_limit_per_minute 控制不同端点的每分钟请求上限。
+- webhook_rate_limit_per_minute 控制 webhook 每分钟请求上限。
 - rate_limit_max_keys 控制内存中追踪的客户端 key 数量。
 - idempotency_ttl_secs / idempotency_max_keys 控制 webhook 幂等缓存行为。
 
@@ -541,7 +835,7 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
 
 五、推荐默认
 - host 使用 127.0.0.1。
-- require_pairing 保持开启。
+- auth_enabled 默认关闭；对外暴露前再开启并配置 skey。
 - allow_public_bind 保持关闭。
 - trust_forwarded_headers 仅在受控代理链路后启用。"#;
 
@@ -553,3 +847,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         Message::Settings(SettingsMessage::Gateway(GatewayMessage::HelpClose)),
     )
 }
+#[cfg(test)]
+#[path = "system_settings_gateway_tests.rs"]
+mod system_settings_gateway_tests;

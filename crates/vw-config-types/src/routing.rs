@@ -38,9 +38,9 @@ pub struct ModelRouteConfig {
 /// ```toml
 /// [[embedding_routes]]
 /// hint = "semantic"
-/// provider = "openai"
-/// model = "text-embedding-3-small"
-/// dimensions = 1536
+/// provider = "alibaba-cn"
+/// model = "text-embedding-v4"
+/// dimensions = 1024
 ///
 /// [memory]
 /// embedding_model = "hint:semantic"
@@ -49,7 +49,7 @@ pub struct ModelRouteConfig {
 pub struct EmbeddingRouteConfig {
     /// 路由提示词名称，例如 `semantic`、`archive`、`faq`。
     pub hint: String,
-    /// Embedding provider，支持 `none`、`openai` 或 `custom:<url>`。
+    /// Embedding provider，支持 `none`、`openai`、`alibaba`、`alibaba-cn` 或 `custom:<url>`。
     pub provider: String,
     /// 该 provider 使用的 embedding 模型名称。
     pub model: String,

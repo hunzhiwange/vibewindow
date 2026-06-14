@@ -181,3 +181,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         Message::Settings(message::SettingsMessage::SchedulerHelpClose),
     )
 }
+#[cfg(test)]
+#[path = "system_settings_scheduler_tests.rs"]
+mod system_settings_scheduler_tests;

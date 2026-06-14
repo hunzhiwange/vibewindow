@@ -34,6 +34,9 @@ mod daemon_checks_tests;
 #[path = "environment_checks_tests.rs"]
 mod environment_checks_tests;
 #[cfg(test)]
+#[path = "model_probe_tests.rs"]
+mod model_probe_tests;
+#[cfg(test)]
 #[path = "traces_tests.rs"]
 mod traces_tests;
 #[cfg(test)]

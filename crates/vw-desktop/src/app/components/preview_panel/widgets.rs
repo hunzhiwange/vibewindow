@@ -30,7 +30,7 @@ pub struct PreviewOverlayHost<'a, Message, ThemeT = IcedTheme, RendererT = IcedR
 ///
 /// 字段保持贴近调用方的真实数据，避免在 UI 边界处隐藏额外转换。
 #[derive(Default)]
-struct DraggableAreaState {
+pub(super) struct DraggableAreaState {
     // left_down_inside 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
     left_down_inside: bool,
     // press_pos 保存该结构在渲染、解析或测试断言中需要直接访问的数据。

@@ -214,3 +214,28 @@ fn test_empty_object() {
     // 空对象应保持为空
     assert_eq!(tree.as_object().unwrap().len(), 0);
 }
+
+#[test]
+fn test_frame_properties_primitive_value() {
+    let mut tree = json!(null);
+
+    remove_frame_properties(&mut tree).unwrap();
+
+    assert!(tree.is_null());
+}
+
+#[test]
+fn test_frame_properties_mixed_array_primitives() {
+    let mut tree = json!([
+        {"frameMaskDisabled": true, "name": "Frame"},
+        "unchanged",
+        12
+    ]);
+
+    remove_frame_properties(&mut tree).unwrap();
+
+    assert!(tree[0].get("frameMaskDisabled").is_none());
+    assert_eq!(tree[0]["name"].as_str(), Some("Frame"));
+    assert_eq!(tree[1].as_str(), Some("unchanged"));
+    assert_eq!(tree[2].as_i64(), Some(12));
+}

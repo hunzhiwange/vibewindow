@@ -84,6 +84,36 @@ mod tests {
         }
     }
 
+    #[test]
+    fn landlock_with_workspace_follows_platform_availability() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = LandlockSandbox::with_workspace(Some(dir.path().to_path_buf()));
+
+        match result {
+            Ok(sandbox) => assert_eq!(sandbox.name(), "landlock"),
+            Err(err) => assert!(
+                matches!(err.kind(), std::io::ErrorKind::Unsupported | std::io::ErrorKind::Other),
+                "unexpected landlock error kind: {:?}",
+                err.kind()
+            ),
+        }
+    }
+
+    #[test]
+    fn landlock_description_mentions_platform_state() {
+        #[cfg(all(feature = "sandbox-landlock", target_os = "linux"))]
+        if let Ok(sandbox) = LandlockSandbox::new() {
+            assert!(sandbox.description().contains("Linux"));
+            return;
+        }
+
+        #[cfg(not(all(feature = "sandbox-landlock", target_os = "linux")))]
+        {
+            let sandbox = LandlockSandbox;
+            assert!(sandbox.description().contains("不可用"));
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // §1.1 Landlock 存根测试
     // ═══════════════════════════════════════════════════════════════════════

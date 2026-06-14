@@ -338,7 +338,7 @@ fn normalize_requested_path(path: Option<&str>) -> String {
 
 /// 规范化网关返回的条目路径，统一分隔符并去掉外围斜杠。
 fn normalize_entry_path(path: &str) -> String {
-    let value = path.trim().trim_matches('/').replace('\\', "/");
+    let value = path.trim().replace('\\', "/").trim_matches('/').to_string();
     if value.is_empty() { ".".to_string() } else { value }
 }
 

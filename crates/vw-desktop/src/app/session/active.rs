@@ -9,8 +9,6 @@ use super::{App, ChatMessage, ChatRole, ChatSessionStep, HashMap, StepUiMeta};
 fn build_message_meta_labels(
     chat: &[ChatMessage],
     step_index_map: &HashMap<u32, StepUiMeta>,
-    updated_ms: u64,
-    default_model: &str,
 ) -> Vec<Option<String>> {
     let mut assistant_count = 0u32;
     let mut labels = Vec::with_capacity(chat.len());
@@ -19,31 +17,23 @@ fn build_message_meta_labels(
         let label = match message.role {
             ChatRole::Assistant => {
                 assistant_count += 1;
-                let model_label = step_index_map
-                    .get(&assistant_count)
-                    .and_then(|step| step.model.clone())
-                    .unwrap_or_else(|| default_model.to_string());
-                let time_ms = step_index_map
-                    .get(&assistant_count)
-                    .map(|step| step.display_time_ms)
-                    .unwrap_or(updated_ms);
-                let time_label =
-                    crate::app::components::chat_panel::utils::format_chat_time_label(time_ms);
-                Some(format!("{model_label} · {time_label}"))
+                step_index_map.get(&assistant_count).and_then(|step| {
+                    let model_label = step.model.as_deref()?;
+                    let time_ms = step.display_time_ms;
+                    let time_label =
+                        crate::app::components::chat_panel::utils::format_chat_time_label(time_ms);
+                    Some(format!("{model_label} · {time_label}"))
+                })
             }
             ChatRole::User => {
                 let step_index = assistant_count + 1;
-                let model_label = step_index_map
-                    .get(&step_index)
-                    .and_then(|step| step.model.clone())
-                    .unwrap_or_else(|| default_model.to_string());
-                let time_ms = step_index_map
-                    .get(&step_index)
-                    .map(|step| step.started_ms)
-                    .unwrap_or(updated_ms);
-                let time_label =
-                    crate::app::components::chat_panel::utils::format_chat_time_label(time_ms);
-                Some(format!("{model_label} · {time_label}"))
+                step_index_map.get(&step_index).and_then(|step| {
+                    let model_label = step.model.as_deref()?;
+                    let time_ms = step.started_ms;
+                    let time_label =
+                        crate::app::components::chat_panel::utils::format_chat_time_label(time_ms);
+                    Some(format!("{model_label} · {time_label}"))
+                })
             }
             ChatRole::System | ChatRole::Tool => None,
         };
@@ -59,13 +49,8 @@ impl App {
     /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
     /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
     pub fn rebuild_active_session_message_meta(&mut self) {
-        let default_model = self.current_session_runtime().model;
-        self.active_session_view_state.message_meta_texts = build_message_meta_labels(
-            &self.chat,
-            &self.active_session_view_state.step_index_map,
-            self.active_session_view_state.updated_ms,
-            &default_model,
-        );
+        self.active_session_view_state.message_meta_texts =
+            build_message_meta_labels(&self.chat, &self.active_session_view_state.step_index_map);
     }
 
     /// 执行 clear_active_session_steps 对应的领域操作。

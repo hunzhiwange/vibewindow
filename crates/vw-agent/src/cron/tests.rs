@@ -284,4 +284,104 @@ mod tests {
         // 验证安全命令被允许
         assert!(security.is_command_allowed("echo safe"));
     }
+
+    #[test]
+    fn parse_delay_accepts_supported_units_and_default_minutes() {
+        assert_eq!(parse_delay("15").unwrap(), chrono::Duration::minutes(15));
+        assert_eq!(parse_delay(" 2s ").unwrap(), chrono::Duration::seconds(2));
+        assert_eq!(parse_delay("3m").unwrap(), chrono::Duration::minutes(3));
+        assert_eq!(parse_delay("4h").unwrap(), chrono::Duration::hours(4));
+        assert_eq!(parse_delay("5d").unwrap(), chrono::Duration::days(5));
+    }
+
+    #[test]
+    fn parse_delay_rejects_empty_values_and_unknown_units() {
+        let empty = parse_delay("").unwrap_err().to_string();
+        assert!(empty.contains("delay must not be empty"));
+
+        let unit = parse_delay("10w").unwrap_err().to_string();
+        assert!(unit.contains("unsupported delay unit"));
+    }
+
+    #[test]
+    fn add_once_at_and_pause_resume_roundtrip() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let at = chrono::Utc::now() + chrono::Duration::minutes(30);
+
+        let job = add_once_at(&config, at, "echo once").unwrap();
+        assert!(job.delete_after_run);
+        assert_eq!(job.command, "echo once");
+        assert_eq!(job.schedule, Schedule::At { at });
+
+        let paused = pause_job(&config, &job.id).unwrap();
+        assert!(!paused.enabled);
+
+        let resumed = resume_job(&config, &job.id).unwrap();
+        assert!(resumed.enabled);
+    }
+
+    #[test]
+    fn handle_command_add_variants_list_and_remove_roundtrip() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let at = (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339();
+
+        handle_command(
+            CronCommands::Add {
+                expression: "*/10 * * * *".into(),
+                tz: Some("UTC".into()),
+                command: "echo cron".into(),
+            },
+            &config,
+        )
+        .unwrap();
+        handle_command(CronCommands::AddAt { at, command: "echo at".into() }, &config).unwrap();
+        handle_command(
+            CronCommands::AddEvery { every_ms: 60_000, command: "echo every".into() },
+            &config,
+        )
+        .unwrap();
+        handle_command(
+            CronCommands::Once { delay: "1h".into(), command: "echo once".into() },
+            &config,
+        )
+        .unwrap();
+        handle_command(CronCommands::List, &config).unwrap();
+
+        let jobs = list_jobs(&config).unwrap();
+        assert_eq!(jobs.len(), 4);
+        assert!(jobs.iter().any(|job| job.command == "echo cron"));
+        assert!(jobs.iter().any(|job| job.command == "echo at"));
+        assert!(jobs.iter().any(|job| job.command == "echo every"));
+        assert!(jobs.iter().any(|job| job.command == "echo once"));
+
+        handle_command(CronCommands::Remove { id: jobs[0].id.clone() }, &config).unwrap();
+        assert_eq!(list_jobs(&config).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn handle_command_list_empty_is_ok() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp);
+
+        handle_command(CronCommands::List, &config).unwrap();
+    }
+
+    #[test]
+    fn update_expression_or_tz_rejects_non_cron_schedule() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let at = chrono::Utc::now() + chrono::Duration::minutes(30);
+        let job = add_once_at(&config, at, "echo once").unwrap();
+
+        let expression_err = run_update(&config, &job.id, Some("0 9 * * *"), None, None, None)
+            .unwrap_err()
+            .to_string();
+        assert!(expression_err.contains("Cannot update expression/tz on a non-cron schedule"));
+
+        let tz_err =
+            run_update(&config, &job.id, None, Some("UTC"), None, None).unwrap_err().to_string();
+        assert!(tz_err.contains("Cannot update expression/tz on a non-cron schedule"));
+    }
 }

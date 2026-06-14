@@ -88,6 +88,12 @@ mod tests {
     }
 
     #[test]
+    fn wati_build_target_keeps_bare_number_without_plus() {
+        let ch = make_channel();
+        assert_eq!(ch.build_target("1234567890"), "1234567890");
+    }
+
+    #[test]
     fn wati_parse_valid_message() {
         let ch = make_channel();
         let payload = serde_json::json!({
@@ -129,6 +135,23 @@ mod tests {
 
         let msgs = ch.parse_webhook_payload(&payload);
         assert!(msgs.is_empty(), "Messages without text should be skipped");
+    }
+
+    #[test]
+    fn wati_parse_skip_blank_text_and_missing_sender() {
+        let ch = make_wildcard_channel();
+        let blank = serde_json::json!({
+            "text": "   ",
+            "waId": "1234567890",
+            "fromMe": false
+        });
+        assert!(ch.parse_webhook_payload(&blank).is_empty());
+
+        let missing_sender = serde_json::json!({
+            "text": "hello",
+            "fromMe": false
+        });
+        assert!(ch.parse_webhook_payload(&missing_sender).is_empty());
     }
 
     #[test]
@@ -186,6 +209,20 @@ mod tests {
 
         let msgs = ch.parse_webhook_payload(&payload);
         assert_eq!(msgs[0].timestamp, 1_736_942_400);
+    }
+
+    #[test]
+    fn wati_parse_created_timestamp_fallbacks() {
+        let ch = make_wildcard_channel();
+        let payload = serde_json::json!({
+            "text": "Created timestamp",
+            "waId": "1234567890",
+            "created": 1_705_320_000_000_u64
+        });
+
+        let msgs = ch.parse_webhook_payload(&payload);
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].timestamp, 1_705_320_000);
     }
 
     #[test]

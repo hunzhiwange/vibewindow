@@ -6,9 +6,10 @@ use iced::Task;
 use iced::widget::text_editor;
 use serde_json::Value;
 use vw_gateway_client::{
-    KnowledgeDatasetCreateRequest, KnowledgeDatasetDto, KnowledgeDocumentCreateRequest,
-    KnowledgeDocumentDto, KnowledgeIndexingMode, KnowledgeRetrievalMode, KnowledgeRetrieveRequest,
-    KnowledgeRetrieveResponse, KnowledgeRuntimeStatus,
+    KnowledgeChunkingMode, KnowledgeDatasetCreateRequest, KnowledgeDatasetDto,
+    KnowledgeDocumentCreateRequest, KnowledgeDocumentDto, KnowledgeIndexingMode,
+    KnowledgeRetrievalMode, KnowledgeRetrieveRequest, KnowledgeRetrieveResponse,
+    KnowledgeRuntimeStatus,
 };
 
 #[derive(Debug, Clone)]
@@ -23,8 +24,16 @@ pub enum KnowledgeToolMessage {
     DocumentSearchChanged(String),
     DatasetNameChanged(String),
     DatasetDescriptionChanged(String),
+    DatasetChunkingModeChanged(KnowledgeChunkingMode),
     DatasetIndexingModeChanged(KnowledgeIndexingMode),
     DatasetRetrievalModeChanged(KnowledgeRetrievalMode),
+    DatasetKeywordCountChanged(String),
+    DatasetEmbeddingModelChanged(String),
+    DatasetTopKChanged(String),
+    DatasetScoreThresholdEnabledChanged(bool),
+    DatasetScoreThresholdChanged(String),
+    DatasetRerankEnabledChanged(bool),
+    DatasetRerankModelChanged(String),
     CreateDataset,
     DatasetCreated(Result<KnowledgeDatasetDto, String>),
     DeleteSelectedDataset,
@@ -37,6 +46,8 @@ pub enum KnowledgeToolMessage {
     DocumentDeleted(Result<KnowledgeDocumentDto, String>),
     RetrieveQueryChanged(String),
     RetrieveTopKChanged(String),
+    RetrieveScoreThresholdEnabledChanged(bool),
+    RetrieveScoreThresholdChanged(String),
     Retrieve,
     RetrieveFinished(Result<KnowledgeRetrieveResponse, String>),
     ClearDocumentDraft,
@@ -64,6 +75,7 @@ pub fn update(app: &mut App, message: KnowledgeToolMessage) -> Task<Message> {
                 Ok(datasets) => {
                     app.knowledge.datasets = datasets;
                     app.knowledge.select_first_dataset_if_needed();
+                    app.knowledge.sync_retrieve_defaults_from_selected_dataset();
                     if let Some(dataset_id) = app.knowledge.selected_dataset_id.clone() {
                         app.knowledge.loading_documents = true;
                         load_documents_task(dataset_id)
@@ -91,6 +103,7 @@ pub fn update(app: &mut App, message: KnowledgeToolMessage) -> Task<Message> {
         }
         KnowledgeToolMessage::SelectDataset(dataset_id) => {
             app.knowledge.selected_dataset_id = Some(dataset_id.clone());
+            app.knowledge.sync_retrieve_defaults_from_selected_dataset();
             app.knowledge.documents.clear();
             app.knowledge.retrieve_results.clear();
             app.knowledge.loading_documents = true;
@@ -116,15 +129,55 @@ pub fn update(app: &mut App, message: KnowledgeToolMessage) -> Task<Message> {
             app.knowledge.dataset_description_input = value;
             Task::none()
         }
+        KnowledgeToolMessage::DatasetChunkingModeChanged(mode) => {
+            app.knowledge.dataset_chunking_mode = mode;
+            Task::none()
+        }
         KnowledgeToolMessage::DatasetIndexingModeChanged(mode) => {
+            if mode == KnowledgeIndexingMode::Economy {
+                app.knowledge.dataset_retrieval_mode = KnowledgeRetrievalMode::FullText;
+                app.knowledge.dataset_rerank_enabled = false;
+                app.knowledge.dataset_score_threshold_enabled = false;
+            }
             app.knowledge.dataset_indexing_mode = mode;
             Task::none()
         }
         KnowledgeToolMessage::DatasetRetrievalModeChanged(mode) => {
-            if mode == KnowledgeRetrievalMode::FullText {
-                app.knowledge.dataset_indexing_mode = KnowledgeIndexingMode::Economy;
+            if mode != KnowledgeRetrievalMode::FullText {
+                app.knowledge.dataset_indexing_mode = KnowledgeIndexingMode::HighQuality;
             }
             app.knowledge.dataset_retrieval_mode = mode;
+            Task::none()
+        }
+        KnowledgeToolMessage::DatasetKeywordCountChanged(value) => {
+            app.knowledge.dataset_keyword_count_input = value;
+            Task::none()
+        }
+        KnowledgeToolMessage::DatasetEmbeddingModelChanged(value) => {
+            app.knowledge.dataset_embedding_model_input = value;
+            Task::none()
+        }
+        KnowledgeToolMessage::DatasetTopKChanged(value) => {
+            app.knowledge.dataset_top_k_input = value;
+            Task::none()
+        }
+        KnowledgeToolMessage::DatasetScoreThresholdEnabledChanged(value) => {
+            app.knowledge.dataset_score_threshold_enabled = value;
+            Task::none()
+        }
+        KnowledgeToolMessage::DatasetScoreThresholdChanged(value) => {
+            app.knowledge.dataset_score_threshold_input = value;
+            Task::none()
+        }
+        KnowledgeToolMessage::DatasetRerankEnabledChanged(value) => {
+            app.knowledge.dataset_rerank_enabled = value;
+            if value && app.knowledge.dataset_rerank_model_input.trim().is_empty() {
+                app.knowledge.dataset_rerank_model_input = "local-rerank-v1".to_string();
+            }
+            Task::none()
+        }
+        KnowledgeToolMessage::DatasetRerankModelChanged(value) => {
+            app.knowledge.dataset_rerank_model_input = value;
             Task::none()
         }
         KnowledgeToolMessage::CreateDataset => create_dataset(app),
@@ -136,6 +189,7 @@ pub fn update(app: &mut App, message: KnowledgeToolMessage) -> Task<Message> {
                     app.knowledge.dataset_name_input.clear();
                     app.knowledge.dataset_description_input.clear();
                     app.knowledge.datasets.insert(0, dataset);
+                    app.knowledge.sync_retrieve_defaults_from_selected_dataset();
                     set_success(app, "知识库已创建");
                     Task::batch([load_datasets_task(), load_status_task()])
                 }
@@ -152,6 +206,7 @@ pub fn update(app: &mut App, message: KnowledgeToolMessage) -> Task<Message> {
                 Ok(dataset) => {
                     app.knowledge.datasets.retain(|item| item.id != dataset.id);
                     app.knowledge.select_first_dataset_if_needed();
+                    app.knowledge.sync_retrieve_defaults_from_selected_dataset();
                     app.knowledge.documents.clear();
                     app.knowledge.retrieve_results.clear();
                     set_success(app, "知识库已删除");
@@ -224,6 +279,14 @@ pub fn update(app: &mut App, message: KnowledgeToolMessage) -> Task<Message> {
             app.knowledge.retrieve_top_k_input = value;
             Task::none()
         }
+        KnowledgeToolMessage::RetrieveScoreThresholdEnabledChanged(value) => {
+            app.knowledge.retrieve_score_threshold_enabled = value;
+            Task::none()
+        }
+        KnowledgeToolMessage::RetrieveScoreThresholdChanged(value) => {
+            app.knowledge.retrieve_score_threshold_input = value;
+            Task::none()
+        }
         KnowledgeToolMessage::Retrieve => retrieve(app),
         KnowledgeToolMessage::RetrieveFinished(result) => {
             app.knowledge.retrieving = false;
@@ -268,14 +331,28 @@ fn create_dataset(app: &mut App) -> Task<Message> {
         set_error(app, "知识库名称不能为空");
         return Task::none();
     }
+    let keyword_count =
+        parse_usize_input(&app.knowledge.dataset_keyword_count_input, 10).clamp(1, 250);
+    let top_k = parse_usize_input(&app.knowledge.dataset_top_k_input, 10).clamp(1, 50);
+    let Some(score_threshold) = parse_score_threshold(&app.knowledge.dataset_score_threshold_input)
+    else {
+        set_error(app, "Score 阈值必须是 0 到 1 之间的数字");
+        return Task::none();
+    };
     app.knowledge.creating_dataset = true;
     let body = KnowledgeDatasetCreateRequest {
         name,
         description: app.knowledge.dataset_description_input.trim().to_string(),
+        chunking_mode: app.knowledge.dataset_chunking_mode.clone(),
         indexing_mode: app.knowledge.dataset_indexing_mode.clone(),
         retrieval_mode: app.knowledge.dataset_retrieval_mode.clone(),
-        embedding_model: None,
-        rerank_model: None,
+        keyword_count,
+        top_k,
+        score_threshold_enabled: app.knowledge.dataset_score_threshold_enabled,
+        score_threshold,
+        rerank_enabled: app.knowledge.dataset_rerank_enabled,
+        embedding_model: dataset_embedding_model_override(app),
+        rerank_model: trim_to_option(&app.knowledge.dataset_rerank_model_input),
     };
     Task::perform(create_dataset_async(body), |result| {
         Message::Knowledge(KnowledgeToolMessage::DatasetCreated(result))
@@ -338,12 +415,15 @@ fn retrieve(app: &mut App) -> Task<Message> {
     }
     let top_k =
         app.knowledge.retrieve_top_k_input.trim().parse::<usize>().unwrap_or(10).clamp(1, 50);
+    let score_threshold = app.knowledge.retrieve_score_threshold_enabled.then(|| {
+        parse_score_threshold(&app.knowledge.retrieve_score_threshold_input).unwrap_or(0.15)
+    });
     app.knowledge.retrieving = true;
     let body = KnowledgeRetrieveRequest {
         query,
         dataset_ids: vec![dataset_id],
         top_k,
-        score_threshold: None,
+        score_threshold,
         metadata_filter: None,
     };
     Task::perform(retrieve_async(body), |result| {
@@ -367,6 +447,28 @@ fn load_documents_task(dataset_id: String) -> Task<Message> {
     Task::perform(list_documents_async(dataset_id.clone()), move |result| {
         Message::Knowledge(KnowledgeToolMessage::DocumentsLoaded(dataset_id.clone(), result))
     })
+}
+
+fn parse_usize_input(input: &str, fallback: usize) -> usize {
+    input.trim().parse::<usize>().unwrap_or(fallback)
+}
+
+fn parse_score_threshold(input: &str) -> Option<f64> {
+    let value = input.trim().parse::<f64>().ok()?;
+    value.is_finite().then_some(value.clamp(0.0, 1.0))
+}
+
+fn trim_to_option(input: &str) -> Option<String> {
+    let value = input.trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
+fn dataset_embedding_model_override(app: &App) -> Option<String> {
+    let value = app.knowledge.dataset_embedding_model_input.trim();
+    if value.is_empty() || value == app.memory_settings.embedding_model.trim() {
+        return None;
+    }
+    Some(value.to_string())
 }
 
 async fn status_async() -> Result<KnowledgeRuntimeStatus, String> {
@@ -417,3 +519,7 @@ fn set_error(app: &mut App, message: impl Into<String>) {
     app.knowledge.notification = Some(message.into());
     app.knowledge.notification_is_error = true;
 }
+
+#[cfg(test)]
+#[path = "knowledge_tool_tests.rs"]
+mod knowledge_tool_tests;

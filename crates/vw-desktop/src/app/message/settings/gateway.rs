@@ -3,7 +3,12 @@
 use crate::app::config::update_gateway_config_async;
 use crate::app::message::settings::util::parse_comma_or_newline_list;
 use crate::app::{App, Message};
+use chrono::{Datelike, NaiveDate, Utc};
 use iced::Task;
+use rand::RngCore;
+use sha2::{Digest, Sha256};
+use std::time::Duration;
+use vw_config_types::gateway::GatewaySkey;
 
 use super::messages::{GatewayMessage, SettingsMessage};
 
@@ -20,12 +25,136 @@ fn clamp_token_limit(value: u32) -> u32 {
     value.clamp(1, 100_000)
 }
 
+fn hash_skey(skey: &str) -> String {
+    format!("{:x}", Sha256::digest(skey.trim().as_bytes()))
+}
+
+fn generate_skey() -> String {
+    let mut bytes = [0_u8; 24];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    format!("sk-{}", hex::encode(bytes))
+}
+
+fn mask_skey_for_display(skey: &str) -> String {
+    let trimmed = skey.trim();
+    let chars = trimmed.chars().collect::<Vec<_>>();
+    if chars.len() <= 25 {
+        return trimmed.to_string();
+    }
+    let prefix = chars.iter().take(16).collect::<String>();
+    let suffix =
+        chars.iter().rev().take(9).collect::<Vec<_>>().into_iter().rev().collect::<String>();
+    format!("{prefix}{}{suffix}", "*".repeat(15))
+}
+
+fn normalize_skey_name(raw: &str) -> Result<String, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err("skey 名称不能为空".to_string());
+    }
+    if trimmed.chars().count() > 80 {
+        return Err("skey 名称不能超过 80 个字符".to_string());
+    }
+    Ok(trimmed.to_string())
+}
+
+fn parse_date_input(raw: &str) -> Option<NaiveDate> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    NaiveDate::parse_from_str(trimmed, "%Y-%m-%d").ok().or_else(|| {
+        chrono::DateTime::parse_from_rfc3339(trimmed).ok().map(|value| value.date_naive())
+    })
+}
+
+fn month_start(date: NaiveDate) -> NaiveDate {
+    NaiveDate::from_ymd_opt(date.year(), date.month(), 1).unwrap_or(date)
+}
+
+fn parse_calendar_month(raw: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(&format!("{}-01", raw.trim()), "%Y-%m-%d").ok()
+}
+
+fn current_calendar_month(app: &App) -> NaiveDate {
+    parse_calendar_month(&app.gateway_settings.new_skey_calendar_month)
+        .or_else(|| {
+            parse_date_input(&app.gateway_settings.new_skey_expires_at_input).map(month_start)
+        })
+        .unwrap_or_else(|| month_start(Utc::now().date_naive()))
+}
+
+fn shift_calendar_month(month: NaiveDate, delta: i32) -> NaiveDate {
+    let month_index = month.year() * 12 + month.month0() as i32 + delta;
+    let year = month_index.div_euclid(12);
+    let month = month_index.rem_euclid(12) as u32 + 1;
+    NaiveDate::from_ymd_opt(year, month, 1).unwrap_or(month_start(Utc::now().date_naive()))
+}
+
+fn set_calendar_month(app: &mut App, month: NaiveDate) {
+    app.gateway_settings.new_skey_calendar_month = month.format("%Y-%m").to_string();
+}
+
+fn normalize_expires_at(raw: &str) -> Result<Option<String>, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    if chrono::DateTime::parse_from_rfc3339(trimmed).is_ok() {
+        return Ok(Some(trimmed.to_string()));
+    }
+    let date = NaiveDate::parse_from_str(trimmed, "%Y-%m-%d")
+        .map_err(|_| "过期日期必须从日历选择，或使用 2026-12-31 格式".to_string())?;
+    Ok(Some(format!("{}T23:59:59Z", date.format("%Y-%m-%d"))))
+}
+
+fn add_skey(app: &mut App) -> Task<Message> {
+    let name = match normalize_skey_name(&app.gateway_settings.new_skey_name_input) {
+        Ok(value) => value,
+        Err(err) => {
+            app.gateway_settings.save_error = Some(err);
+            return Task::none();
+        }
+    };
+
+    let expires_at = match normalize_expires_at(&app.gateway_settings.new_skey_expires_at_input) {
+        Ok(value) => value,
+        Err(err) => {
+            app.gateway_settings.save_error = Some(err);
+            return Task::none();
+        }
+    };
+
+    let (skey, skey_hash) = loop {
+        let candidate = generate_skey();
+        let candidate_hash = hash_skey(&candidate);
+        if !app.gateway_settings.skeys.iter().any(|existing| existing.skey_hash == candidate_hash) {
+            break (candidate, candidate_hash);
+        }
+    };
+
+    app.gateway_settings.skeys.push(GatewaySkey {
+        enabled: true,
+        skey: None,
+        skey_hash,
+        masked_skey: mask_skey_for_display(&skey),
+        name,
+        expires_at,
+    });
+    app.gateway_settings.new_skey_name_input.clear();
+    app.gateway_settings.new_skey_expires_at_input.clear();
+    app.gateway_settings.new_skey_calendar_open = false;
+    app.gateway_settings.last_created_skey = Some(skey);
+    app.gateway_settings.last_created_skey_copied = false;
+    app.gateway_settings.save_error = None;
+    persist_gateway_settings(app)
+}
+
 fn persist_gateway_settings(app: &mut App) -> Task<Message> {
     let s = &app.gateway_settings;
     let port = s.port.clamp(1, u16::MAX);
-    let require_pairing = s.require_pairing;
+    let auth_enabled = s.auth_enabled;
     let allow_public_bind = s.allow_public_bind;
-    let pair_rate_limit_per_minute = s.pair_rate_limit_per_minute.clamp(1, 10_000);
     let webhook_rate_limit_per_minute = s.webhook_rate_limit_per_minute.clamp(1, 100_000);
     let trust_forwarded_headers = s.trust_forwarded_headers;
     let rate_limit_max_keys = clamp_token_limit(s.rate_limit_max_keys) as usize;
@@ -33,12 +162,11 @@ fn persist_gateway_settings(app: &mut App) -> Task<Message> {
     let idempotency_max_keys = clamp_token_limit(s.idempotency_max_keys) as usize;
     let node_control_enabled = s.node_control_enabled;
     let host = normalize_host(&s.host_input);
-    let paired_tokens = s
-        .paired_tokens
+    let skeys = s
+        .skeys
         .iter()
-        .map(|token| token.trim())
-        .filter(|token| !token.is_empty())
-        .map(ToString::to_string)
+        .filter(|entry| !entry.skey_hash.trim().is_empty())
+        .cloned()
         .collect::<Vec<_>>();
     let node_control_auth_token = s.node_control_auth_token_input.trim().to_string();
     let allowed_node_ids = parse_comma_or_newline_list(&s.node_control_allowed_node_ids_input);
@@ -46,10 +174,11 @@ fn persist_gateway_settings(app: &mut App) -> Task<Message> {
     update_gateway_config_async(move |gateway| {
         gateway.port = port;
         gateway.host = host;
-        gateway.require_pairing = require_pairing;
+        gateway.auth_enabled = auth_enabled;
         gateway.allow_public_bind = allow_public_bind;
-        gateway.paired_tokens = paired_tokens;
-        gateway.pair_rate_limit_per_minute = pair_rate_limit_per_minute;
+        gateway.skeys = skeys;
+        gateway.require_pairing = false;
+        gateway.paired_tokens.clear();
         gateway.webhook_rate_limit_per_minute = webhook_rate_limit_per_minute;
         gateway.trust_forwarded_headers = trust_forwarded_headers;
         gateway.rate_limit_max_keys = rate_limit_max_keys;
@@ -60,6 +189,22 @@ fn persist_gateway_settings(app: &mut App) -> Task<Message> {
             if node_control_auth_token.is_empty() { None } else { Some(node_control_auth_token) };
         gateway.node_control.allowed_node_ids = allowed_node_ids;
     })
+}
+
+fn service_command_task(command: String) -> Task<Message> {
+    let request_command = command.clone();
+    Task::perform(
+        async move {
+            let client = crate::app::config::gateway_client()?;
+            client.desktop_service_command(&request_command).await.map(|response| response.output)
+        },
+        move |result| {
+            Message::Settings(SettingsMessage::Gateway(GatewayMessage::ServiceCommandCompleted(
+                command.clone(),
+                result,
+            )))
+        },
+    )
 }
 
 /// 处理 `update` 对应的用户输入、异步结果或状态转换。
@@ -77,10 +222,84 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
     }
 
     match message {
+        GatewayMessage::TabSelected(tab) => {
+            app.gateway_settings.active_tab = tab;
+            app.gateway_settings.new_skey_calendar_open = false;
+            return Task::none();
+        }
         GatewayMessage::PortChanged(value) => app.gateway_settings.port = value.clamp(1, u16::MAX),
         GatewayMessage::HostChanged(value) => app.gateway_settings.host_input = value,
+        GatewayMessage::AuthEnabledToggled(value) => app.gateway_settings.auth_enabled = value,
+        GatewayMessage::NewSkeyNameChanged(value) | GatewayMessage::NewSkeyChanged(value) => {
+            app.gateway_settings.new_skey_name_input = value;
+            return Task::none();
+        }
+        GatewayMessage::NewSkeyExpiresAtChanged(value) => {
+            if let Some(date) = parse_date_input(&value) {
+                set_calendar_month(app, month_start(date));
+            }
+            app.gateway_settings.new_skey_expires_at_input = value;
+            return Task::none();
+        }
+        GatewayMessage::NewSkeyCalendarToggled => {
+            app.gateway_settings.new_skey_calendar_open =
+                !app.gateway_settings.new_skey_calendar_open;
+            return Task::none();
+        }
+        GatewayMessage::NewSkeyCalendarClosed => {
+            app.gateway_settings.new_skey_calendar_open = false;
+            return Task::none();
+        }
+        GatewayMessage::NewSkeyExpiresDateSelected(value) => {
+            if let Some(date) = parse_date_input(&value) {
+                set_calendar_month(app, month_start(date));
+            }
+            app.gateway_settings.new_skey_expires_at_input = value;
+            app.gateway_settings.new_skey_calendar_open = false;
+            return Task::none();
+        }
+        GatewayMessage::NewSkeyExpiresMonthChanged(delta) => {
+            let month = shift_calendar_month(current_calendar_month(app), delta);
+            set_calendar_month(app, month);
+            return Task::none();
+        }
+        GatewayMessage::NewSkeyExpiresAtCleared => {
+            app.gateway_settings.new_skey_expires_at_input.clear();
+            app.gateway_settings.new_skey_calendar_open = false;
+            return Task::none();
+        }
+        GatewayMessage::AddSkey => return add_skey(app),
+        GatewayMessage::CopyLastCreatedSkey => {
+            let Some(skey) = app.gateway_settings.last_created_skey.clone() else {
+                return Task::none();
+            };
+            app.gateway_settings.last_created_skey_copied = true;
+            return Task::batch(vec![
+                iced::clipboard::write(skey),
+                crate::app::message::after(
+                    Duration::from_secs(2),
+                    Message::Settings(SettingsMessage::Gateway(
+                        GatewayMessage::ClearLastCreatedSkeyCopied,
+                    )),
+                ),
+            ]);
+        }
+        GatewayMessage::ClearLastCreatedSkeyCopied => {
+            app.gateway_settings.last_created_skey_copied = false;
+            return Task::none();
+        }
+        GatewayMessage::SkeyEnabledToggled(index, enabled) => {
+            if let Some(skey) = app.gateway_settings.skeys.get_mut(index) {
+                skey.enabled = enabled;
+            }
+        }
+        GatewayMessage::RemoveSkey(index) => {
+            if index < app.gateway_settings.skeys.len() {
+                app.gateway_settings.skeys.remove(index);
+            }
+        }
         GatewayMessage::RequirePairingToggled(value) => {
-            app.gateway_settings.require_pairing = value
+            app.gateway_settings.auth_enabled = value;
         }
         GatewayMessage::AllowPublicBindToggled(value) => {
             app.gateway_settings.allow_public_bind = value
@@ -89,30 +308,16 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
             app.gateway_settings.trust_forwarded_headers = value
         }
         GatewayMessage::NewPairedTokenChanged(value) => {
-            app.gateway_settings.new_paired_token_input = value
+            app.gateway_settings.new_skey_name_input = value;
+            return Task::none();
         }
-        GatewayMessage::AddPairedToken => {
-            let token = app.gateway_settings.new_paired_token_input.trim().to_string();
-            if token.is_empty() {
-                app.gateway_settings.save_error = Some("配对令牌不能为空".to_string());
-                return Task::none();
-            }
-            if !app.gateway_settings.paired_tokens.iter().any(|existing| existing == &token) {
-                app.gateway_settings.paired_tokens.push(token);
-            } else {
-                app.gateway_settings.save_error = Some("配对令牌已存在".to_string());
-                return Task::none();
-            }
-            app.gateway_settings.new_paired_token_input.clear();
-        }
+        GatewayMessage::AddPairedToken => return add_skey(app),
         GatewayMessage::RemovePairedToken(index) => {
-            if index < app.gateway_settings.paired_tokens.len() {
-                app.gateway_settings.paired_tokens.remove(index);
+            if index < app.gateway_settings.skeys.len() {
+                app.gateway_settings.skeys.remove(index);
             }
         }
-        GatewayMessage::PairRateLimitPerMinuteChanged(value) => {
-            app.gateway_settings.pair_rate_limit_per_minute = value.clamp(1, 10_000)
-        }
+        GatewayMessage::PairRateLimitPerMinuteChanged(_) => {}
         GatewayMessage::WebhookRateLimitPerMinuteChanged(value) => {
             app.gateway_settings.webhook_rate_limit_per_minute = value.clamp(1, 100_000)
         }
@@ -133,6 +338,33 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         }
         GatewayMessage::NodeControlAllowedNodeIdsChanged(value) => {
             app.gateway_settings.node_control_allowed_node_ids_input = value
+        }
+        GatewayMessage::ServiceCommandRequested(command) => {
+            let command = command.trim().to_ascii_lowercase();
+            app.gateway_settings.service_action_running = Some(command.clone());
+            app.gateway_settings.service_action_output = None;
+            app.gateway_settings.save_error = None;
+            return service_command_task(command);
+        }
+        GatewayMessage::ServiceCommandCompleted(command, result) => {
+            app.gateway_settings.service_action_running = None;
+            match result {
+                Ok(output) => {
+                    let output = if output.trim().is_empty() {
+                        format!("service {command} 执行完成")
+                    } else {
+                        output
+                    };
+                    app.gateway_settings.service_action_output = Some(output);
+                    app.gateway_settings.save_error = None;
+                }
+                Err(err) => {
+                    app.gateway_settings.service_action_output = None;
+                    app.gateway_settings.save_error =
+                        Some(format!("service {command} 失败: {err}"));
+                }
+            }
+            return Task::none();
         }
         GatewayMessage::HelpOpen => {
             app.gateway_settings.show_help_modal = true;

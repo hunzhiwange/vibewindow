@@ -5,8 +5,8 @@
 use super::message::chat::ForkSessionTarget;
 use super::{App, Message, message};
 use crate::app::components::system_settings_common::{
-    primary_action_btn_style, rounded_action_btn_style, settings_modal_card,
-    settings_modal_overlay, settings_muted_text_style,
+    rounded_action_btn_style, settings_modal_card, settings_modal_overlay,
+    settings_muted_text_style,
 };
 use iced::widget::{Space, button, column, row, text};
 use iced::{Alignment, Element, Length};
@@ -34,27 +34,27 @@ pub(crate) fn with_chat_fork_dialog<'a>(
 
     let card = settings_modal_card(
         column![
-            text("从较早消息创建分支?").size(18),
+            text("分叉到新会话").size(18),
             text(
-                "这会保留当前聊天和文件状态。选择新工作树时，会先创建隔离 worktree，再从此消息继续。"
+                "会复制当前消息及之前的聊天历史。选择新工作树时，会先创建隔离 worktree，再把会话复制过去。"
             )
             .size(13)
             .style(settings_muted_text_style),
             button(column![
-                text("派生到本地").size(14),
-                text("在新的本地聊天中从此消息继续").size(12).style(settings_muted_text_style),
+                text("分叉到新会话").size(14),
+                text("打开一个新会话，并复制到当前消息为止").size(12).style(settings_muted_text_style),
             ])
             .width(Length::Fill)
             .padding([12, 14])
             .style(rounded_action_btn_style)
             .on_press(local_message),
             button(column![
-                text("派生到新工作树").size(14),
-                text("在新 worktree 中从此消息继续").size(12).style(settings_muted_text_style),
+                text("分叉到新工作树").size(14),
+                text("先创建 git worktree，再在其中复制会话").size(12).style(settings_muted_text_style),
             ])
             .width(Length::Fill)
             .padding([12, 14])
-            .style(primary_action_btn_style)
+            .style(rounded_action_btn_style)
             .on_press(worktree_message),
             row![
                 Space::new().width(Length::Fill),
@@ -71,3 +71,7 @@ pub(crate) fn with_chat_fork_dialog<'a>(
 
     settings_modal_overlay(Some(root_content), close_message, card)
 }
+
+#[cfg(test)]
+#[path = "chat_fork_tests.rs"]
+mod chat_fork_tests;

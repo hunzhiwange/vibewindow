@@ -15,3 +15,17 @@ fn sqlite_memory_uses_user_scoped_data_dir() {
     assert!(!workspace.path().join("memory").join("brain.db").exists());
     assert!(storage.join("memory").join("brain.db").exists());
 }
+
+#[test]
+fn with_embedder_preserves_constructor_configuration() {
+    let workspace = tempfile::TempDir::new().unwrap();
+    let embedder = std::sync::Arc::new(crate::app::agent::memory::embeddings::NoopEmbedding);
+
+    let memory =
+        SqliteMemory::with_embedder(workspace.path(), embedder, 0.25, 0.75, 12, Some(1)).unwrap();
+
+    assert_eq!(memory.vector_weight, 0.25);
+    assert_eq!(memory.keyword_weight, 0.75);
+    assert_eq!(memory.cache_max, 12);
+    assert!(memory.db_path.ends_with("memory/brain.db"));
+}

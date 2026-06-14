@@ -102,3 +102,7 @@ pub(crate) fn edge_handle_field(value: &Value, key: &str) -> Option<String> {
         })
         .filter(|value| !value.is_empty())
 }
+
+#[cfg(test)]
+#[path = "model_tests.rs"]
+mod model_tests;

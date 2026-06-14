@@ -9,6 +9,7 @@
 //! - [`load_recent_projects`]/[`save_recent_projects`]: 最近项目路径列表的读写
 //! - [`load_recent_projects_meta`]/[`save_recent_projects_meta`]: 最近项目元数据的读写
 //! - [`push_recent_project`]: 将路径加入最近列表（去重、置顶、上限截断、自动持久化）
+//! - [`ensure_recent_project`]: 将新路径加入最近列表，已存在路径保持原顺序
 //!
 //! 主要 App 方法：
 //! - [`App::open_project`]: 打开指定路径的项目，完成状态切换、配置加载、会话重载、信息拉取
@@ -552,8 +553,8 @@ impl App {
         self.git_worktree_options_project_path = None;
         self.git_worktree_menu_open = false;
 
-        // 将路径加入最近项目列表
-        super::push_recent_project(&mut self.recent_projects, path.clone());
+        // 将路径加入最近项目列表；已存在项目保持原位，避免点击切换时侧栏跳动。
+        ensure_recent_project(&mut self.recent_projects, path.clone());
         self.screen = Screen::Project;
         self.clear_expanded_files();
         self.refresh_search_panel_file_cache();
@@ -625,6 +626,18 @@ pub fn push_recent_project(recent: &mut Vec<String>, path: String) {
     // 限制列表长度为 10
     recent.truncate(10);
     // 后台持久化，避免切换项目时阻塞 UI
+    save_recent_projects_background(recent.clone());
+}
+
+/// 确保项目路径存在于最近列表，已存在时保持原顺序。
+///
+/// 该函数用于普通项目切换，避免用户点击已有项目时列表位置变化。
+pub fn ensure_recent_project(recent: &mut Vec<String>, path: String) {
+    if recent.iter().any(|p| p == &path) {
+        return;
+    }
+    recent.insert(0, path);
+    recent.truncate(10);
     save_recent_projects_background(recent.clone());
 }
 

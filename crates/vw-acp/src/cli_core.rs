@@ -12,6 +12,7 @@
 //! 这样可以把 CLI 入口保持为薄壳，同时让计划构建逻辑具备更好的可测试性。
 
 use std::collections::HashSet;
+use std::future::Future;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 
@@ -159,15 +160,29 @@ pub fn build_cli_runtime_plan(argv: &[String], config: &ResolvedAcpxConfig) -> C
 }
 
 pub async fn read_prompt_input_from_stdin() -> Result<String, CliCoreError> {
-    tokio::task::spawn_blocking(|| {
+    let result = tokio::task::spawn_blocking(|| {
         let mut stdin = std::io::stdin();
-        let mut data = String::new();
-        stdin.read_to_string(&mut data)?;
-        Ok::<String, std::io::Error>(data)
+        read_prompt_input_from_reader(&mut stdin)
     })
-    .await
-    .map_err(|error| CliCoreError::Io(error.to_string()))?
-    .map_err(CliCoreError::from)
+    .await;
+
+    flatten_stdin_read_result(result)
+}
+
+fn read_prompt_input_from_reader(reader: &mut impl Read) -> Result<String, std::io::Error> {
+    let mut data = String::new();
+    reader.read_to_string(&mut data)?;
+    Ok(data)
+}
+
+fn flatten_stdin_read_result(
+    result: Result<Result<String, std::io::Error>, impl ToString>,
+) -> Result<String, CliCoreError> {
+    match result {
+        Ok(Ok(data)) => Ok(data),
+        Ok(Err(error)) => Err(CliCoreError::from(error)),
+        Err(error) => Err(CliCoreError::Io(error.to_string())),
+    }
 }
 
 pub async fn read_prompt(
@@ -176,12 +191,30 @@ pub async fn read_prompt(
     cwd: impl AsRef<Path>,
     stdin_is_tty: bool,
 ) -> Result<PromptInput, CliCoreError> {
+    read_prompt_with_stdin_reader(
+        prompt_parts,
+        file_path,
+        cwd,
+        stdin_is_tty,
+        read_prompt_input_from_stdin,
+    )
+    .await
+}
+
+async fn read_prompt_with_stdin_reader<F, Fut>(
+    prompt_parts: &[String],
+    file_path: Option<&str>,
+    cwd: impl AsRef<Path>,
+    stdin_is_tty: bool,
+    read_stdin: F,
+) -> Result<PromptInput, CliCoreError>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = Result<String, CliCoreError>>,
+{
     if let Some(file_path) = file_path {
-        let source = if file_path == "-" {
-            read_prompt_input_from_stdin().await?
-        } else {
-            tokio::fs::read_to_string(resolve_path_like_node(cwd.as_ref(), file_path)).await?
-        };
+        let source =
+            read_prompt_file_source_with_stdin_reader(file_path, cwd.as_ref(), read_stdin).await?;
         let prompt = merge_prompt_source_with_text(&source, &prompt_parts.join(" "))?;
         if prompt.is_empty() {
             return Err(CliCoreError::PromptFileEmpty);
@@ -198,7 +231,43 @@ pub async fn read_prompt(
         return Err(CliCoreError::PromptRequired);
     }
 
-    let prompt = parse_prompt_source(&read_prompt_input_from_stdin().await?)?;
+    prompt_from_stdin_result(read_stdin().await)
+}
+
+#[cfg(test)]
+async fn read_prompt_file_source(file_path: &str, cwd: &Path) -> Result<String, CliCoreError> {
+    read_prompt_file_source_with_stdin_reader(file_path, cwd, read_prompt_input_from_stdin).await
+}
+
+async fn read_prompt_file_source_with_stdin_reader<F, Fut>(
+    file_path: &str,
+    cwd: &Path,
+    read_stdin: F,
+) -> Result<String, CliCoreError>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = Result<String, CliCoreError>>,
+{
+    if file_path == "-" {
+        return read_stdin().await;
+    }
+
+    tokio::fs::read_to_string(resolve_path_like_node(cwd, file_path))
+        .await
+        .map_err(CliCoreError::from)
+}
+
+fn prompt_from_stdin_result(
+    source: Result<String, CliCoreError>,
+) -> Result<PromptInput, CliCoreError> {
+    match source {
+        Ok(source) => prompt_from_stdin_source(&source),
+        Err(error) => Err(error),
+    }
+}
+
+fn prompt_from_stdin_source(source: &str) -> Result<PromptInput, CliCoreError> {
+    let prompt = parse_prompt_source(source)?;
     if prompt.is_empty() {
         return Err(CliCoreError::PromptStdinEmpty);
     }

@@ -181,3 +181,54 @@ mod tests {
         assert_eq!(s, "hidden");
     }
 }
+
+fn candidate_with_missing_optional_fields() -> crate::skillforge::scout::ScoutResult {
+    crate::skillforge::scout::ScoutResult {
+        name: "quoted\"skill".into(),
+        url: "https://github.com/user/quoted".into(),
+        description: "Line one\nLine two".into(),
+        stars: 7,
+        language: None,
+        updated_at: None,
+        source: crate::skillforge::scout::ScoutSource::GitHub,
+        owner: "user".into(),
+        has_license: false,
+    }
+}
+
+#[test]
+fn generate_toml_uses_defaults_and_escapes_strings() {
+    let integrator = Integrator::new("unused".to_string());
+    let toml = integrator.generate_toml(&candidate_with_missing_optional_fields());
+
+    assert!(toml.contains("name = \"quoted\\\"skill\""));
+    assert!(toml.contains("description = \"Line one\\nLine two\""));
+    assert!(toml.contains("language = \"unknown\""));
+    assert!(toml.contains("license = false"));
+    assert!(toml.contains("updated_at = \"unknown\""));
+}
+
+#[test]
+fn generate_md_uses_unknowns_for_missing_metadata() {
+    let integrator = Integrator::new("unused".to_string());
+    let md = integrator.generate_md(&candidate_with_missing_optional_fields());
+
+    assert!(md.contains("# quoted\"skill"));
+    assert!(md.contains("**Language**: unknown"));
+    assert!(md.contains("**License**: unknown"));
+    assert!(md.contains("Line one\nLine two"));
+}
+
+#[test]
+fn integrate_replaces_separators_in_skill_directory_name() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let integrator = Integrator::new(dir.path().to_string_lossy().to_string());
+    let mut candidate = candidate_with_missing_optional_fields();
+    candidate.name = "one/two\\three".to_string();
+
+    let path = integrator.integrate(&candidate).unwrap();
+
+    assert_eq!(path.file_name().and_then(|name| name.to_str()), Some("one_two_three"));
+    assert!(path.join("SKILL.toml").is_file());
+    assert!(path.join("SKILL.md").is_file());
+}

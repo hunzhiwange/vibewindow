@@ -63,6 +63,68 @@ fn build_task_pool_schedule_request(
     }
 }
 
+fn local_pool_tasks_to_promote(app: &crate::app::App, now_ms: u64) -> Vec<String> {
+    if !app.task_board_settings.auto_execute || !app.task_board_settings.auto_promote_pool_tasks {
+        return Vec::new();
+    }
+
+    let max_concurrent = app.task_board_settings.max_concurrent.max(1);
+    let max_pending = max_concurrent.saturating_mul(2);
+    let pending_count = app
+        .task_board_tasks
+        .iter()
+        .filter(|task| {
+            !task.deleted
+                && !task.archived
+                && matches!(task.status, TaskStatus::Pending | TaskStatus::Planning)
+        })
+        .count() as u32;
+    if pending_count >= max_pending {
+        return Vec::new();
+    }
+
+    let default_delay_ms = app.task_board_settings.auto_promote_delay_seconds.saturating_mul(1000);
+    let mut candidates: Vec<(u32, u32, String)> = app
+        .task_board_tasks
+        .iter()
+        .filter(|task| !task.deleted && !task.archived && task.status == TaskStatus::Pool)
+        .filter(|task| {
+            let delay_ms = task.auto_promote_delay_ms.unwrap_or(default_delay_ms);
+            task.created_at_ms.saturating_add(delay_ms) <= now_ms
+        })
+        .map(|task| (task.priority, task.order, task.id.clone()))
+        .collect();
+    candidates.sort_by_key(|(priority, order, _)| (*priority, *order));
+
+    let max_promote = max_pending.saturating_sub(pending_count) as usize;
+    candidates.into_iter().take(max_promote).map(|(_, _, task_id)| task_id).collect()
+}
+
+fn promote_pool_task_updates(
+    app: &mut crate::app::App,
+    promote_task_ids: Vec<String>,
+) -> iced::Task<crate::app::Message> {
+    if promote_task_ids.is_empty() {
+        return schedule_auto_promote_tick_with_deadline(app);
+    }
+
+    let mut tasks = Vec::new();
+    for task_id in promote_task_ids {
+        tasks.push(iced::Task::done(Message::TaskBoard(TaskBoardMessage::TaskStatusChanged {
+            task_id,
+            new_status: TaskStatus::Pending,
+        })));
+    }
+
+    tasks.push(schedule_auto_promote_tick_with_deadline(app));
+
+    if !app.task_board_executor_running {
+        tasks.push(iced::Task::done(Message::TaskBoard(TaskBoardMessage::StartExecution)));
+    }
+
+    iced::Task::batch(tasks)
+}
+
 fn merge_loaded_tasks_preserving_running_state(
     loaded_tasks: Vec<Task>,
     current_tasks: &[Task],
@@ -1853,6 +1915,13 @@ pub fn update(
         }
         TaskBoardMessage::StopExecution => {
             app.task_board_executor_running = false;
+            app.task_board_settings.auto_execute = false;
+            app.task_board_settings.auto_promote_pool_tasks = false;
+            crate::app::set_config_field(
+                "task_board_auto_promote_pool_tasks",
+                serde_json::Value::Bool(false),
+            );
+            save_settings(app);
             iced::Task::none()
         }
         TaskBoardMessage::ExecutionTick => {
@@ -2206,30 +2275,12 @@ pub fn update(
                 Ok(response) => response,
                 Err(error) => {
                     tracing::warn!(error = %error, "gateway task pool schedule failed");
-                    return schedule_auto_promote_tick_with_deadline(app);
+                    let promote_task_ids =
+                        local_pool_tasks_to_promote(app, crate::app::time::now_ms());
+                    return promote_pool_task_updates(app, promote_task_ids);
                 }
             };
-            if response.promote_task_ids.is_empty() {
-                return schedule_auto_promote_tick_with_deadline(app);
-            }
-
-            let mut tasks = Vec::new();
-            for task_id in response.promote_task_ids {
-                tasks.push(iced::Task::done(Message::TaskBoard(
-                    TaskBoardMessage::TaskStatusChanged {
-                        task_id,
-                        new_status: TaskStatus::Pending,
-                    },
-                )));
-            }
-
-            tasks.push(schedule_auto_promote_tick_with_deadline(app));
-
-            if !app.task_board_executor_running {
-                tasks.push(iced::Task::done(Message::TaskBoard(TaskBoardMessage::StartExecution)));
-            }
-
-            iced::Task::batch(tasks)
+            promote_pool_task_updates(app, response.promote_task_ids)
         }
         TaskBoardMessage::ExecuteTask { task_id } => {
             if let Some(task) = app.task_board_tasks.iter().find(|t| t.id == task_id).cloned() {

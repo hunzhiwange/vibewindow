@@ -435,3 +435,7 @@ fn build_tool_descriptions(config: &Config) -> Vec<(&'static str, &'static str)>
 
     tool_descs
 }
+
+#[cfg(test)]
+#[path = "query_engine_tests.rs"]
+mod query_engine_tests;

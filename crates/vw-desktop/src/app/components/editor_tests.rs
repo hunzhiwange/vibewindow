@@ -1,4 +1,5 @@
 use super::editor::Editor;
+use iced::Theme;
 
 #[test]
 fn editor_starts_with_initial_content() {
@@ -13,7 +14,9 @@ fn editor_starts_with_initial_content() {
 fn editor_setters_are_callable() {
     let mut editor = Editor::new("", "rust");
 
+    editor.set_font(iced::Font::MONOSPACE);
     editor.set_font_size(14.0);
     editor.set_line_height(1.4);
+    editor.set_theme(Theme::Dark);
     editor.set_ui_language(iced_code_editor::i18n::Language::ChineseSimplified);
 }

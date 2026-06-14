@@ -1,6 +1,13 @@
-#[test]
-fn test_module_is_wired() {
-    let module = std::hint::black_box(module_path!());
+use iced::Element;
 
-    assert!(module.ends_with("empty_tests"));
+use super::empty::render;
+use super::*;
+
+fn keep_element(element: Element<'static, Message>) {
+    let _ = std::hint::black_box(element);
+}
+
+#[test]
+fn render_builds_empty_state_element() {
+    keep_element(render());
 }

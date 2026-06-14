@@ -43,6 +43,20 @@ impl AcpClient {
 
         'prompt_loop: loop {
             if prompt_finished {
+                let cancel_requested = self.cancelling_session_ids.lock().contains(&session_id);
+                if !cancel_sent && cancel_requested {
+                    self.cancelling_session_ids.lock().insert(session_id.clone());
+                    if let Err(err) = runtime
+                        .conn
+                        .cancel(acp::CancelNotification::new(acp::SessionId::new(
+                            session_id.clone(),
+                        )))
+                        .await
+                    {
+                        prompt_error = Some(AcpError::Cancel(err.to_string()));
+                    }
+                }
+
                 while let Ok(event) = runtime.event_rx.try_recv() {
                     self.handle_prompt_internal_event(
                         event,
@@ -56,18 +70,8 @@ impl AcpClient {
             }
 
             tokio::select! {
-                joined = &mut prompt_future, if !prompt_finished => {
-                    prompt_finished = true;
-                    match joined {
-                        Ok(response) => {
-                            finish_reason = Some(acp_finish_reason(response.stop_reason));
-                            usage = response.usage.as_ref().map(map_usage);
-                        }
-                        Err(err) => {
-                            prompt_error = Some(AcpError::Prompt(err.to_string()));
-                        }
-                    }
-                }
+                biased;
+
                 cancel_changed = cancel_rx.changed(), if !cancel_sent => {
                     match cancel_changed {
                         Ok(_) if *cancel_rx.borrow() => {
@@ -80,6 +84,18 @@ impl AcpClient {
                         }
                         Ok(_) => {}
                         Err(_) => {}
+                    }
+                }
+                joined = &mut prompt_future, if !prompt_finished => {
+                    prompt_finished = true;
+                    match joined {
+                        Ok(response) => {
+                            finish_reason = Some(acp_finish_reason(response.stop_reason));
+                            usage = response.usage.as_ref().map(map_usage);
+                        }
+                        Err(err) => {
+                            prompt_error = Some(AcpError::Prompt(err.to_string()));
+                        }
                     }
                 }
                 maybe_event = runtime.event_rx.recv() => {

@@ -63,3 +63,28 @@ fn normalize_recent_projects_meta_filters_hidden_projects() {
     assert_eq!(normalized.len(), 1);
     assert_eq!(normalized[0].path, "/Users/me/vibe-window");
 }
+
+#[test]
+fn ensure_recent_project_keeps_existing_project_order() {
+    let mut recent =
+        vec!["/repo/alpha".to_string(), "/repo/beta".to_string(), "/repo/gamma".to_string()];
+
+    super::ensure_recent_project(&mut recent, "/repo/beta".to_string());
+
+    assert_eq!(
+        recent,
+        vec!["/repo/alpha".to_string(), "/repo/beta".to_string(), "/repo/gamma".to_string()]
+    );
+}
+
+#[test]
+fn ensure_recent_project_adds_new_project_to_front() {
+    let mut recent = vec!["/repo/alpha".to_string(), "/repo/beta".to_string()];
+
+    super::ensure_recent_project(&mut recent, "/repo/gamma".to_string());
+
+    assert_eq!(
+        recent,
+        vec!["/repo/gamma".to_string(), "/repo/alpha".to_string(), "/repo/beta".to_string()]
+    );
+}

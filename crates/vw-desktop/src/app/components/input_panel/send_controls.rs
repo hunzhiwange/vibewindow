@@ -32,7 +32,7 @@ const SECONDARY_BUTTON_SIZE: f32 = BOTTOM_BAR_ICON_BUTTON_SIZE;
 const SECONDARY_ICON_SIZE: f32 = BOTTOM_BAR_ICON_SIZE;
 const SEND_MODE_ICON_SIZE: f32 = BOTTOM_BAR_CHEVRON_ICON_SIZE;
 
-fn permission_access_button_style(
+pub(super) fn permission_access_button_style(
     theme: &Theme,
     status: iced::widget::button::Status,
     enabled: bool,
@@ -79,11 +79,11 @@ fn permission_access_button_style(
     }
 }
 
-fn is_dark_theme(theme: &Theme) -> bool {
+pub(super) fn is_dark_theme(theme: &Theme) -> bool {
     theme.palette().background.r + theme.palette().background.g + theme.palette().background.b < 1.5
 }
 
-fn prominent_action_background(theme: &Theme) -> Color {
+pub(super) fn prominent_action_background(theme: &Theme) -> Color {
     if is_dark_theme(theme) {
         Color::from_rgba8(243, 244, 246, 1.0)
     } else {
@@ -91,11 +91,11 @@ fn prominent_action_background(theme: &Theme) -> Color {
     }
 }
 
-fn prominent_action_foreground(theme: &Theme) -> Color {
+pub(super) fn prominent_action_foreground(theme: &Theme) -> Color {
     if is_dark_theme(theme) { Color::from_rgba8(15, 16, 18, 1.0) } else { Color::WHITE }
 }
 
-fn utility_cluster_style(theme: &Theme) -> iced::widget::container::Style {
+pub(super) fn utility_cluster_style(theme: &Theme) -> iced::widget::container::Style {
     let is_dark = is_dark_theme(theme);
     iced::widget::container::Style {
         background: Some(Background::Color(if is_dark {
@@ -113,7 +113,7 @@ fn utility_cluster_style(theme: &Theme) -> iced::widget::container::Style {
     }
 }
 
-fn prominent_action_style(
+pub(super) fn prominent_action_style(
     theme: &Theme,
     status: iced::widget::button::Status,
     enabled: bool,
@@ -210,7 +210,7 @@ fn prominent_action_style(
     }
 }
 
-fn send_behavior_icon(behavior: ChatSendBehavior) -> Icon {
+pub(super) fn send_behavior_icon(behavior: ChatSendBehavior) -> Icon {
     match behavior {
         ChatSendBehavior::Queue => Icon::ListUl,
         ChatSendBehavior::StopAndSend => Icon::Square,
@@ -218,7 +218,7 @@ fn send_behavior_icon(behavior: ChatSendBehavior) -> Icon {
     }
 }
 
-fn send_behavior_popover<'a>(selected: ChatSendBehavior) -> Element<'a, Message> {
+pub(super) fn send_behavior_popover<'a>(selected: ChatSendBehavior) -> Element<'a, Message> {
     let mut list = iced::widget::column![].spacing(4);
     for behavior in
         [ChatSendBehavior::Queue, ChatSendBehavior::StopAndSend, ChatSendBehavior::Guide]
@@ -393,6 +393,39 @@ pub fn full_access_button(enabled: bool, active: bool) -> Element<'static, Messa
 
     tooltip(
         access_button,
+        container(text(tooltip_label).size(12)).style(tooltip_dark_style).padding([6, 8]),
+        Position::Top,
+    )
+    .into()
+}
+
+pub fn workflow_mode_button(active: bool) -> Element<'static, Message> {
+    let workflow_icon: Element<'_, Message> = icon_svg(Icon::Grid1x2, SECONDARY_ICON_SIZE)
+        .style(move |theme: &Theme, _| svg::Style {
+            color: Some(if active {
+                prominent_action_foreground(theme)
+            } else {
+                theme.palette().text.scale_alpha(if is_dark_theme(theme) { 0.92 } else { 0.88 })
+            }),
+        })
+        .into();
+
+    let button_content = container(workflow_icon)
+        .width(Length::Fixed(SECONDARY_BUTTON_SIZE))
+        .height(Length::Fixed(SECONDARY_BUTTON_SIZE))
+        .align_x(iced::alignment::Horizontal::Center)
+        .align_y(iced::alignment::Vertical::Center);
+
+    let button = button(button_content)
+        .padding(0)
+        .style(move |theme: &Theme, status| {
+            permission_access_button_style(theme, status, true, active)
+        })
+        .on_press(Message::Chat(message::ChatMessage::WorkflowModeToggled(!active)));
+
+    let tooltip_label = if active { "关闭工作流执行" } else { "启用工作流执行" };
+    tooltip(
+        button,
         container(text(tooltip_label).size(12)).style(tooltip_dark_style).padding([6, 8]),
         Position::Top,
     )
@@ -614,6 +647,7 @@ pub fn bottom_bar<'a>(
     primary_btn: Option<Element<'a, Message>>,
     acp_btn: Option<Element<'a, Message>>,
     permission_btn: Option<Element<'a, Message>>,
+    workflow_btn: Element<'a, Message>,
     model_btn: Element<'a, Message>,
     usage_btn: Element<'a, Message>,
     attach_btn: Element<'a, Message>,
@@ -628,6 +662,8 @@ pub fn bottom_bar<'a>(
     if let Some(permission_btn) = permission_btn {
         bar = bar.push(permission_btn);
     }
+
+    bar = bar.push(workflow_btn);
 
     if let Some(primary_btn) = primary_btn {
         bar = bar.push(primary_btn);
@@ -655,7 +691,7 @@ pub fn bottom_bar<'a>(
 
     bar = bar.push(
         container(utility_controls)
-            .padding(iced::Padding { top: 1.0, right: 2.0, bottom: 1.0, left: 2.0 })
+            .padding(iced::Padding { top: 1.0, right: 5.0, bottom: 1.0, left: 5.0 })
             .style(utility_cluster_style),
     );
 
@@ -697,6 +733,6 @@ pub fn bottom_bar<'a>(
     // 设置垂直对齐和内边距，返回最终布局
     bar.spacing(4)
         .align_y(Alignment::Center)
-        .padding(iced::Padding { top: 3.0, right: 4.0, bottom: 6.0, left: 3.0 })
+        .padding(iced::Padding { top: 3.0, right: 12.0, bottom: 6.0, left: 12.0 })
         .into()
 }

@@ -8,6 +8,43 @@ use iced::{Element, Length};
 /// 重新导出 use iced::{Event, Point, Rectangle, Size, Theme, Vector}，让上层模块通过稳定路径访问。
 use iced::{Event, Point, Rectangle, Size, Theme, Vector};
 
+fn compute_left_position(
+    position: Point,
+    target_bounds: Rectangle,
+    viewport: Rectangle,
+    overlay_size: Size,
+    gap: f32,
+    snap_within_viewport: bool,
+) -> Point {
+    let mut x = position.x - gap - overlay_size.width;
+    let mut y = position.y + (target_bounds.height / 2.0) - (overlay_size.height / 2.0);
+
+    if snap_within_viewport {
+        x = x.clamp(0.0, (viewport.width - overlay_size.width).max(0.0));
+        y = y.clamp(0.0, (viewport.height - overlay_size.height).max(0.0));
+    }
+
+    Point::new(x, y)
+}
+
+fn compute_point_left_position(
+    anchor: Point,
+    viewport: Rectangle,
+    overlay_size: Size,
+    gap: f32,
+    snap_within_viewport: bool,
+) -> Point {
+    let mut x = anchor.x - gap - overlay_size.width;
+    let mut y = anchor.y - (overlay_size.height / 2.0);
+
+    if snap_within_viewport {
+        x = x.clamp(0.0, (viewport.width - overlay_size.width).max(0.0));
+        y = y.clamp(0.0, (viewport.height - overlay_size.height).max(0.0));
+    }
+
+    Point::new(x, y)
+}
+
 /// LeftOverlay 保存 left 模块需要跨函数传递的状态。
 ///
 /// 字段保持贴近调用方的真实数据，避免在 UI 边界处隐藏额外转换。
@@ -973,16 +1010,16 @@ where
 
         let size = node.size();
 
-        let mut x = self.position.x - self.gap - size.width;
-        let mut y = self.position.y + (self.target_bounds.height / 2.0) - (size.height / 2.0);
+        let position = compute_left_position(
+            self.position,
+            self.target_bounds,
+            self.viewport,
+            size,
+            self.gap,
+            self.snap_within_viewport,
+        );
 
-        // snap 开关让浮层在靠近窗口边缘时仍保持可见。
-        if self.snap_within_viewport {
-            x = x.clamp(0.0, (self.viewport.width - size.width).max(0.0));
-            y = y.clamp(0.0, (self.viewport.height - size.height).max(0.0));
-        }
-
-        node.move_to(Point::new(x, y))
+        node.move_to(position)
     }
 
     /// 处理 update 对应的局部职责。
@@ -1153,16 +1190,15 @@ where
 
         let size = node.size();
 
-        let mut x = self.anchor.x - self.gap - size.width;
-        let mut y = self.anchor.y - (size.height / 2.0);
+        let position = compute_point_left_position(
+            self.anchor,
+            self.viewport,
+            size,
+            self.gap,
+            self.snap_within_viewport,
+        );
 
-        // snap 开关让浮层在靠近窗口边缘时仍保持可见。
-        if self.snap_within_viewport {
-            x = x.clamp(0.0, (self.viewport.width - size.width).max(0.0));
-            y = y.clamp(0.0, (self.viewport.height - size.height).max(0.0));
-        }
-
-        node.move_to(Point::new(x, y))
+        node.move_to(position)
     }
 
     /// 处理 update 对应的局部职责。
@@ -1292,3 +1328,7 @@ where
         );
     }
 }
+
+#[cfg(test)]
+#[path = "left_tests.rs"]
+mod tests;

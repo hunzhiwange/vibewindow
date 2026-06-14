@@ -183,6 +183,7 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         return dialog;
     }
 
+    let config_path = vw_config_types::paths::tilde_config_path("vibewindow.json");
     let help_text = r#"心跳配置说明
 
 一、作用
@@ -258,9 +259,10 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
 1) 先确认 enabled=true。
 2) interval_minutes 不要太大，先设 1-5 分钟验证。
 3) 若配置 target，请同时填写 to。
-4) 确认文件路径是 ~/.vibewindow/vibewindow.json。
+4) 确认文件路径是 {CONFIG_PATH}。
  5) 修改后重启应用，观察运行日志是否出现 heartbeat tick。
 "#;
+    let help_text = help_text.replace("{CONFIG_PATH}", &config_path);
 
     crate::app::components::system_settings_common::with_settings_help_modal(
         app,
@@ -270,3 +272,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         Message::Settings(message::SettingsMessage::HeartbeatHelpClose),
     )
 }
+#[cfg(test)]
+#[path = "system_settings_heartbeat_tests.rs"]
+mod system_settings_heartbeat_tests;

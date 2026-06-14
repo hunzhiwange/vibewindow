@@ -14,7 +14,7 @@
 //! 1. 环境变量 `VIBEWINDOW_CONFIG_DIR`
 //! 2. 环境变量 `VIBEWINDOW_WORKSPACE`
 //! 3. 持久化的活动工作空间标记文件 (`active_workspace.toml`)
-//! 4. 默认配置目录 (`~/.vibewindow` 或 `/.vibewindow`)
+//! 4. 默认配置目录 (`~/.vibewindow`/`~/.vibewindowdev` 或对应 wasm 根目录)
 //!
 //! ## 文件结构
 //!
@@ -78,8 +78,8 @@ pub fn default_config_and_workspace_dirs() -> Result<(PathBuf, PathBuf)> {
 ///
 /// # 平台差异
 ///
-/// - **Linux/macOS**: `~/.vibewindow`
-/// - **Windows**: `C:\Users\<username>\.vibewindow`
+/// - **Linux/macOS**: release `~/.vibewindow`，dev `~/.vibewindowdev`
+/// - **Windows**: release `C:\Users\<username>\.vibewindow`，dev `C:\Users\<username>\.vibewindowdev`
 ///
 /// # 错误
 ///
@@ -89,16 +89,16 @@ pub(crate) fn default_config_dir() -> Result<PathBuf> {
     let home = UserDirs::new()
         .map(|u| u.home_dir().to_path_buf())
         .context("Could not find home directory")?;
-    Ok(home.join(".vibewindow"))
+    Ok(vw_config_types::paths::home_config_dir(home))
 }
 
 /// 获取默认的配置目录路径（WASM 平台实现）
 ///
-/// 在 WebAssembly 目标平台上，使用固定的根目录路径 `/.vibewindow`。
+/// 在 WebAssembly 目标平台上，使用固定的根目录路径。
 /// 这是由于 WASM 环境中文件系统访问的特殊限制。
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn default_config_dir() -> Result<PathBuf> {
-    Ok(PathBuf::from("/.vibewindow"))
+    Ok(vw_config_types::paths::root_config_dir())
 }
 
 /// 构建活动工作空间状态标记文件的完整路径

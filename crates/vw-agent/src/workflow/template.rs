@@ -43,3 +43,7 @@ pub(crate) fn value_to_text(value: &Value) -> String {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "template_tests.rs"]
+mod template_tests;

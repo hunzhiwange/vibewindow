@@ -281,3 +281,65 @@ fn no_content_loss() {
         assert!(reassembled.contains(word), "Missing word '{word}' in reassembled chunks");
     }
 }
+
+#[test]
+fn split_on_headings_keeps_preamble_and_recognized_heading_levels() {
+    let sections = split_on_headings("Preamble\n# One\nA\n## Two\nB\n### Three\nC\n#### Four\nD");
+
+    assert_eq!(sections.len(), 4);
+    assert_eq!(sections[0], (None, "Preamble\n".to_string()));
+    assert_eq!(sections[1], (Some("# One".to_string()), "A\n".to_string()));
+    assert_eq!(sections[2], (Some("## Two".to_string()), "B\n".to_string()));
+    assert_eq!(sections[3], (Some("### Three".to_string()), "C\n#### Four\nD\n".to_string()));
+}
+
+#[test]
+fn split_on_headings_preserves_empty_heading_sections() {
+    let sections = split_on_headings("# A\n## B\nBody");
+
+    assert_eq!(sections.len(), 2);
+    assert_eq!(sections[0], (Some("# A".to_string()), String::new()));
+    assert_eq!(sections[1], (Some("## B".to_string()), "Body\n".to_string()));
+}
+
+#[test]
+fn split_on_blank_lines_collapses_whitespace_separators() {
+    let paragraphs = split_on_blank_lines("one\n two\n\n   \nthree\n\nfour");
+
+    assert_eq!(
+        paragraphs,
+        vec!["one\n two\n".to_string(), "three\n".to_string(), "four\n".to_string()]
+    );
+}
+
+#[test]
+fn split_on_blank_lines_ignores_empty_input() {
+    assert!(split_on_blank_lines("").is_empty());
+    assert!(split_on_blank_lines("\n \n\t\n").is_empty());
+}
+
+#[test]
+fn split_on_lines_batches_until_limit_and_keeps_oversized_lines() {
+    let chunks = split_on_lines("aa\nbb\nlonggggggg\nc\n", 8);
+
+    assert_eq!(chunks, vec!["aa\nbb\n".to_string(), "longgggggg\n".to_string(), "c\n".to_string()]);
+}
+
+#[test]
+fn split_on_lines_zero_limit_still_returns_lines() {
+    assert_eq!(
+        split_on_lines("first\nsecond", 0),
+        vec!["first\n".to_string(), "second\n".to_string()]
+    );
+}
+
+#[test]
+fn chunk_markdown_reindexes_after_filtering_empty_line_chunks() {
+    let chunks = chunk_markdown("# Title\n\n\nbody\n\n\n", 1);
+
+    assert!(!chunks.is_empty());
+    for (index, chunk) in chunks.iter().enumerate() {
+        assert_eq!(chunk.index, index);
+        assert!(!chunk.content.trim().is_empty());
+    }
+}

@@ -236,10 +236,10 @@ pub(super) fn think_block_is_running(open: bool, timing: Option<&models::ThinkTi
 
 pub(crate) fn think_block_default_expanded(
     _show_reasoning_summary: bool,
-    open: bool,
-    timing: Option<&models::ThinkTiming>,
+    _open: bool,
+    _timing: Option<&models::ThinkTiming>,
 ) -> bool {
-    think_block_is_running(open, timing)
+    false
 }
 
 pub(crate) fn think_block_resolved_expanded(

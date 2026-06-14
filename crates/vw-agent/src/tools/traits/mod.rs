@@ -639,5 +639,8 @@ fn default_tool_requires_user_interaction(tool_id: &str) -> bool {
 }
 
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

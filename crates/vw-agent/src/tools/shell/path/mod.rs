@@ -372,3 +372,7 @@ fn is_dangerous_path(path: &Path) -> bool {
 #[cfg(test)]
 #[path = "extractors_tests.rs"]
 mod extractors_tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

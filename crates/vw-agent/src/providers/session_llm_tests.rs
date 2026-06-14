@@ -3,7 +3,7 @@
 //! 这些测试聚焦 provider 和 gateway 边界的数据转换，避免直接依赖真实 gateway 进程。
 
 use super::SessionLlmProvider;
-use crate::app::agent::providers::ChatMessage;
+use crate::app::agent::providers::{ChatMessage, Provider};
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
@@ -27,6 +27,26 @@ fn parse_usage_maps_gateway_done_usage() {
 #[test]
 fn parse_usage_returns_none_without_payload() {
     assert!(SessionLlmProvider::parse_usage(None).is_none());
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn parse_usage_returns_none_for_invalid_payload() {
+    let payload = serde_json::json!({"input_tokens": "many"});
+    assert!(SessionLlmProvider::parse_usage(Some(&payload)).is_none());
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn build_messages_skips_blank_system_prompt() {
+    let without_system = SessionLlmProvider::build_messages(Some("   "), "hello");
+    assert_eq!(without_system.len(), 1);
+    assert_eq!(without_system[0]["role"], "user");
+
+    let with_system = SessionLlmProvider::build_messages(Some("be kind"), "hello");
+    assert_eq!(with_system.len(), 2);
+    assert_eq!(with_system[0]["role"], "system");
+    assert_eq!(with_system[1]["content"], "hello");
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -70,4 +90,36 @@ fn build_history_messages_preserves_tool_role_for_gateway_boundary() {
         .expect("tool projection should keep content");
     assert!(content.contains("tool_call_id"));
     assert!(content.contains("/Users/demo"));
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn build_history_messages_skips_unknown_roles() {
+    let messages = vec![ChatMessage { role: "alien".to_string(), content: "???".to_string() }];
+    assert!(SessionLlmProvider::build_history_messages(&messages).is_empty());
+}
+
+#[test]
+fn extract_system_and_last_user_uses_first_system_and_last_user() {
+    let messages = vec![
+        ChatMessage::system("sys1"),
+        ChatMessage::user("first"),
+        ChatMessage::system("sys2"),
+        ChatMessage::assistant("answer"),
+        ChatMessage::user("last"),
+    ];
+
+    let (system, last_user) = SessionLlmProvider::extract_system_and_last_user(&messages);
+
+    assert_eq!(system, Some("sys1"));
+    assert_eq!(last_user, "last");
+}
+
+#[test]
+fn session_provider_declares_fallback_capabilities_and_streaming() {
+    let provider = SessionLlmProvider::new();
+    let caps = provider.capabilities();
+    assert!(!caps.native_tool_calling);
+    assert!(!caps.vision);
+    assert!(provider.supports_streaming());
 }

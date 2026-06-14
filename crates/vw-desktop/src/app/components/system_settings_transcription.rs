@@ -223,3 +223,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         Message::Settings(message::SettingsMessage::TranscriptionHelpClose),
     )
 }
+#[cfg(test)]
+#[path = "system_settings_transcription_tests.rs"]
+mod system_settings_transcription_tests;

@@ -14,6 +14,8 @@ mod tool_detail;
 #[cfg(test)]
 mod file_search_tests;
 #[cfg(test)]
+mod input_tests;
+#[cfg(test)]
 mod shared_tests;
 
 use super::ChatMessage;
@@ -292,6 +294,9 @@ pub fn update(app: &mut App, message: ChatMessage) -> Task<Message> {
             Task::none()
         }
         ChatMessage::TaskModeToggled(value) => task_mode::handle_task_mode_toggled(app, value),
+        ChatMessage::WorkflowModeToggled(value) => {
+            task_mode::handle_workflow_mode_toggled(app, value)
+        }
         ChatMessage::TaskModePriorityChanged(value) => {
             task_mode::handle_task_mode_priority_changed(app, value)
         }

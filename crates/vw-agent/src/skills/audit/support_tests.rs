@@ -13,11 +13,15 @@ fn extension_helpers_are_case_insensitive() {
 fn link_text_helpers_strip_and_classify_targets() {
     assert_eq!(strip_query_and_fragment("docs/readme.md?x=1#top"), "docs/readme.md");
     assert_eq!(url_scheme("https://example.com"), Some("https"));
+    assert_eq!(url_scheme(":missing"), None);
+    assert_eq!(url_scheme("git:"), None);
     assert_eq!(url_scheme("bad scheme://example.com"), None);
     assert!(looks_like_absolute_path("/etc/passwd"));
     assert!(looks_like_absolute_path("C:/Windows/System32"));
     assert!(looks_like_absolute_path("~/secret"));
+    assert!(!looks_like_absolute_path("docs/readme.md"));
     assert!(has_markdown_suffix("README.Markdown"));
+    assert!(!has_markdown_suffix("README.txt"));
 }
 
 #[test]
@@ -28,6 +32,7 @@ fn unsupported_script_detects_shell_shebang() {
     let script = dir.join("run");
     fs::write(&script, "#!/bin/sh\necho hi\n").unwrap();
     assert!(is_unsupported_script_file(&script));
+    assert!(!is_unsupported_script_file(&dir.join("missing")));
     let _ = fs::remove_dir_all(&dir);
 }
 

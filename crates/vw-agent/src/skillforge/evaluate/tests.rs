@@ -165,3 +165,71 @@ mod tests {
         assert!(res.scores.security < 0.5, "security: {}", res.scores.security);
     }
 }
+
+fn candidate_for_boundaries(
+    stars: u64,
+    language: Option<&str>,
+    has_license: bool,
+) -> crate::skillforge::scout::ScoutResult {
+    crate::skillforge::scout::ScoutResult {
+        name: "boundary-skill".into(),
+        url: "https://github.com/test/boundary-skill".into(),
+        description: "A boundary test skill".into(),
+        stars,
+        language: language.map(String::from),
+        updated_at: Some(chrono::Utc::now()),
+        source: crate::skillforge::scout::ScoutSource::GitHub,
+        owner: "test".into(),
+        has_license,
+    }
+}
+
+#[test]
+fn compatibility_scores_language_tiers_and_quality_caps() {
+    let eval = Evaluator::new(0.7);
+
+    assert_eq!(eval.score_compatibility(&candidate_for_boundaries(0, Some("Rust"), true)), 1.0);
+    assert_eq!(
+        eval.score_compatibility(&candidate_for_boundaries(0, Some("TypeScript"), true)),
+        0.6
+    );
+    assert_eq!(eval.score_compatibility(&candidate_for_boundaries(0, Some("Go"), true)), 0.3);
+    assert_eq!(eval.score_compatibility(&candidate_for_boundaries(0, None, true)), 0.2);
+
+    assert_eq!(eval.score_quality(&candidate_for_boundaries(0, Some("Rust"), true)), 0.0);
+    assert_eq!(eval.score_quality(&candidate_for_boundaries(100_000, Some("Rust"), true)), 1.0);
+}
+
+#[test]
+fn recommendation_boundaries_cover_manual_and_skip() {
+    let eval = Evaluator::new(0.9);
+
+    let manual = eval.evaluate(candidate_for_boundaries(1, Some("Python"), true));
+    assert_eq!(manual.recommendation, Recommendation::Manual);
+
+    let mut weak = candidate_for_boundaries(0, None, false);
+    weak.updated_at = None;
+    let skipped = eval.evaluate(weak);
+    assert_eq!(skipped.recommendation, Recommendation::Skip);
+}
+
+#[test]
+fn security_does_not_reward_future_or_stale_updates() {
+    let eval = Evaluator::new(0.7);
+
+    let mut future = candidate_for_boundaries(10, Some("Rust"), true);
+    future.updated_at = Some(chrono::Utc::now() + chrono::Duration::days(2));
+    assert!((eval.score_security(&future) - 0.8).abs() < f64::EPSILON);
+
+    let mut stale = candidate_for_boundaries(10, Some("Rust"), true);
+    stale.updated_at = Some(chrono::Utc::now() - chrono::Duration::days(365));
+    assert!((eval.score_security(&stale) - 0.8).abs() < f64::EPSILON);
+}
+
+#[test]
+fn contains_word_requires_non_alphanumeric_boundaries() {
+    assert!(contains_word("safe hack-tool", "hack"));
+    assert!(contains_word("hack", "hack"));
+    assert!(!contains_word("hackathon", "hack"));
+    assert!(!contains_word("lifehacks", "hack"));
+}

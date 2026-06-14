@@ -20,13 +20,13 @@ use iced::{Alignment, Background, Border, Element, Length};
 use vw_config_types::skills::SkillsDirectoryProvider;
 
 #[derive(Clone, Copy)]
-enum DetailActionStyle {
+pub(super) enum DetailActionStyle {
     Primary,
     Secondary,
     Danger,
 }
 
-fn search_bar_style(theme: &iced::Theme) -> iced::widget::container::Style {
+pub(super) fn search_bar_style(theme: &iced::Theme) -> iced::widget::container::Style {
     let mut style = settings_panel_style(theme);
     style.background = Some(Background::Color(theme.palette().background));
     style.border.radius = 12.0.into();
@@ -34,7 +34,7 @@ fn search_bar_style(theme: &iced::Theme) -> iced::widget::container::Style {
     style
 }
 
-fn search_text_input_style(
+pub(super) fn search_text_input_style(
     theme: &iced::Theme,
     status: iced::widget::text_input::Status,
 ) -> iced::widget::text_input::Style {
@@ -51,7 +51,7 @@ fn search_text_input_style(
     }
 }
 
-fn header_panel_style(theme: &iced::Theme) -> iced::widget::container::Style {
+pub(super) fn header_panel_style(theme: &iced::Theme) -> iced::widget::container::Style {
     let mut style = settings_panel_style(theme);
     let palette = theme.extended_palette();
     style.background = Some(Background::Color(palette.background.weak.color.scale_alpha(0.24)));
@@ -60,7 +60,7 @@ fn header_panel_style(theme: &iced::Theme) -> iced::widget::container::Style {
     style
 }
 
-fn catalog_panel_style(theme: &iced::Theme) -> iced::widget::container::Style {
+pub(super) fn catalog_panel_style(theme: &iced::Theme) -> iced::widget::container::Style {
     let mut style = settings_panel_style(theme);
     let palette = theme.extended_palette();
     style.background = Some(Background::Color(palette.background.weak.color.scale_alpha(0.14)));
@@ -69,7 +69,7 @@ fn catalog_panel_style(theme: &iced::Theme) -> iced::widget::container::Style {
     style
 }
 
-fn status_banner<'a>(message: &'a str, is_error: bool) -> Element<'a, Message> {
+pub(super) fn status_banner<'a>(message: &'a str, is_error: bool) -> Element<'a, Message> {
     if is_error {
         return settings_error_banner(message);
     }
@@ -93,7 +93,7 @@ fn status_banner<'a>(message: &'a str, is_error: bool) -> Element<'a, Message> {
         .into()
 }
 
-fn scope_button(
+pub(super) fn scope_button(
     label: &'static str,
     scope: SkillsDirectoryScope,
     active_scope: SkillsDirectoryScope,
@@ -115,7 +115,7 @@ fn scope_button(
         .into()
 }
 
-fn refresh_button(loading: bool) -> Element<'static, Message> {
+pub(super) fn refresh_button(loading: bool) -> Element<'static, Message> {
     detail_action_button(
         if loading { "刷新中" } else { "刷新" },
         Icon::ArrowRepeat,
@@ -124,7 +124,7 @@ fn refresh_button(loading: bool) -> Element<'static, Message> {
     )
 }
 
-fn scope_source_matches(scope: SkillsDirectoryScope, source: &str) -> bool {
+pub(super) fn scope_source_matches(scope: SkillsDirectoryScope, source: &str) -> bool {
     match scope {
         SkillsDirectoryScope::Project => source == "workspace",
         SkillsDirectoryScope::Ancestor => source == "ancestor",
@@ -134,7 +134,7 @@ fn scope_source_matches(scope: SkillsDirectoryScope, source: &str) -> bool {
     }
 }
 
-fn scope_title(scope: SkillsDirectoryScope) -> &'static str {
+pub(super) fn scope_title(scope: SkillsDirectoryScope) -> &'static str {
     match scope {
         SkillsDirectoryScope::Project => "项目目录技能",
         SkillsDirectoryScope::Ancestor => "父级目录技能",
@@ -144,7 +144,7 @@ fn scope_title(scope: SkillsDirectoryScope) -> &'static str {
     }
 }
 
-fn provider_project_paths(provider: SkillsDirectoryProvider) -> &'static str {
+pub(super) fn provider_project_paths(provider: SkillsDirectoryProvider) -> &'static str {
     match provider {
         SkillsDirectoryProvider::Vibewindow => ".vibewindow/skills 与 skills",
         SkillsDirectoryProvider::Codex => ".codex/skills 与 .agents/skills",
@@ -153,16 +153,28 @@ fn provider_project_paths(provider: SkillsDirectoryProvider) -> &'static str {
     }
 }
 
-fn provider_global_paths(provider: SkillsDirectoryProvider) -> &'static str {
+pub(super) fn provider_global_paths(provider: SkillsDirectoryProvider) -> &'static str {
     match provider {
-        SkillsDirectoryProvider::Vibewindow => "~/.vibewindow/skills 与 ~/.skills",
+        SkillsDirectoryProvider::Vibewindow => {
+            #[cfg(debug_assertions)]
+            {
+                "~/.vibewindowdev/skills 与 ~/.skills"
+            }
+            #[cfg(not(debug_assertions))]
+            {
+                "~/.vibewindow/skills 与 ~/.skills"
+            }
+        }
         SkillsDirectoryProvider::Codex => "~/.codex/skills 与 ~/.agents/skills",
         SkillsDirectoryProvider::Claude => "~/.claude/skills",
         SkillsDirectoryProvider::Cursor => "~/.cursor/skills",
     }
 }
 
-fn scope_description(scope: SkillsDirectoryScope, provider: SkillsDirectoryProvider) -> String {
+pub(super) fn scope_description(
+    scope: SkillsDirectoryScope,
+    provider: SkillsDirectoryProvider,
+) -> String {
     match scope {
         SkillsDirectoryScope::Project => {
             format!("查看当前项目 {} 目录命中的技能。", provider_project_paths(provider))
@@ -175,12 +187,13 @@ fn scope_description(scope: SkillsDirectoryScope, provider: SkillsDirectoryProvi
         }
         SkillsDirectoryScope::Bundled => "查看产品随包提供、可安装到项目的内置技能。".to_string(),
         SkillsDirectoryScope::All => {
-            "结果包含当前项目、父级目录、全局目录以及内置技能，便于核对最终命中来源。".to_string()
+            "全部结果包含当前项目、父级目录、全局目录以及内置技能，便于核对最终命中来源。"
+                .to_string()
         }
     }
 }
 
-fn active_scope_badge(scope: SkillsDirectoryScope) -> &'static str {
+pub(super) fn active_scope_badge(scope: SkillsDirectoryScope) -> &'static str {
     match scope {
         SkillsDirectoryScope::Project => "当前筛选: 项目目录",
         SkillsDirectoryScope::Ancestor => "当前筛选: 父级目录",
@@ -306,7 +319,7 @@ pub(super) fn discovery_order_view<'a>(app: &'a App) -> Element<'a, Message> {
     .into()
 }
 
-fn loading_banner<'a>() -> Element<'a, Message> {
+pub(super) fn loading_banner<'a>() -> Element<'a, Message> {
     container(text("正在通过 gateway 同步技能目录...").size(12))
         .padding([10, 12])
         .width(Length::Fill)
@@ -328,7 +341,7 @@ fn loading_banner<'a>() -> Element<'a, Message> {
         .into()
 }
 
-fn empty_state<'a>(title: &'a str, description: &'a str) -> Element<'a, Message> {
+pub(super) fn empty_state<'a>(title: &'a str, description: &'a str) -> Element<'a, Message> {
     container(
         column![
             container(icon_svg(Icon::Search, 18.0)).padding([12, 12]).style(
@@ -358,7 +371,7 @@ fn empty_state<'a>(title: &'a str, description: &'a str) -> Element<'a, Message>
     .into()
 }
 
-fn detail_source_note(path: Option<&str>) -> Element<'static, Message> {
+pub(super) fn detail_source_note(path: Option<&str>) -> Element<'static, Message> {
     if let Some(path) = path {
         return container(
             text(path.to_string())
@@ -380,7 +393,7 @@ fn detail_source_note(path: Option<&str>) -> Element<'static, Message> {
     .into()
 }
 
-fn detail_action_button(
+pub(super) fn detail_action_button(
     label: &'static str,
     icon: Icon,
     style: DetailActionStyle,
@@ -401,7 +414,7 @@ fn detail_action_button(
     }
 }
 
-fn detail_modal_body<'a>(app: &'a App, project_open: bool) -> Element<'a, Message> {
+pub(super) fn detail_modal_body<'a>(app: &'a App, project_open: bool) -> Element<'a, Message> {
     let s = &app.skills_settings;
 
     if s.detail_loading {

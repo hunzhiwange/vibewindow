@@ -1851,3 +1851,7 @@ pub(super) fn report_source_context(
         report.sources.iter().find(|item| item.source_key == effective_source_key)?.clone();
     Some((prepared_report(&report), source))
 }
+
+#[cfg(test)]
+#[path = "data_runtime_tests.rs"]
+mod data_runtime_tests;

@@ -1083,5 +1083,8 @@ impl Tool for WebFetchTool {
 ///
 /// 包含 WebFetchTool 的单元测试和集成测试。
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

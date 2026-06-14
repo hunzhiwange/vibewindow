@@ -340,3 +340,55 @@ fn resolve_path_missing() {
     let json: Value = serde_json::from_str(r#"{"a": 1}"#).unwrap();
     assert!(resolve_json_path(&json, &["b"]).is_none());
 }
+
+#[test]
+fn json_path_invalid_expression_fails_closed() {
+    let payload = r#"{"value": 90}"#;
+    assert!(!evaluate_condition("$.value", Some(payload)));
+    assert!(!evaluate_condition("$. > 0", Some(payload)));
+}
+
+#[test]
+fn json_path_string_ordering_comparisons() {
+    let payload = r#"{"status": "beta"}"#;
+    assert!(evaluate_condition("$.status > alpha", Some(payload)));
+    assert!(evaluate_condition("$.status < gamma", Some(payload)));
+    assert!(evaluate_condition("$.status >= beta", Some(payload)));
+    assert!(evaluate_condition("$.status <= beta", Some(payload)));
+}
+
+#[test]
+fn json_path_numeric_string_uses_numeric_comparison() {
+    let payload = r#"{"value": "42.5"}"#;
+    assert!(evaluate_condition("$.value >= 42.5", Some(payload)));
+    assert!(!evaluate_condition("$.value < 40", Some(payload)));
+}
+
+#[test]
+fn direct_condition_invalid_comparand_fails_closed() {
+    assert!(!evaluate_condition("> nope", Some("1")));
+}
+
+#[test]
+fn parse_op_value_unknown_operator() {
+    assert!(parse_op_value("= 10").is_none());
+    assert!(parse_op_value("value").is_none());
+}
+
+#[test]
+fn parse_path_op_value_rejects_missing_path_or_operator() {
+    assert!(parse_path_op_value(" >= 10").is_none());
+    assert!(parse_path_op_value(".value").is_none());
+}
+
+#[test]
+fn resolve_path_array_index_out_of_bounds() {
+    let json: Value = serde_json::from_str(r#"{"readings": [10, 20]}"#).unwrap();
+    assert!(resolve_json_path(&json, &["readings", "3"]).is_none());
+}
+
+#[test]
+fn value_as_string_handles_null_and_non_string_values() {
+    assert_eq!(value_as_string(&Value::Null), "");
+    assert_eq!(value_as_string(&Value::Number(7.into())), "7");
+}

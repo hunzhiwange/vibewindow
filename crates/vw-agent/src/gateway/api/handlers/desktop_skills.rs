@@ -870,3 +870,7 @@ fn install_built_in_skill(
     copy_bundled_dir_recursive(skill_dir, &target_dir)?;
     Ok(target_dir.display().to_string())
 }
+
+#[cfg(test)]
+#[path = "desktop_skills_tests.rs"]
+mod desktop_skills_tests;

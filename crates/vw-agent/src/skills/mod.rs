@@ -128,13 +128,28 @@ pub(crate) fn discover_local_skill_source_dirs_with_provider(
     }
 
     if let Some(home_dir) = home_dir {
-        for relative_path in global_skill_source_paths(directory_provider) {
+        if directory_provider == SkillsDirectoryProvider::Vibewindow {
             push_skill_source_dir(
                 &mut dirs,
                 &mut seen,
                 LocalSkillSourceKind::Global,
-                home_dir.join(relative_path),
+                vw_config_types::paths::home_config_dir(&home_dir).join("skills"),
             );
+            push_skill_source_dir(
+                &mut dirs,
+                &mut seen,
+                LocalSkillSourceKind::Global,
+                home_dir.join(".skills"),
+            );
+        } else {
+            for relative_path in global_skill_source_paths(directory_provider) {
+                push_skill_source_dir(
+                    &mut dirs,
+                    &mut seen,
+                    LocalSkillSourceKind::Global,
+                    home_dir.join(relative_path),
+                );
+            }
         }
     }
 
@@ -321,7 +336,7 @@ pub(crate) fn load_skills_full_with_config(
 /// # 加载顺序
 ///
 /// 1. 优先加载当前工作区与祖先目录中的本地技能
-/// 2. 然后补充全局 `~/.vibewindow/skills` 与 `~/.skills` 技能
+/// 2. 然后补充全局 VibeWindow 配置目录中的 `skills` 与 `~/.skills` 技能
 /// 3. 最后在启用时追加 OpenSkills 社区仓库技能
 /// 4. 同名技能按前面的来源优先，后续来源会被去重跳过
 pub(crate) fn load_skills_with_open_skills_config(

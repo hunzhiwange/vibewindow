@@ -8,13 +8,16 @@ use super::model::{
 };
 use super::template::{render_jinja_value_template, render_template, value_to_text};
 use super::variables::{VariablePool, selector_from_value};
+use crate::providers::traits::{StreamOptions, TokenUsage};
 use crate::providers::{ChatMessage, ChatRequest, Provider};
+use futures_util::StreamExt;
 use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
+use tokio::{sync::mpsc, task::JoinSet};
 use uuid::Uuid;
 use vw_api_types::workflow::{
     WorkflowHumanActionDto, WorkflowNodeRunDto, WorkflowNodeRunStatus, WorkflowPauseDto,
@@ -25,6 +28,7 @@ const HTTP_REQUEST_DEFAULT_TIMEOUT_SECS: u64 = 30;
 const HTTP_REQUEST_MAX_TIMEOUT_SECS: u64 = 60;
 const HTTP_REQUEST_MAX_BODY_BYTES: usize = 2 * 1024 * 1024;
 const WORKFLOW_DEBUG_MAX_CHARS: usize = 4_000;
+const WORKFLOW_NODE_DELTA_MAX_CHARS: usize = 12_000;
 const LOOP_DEFAULT_MAX_COUNT: u32 = 100;
 const LOOP_MAX_COUNT: u32 = 1_000;
 
@@ -212,11 +216,62 @@ struct WorkflowExecutionState {
     last_outputs: BTreeMap<String, Value>,
 }
 
+struct CompletedWorkflowNode {
+    node: WorkflowNode,
+    node_index: u32,
+    execution: NodeExecution,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkflowNodeStartedEvent {
+    pub node_id: String,
+    pub node_type: String,
+    pub title: String,
+    pub index: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkflowNodeFinishedEvent {
+    pub node: WorkflowNodeRunDto,
+    pub index: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkflowNodeDeltaEvent {
+    pub node_id: String,
+    pub node_type: String,
+    pub title: String,
+    pub index: u32,
+    pub text: String,
+    pub replace: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum WorkflowRunEvent {
+    WorkflowStarted { run_id: String },
+    NodeStarted(WorkflowNodeStartedEvent),
+    NodeDelta(WorkflowNodeDeltaEvent),
+    NodeFinished(WorkflowNodeFinishedEvent),
+    WorkflowFinished(WorkflowRunResponse),
+}
+
 pub async fn run_workflow(
     runtime: WorkflowRuntime,
     request: WorkflowRunRequest,
 ) -> Result<WorkflowRunResponse, String> {
+    run_workflow_with_events(runtime, request, |_| {}).await
+}
+
+pub async fn run_workflow_with_events<F>(
+    runtime: WorkflowRuntime,
+    request: WorkflowRunRequest,
+    mut on_event: F,
+) -> Result<WorkflowRunResponse, String>
+where
+    F: FnMut(WorkflowRunEvent) + Send,
+{
     let run_id = Uuid::new_v4().to_string();
+    on_event(WorkflowRunEvent::WorkflowStarted { run_id: run_id.clone() });
     let max_steps = request.max_steps.clamp(1, 10_000);
     let source = resolve_workflow_source(&request)?;
     let graph = parse_workflow_yaml(&source)?;
@@ -233,7 +288,9 @@ pub async fn run_workflow(
         last_outputs: BTreeMap::new(),
     };
 
-    continue_workflow(runtime, run_id, state, max_steps).await
+    let response = continue_workflow(runtime, run_id, state, max_steps, &mut on_event).await?;
+    on_event(WorkflowRunEvent::WorkflowFinished(response.clone()));
+    Ok(response)
 }
 
 pub async fn resume_workflow(
@@ -304,106 +361,99 @@ pub async fn resume_workflow(
         last_answer: paused.last_answer,
         last_outputs: outputs,
     };
-    continue_workflow(runtime, request.run_id, state, paused.max_steps).await
+    let mut ignore_event = |_| {};
+    continue_workflow(runtime, request.run_id, state, paused.max_steps, &mut ignore_event).await
 }
 
-async fn continue_workflow(
+async fn continue_workflow<F>(
     runtime: WorkflowRuntime,
     run_id: String,
     mut state: WorkflowExecutionState,
     max_steps: u32,
-) -> Result<WorkflowRunResponse, String> {
-    for _ in 0..max_steps {
-        let Some(node_id) = next_ready_node(
+    on_event: &mut F,
+) -> Result<WorkflowRunResponse, String>
+where
+    F: FnMut(WorkflowRunEvent) + Send,
+{
+    let mut executed_steps = 0_u32;
+    while executed_steps < max_steps {
+        let ready_node_ids = next_ready_nodes(
             &state.graph,
             &state.active_nodes,
             &state.executed_nodes,
             &state.activated_edges,
             &state.selected_handles,
-        ) else {
+        );
+        if ready_node_ids.is_empty() {
             break;
+        }
+
+        let remaining_steps =
+            usize::try_from(max_steps.saturating_sub(executed_steps)).unwrap_or(usize::MAX);
+        let batch_ids = workflow_execution_batch(&state.graph, ready_node_ids, remaining_steps);
+        if batch_ids.is_empty() {
+            break;
+        }
+
+        let mut completed_nodes = if batch_ids.len() > 1 {
+            let nodes = batch_ids
+                .iter()
+                .enumerate()
+                .map(|(offset, node_id)| {
+                    let node = state
+                        .graph
+                        .nodes
+                        .get(node_id)
+                        .cloned()
+                        .ok_or_else(|| format!("workflow 节点不存在: {node_id}"))?;
+                    let node_index =
+                        u32::try_from(state.node_results.len() + offset + 1).unwrap_or(u32::MAX);
+                    Ok((node, node_index))
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            execute_parallel_node_batch(
+                &runtime,
+                &state.graph,
+                &state.pool,
+                &run_id,
+                nodes,
+                on_event,
+            )
+            .await?
+        } else {
+            let node_id = &batch_ids[0];
+            let Some(node) = state.graph.nodes.get(node_id).cloned() else {
+                return Err(format!("workflow 节点不存在: {node_id}"));
+            };
+            let node_index = u32::try_from(state.node_results.len() + 1).unwrap_or(u32::MAX);
+            emit_workflow_node_started(&run_id, &node, node_index, on_event);
+            let execution =
+                execute_node(&runtime, &state.graph, &node, &mut state.pool, node_index, on_event)
+                    .await;
+            vec![CompletedWorkflowNode { node, node_index, execution }]
         };
-        let Some(node) = state.graph.nodes.get(&node_id).cloned() else {
-            return Err(format!("workflow 节点不存在: {node_id}"));
-        };
+        executed_steps =
+            executed_steps.saturating_add(u32::try_from(completed_nodes.len()).unwrap_or(u32::MAX));
 
-        tracing::debug!(
-            target: "vw_agent::workflow",
-            run_id = %run_id,
-            node_id = %node.id,
-            node_type = %node.node_type,
-            title = %node.title,
-            "workflow node started"
-        );
-        let execution = execute_node(&runtime, &state.graph, &node, &mut state.pool).await;
-        let debug_inputs =
-            debug_json_value(&Value::Object(redact_map(&execution.inputs).into_iter().collect()));
-        let debug_outputs =
-            debug_json_value(&Value::Object(redact_map(&execution.outputs).into_iter().collect()));
-        tracing::debug!(
-            target: "vw_agent::workflow",
-            run_id = %run_id,
-            node_id = %node.id,
-            node_type = %node.node_type,
-            title = %node.title,
-            status = ?execution.status,
-            elapsed_ms = execution.elapsed_ms,
-            selected_handle = ?execution.selected_handle,
-            error = ?execution.error,
-            inputs = %debug_inputs,
-            outputs = %debug_outputs,
-            "workflow node finished"
-        );
-        for (key, value) in &execution.outputs {
-            state.pool.insert_node_output(&node.id, key, value.clone());
+        completed_nodes.sort_by(|left, right| left.node_index.cmp(&right.node_index));
+        for completed in completed_nodes {
+            let applied = apply_completed_workflow_node(&run_id, &mut state, completed, on_event);
+            if applied.failed {
+                return Ok(WorkflowRunResponse {
+                    run_id,
+                    status: WorkflowRunStatus::Failed,
+                    answer: state.last_answer,
+                    outputs: redact_map(&state.last_outputs),
+                    nodes: state.node_results,
+                    error: applied.error,
+                    pause: None,
+                });
+            }
+
+            if applied.paused {
+                return pause_workflow(&runtime, run_id, state, &applied.node, max_steps).await;
+            }
         }
-        if let Some(handle) = execution.selected_handle.as_ref() {
-            state.selected_handles.insert(node.id.clone(), handle.clone());
-        }
-        if let Some(answer) = execution.answer.clone() {
-            state.last_answer = Some(answer);
-        }
-        state.last_outputs = execution.outputs.clone();
-        let failed = execution.status == WorkflowNodeRunStatus::Failed;
-        let paused = execution.status == WorkflowNodeRunStatus::Paused;
-
-        state.node_results.push(WorkflowNodeRunDto {
-            node_id: node.id.clone(),
-            node_type: node.node_type.clone(),
-            title: node.title.clone(),
-            status: execution.status,
-            inputs: redact_map(&execution.inputs),
-            outputs: redact_map(&execution.outputs),
-            selected_handle: execution.selected_handle,
-            error: execution.error.clone(),
-            elapsed_ms: execution.elapsed_ms,
-        });
-
-        if failed {
-            return Ok(WorkflowRunResponse {
-                run_id,
-                status: WorkflowRunStatus::Failed,
-                answer: state.last_answer,
-                outputs: redact_map(&state.last_outputs),
-                nodes: state.node_results,
-                error: execution.error,
-                pause: None,
-            });
-        }
-
-        if paused {
-            return pause_workflow(&runtime, run_id, state, &node, max_steps).await;
-        }
-
-        state.executed_nodes.insert(node.id.clone());
-
-        activate_outgoing_edges(
-            &state.graph,
-            &node,
-            &state.selected_handles,
-            &mut state.activated_edges,
-            &mut state.active_nodes,
-        );
     }
 
     let pending = state.active_nodes.difference(&state.executed_nodes).next().cloned();
@@ -428,6 +478,173 @@ async fn continue_workflow(
         error: None,
         pause: None,
     })
+}
+
+struct AppliedWorkflowNode {
+    node: WorkflowNode,
+    failed: bool,
+    paused: bool,
+    error: Option<String>,
+}
+
+fn apply_completed_workflow_node<F>(
+    run_id: &str,
+    state: &mut WorkflowExecutionState,
+    completed: CompletedWorkflowNode,
+    on_event: &mut F,
+) -> AppliedWorkflowNode
+where
+    F: FnMut(WorkflowRunEvent) + Send,
+{
+    let CompletedWorkflowNode { node, node_index, execution } = completed;
+
+    let debug_inputs =
+        debug_json_value(&Value::Object(redact_map(&execution.inputs).into_iter().collect()));
+    let debug_outputs =
+        debug_json_value(&Value::Object(redact_map(&execution.outputs).into_iter().collect()));
+    tracing::debug!(
+        target: "vw_agent::workflow",
+        run_id = %run_id,
+        node_id = %node.id,
+        node_type = %node.node_type,
+        title = %node.title,
+        status = ?execution.status,
+        elapsed_ms = execution.elapsed_ms,
+        selected_handle = ?execution.selected_handle,
+        error = ?execution.error,
+        inputs = %debug_inputs,
+        outputs = %debug_outputs,
+        "workflow node finished"
+    );
+    for (key, value) in &execution.outputs {
+        state.pool.insert_node_output(&node.id, key, value.clone());
+    }
+    if let Some(handle) = execution.selected_handle.as_ref() {
+        state.selected_handles.insert(node.id.clone(), handle.clone());
+    }
+    if let Some(answer) = execution.answer.clone() {
+        state.last_answer = Some(answer);
+    }
+    state.last_outputs = execution.outputs.clone();
+    if let Some(delta) = workflow_node_delta_from_execution(&node, node_index, &execution) {
+        on_event(WorkflowRunEvent::NodeDelta(delta));
+    }
+    let failed = execution.status == WorkflowNodeRunStatus::Failed;
+    let paused = execution.status == WorkflowNodeRunStatus::Paused;
+    let error = execution.error.clone();
+
+    let node_result = WorkflowNodeRunDto {
+        node_id: node.id.clone(),
+        node_type: node.node_type.clone(),
+        title: node.title.clone(),
+        status: execution.status,
+        inputs: redact_map(&execution.inputs),
+        outputs: redact_map(&execution.outputs),
+        selected_handle: execution.selected_handle,
+        error: execution.error,
+        elapsed_ms: execution.elapsed_ms,
+    };
+    on_event(WorkflowRunEvent::NodeFinished(WorkflowNodeFinishedEvent {
+        node: node_result.clone(),
+        index: node_index,
+    }));
+    state.node_results.push(node_result);
+
+    if !failed && !paused {
+        state.executed_nodes.insert(node.id.clone());
+
+        activate_outgoing_edges(
+            &state.graph,
+            &node,
+            &state.selected_handles,
+            &mut state.activated_edges,
+            &mut state.active_nodes,
+        );
+    }
+
+    AppliedWorkflowNode { node, failed, paused, error }
+}
+
+async fn execute_parallel_node_batch<F>(
+    runtime: &WorkflowRuntime,
+    graph: &WorkflowGraph,
+    pool: &VariablePool,
+    run_id: &str,
+    nodes: Vec<(WorkflowNode, u32)>,
+    on_event: &mut F,
+) -> Result<Vec<CompletedWorkflowNode>, String>
+where
+    F: FnMut(WorkflowRunEvent) + Send,
+{
+    let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+    let mut tasks = JoinSet::new();
+
+    for (node, node_index) in nodes {
+        emit_workflow_node_started(run_id, &node, node_index, on_event);
+
+        let runtime = runtime.clone();
+        let graph = graph.clone();
+        let mut pool = pool.clone();
+        let event_tx = event_tx.clone();
+        tasks.spawn(async move {
+            let mut send_event = move |event| {
+                let _ = event_tx.send(event);
+            };
+            let execution =
+                execute_node(&runtime, &graph, &node, &mut pool, node_index, &mut send_event).await;
+            CompletedWorkflowNode { node, node_index, execution }
+        });
+    }
+    drop(event_tx);
+
+    let mut completed_nodes = Vec::new();
+    while !tasks.is_empty() {
+        tokio::select! {
+            event = event_rx.recv() => {
+                if let Some(event) = event {
+                    on_event(event);
+                }
+            }
+            completed = tasks.join_next() => {
+                match completed {
+                    Some(Ok(completed)) => completed_nodes.push(completed),
+                    Some(Err(error)) => {
+                        return Err(format!("workflow 并行节点任务失败: {error}"));
+                    }
+                    None => break,
+                }
+            }
+        }
+    }
+    while let Some(event) = event_rx.recv().await {
+        on_event(event);
+    }
+
+    Ok(completed_nodes)
+}
+
+fn emit_workflow_node_started<F>(
+    run_id: &str,
+    node: &WorkflowNode,
+    node_index: u32,
+    on_event: &mut F,
+) where
+    F: FnMut(WorkflowRunEvent) + Send,
+{
+    on_event(WorkflowRunEvent::NodeStarted(WorkflowNodeStartedEvent {
+        node_id: node.id.clone(),
+        node_type: node.node_type.clone(),
+        title: node.title.clone(),
+        index: node_index,
+    }));
+    tracing::debug!(
+        target: "vw_agent::workflow",
+        run_id = %run_id,
+        node_id = %node.id,
+        node_type = %node.node_type,
+        title = %node.title,
+        "workflow node started"
+    );
 }
 
 fn resolve_workflow_source(request: &WorkflowRunRequest) -> Result<String, String> {
@@ -610,10 +827,22 @@ fn next_ready_node(
     activated_edges: &BTreeSet<usize>,
     selected_handles: &BTreeMap<String, String>,
 ) -> Option<String> {
+    next_ready_nodes(graph, active_nodes, executed_nodes, activated_edges, selected_handles)
+        .into_iter()
+        .next()
+}
+
+fn next_ready_nodes(
+    graph: &WorkflowGraph,
+    active_nodes: &BTreeSet<String>,
+    executed_nodes: &BTreeSet<String>,
+    activated_edges: &BTreeSet<usize>,
+    selected_handles: &BTreeMap<String, String>,
+) -> Vec<String> {
     active_nodes
         .iter()
         .filter(|node_id| !executed_nodes.contains(*node_id))
-        .find(|node_id| {
+        .filter(|node_id| {
             node_ready(
                 graph,
                 node_id,
@@ -624,6 +853,30 @@ fn next_ready_node(
             )
         })
         .cloned()
+        .collect()
+}
+
+fn workflow_execution_batch(
+    graph: &WorkflowGraph,
+    ready_node_ids: Vec<String>,
+    remaining_steps: usize,
+) -> Vec<String> {
+    let ready_node_ids = ready_node_ids.into_iter().take(remaining_steps).collect::<Vec<_>>();
+    if ready_node_ids.len() < 2 {
+        return ready_node_ids;
+    }
+
+    if ready_node_ids.iter().all(|node_id| {
+        graph.nodes.get(node_id).is_some_and(workflow_node_allows_parallel_execution)
+    }) {
+        ready_node_ids
+    } else {
+        ready_node_ids.into_iter().take(1).collect()
+    }
+}
+
+fn workflow_node_allows_parallel_execution(node: &WorkflowNode) -> bool {
+    matches!(node.node_type.as_str(), "llm")
 }
 
 fn node_ready(
@@ -700,16 +953,21 @@ fn activate_outgoing_edges(
     }
 }
 
-async fn execute_node(
+async fn execute_node<F>(
     runtime: &WorkflowRuntime,
     graph: &WorkflowGraph,
     node: &WorkflowNode,
     pool: &mut VariablePool,
-) -> NodeExecution {
+    node_index: u32,
+    on_event: &mut F,
+) -> NodeExecution
+where
+    F: FnMut(WorkflowRunEvent) + Send,
+{
     let started = Instant::now();
     let result = match node.node_type.as_str() {
         "start" => Ok(execute_start_node(node, pool)),
-        "llm" => execute_llm_node(runtime, node, pool).await,
+        "llm" => execute_llm_node(runtime, node, pool, node_index, on_event).await,
         "if-else" => execute_if_else_node(node, pool),
         "code" => execute_code_node(node, pool).await,
         "answer" => Ok(execute_answer_node(node, pool)),
@@ -761,11 +1019,16 @@ fn execute_start_node(node: &WorkflowNode, pool: &VariablePool) -> NodeExecution
     }
 }
 
-async fn execute_llm_node(
+async fn execute_llm_node<F>(
     runtime: &WorkflowRuntime,
     node: &WorkflowNode,
     pool: &VariablePool,
-) -> Result<NodeExecution, String> {
+    node_index: u32,
+    on_event: &mut F,
+) -> Result<NodeExecution, String>
+where
+    F: FnMut(WorkflowRunEvent) + Send,
+{
     let messages = build_llm_messages(node, pool);
     let requested_model = node
         .data
@@ -773,20 +1036,76 @@ async fn execute_llm_node(
         .and_then(|model| string_field(model, "name"))
         .filter(|value| !value.trim().is_empty())
         .unwrap_or(runtime.model.as_str());
-    let response = run_llm_chat_with_model_fallback(runtime, &messages, requested_model).await?;
-    let text = response.text.unwrap_or_default();
+    let (text, usage) = if runtime.provider.supports_streaming() {
+        run_llm_chat_streaming(runtime, node, node_index, &messages, requested_model, on_event)
+            .await?
+    } else {
+        let response =
+            run_llm_chat_with_model_fallback(runtime, &messages, requested_model).await?;
+        (response.text.unwrap_or_default(), workflow_token_usage(response.usage.as_ref()))
+    };
+    let mut outputs = llm_outputs(text);
+    if let Some(usage) = usage {
+        outputs.insert("usage".to_string(), usage);
+    }
     Ok(NodeExecution {
         status: WorkflowNodeRunStatus::Succeeded,
         inputs: BTreeMap::from([(
             "messages".to_string(),
             serde_json::to_value(&messages).unwrap_or(Value::Null),
         )]),
-        outputs: llm_outputs(text),
+        outputs,
         selected_handle: None,
         answer: None,
         error: None,
         elapsed_ms: 0,
     })
+}
+
+async fn run_llm_chat_streaming<F>(
+    runtime: &WorkflowRuntime,
+    node: &WorkflowNode,
+    node_index: u32,
+    messages: &[ChatMessage],
+    requested_model: &str,
+    on_event: &mut F,
+) -> Result<(String, Option<Value>), String>
+where
+    F: FnMut(WorkflowRunEvent) + Send,
+{
+    let mut text = String::new();
+    let mut output_tokens = 0_u64;
+    let mut stream = runtime.provider.stream_chat_with_history(
+        messages,
+        requested_model,
+        runtime.temperature,
+        StreamOptions::new(true).with_token_count(),
+    );
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|error| format!("LLM 节点调用失败: {error}"))?;
+        if chunk.is_final {
+            if !chunk.delta.trim().is_empty() {
+                return Err(format!("LLM 节点调用失败: {}", chunk.delta));
+            }
+            break;
+        }
+        if chunk.delta.is_empty() {
+            continue;
+        }
+        output_tokens = output_tokens.saturating_add(u64::try_from(chunk.token_count).unwrap_or(0));
+        text.push_str(&chunk.delta);
+        on_event(WorkflowRunEvent::NodeDelta(WorkflowNodeDeltaEvent {
+            node_id: node.id.clone(),
+            node_type: node.node_type.clone(),
+            title: node.title.clone(),
+            index: node_index,
+            text: chunk.delta,
+            replace: false,
+        }));
+    }
+
+    Ok((text, workflow_estimated_token_usage(output_tokens)))
 }
 
 async fn run_llm_chat_with_model_fallback(
@@ -2134,7 +2453,9 @@ async fn execute_workflow_subgraph(
         let Some(node) = graph.nodes.get(&node_id).cloned() else {
             return Err(format!("{context}节点不存在: {node_id}"));
         };
-        let execution = Box::pin(execute_node(runtime, graph, &node, pool)).await;
+        let mut ignore_event = |_| {};
+        let execution =
+            Box::pin(execute_node(runtime, graph, &node, pool, 0, &mut ignore_event)).await;
         for (key, value) in &execution.outputs {
             pool.insert_node_output(&node.id, key, value.clone());
         }
@@ -2771,6 +3092,109 @@ fn llm_outputs(text: String) -> BTreeMap<String, Value> {
     outputs
 }
 
+fn workflow_token_usage(usage: Option<&TokenUsage>) -> Option<Value> {
+    let usage = usage?;
+    if usage.input_tokens.is_none()
+        && usage.output_tokens.is_none()
+        && usage.cached_tokens.is_none()
+        && usage.reasoning_tokens.is_none()
+    {
+        return None;
+    }
+
+    let input_tokens = usage.input_tokens.unwrap_or(0);
+    let output_tokens = usage.output_tokens.unwrap_or(0);
+    let cached_tokens = usage.cached_tokens.unwrap_or(0);
+    let reasoning_tokens = usage.reasoning_tokens.unwrap_or(0);
+    let total_tokens = input_tokens.saturating_add(output_tokens).saturating_add(reasoning_tokens);
+
+    Some(serde_json::json!({
+        "prompt_tokens": input_tokens,
+        "completion_tokens": output_tokens,
+        "total_tokens": total_tokens,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cached_tokens": cached_tokens,
+        "reasoning_tokens": reasoning_tokens,
+    }))
+}
+
+fn workflow_estimated_token_usage(output_tokens: u64) -> Option<Value> {
+    if output_tokens == 0 {
+        return None;
+    }
+    Some(serde_json::json!({
+        "prompt_tokens": 0,
+        "completion_tokens": output_tokens,
+        "total_tokens": output_tokens,
+        "input_tokens": 0,
+        "output_tokens": output_tokens,
+        "cached_tokens": 0,
+        "reasoning_tokens": 0,
+    }))
+}
+
+fn workflow_node_delta_from_execution(
+    node: &WorkflowNode,
+    index: u32,
+    execution: &NodeExecution,
+) -> Option<WorkflowNodeDeltaEvent> {
+    if node.node_type == "llm" {
+        return None;
+    }
+    let text = truncate_workflow_node_delta(&workflow_node_delta_text(execution)?);
+    Some(WorkflowNodeDeltaEvent {
+        node_id: node.id.clone(),
+        node_type: node.node_type.clone(),
+        title: node.title.clone(),
+        index,
+        text,
+        replace: true,
+    })
+}
+
+fn truncate_workflow_node_delta(text: &str) -> String {
+    let char_count = text.chars().count();
+    if char_count <= WORKFLOW_NODE_DELTA_MAX_CHARS {
+        return text.to_string();
+    }
+
+    let head_len = WORKFLOW_NODE_DELTA_MAX_CHARS * 2 / 3;
+    let tail_len = WORKFLOW_NODE_DELTA_MAX_CHARS.saturating_sub(head_len);
+    let head = text.chars().take(head_len).collect::<String>();
+    let tail =
+        text.chars().rev().take(tail_len).collect::<String>().chars().rev().collect::<String>();
+    let omitted = char_count.saturating_sub(head_len + tail_len);
+    format!("{head}\n\n... 已截断 {omitted} 字符，仅保留节点输出预览 ...\n\n{tail}")
+}
+
+fn workflow_node_delta_text(execution: &NodeExecution) -> Option<String> {
+    if let Some(error) = execution.error.as_deref().map(str::trim).filter(|value| !value.is_empty())
+    {
+        return Some(error.to_string());
+    }
+    if let Some(answer) =
+        execution.answer.as_deref().map(str::trim).filter(|value| !value.is_empty())
+    {
+        return Some(answer.to_string());
+    }
+    for key in ["answer", "text", "result"] {
+        if let Some(text) = execution
+            .outputs
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            return Some(text.to_string());
+        }
+    }
+    if execution.outputs.is_empty() {
+        return None;
+    }
+    serde_json::to_string(&redact_map(&execution.outputs)).ok()
+}
+
 fn answer_outputs(answer: String) -> BTreeMap<String, Value> {
     let value = Value::String(answer);
     BTreeMap::from([("answer".to_string(), value.clone()), ("text".to_string(), value)])
@@ -2872,3 +3296,7 @@ fn is_sensitive_key(key: &str) -> bool {
         .iter()
         .any(|marker| lower.contains(marker))
 }
+
+#[cfg(test)]
+#[path = "runner_tests.rs"]
+mod runner_tests;

@@ -7,11 +7,11 @@ use crate::app::Message;
 use crate::app::assets::Icon;
 /// 重新导出 use crate::app::components::chat_panel::utils::{，让上层模块通过稳定路径访问。
 use crate::app::components::chat_panel::utils::{
-    bold_font, chat_secondary_text_color, icon_svg, normalize_file_reference_to_path,
-    truncate_chars,
+    bold_font, chat_secondary_subtle_text_color, chat_secondary_text_color, icon_svg,
+    normalize_file_reference_to_path, truncate_chars,
 };
-/// 重新导出 use iced::widget::{container, row, text}，让上层模块通过稳定路径访问。
-use iced::widget::{container, row, text};
+/// 重新导出 use iced::widget::{container, row, svg, text}，让上层模块通过稳定路径访问。
+use iced::widget::{container, row, svg, text};
 /// 重新导出 use iced::{Alignment, Background, Border, Color, Element, Length, Theme}，让上层模块通过稳定路径访问。
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
@@ -73,6 +73,7 @@ pub fn tool_emoji(tool_name: &str) -> &'static str {
         "composio" => "🔗",
         "pushover" => "🔔",
         "process" => "💻",
+        "workflow_node" => "🔁",
         _ => "🔧",
     }
 }
@@ -95,8 +96,8 @@ pub fn tool_icon(tool_name: &str) -> Icon {
     match tool_name.as_str() {
         "config" => Icon::Sliders,
         "brief" => Icon::ChatTextFill,
-        "read" | "file_read" | "pdf_read" | "read_file" => Icon::Eye,
-        "write" | "file_write" | "file_edit" | "notebook_edit" => Icon::Eye,
+        "read" | "file_read" | "pdf_read" | "read_file" => Icon::ChevronRight,
+        "write" | "file_write" | "file_edit" | "notebook_edit" => Icon::ChevronRight,
         "apply_patch" => Icon::Pencil,
         "lsp"
         | "codesearch"
@@ -129,8 +130,44 @@ pub fn tool_icon(tool_name: &str) -> Icon {
         "memory_store" | "memory_recall" | "memory_forget" => Icon::Box,
         "git_operations" | "git_diff" | "get_changed_files" => Icon::GitBranch,
         "image_info" | "view_image" => Icon::Image,
+        "workflow_node" => Icon::Grid1x2,
         _ => Icon::FileText,
     }
+}
+
+fn tool_icon_badge_size(tool_name: &str) -> f32 {
+    if is_compact_file_tool_icon(tool_name) {
+        return 8.0;
+    }
+
+    14.0
+}
+
+fn is_compact_file_tool_icon(tool_name: &str) -> bool {
+    let tool_name = canonical_tool_name(tool_name).to_ascii_lowercase();
+    matches!(
+        tool_name.as_str(),
+        "read"
+            | "file_read"
+            | "pdf_read"
+            | "read_file"
+            | "write"
+            | "file_write"
+            | "file_edit"
+            | "notebook_edit"
+    )
+}
+
+fn tool_icon_badge_color(theme: &Theme, is_compact_file_tool: bool, is_error: bool) -> Color {
+    if is_error {
+        return theme.extended_palette().danger.base.color;
+    }
+
+    if is_compact_file_tool {
+        return chat_secondary_subtle_text_color(theme);
+    }
+
+    chat_secondary_text_color(theme)
 }
 
 /// 处理 tool verb 对应的局部职责。
@@ -192,6 +229,7 @@ pub fn tool_verb(tool_name: &str) -> &'static str {
         "composio" => "Composio",
         "pushover" => "通知",
         "process" => "进程",
+        "workflow_node" => "工作流",
         _ => "工具",
     }
 }
@@ -227,8 +265,16 @@ pub fn tool_header_label(tool_name: &str) -> String {
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-pub fn tool_icon_badge<'a>(tool_name: &str) -> Element<'a, Message> {
-    container(icon_svg(tool_icon(tool_name)))
+pub fn tool_icon_badge<'a>(tool_name: &str, is_error: bool) -> Element<'a, Message> {
+    let is_compact_file_tool = is_compact_file_tool_icon(tool_name);
+    let icon = icon_svg(tool_icon(tool_name))
+        .width(Length::Fixed(tool_icon_badge_size(tool_name)))
+        .height(Length::Fixed(tool_icon_badge_size(tool_name)))
+        .style(move |theme: &Theme, _status| svg::Style {
+            color: Some(tool_icon_badge_color(theme, is_compact_file_tool, is_error)),
+        });
+
+    container(icon)
         .width(Length::Fixed(24.0))
         .height(Length::Fixed(24.0))
         .align_x(iced::alignment::Horizontal::Center)
@@ -292,7 +338,7 @@ pub fn tool_header_title<'a>(
 ) -> Element<'a, Message> {
     let title = title.into();
     row![
-        tool_icon_badge(tool_name),
+        tool_icon_badge(tool_name, is_error),
         text(title).size(13).font(bold_font()).style(move |theme: &Theme| {
             // iced 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
             iced::widget::text::Style {

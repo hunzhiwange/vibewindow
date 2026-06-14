@@ -154,3 +154,35 @@ fn rebuild_active_session_message_meta_keeps_tool_outside_step_indexing() {
             .is_some_and(|text| text.contains("model-b"))
     );
 }
+
+#[test]
+fn rebuild_active_session_message_meta_does_not_relabel_unrecorded_model() {
+    let (mut app, _task) = App::new();
+    app.chat = vec![
+        ChatMessage {
+            role: ChatRole::User, content: "问题".to_string(), think_timing: Vec::new()
+        },
+        ChatMessage {
+            role: ChatRole::Assistant,
+            content: "回答".to_string(),
+            think_timing: Vec::new(),
+        },
+    ];
+
+    app.upsert_active_session_step(ChatSessionStep {
+        index: 1,
+        started_ms: 1_000,
+        finished_ms: Some(1_400),
+        start_snapshot_path: None,
+        finish_snapshot_path: None,
+        usage: TokenUsage::default(),
+        cost_usd: None,
+        finish_reason: Some("stop".to_string()),
+        model: None,
+    });
+
+    app.current_session_runtime_mut().model = "model-b".to_string();
+    app.rebuild_active_session_message_meta();
+
+    assert_eq!(app.active_session_view_state.message_meta_texts, vec![None, None]);
+}

@@ -409,4 +409,105 @@ mod tests {
         // 应返回 (通道名, 目标ID) 元组
         assert_eq!(target, Some(("telegram".to_string(), "123456".to_string())));
     }
+
+    #[test]
+    fn state_file_path_uses_current_directory_when_config_has_no_parent() {
+        let mut config = Config::default();
+        config.config_path = PathBuf::new();
+
+        assert_eq!(state_file_path(&config), PathBuf::from(".").join("daemon_state.json"));
+    }
+
+    #[test]
+    fn gateway_base_url_normalizes_probe_hosts_and_ipv6() {
+        assert_eq!(gateway_base_url("", 8080), "http://127.0.0.1:8080");
+        assert_eq!(gateway_base_url("0.0.0.0", 8080), "http://127.0.0.1:8080");
+        assert_eq!(gateway_base_url("::", 8080), "http://[::1]:8080");
+        assert_eq!(gateway_base_url("localhost", 8080), "http://localhost:8080");
+        assert_eq!(gateway_base_url("2001:db8::1", 8080), "http://[2001:db8::1]:8080");
+    }
+
+    #[test]
+    fn gateway_probe_urls_append_expected_paths() {
+        assert_eq!(gateway_health_url("localhost", 7777), "http://localhost:7777/v1/health");
+        assert_eq!(
+            gateway_cron_history_probe_url("localhost", 7777),
+            "http://localhost:7777/v1/cron/runs/__probe__"
+        );
+    }
+
+    #[test]
+    fn addr_in_use_gateway_errors_are_non_retryable() {
+        let err =
+            anyhow::Error::new(std::io::Error::new(ErrorKind::AddrInUse, "already listening"));
+
+        assert!(is_non_retryable_component_error("gateway", &err));
+        assert!(!is_non_retryable_component_error("channels", &err));
+    }
+
+    #[tokio::test]
+    async fn gateway_supervisor_stops_on_non_retryable_addr_in_use() {
+        let component = "gateway";
+        let handle = spawn_component_supervisor(component, 1, 1, || async {
+            Err(anyhow::Error::new(std::io::Error::new(ErrorKind::AddrInUse, "already listening")))
+        });
+
+        tokio::time::timeout(Duration::from_millis(200), handle)
+            .await
+            .expect("non-retryable gateway supervisor should finish")
+            .unwrap();
+
+        let snapshot = crate::app::agent::health::snapshot_json();
+        let entry = &snapshot["components"][component];
+        assert_eq!(entry["status"], "error");
+        assert_eq!(entry["restart_count"].as_u64().unwrap_or(0), 0);
+    }
+
+    #[tokio::test]
+    async fn state_writer_creates_parent_directory_and_writes_json() {
+        let tmp = TempDir::new().unwrap();
+        let mut config = test_config(&tmp);
+        config.config_path = tmp.path().join("nested").join("vibewindow.json");
+        crate::app::agent::health::mark_component_ok("daemon-test-state-writer");
+
+        let handle = spawn_state_writer(config.clone());
+        let path = state_file_path(&config);
+        tokio::time::timeout(Duration::from_millis(500), async {
+            loop {
+                if path.exists() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("state writer should create the state file");
+        handle.abort();
+        let _ = handle.await;
+
+        let raw = std::fs::read_to_string(path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert!(json.get("written_at").and_then(serde_json::Value::as_str).is_some());
+        assert_eq!(json["components"]["daemon-test-state-writer"]["status"], "ok");
+    }
+
+    #[test]
+    fn heartbeat_delivery_target_trims_channel_and_target() {
+        let mut config = Config::default();
+        config.heartbeat.target = Some(" telegram ".into());
+        config.heartbeat.to = Some(" 123456 ".into());
+        config.channels_config.telegram = Some(crate::app::agent::config::TelegramConfig {
+            bot_token: "bot-token".into(),
+            allowed_users: vec![],
+            stream_mode: crate::app::agent::config::StreamMode::default(),
+            draft_update_interval_ms: 1000,
+            interrupt_on_new_message: false,
+            mention_only: false,
+            group_reply: None,
+            base_url: None,
+        });
+
+        let target = heartbeat_delivery_target(&config).unwrap();
+        assert_eq!(target, Some(("telegram".to_string(), "123456".to_string())));
+    }
 }

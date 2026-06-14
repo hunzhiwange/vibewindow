@@ -2,10 +2,13 @@
 //! 用例覆盖光标移动、文本修改和提交边界，保证终端输入可预测。
 
 use super::input::{
-    TuiSlashCommandKind, TuiSlashCommandOutcome, execute_slash_command, parse_slash_command,
-    prompt_suggestions,
+    TuiPromptSuggestionMotion, TuiSlashCommandKind, TuiSlashCommandOutcome, apply_first_suggestion,
+    execute_slash_command, move_prompt_suggestion_selection, parse_slash_command,
+    prompt_suggestions, selected_prompt_suggestion,
 };
-use super::state::{TuiAction, TuiModelCatalogEntry, TuiState, reduce_tui_state};
+use super::state::{
+    TuiAction, TuiModelCatalogEntry, TuiSessionPreview, TuiState, reduce_tui_state,
+};
 
 #[test]
 fn parse_slash_command_maps_aliases_and_arguments() {
@@ -16,6 +19,21 @@ fn parse_slash_command_maps_aliases_and_arguments() {
     let model = parse_slash_command("/model gpt-5.4").expect("model slash command should parse");
     assert_eq!(model.kind, Some(TuiSlashCommandKind::Model));
     assert_eq!(model.argument.as_deref(), Some("gpt-5.4"));
+}
+
+#[test]
+fn parse_slash_command_ignores_non_slash_and_normalizes_empty_arguments() {
+    assert!(parse_slash_command("hello").is_none());
+
+    let blank = parse_slash_command("  /   ").expect("bare slash should parse");
+    assert_eq!(blank.raw, "/");
+    assert_eq!(blank.token, "");
+    assert_eq!(blank.argument, None);
+    assert_eq!(blank.kind, None);
+
+    let upper = parse_slash_command("/MODEL   gpt-5.4   ").expect("case-insensitive command");
+    assert_eq!(upper.kind, Some(TuiSlashCommandKind::Model));
+    assert_eq!(upper.argument.as_deref(), Some("gpt-5.4"));
 }
 
 #[test]
@@ -49,6 +67,51 @@ fn prompt_suggestions_cover_command_prefix_and_model_argument() {
         filtered_suggestions.first().map(|item| item.replacement.as_str()),
         Some("/model openai/gpt-5.4")
     );
+}
+
+#[test]
+fn prompt_suggestion_selection_clamps_wraps_and_applies_replacement() {
+    let mut state = TuiState::default();
+    reduce_tui_state(&mut state, TuiAction::PromptValueSet("/".to_string()));
+    state.prompt.set_selected_suggestion_index(Some(99));
+
+    let selected = selected_prompt_suggestion(&state).expect("last command should be selected");
+    assert_eq!(selected.label, "/exit");
+    assert_eq!(move_prompt_suggestion_selection(&state, TuiPromptSuggestionMotion::Next), Some(0));
+    assert_eq!(
+        move_prompt_suggestion_selection(&state, TuiPromptSuggestionMotion::Previous),
+        Some(3)
+    );
+    assert_eq!(apply_first_suggestion(&state).as_deref(), Some("/exit"));
+
+    reduce_tui_state(&mut state, TuiAction::PromptValueSet("/exit".to_string()));
+    state.prompt.set_selected_suggestion_index(Some(0));
+    assert_eq!(apply_first_suggestion(&state), None);
+}
+
+#[test]
+fn prompt_suggestions_cover_resume_preview_and_active_model_fallback() {
+    let mut state = TuiState::default();
+    state.session.preview = Some(TuiSessionPreview {
+        id: "session-1".to_string(),
+        title: "Previous work".to_string(),
+        updated_ms: 42,
+        message_count: 3,
+        call_count: 1,
+        last_content: Some("done".to_string()),
+    });
+    reduce_tui_state(&mut state, TuiAction::PromptValueSet("/resume ".to_string()));
+    let resume = prompt_suggestions(&state);
+    assert_eq!(resume.len(), 1);
+    assert_eq!(resume[0].replacement, "/resume session-1");
+
+    reduce_tui_state(&mut state, TuiAction::PromptValueSet("/resume session-1".to_string()));
+    assert!(prompt_suggestions(&state).is_empty());
+
+    reduce_tui_state(&mut state, TuiAction::StatusModelSet(Some("custom-fast".to_string())));
+    reduce_tui_state(&mut state, TuiAction::PromptValueSet("/model fast".to_string()));
+    let model = prompt_suggestions(&state);
+    assert_eq!(model.first().map(|item| item.replacement.as_str()), Some("/model custom-fast"));
 }
 
 #[test]
@@ -129,6 +192,74 @@ fn execute_slash_command_model_and_unknown_emit_system_feedback() {
         panic!("unknown slash command should emit system feedback");
     };
     assert!(message.text.contains("未知的斜杠命令"));
+}
+
+#[test]
+fn execute_slash_command_help_and_model_hint_emit_info_messages() {
+    let mut state = TuiState::default();
+    reduce_tui_state(&mut state, TuiAction::StatusModelSet(Some("gpt-5.4".to_string())));
+
+    let help = execute_slash_command(
+        &mut state,
+        &parse_slash_command("/help").expect("help command should parse"),
+    );
+    assert_eq!(help, TuiSlashCommandOutcome::Continue);
+    let super::model::UiMessage::System(help_message) =
+        state.messages.last().expect("help should append a system message")
+    else {
+        panic!("help should emit system feedback");
+    };
+    assert!(help_message.text.contains("/resume"));
+    assert_eq!(help_message.level, super::model::UiSystemMessageLevel::Info);
+
+    let model_hint = execute_slash_command(
+        &mut state,
+        &parse_slash_command("/model").expect("model command should parse"),
+    );
+    assert_eq!(model_hint, TuiSlashCommandOutcome::Continue);
+    let super::model::UiMessage::System(message) =
+        state.messages.last().expect("model hint should append a system message")
+    else {
+        panic!("model hint should emit system feedback");
+    };
+    assert!(message.text.contains("当前模型: gpt-5.4"));
+}
+
+#[test]
+fn execute_slash_command_model_uses_catalog_or_current_provider_for_unqualified_input() {
+    let mut state = TuiState::default();
+    reduce_tui_state(&mut state, TuiAction::StatusProviderSet(Some("anthropic".to_string())));
+    reduce_tui_state(
+        &mut state,
+        TuiAction::ModelCatalogReplaced(vec![
+            TuiModelCatalogEntry {
+                provider_id: "openai".to_string(),
+                provider_name: "OpenAI".to_string(),
+                model_id: "gpt-5.4".to_string(),
+                model_name: "GPT-5.4".to_string(),
+            },
+            TuiModelCatalogEntry {
+                provider_id: "anthropic".to_string(),
+                provider_name: "Anthropic".to_string(),
+                model_id: "claude-sonnet".to_string(),
+                model_name: "Claude Sonnet".to_string(),
+            },
+        ]),
+    );
+
+    execute_slash_command(
+        &mut state,
+        &parse_slash_command("/model claude-sonnet").expect("model command should parse"),
+    );
+    assert_eq!(state.status.provider_name.as_deref(), Some("anthropic"));
+    assert_eq!(state.status.model_name.as_deref(), Some("claude-sonnet"));
+
+    execute_slash_command(
+        &mut state,
+        &parse_slash_command("/model unknown-local").expect("model command should parse"),
+    );
+    assert_eq!(state.status.provider_name.as_deref(), Some("anthropic"));
+    assert_eq!(state.status.model_name.as_deref(), Some("unknown-local"));
 }
 
 #[test]

@@ -48,6 +48,12 @@ where
         .route("/config/providers", get(config_providers))
 }
 
+pub(crate) fn stateful_router() -> Router<AppState> {
+    Router::new()
+        .route("/config", get(config_get_stateful).patch(config_patch_stateful))
+        .route("/config/providers", get(config_providers))
+}
+
 async fn config_get(
     Query(query): Query<InstanceQuery>,
     headers: HeaderMap,
@@ -71,6 +77,46 @@ async fn config_patch(
     })
     .await?;
     Ok(Json(serde_json::to_value(next).map_err(|e| ApiError::internal(e.to_string()))?))
+}
+
+async fn config_get_stateful(
+    Query(query): Query<InstanceQuery>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    config_get(Query(query), headers).await
+}
+
+async fn config_patch_stateful(
+    State(state): State<AppState>,
+    Query(query): Query<InstanceQuery>,
+    headers: HeaderMap,
+    Json(patch): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    let updates_active_config = !has_explicit_directory(&query, &headers);
+    let dir = resolve_directory(&query, &headers);
+    let next = with_instance(dir, move || {
+        Box::pin(async move {
+            config::update(patch).await.map_err(|e| ApiError::bad_request(e.to_string()))?;
+            Ok(config::get().await)
+        })
+    })
+    .await?;
+    let response = serde_json::to_value(&next).map_err(|e| ApiError::internal(e.to_string()))?;
+
+    if updates_active_config {
+        state.pairing.update_from_skeys(next.gateway.auth_enabled, &next.gateway.skeys);
+        *state.config.lock() = next;
+    }
+
+    Ok(Json(response))
+}
+
+fn has_explicit_directory(query: &InstanceQuery, headers: &HeaderMap) -> bool {
+    query.directory.as_deref().is_some_and(|value| !value.trim().is_empty())
+        || headers
+            .get("x-vibewindow-directory")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| !value.trim().is_empty())
 }
 
 #[derive(Debug, Serialize)]
@@ -143,7 +189,12 @@ pub async fn handle_api_config_get(
     }
 
     // 获取当前配置的克隆副本，避免长时间持有锁
-    let config = state.config.lock().clone();
+    let mut config = state.config.lock().clone();
+    if let Ok(Some(skeys)) =
+        crate::app::agent::security::gateway_skey_store::load_existing_gateway_skeys()
+    {
+        config.gateway.skeys = skeys;
+    }
 
     // 对敏感字段进行掩码处理，防止密钥泄露
     let masked_config = super::super::secrets::mask_sensitive_fields(&config);
@@ -250,7 +301,19 @@ pub async fn handle_api_config_put(
     let current_config = state.config.lock().clone();
 
     // 水合敏感字段：从当前配置中继承新配置中缺失或占位的敏感值
-    let new_config = super::super::secrets::hydrate_config_for_save(incoming, &current_config);
+    let mut new_config = super::super::secrets::hydrate_config_for_save(incoming, &current_config);
+    let runtime_auth_enabled = new_config.gateway.auth_enabled;
+    let runtime_skeys = new_config.gateway.skeys.clone();
+    if let Err(e) = crate::app::agent::security::gateway_skey_store::save_gateway_skeys(
+        &new_config.gateway.skeys,
+    ) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": format!("Failed to save gateway skeys: {e}")})),
+        )
+            .into_response();
+    }
+    new_config.gateway.skeys.clear();
 
     // 验证新配置的完整性和正确性
     if let Err(e) = validate_config(&new_config) {
@@ -272,7 +335,12 @@ pub async fn handle_api_config_put(
 
     // 更新内存中的运行时配置，使新配置立即生效
     *state.config.lock() = new_config;
+    state.pairing.update_from_skeys(runtime_auth_enabled, &runtime_skeys);
 
     // 返回成功响应
     Json(serde_json::json!({"status": "ok"})).into_response()
 }
+
+#[cfg(test)]
+#[path = "config_tests.rs"]
+mod config_tests;

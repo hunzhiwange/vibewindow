@@ -304,8 +304,8 @@ pub fn get_diff_file_metas_for_repo_path(path: &str) -> Vec<DiffFileMeta> {
     // 配置差异选项：包含未跟踪的文件
     let mut opts = git2::DiffOptions::new();
     opts.include_untracked(true);
-    // 提交网关按 HEAD 到工作区的行号暂存选中内容，面板必须使用同一基线。
-    let Ok(diff) = repo.diff_tree_to_workdir(Some(&tree), Some(&mut opts)) else {
+    // 合并 index 信息，面板才能区分已暂存新增和未跟踪文件。
+    let Ok(diff) = repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut opts)) else {
         return vec![];
     };
 

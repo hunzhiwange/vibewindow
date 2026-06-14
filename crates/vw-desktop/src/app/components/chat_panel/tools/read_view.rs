@@ -200,7 +200,7 @@ pub fn tool_read_view<'a>(
         .on_press(Message::Preview(message::PreviewMessage::Open(abs.clone())));
 
     let detail_btn = button(
-        icon_svg(Icon::Eye)
+        icon_svg(Icon::ChevronRight)
             .width(Length::Fixed(10.0))
             .height(Length::Fixed(10.0))
             .style(eye_icon_svg_style),

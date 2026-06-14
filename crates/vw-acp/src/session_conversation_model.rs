@@ -65,7 +65,9 @@ fn extract_text(content: &ContentBlock) -> Option<String> {
         Some("resource_link") => record
             .get("title")
             .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
             .or_else(|| record.get("name").and_then(Value::as_str))
+            .filter(|value| !value.trim().is_empty())
             .or_else(|| record.get("uri").and_then(Value::as_str))
             .map(ToOwned::to_owned),
         Some("resource") => {
@@ -73,6 +75,7 @@ fn extract_text(content: &ContentBlock) -> Option<String> {
             resource
                 .get("text")
                 .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
                 .or_else(|| resource.get("uri").and_then(Value::as_str))
                 .map(ToOwned::to_owned)
         }
@@ -92,14 +95,20 @@ fn content_to_user_content(content: &ContentBlock) -> Option<SessionUserContent>
             let label = record
                 .get("title")
                 .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
                 .or_else(|| record.get("name").and_then(Value::as_str))
+                .filter(|value| !value.trim().is_empty())
                 .unwrap_or(&uri)
                 .to_string();
             Some(SessionUserContent::Mention(SessionMention { uri, content: label }))
         }
         Some("resource") => {
             let resource = record.get("resource").and_then(Value::as_object)?;
-            if let Some(text) = resource.get("text").and_then(Value::as_str) {
+            if let Some(text) = resource
+                .get("text")
+                .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+            {
                 return Some(SessionUserContent::Text(text.to_string()));
             }
             let uri = resource.get("uri").and_then(Value::as_str)?.to_string();
@@ -314,6 +323,22 @@ fn parse_tool_result_dto(
     tool_call_id: &str,
     tool_kind: Option<&str>,
 ) -> Option<ToolResultDto> {
+    let raw_record = raw_output.as_object()?;
+    let has_dto_shape = raw_record.get("content").is_some_and(Value::is_array)
+        || raw_record.contains_key("tool_use_id")
+        || raw_record.contains_key("toolUseId")
+        || raw_record.contains_key("tool_id")
+        || raw_record.contains_key("toolId")
+        || raw_record.contains_key("success")
+        || raw_record.contains_key("data")
+        || raw_record.contains_key("model_result")
+        || raw_record.contains_key("modelResult")
+        || raw_record.contains_key("render_hint")
+        || raw_record.contains_key("renderHint");
+    if !has_dto_shape {
+        return None;
+    }
+
     let mut result = serde_json::from_value::<ToolResultDto>(raw_output.clone()).ok()?;
 
     if result.tool_use_id.as_deref().is_none_or(|value| value.trim().is_empty()) {
@@ -643,6 +668,10 @@ pub fn record_text_prompt_submission(
     prompt: &str,
     timestamp: Option<&str>,
 ) {
+    if prompt.trim().is_empty() {
+        return;
+    }
+
     let input = text_prompt(prompt);
     record_prompt_submission(conversation, &input, timestamp);
 }
@@ -685,6 +714,7 @@ pub fn record_session_update(
             if let Some(content_value) = update.get("content")
                 && let Ok(content) = serde_json::from_value::<ContentBlock>(content_value.clone())
                 && let Some(text) = extract_text(&content)
+                && !text.trim().is_empty()
             {
                 let agent = ensure_agent_message(conversation);
                 append_agent_text(agent, &text);
@@ -694,6 +724,7 @@ pub fn record_session_update(
             if let Some(content_value) = update.get("content")
                 && let Ok(content) = serde_json::from_value::<ContentBlock>(content_value.clone())
                 && let Some(text) = extract_text(&content)
+                && !text.trim().is_empty()
             {
                 let agent = ensure_agent_message(conversation);
                 append_agent_thinking(agent, &text);

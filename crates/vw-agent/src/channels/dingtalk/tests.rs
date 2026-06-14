@@ -138,4 +138,47 @@ mod tests {
         let chat_id = DingTalkChannel::resolve_chat_id(&data, "staff-1");
         assert_eq!(chat_id, "cid-group");
     }
+
+    #[test]
+    fn parse_stream_data_rejects_missing_invalid_or_non_object_payloads() {
+        assert!(DingTalkChannel::parse_stream_data(&serde_json::json!({})).is_none());
+        assert!(
+            DingTalkChannel::parse_stream_data(&serde_json::json!({"data": "not-json"})).is_none()
+        );
+        assert!(DingTalkChannel::parse_stream_data(&serde_json::json!({"data": 42})).is_none());
+    }
+
+    #[test]
+    fn resolve_chat_id_handles_private_string_and_group_fallback() {
+        let private = serde_json::json!({
+            "conversationType": "1",
+            "conversationId": "cid-private",
+        });
+        assert_eq!(DingTalkChannel::resolve_chat_id(&private, "staff-1"), "staff-1");
+
+        let group_without_id = serde_json::json!({
+            "conversationType": "2",
+        });
+        assert_eq!(DingTalkChannel::resolve_chat_id(&group_without_id, "staff-2"), "staff-2");
+    }
+
+    #[tokio::test]
+    async fn send_without_cached_webhook_fails_before_network() {
+        let ch = DingTalkChannel::new("id".into(), "secret".into(), vec!["*".into()]);
+        let error = Channel::send(
+            &ch,
+            &SendMessage {
+                content: "hello".into(),
+                recipient: "missing-chat".into(),
+                subject: Some("Title".into()),
+                thread_ts: None,
+            },
+        )
+        .await
+        .unwrap_err()
+        .to_string();
+
+        assert!(error.contains("missing-chat"));
+        assert!(error.contains("webhook"));
+    }
 }

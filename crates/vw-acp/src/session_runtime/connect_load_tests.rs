@@ -11,7 +11,7 @@ use super::connect_load::{
     ConnectAndLoadClient, ConnectAndLoadClientSession, ConnectAndLoadSessionError,
     ConnectAndLoadSessionOptions, connect_and_load_session,
 };
-use super::lifecycle::AgentLifecycleSnapshot;
+use super::lifecycle::{AgentLifecycleExit, AgentLifecycleSnapshot};
 use crate::error::AcpError;
 use crate::queue_owner_turn_controller::{QueueControlFuture, QueueOwnerActiveSessionController};
 use crate::{
@@ -270,6 +270,262 @@ async fn connect_and_load_session_falls_back_to_new_session_and_replays_preferen
 }
 
 #[tokio::test]
+async fn connect_and_load_session_loads_existing_session_and_updates_record_state() {
+    let mut record = sample_record();
+    let mut client = MockClient::new(
+        ConnectAndLoadClientSession {
+            session_id: "ignored-loaded-session".to_string(),
+            agent_session_id: Some("agent-loaded".to_string()),
+            models: Some(sample_models()),
+        },
+        Ok(ConnectAndLoadClientSession {
+            session_id: "ignored-loaded-session".to_string(),
+            agent_session_id: Some("agent-loaded".to_string()),
+            models: Some(sample_models()),
+        }),
+    );
+    client.lifecycle_snapshot = AgentLifecycleSnapshot {
+        pid: Some(1234),
+        started_at: Some("2026-01-03T00:00:00Z".to_string()),
+        last_exit: Some(AgentLifecycleExit {
+            exit_code: Some(0),
+            signal: None,
+            exited_at: Some("2026-01-03T00:01:00Z".to_string()),
+            reason: Some("clean-exit".to_string()),
+            unexpected_during_prompt: false,
+        }),
+    };
+    let client = Arc::new(client);
+    let client_available_calls = Arc::new(Mutex::new(0usize));
+    let connected_records = Arc::new(Mutex::new(Vec::new()));
+    let resolved_session_ids = Arc::new(Mutex::new(Vec::new()));
+
+    let result = connect_and_load_session(ConnectAndLoadSessionOptions {
+        client: client.clone(),
+        record: &mut record,
+        resume_policy: None,
+        timeout_ms: Some(5_000),
+        verbose: false,
+        active_controller: Arc::new(TestActiveController),
+        on_client_available: Some({
+            let client_available_calls = client_available_calls.clone();
+            Arc::new(move |_controller| {
+                *client_available_calls.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) +=
+                    1;
+            })
+        }),
+        on_connected_record: Some({
+            let connected_records = connected_records.clone();
+            Arc::new(move |record| {
+                connected_records
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .push(record.acp_session_id.clone());
+            })
+        }),
+        on_session_id_resolved: Some({
+            let resolved_session_ids = resolved_session_ids.clone();
+            Arc::new(move |session_id| {
+                resolved_session_ids
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .push(session_id.to_string());
+            })
+        }),
+    })
+    .await
+    .expect("load session should succeed");
+
+    assert_eq!(result.session_id, "session-1");
+    assert_eq!(result.agent_session_id.as_deref(), Some("agent-loaded"));
+    assert!(result.resumed);
+    assert_eq!(result.load_error, None);
+    assert_eq!(record.acp_session_id, "session-1");
+    assert_eq!(record.agent_session_id.as_deref(), Some("agent-loaded"));
+    assert_eq!(record.closed, Some(false));
+    assert_eq!(record.closed_at, None);
+    assert_eq!(record.pid, Some(1234));
+    assert_eq!(record.agent_started_at.as_deref(), Some("2026-01-03T00:00:00Z"));
+    assert_eq!(record.last_agent_exit_code, Some(0));
+    assert_eq!(record.last_agent_disconnect_reason.as_deref(), Some("clean-exit"));
+    assert_eq!(
+        record.vwacp.as_ref().and_then(|state| state.current_model_id.as_deref()),
+        Some("model-a")
+    );
+    assert_eq!(
+        record.vwacp.as_ref().and_then(|state| state.available_models.as_ref()),
+        Some(&vec!["model-a".to_string(), "model-b".to_string()])
+    );
+    assert_eq!(*client_available_calls.lock().unwrap_or_else(|poisoned| poisoned.into_inner()), 1);
+    assert_eq!(
+        *connected_records.lock().unwrap_or_else(|poisoned| poisoned.into_inner()),
+        vec!["session-1".to_string()]
+    );
+    assert_eq!(
+        *resolved_session_ids.lock().unwrap_or_else(|poisoned| poisoned.into_inner()),
+        vec!["session-1".to_string()]
+    );
+
+    let state = client.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    assert_eq!(state.start_calls, 1);
+    assert_eq!(state.load_calls, 1);
+    assert_eq!(state.create_calls, 0);
+    assert!(state.set_mode_calls.is_empty());
+    assert!(state.set_model_calls.is_empty());
+}
+
+#[tokio::test]
+async fn connect_and_load_session_reuses_loaded_session_without_starting_client() {
+    let mut record = sample_record();
+    let mut client = MockClient::new(
+        ConnectAndLoadClientSession {
+            session_id: "session-2".to_string(),
+            agent_session_id: Some("agent-2".to_string()),
+            models: Some(sample_models()),
+        },
+        Err("load should not be called".to_string()),
+    );
+    client.reusable_session = true;
+    let client = Arc::new(client);
+
+    let result = connect_and_load_session(ConnectAndLoadSessionOptions {
+        client: client.clone(),
+        record: &mut record,
+        resume_policy: Some(SessionResumePolicy::SameSessionOnly),
+        timeout_ms: Some(5_000),
+        verbose: false,
+        active_controller: Arc::new(TestActiveController),
+        on_client_available: None,
+        on_connected_record: None,
+        on_session_id_resolved: None,
+    })
+    .await
+    .expect("reusable session should be accepted");
+
+    assert_eq!(result.session_id, "session-1");
+    assert_eq!(result.agent_session_id.as_deref(), Some("agent-1"));
+    assert!(result.resumed);
+    assert_eq!(result.load_error, None);
+
+    let state = client.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    assert_eq!(state.start_calls, 0);
+    assert_eq!(state.load_calls, 0);
+    assert_eq!(state.create_calls, 0);
+}
+
+#[tokio::test]
+async fn connect_and_load_session_creates_new_session_when_load_is_unsupported() {
+    let mut record = sample_record();
+    let mut client = MockClient::new(
+        ConnectAndLoadClientSession {
+            session_id: "session-2".to_string(),
+            agent_session_id: None,
+            models: None,
+        },
+        Err("load should not be called".to_string()),
+    );
+    client.supports_load_session = false;
+    let client = Arc::new(client);
+
+    let result = connect_and_load_session(ConnectAndLoadSessionOptions {
+        client: client.clone(),
+        record: &mut record,
+        resume_policy: Some(SessionResumePolicy::AllowNew),
+        timeout_ms: Some(5_000),
+        verbose: false,
+        active_controller: Arc::new(TestActiveController),
+        on_client_available: None,
+        on_connected_record: None,
+        on_session_id_resolved: None,
+    })
+    .await
+    .expect("unsupported load should create a fresh session when allowed");
+
+    assert_eq!(result.session_id, "session-2");
+    assert_eq!(result.agent_session_id.as_deref(), Some("agent-1"));
+    assert!(!result.resumed);
+    assert_eq!(record.acp_session_id, "session-2");
+    assert_eq!(record.agent_session_id.as_deref(), Some("agent-1"));
+
+    let state = client.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    assert_eq!(state.start_calls, 1);
+    assert_eq!(state.load_calls, 0);
+    assert_eq!(state.create_calls, 1);
+}
+
+#[tokio::test]
+async fn connect_and_load_session_requires_same_session_when_load_is_unsupported() {
+    let mut record = sample_record();
+    let mut client = MockClient::new(
+        ConnectAndLoadClientSession {
+            session_id: "session-2".to_string(),
+            agent_session_id: None,
+            models: None,
+        },
+        Err("load should not be called".to_string()),
+    );
+    client.supports_load_session = false;
+    let client = Arc::new(client);
+
+    let error = connect_and_load_session(ConnectAndLoadSessionOptions {
+        client: client.clone(),
+        record: &mut record,
+        resume_policy: Some(SessionResumePolicy::SameSessionOnly),
+        timeout_ms: Some(5_000),
+        verbose: false,
+        active_controller: Arc::new(TestActiveController),
+        on_client_available: None,
+        on_connected_record: None,
+        on_session_id_resolved: None,
+    })
+    .await
+    .expect_err("same-session-only should reject unsupported load");
+
+    assert!(matches!(error, ConnectAndLoadSessionError::SessionResumeRequired(_)));
+    assert_eq!(record.acp_session_id, "session-1");
+
+    let state = client.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    assert_eq!(state.start_calls, 1);
+    assert_eq!(state.load_calls, 0);
+    assert_eq!(state.create_calls, 0);
+}
+
+#[tokio::test]
+async fn connect_and_load_session_returns_non_fallback_load_error() {
+    let mut record = sample_record();
+    let client = Arc::new(MockClient::new(
+        ConnectAndLoadClientSession {
+            session_id: "session-2".to_string(),
+            agent_session_id: Some("agent-2".to_string()),
+            models: Some(sample_models()),
+        },
+        Err("permission denied".to_string()),
+    ));
+
+    let error = connect_and_load_session(ConnectAndLoadSessionOptions {
+        client: client.clone(),
+        record: &mut record,
+        resume_policy: Some(SessionResumePolicy::AllowNew),
+        timeout_ms: Some(5_000),
+        verbose: false,
+        active_controller: Arc::new(TestActiveController),
+        on_client_available: None,
+        on_connected_record: None,
+        on_session_id_resolved: None,
+    })
+    .await
+    .expect_err("non-fallback load errors should be returned");
+
+    assert!(matches!(error, ConnectAndLoadSessionError::Acp(AcpError::LoadSession(_))));
+    assert_eq!(record.acp_session_id, "session-1");
+
+    let state = client.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    assert_eq!(state.start_calls, 1);
+    assert_eq!(state.load_calls, 1);
+    assert_eq!(state.create_calls, 0);
+}
+
+#[tokio::test]
 async fn connect_and_load_session_requires_same_session_when_load_fails() {
     let mut record = sample_record();
     let client = Arc::new(MockClient::new(
@@ -329,6 +585,40 @@ async fn connect_and_load_session_restores_original_ids_when_mode_replay_fails()
     .expect_err("mode replay failure should be surfaced");
 
     assert!(matches!(error, ConnectAndLoadSessionError::SessionModeReplay(_)));
+    assert_eq!(record.acp_session_id, "session-1");
+    assert_eq!(record.agent_session_id.as_deref(), Some("agent-1"));
+}
+
+#[tokio::test]
+async fn connect_and_load_session_restores_original_ids_when_model_replay_fails() {
+    let mut record = sample_record();
+    record.vwacp.as_mut().expect("vwacp state").desired_mode_id = None;
+    let mut client = MockClient::new(
+        ConnectAndLoadClientSession {
+            session_id: "session-2".to_string(),
+            agent_session_id: Some("agent-2".to_string()),
+            models: Some(sample_models()),
+        },
+        Err("session not found".to_string()),
+    );
+    client.set_model_error = Some("model replay failed".to_string());
+    let client = Arc::new(client);
+
+    let error = connect_and_load_session(ConnectAndLoadSessionOptions {
+        client,
+        record: &mut record,
+        resume_policy: Some(SessionResumePolicy::AllowNew),
+        timeout_ms: Some(5_000),
+        verbose: false,
+        active_controller: Arc::new(TestActiveController),
+        on_client_available: None,
+        on_connected_record: None,
+        on_session_id_resolved: None,
+    })
+    .await
+    .expect_err("model replay failure should be surfaced");
+
+    assert!(matches!(error, ConnectAndLoadSessionError::SessionModelReplay(_)));
     assert_eq!(record.acp_session_id, "session-1");
     assert_eq!(record.agent_session_id.as_deref(), Some("agent-1"));
 }

@@ -139,3 +139,7 @@ fn base_command_name(command: &str) -> &str {
 #[cfg(test)]
 #[path = "allowlist_tests.rs"]
 mod allowlist_tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

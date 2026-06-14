@@ -387,7 +387,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let estop_state_file_row = text_row(
         "E-Stop 状态文件",
         "指定紧急停止状态文件位置。",
-        "~/.vibewindow/estop-state.json",
+        vw_config_types::paths::ESTOP_STATE_FILE_PATH,
         &s.estop_state_file,
         |v| Message::Settings(message::SettingsMessage::SecurityEstopStateFileChanged(v)),
     );
@@ -704,3 +704,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         Message::Settings(message::SettingsMessage::SecurityHelpClose),
     )
 }
+#[cfg(test)]
+#[path = "system_settings_security_tests.rs"]
+mod system_settings_security_tests;

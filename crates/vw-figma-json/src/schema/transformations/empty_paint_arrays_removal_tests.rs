@@ -233,3 +233,38 @@ fn test_mixed_empty_and_non_empty() {
     assert!(children[3].get("fillPaints").is_some());
     assert!(children[3].get("strokePaints").is_some());
 }
+
+#[test]
+fn test_preserves_non_array_paint_fields() {
+    let mut tree = json!({
+        "fillPaints": "none",
+        "strokePaints": null,
+        "children": [true, 7]
+    });
+
+    remove_empty_paint_arrays(&mut tree).unwrap();
+
+    assert_eq!(tree["fillPaints"].as_str(), Some("none"));
+    assert!(tree["strokePaints"].is_null());
+    assert_eq!(tree["children"][0].as_bool(), Some(true));
+    assert_eq!(tree["children"][1].as_i64(), Some(7));
+}
+
+#[test]
+fn test_root_array_and_primitive_values() {
+    let mut tree = json!([
+        {"fillPaints": []},
+        {"strokePaints": []},
+        "paint"
+    ]);
+
+    remove_empty_paint_arrays(&mut tree).unwrap();
+
+    assert!(tree[0].get("fillPaints").is_none());
+    assert!(tree[1].get("strokePaints").is_none());
+    assert_eq!(tree[2].as_str(), Some("paint"));
+
+    let mut primitive = json!(false);
+    remove_empty_paint_arrays(&mut primitive).unwrap();
+    assert_eq!(primitive.as_bool(), Some(false));
+}

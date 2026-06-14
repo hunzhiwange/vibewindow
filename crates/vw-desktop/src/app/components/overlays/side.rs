@@ -31,6 +31,50 @@ use iced::advanced::{Clipboard, Layout, Shell, Widget, layout, mouse, overlay, r
 use iced::{Element, Length};
 use iced::{Event, Point, Rectangle, Size, Theme, Vector};
 
+pub(super) fn side_overlay_max_width(
+    bounds: Size,
+    position: Point,
+    target_bounds: Rectangle,
+    gap: f32,
+    snap_within_viewport: bool,
+) -> f32 {
+    let space_right = bounds.width - (position.x + target_bounds.width + gap);
+    let space_left = position.x - gap;
+
+    if snap_within_viewport { space_right.max(space_left).max(0.0) } else { bounds.width }
+}
+
+pub(super) fn compute_side_overlay_position(
+    position: Point,
+    target_bounds: Rectangle,
+    viewport: Rectangle,
+    overlay_size: Size,
+    gap: f32,
+    min_x: f32,
+    min_y: f32,
+    snap_within_viewport: bool,
+    align_y_start: bool,
+) -> Point {
+    let space_right = viewport.width - (position.x + target_bounds.width + gap);
+    let space_left = position.x - gap;
+    let right_x = position.x + target_bounds.width + gap;
+    let left_x = position.x - gap - overlay_size.width;
+    let prefer_right = space_right >= overlay_size.width || space_right >= space_left;
+
+    let mut x = if prefer_right { right_x } else { left_x };
+    let mut y = if align_y_start { min_y } else { position.y.max(min_y) };
+
+    if snap_within_viewport {
+        let max_x = (viewport.width - overlay_size.width).max(min_x);
+        x = x.clamp(min_x, max_x);
+
+        let max_y = (viewport.height - overlay_size.height).max(min_y);
+        y = y.clamp(min_y, max_y);
+    }
+
+    Point::new(x, y)
+}
+
 /// 侧边覆盖层组件
 ///
 /// 一个组合式组件，包含主内容和侧边覆盖层两部分。覆盖层可以在主内容的右侧显示，
@@ -526,17 +570,14 @@ where
     fn layout(&mut self, renderer: &RendererT, bounds: Size) -> layout::Node {
         let viewport = Rectangle::with_size(bounds);
 
-        // 计算目标元素左右两侧的可用空间。
-        // 当右侧空间不足时，覆盖层回退到左侧显示，避免被压缩到 0 宽度而不可见。
-        let space_right = bounds.width - (self.position.x + self.target_bounds.width + self.gap);
-        let space_left = self.position.x - self.gap;
-
         // 如果启用视口内吸附，布局时使用两侧更大的可用宽度；否则使用整个视口宽度。
-        let max_w = if self.snap_within_viewport {
-            space_right.max(space_left).max(0.0)
-        } else {
-            bounds.width
-        };
+        let max_w = side_overlay_max_width(
+            bounds,
+            self.position,
+            self.target_bounds,
+            self.gap,
+            self.snap_within_viewport,
+        );
 
         // 使用计算的最大宽度进行布局
         let node = self.overlay.as_widget_mut().layout(
@@ -547,29 +588,20 @@ where
 
         let size = node.size();
 
-        let right_x = self.position.x + self.target_bounds.width + self.gap;
-        let left_x = self.position.x - self.gap - size.width;
-        let prefer_right = space_right >= size.width || space_right >= space_left;
-
-        // 优先显示在右侧；如果右侧空间不够，则自动回退到左侧。
-        let mut x = if prefer_right { right_x } else { left_x };
-
-        // 计算覆盖层的初始Y坐标：顶部对齐或跟随目标元素
-        let mut y = if self.align_y_start { self.min_y } else { self.position.y.max(self.min_y) };
-
-        // 如果启用视口内吸附，确保覆盖层在视口内
-        if self.snap_within_viewport {
-            // 计算X轴最大值（确保不超出视口右边界）
-            let max_x = (self.viewport.width - size.width).max(self.min_x);
-            x = x.clamp(self.min_x, max_x);
-
-            // 计算Y轴最大值（确保不超出视口底边界）
-            let max_y = (self.viewport.height - size.height).max(self.min_y);
-            y = y.clamp(self.min_y, max_y);
-        }
+        let position = compute_side_overlay_position(
+            self.position,
+            self.target_bounds,
+            self.viewport,
+            size,
+            self.gap,
+            self.min_x,
+            self.min_y,
+            self.snap_within_viewport,
+            self.align_y_start,
+        );
 
         // 将布局节点移动到计算的位置
-        node.move_to(Point::new(x, y))
+        node.move_to(position)
     }
 
     /// 处理覆盖层的事件更新

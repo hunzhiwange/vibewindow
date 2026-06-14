@@ -408,16 +408,23 @@ fn config_dir_from_workspace(workspace_dir: &Path) -> PathBuf {
     workspace_dir.to_path_buf()
 }
 
+#[cfg(windows)]
 fn default_vibewindow_config_dir() -> Result<PathBuf, ConfigError> {
-    if cfg!(windows)
-        && let Some(home) = env::var_os("USERPROFILE")
-    {
-        return Ok(PathBuf::from(home).join(".vibewindow"));
+    if let Some(home) = env::var_os("USERPROFILE") {
+        return Ok(vw_config_types::paths::home_config_dir(PathBuf::from(home)));
     }
     let Some(home) = env::var_os("HOME") else {
         return Err(ConfigError::HomeDirUnavailable);
     };
-    Ok(PathBuf::from(home).join(".vibewindow"))
+    Ok(vw_config_types::paths::home_config_dir(PathBuf::from(home)))
+}
+
+#[cfg(not(windows))]
+fn default_vibewindow_config_dir() -> Result<PathBuf, ConfigError> {
+    let Some(home) = env::var_os("HOME") else {
+        return Err(ConfigError::HomeDirUnavailable);
+    };
+    Ok(vw_config_types::paths::home_config_dir(PathBuf::from(home)))
 }
 
 fn parse_active_workspace_marker(marker_path: &Path) -> Result<Option<PathBuf>, ConfigError> {
@@ -794,7 +801,7 @@ pub async fn init_global_config_file_at(
     });
     let content = format!(
         "{}\n",
-        serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".to_string())
+        serde_json::to_string_pretty(&payload).expect("default config payload should serialize")
     );
     fs::write(&config_path, content)
         .await

@@ -1,4 +1,45 @@
 use super::*;
+use async_trait::async_trait;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+struct Testcov0094Provider {
+    response: Option<String>,
+    calls: AtomicUsize,
+}
+
+impl Testcov0094Provider {
+    fn ok(response: &str) -> Self {
+        Self { response: Some(response.to_string()), calls: AtomicUsize::new(0) }
+    }
+
+    fn failing() -> Self {
+        Self { response: None, calls: AtomicUsize::new(0) }
+    }
+
+    fn calls(&self) -> usize {
+        self.calls.load(Ordering::SeqCst)
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl Provider for Testcov0094Provider {
+    async fn chat_with_system(
+        &self,
+        system_prompt: Option<&str>,
+        message: &str,
+        model: &str,
+        temperature: f64,
+    ) -> anyhow::Result<String> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        assert!(system_prompt.unwrap_or_default().contains("conversation compaction engine"));
+        assert!(message.contains("Summarize the following conversation history"));
+        assert_eq!(model, "test-model");
+        assert_eq!(temperature, 0.2);
+
+        self.response.clone().ok_or_else(|| anyhow::anyhow!("summary failed"))
+    }
+}
 
 #[test]
 fn trim_history_keeps_system_and_recent_messages() {
@@ -18,6 +59,16 @@ fn trim_history_keeps_system_and_recent_messages() {
 }
 
 #[test]
+fn trim_history_handles_no_system_and_zero_limit() {
+    let mut history =
+        vec![ChatMessage::user("old"), ChatMessage::assistant("middle"), ChatMessage::user("new")];
+
+    trim_history(&mut history, 0);
+
+    assert!(history.is_empty());
+}
+
+#[test]
 fn compaction_transcript_and_summary_are_deterministic() {
     let messages = vec![ChatMessage::user(" hello "), ChatMessage::assistant("world")];
     let transcript = build_compaction_transcript(&messages);
@@ -29,4 +80,64 @@ fn compaction_transcript_and_summary_are_deterministic() {
     apply_compaction_summary(&mut history, 0, 1, "summary");
     assert_eq!(history[0].role, "assistant");
     assert!(history[0].content.contains("[Compaction summary]"));
+}
+
+#[test]
+fn compaction_transcript_truncates_long_sources() {
+    let messages = vec![ChatMessage::user("x".repeat(COMPACTION_MAX_SOURCE_CHARS + 100))];
+
+    let transcript = build_compaction_transcript(&messages);
+
+    assert!(transcript.chars().count() <= COMPACTION_MAX_SOURCE_CHARS + 3);
+}
+
+#[tokio::test]
+async fn auto_compact_history_returns_false_when_under_limit() {
+    let provider = Testcov0094Provider::ok("unused");
+    let mut history = vec![ChatMessage::system("system"), ChatMessage::user("short")];
+
+    let compacted = auto_compact_history(&mut history, &provider, "test-model", 3).await.unwrap();
+
+    assert!(!compacted);
+    assert_eq!(provider.calls(), 0);
+    assert_eq!(history.len(), 2);
+}
+
+#[tokio::test]
+async fn auto_compact_history_preserves_system_and_recent_messages() {
+    let provider = Testcov0094Provider::ok("- remembered decision");
+    let mut history = vec![ChatMessage::system("system")];
+    for index in 0..23 {
+        history.push(ChatMessage::user(format!("message-{index}")));
+    }
+
+    let compacted = auto_compact_history(&mut history, &provider, "test-model", 2).await.unwrap();
+
+    assert!(compacted);
+    assert_eq!(provider.calls(), 1);
+    assert_eq!(history.len(), 22);
+    assert_eq!(history[0].role, "system");
+    assert_eq!(history[1].role, "assistant");
+    assert!(history[1].content.contains("[Compaction summary]"));
+    assert!(history[1].content.contains("remembered decision"));
+    assert_eq!(history[2].content, "message-3");
+    assert_eq!(history.last().unwrap().content, "message-22");
+}
+
+#[tokio::test]
+async fn auto_compact_history_falls_back_to_local_summary_when_provider_fails() {
+    let provider = Testcov0094Provider::failing();
+    let mut history = Vec::new();
+    for index in 0..22 {
+        history.push(ChatMessage::user(format!("fallback-{index}")));
+    }
+
+    let compacted = auto_compact_history(&mut history, &provider, "test-model", 1).await.unwrap();
+
+    assert!(compacted);
+    assert_eq!(provider.calls(), 1);
+    assert_eq!(history.len(), 21);
+    assert!(history[0].content.contains("[Compaction summary]"));
+    assert!(history[0].content.contains("USER: fallback-0"));
+    assert_eq!(history[1].content, "fallback-2");
 }

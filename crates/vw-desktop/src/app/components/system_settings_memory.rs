@@ -358,8 +358,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
             column![
                 text_row(
                     "嵌入提供者",
-                    "支持 none、openai 或 custom:URL。",
-                    "none / openai / custom:URL",
+                    "阿里建议在嵌入路由里配置 alibaba-cn、text-embedding-v4 和 DashScope API Key。",
+                    "none / openai / alibaba-cn / custom:URL",
                     &s.embedding_provider,
                     |value| {
                         Message::Settings(SettingsMessage::Memory(
@@ -402,7 +402,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                         .spacing(4)
                         .width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
                         container(
-                            text_input("text-embedding-3-small", &s.embedding_model)
+                            text_input("text-embedding-v4", &s.embedding_model)
                                 .on_input(|value| {
                                     Message::Settings(SettingsMessage::Memory(
                                         MemoryMessage::EmbeddingModelChanged(value),
@@ -559,3 +559,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     content.into()
 }
+#[cfg(test)]
+#[path = "system_settings_memory_tests.rs"]
+mod system_settings_memory_tests;

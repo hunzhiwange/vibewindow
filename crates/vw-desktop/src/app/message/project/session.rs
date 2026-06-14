@@ -11,8 +11,13 @@ mod lifecycle;
 mod open;
 mod worktree;
 
+pub(crate) use lifecycle::loaded_chat_from_gateway_messages;
+
 #[cfg(test)]
 mod lifecycle_tests;
+#[cfg(test)]
+#[path = "session_tests.rs"]
+mod session_tests;
 
 /// handle 处理当前模块对应的消息或状态转换。
 ///

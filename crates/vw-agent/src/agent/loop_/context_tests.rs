@@ -1,8 +1,39 @@
 use super::*;
 use crate::app::agent::memory::{MemoryCategory, MemoryEntry};
+use std::sync::Mutex;
 
 #[derive(Default)]
-struct FakeMemory;
+struct FakeMemory {
+    entries: Vec<MemoryEntry>,
+    fail_recall: bool,
+    recalls: Mutex<Vec<(String, usize, Option<String>)>>,
+}
+
+impl FakeMemory {
+    fn with_entries(entries: Vec<MemoryEntry>) -> Self {
+        Self { entries, ..Self::default() }
+    }
+
+    fn failing() -> Self {
+        Self { fail_recall: true, ..Self::default() }
+    }
+
+    fn recalls(&self) -> Vec<(String, usize, Option<String>)> {
+        self.recalls.lock().unwrap().clone()
+    }
+}
+
+fn memory_entry(key: &str, content: &str, score: Option<f64>) -> MemoryEntry {
+    MemoryEntry {
+        id: key.to_string(),
+        key: key.to_string(),
+        content: content.to_string(),
+        category: MemoryCategory::Core,
+        timestamp: "now".to_string(),
+        session_id: None,
+        score,
+    }
+}
 
 #[async_trait::async_trait]
 impl Memory for FakeMemory {
@@ -22,30 +53,21 @@ impl Memory for FakeMemory {
 
     async fn recall(
         &self,
-        _query: &str,
-        _limit: usize,
-        _session_id: Option<&str>,
+        query: &str,
+        limit: usize,
+        session_id: Option<&str>,
     ) -> anyhow::Result<Vec<MemoryEntry>> {
-        Ok(vec![
-            MemoryEntry {
-                id: "1".to_string(),
-                key: "keep".to_string(),
-                content: "use concise answers".to_string(),
-                category: MemoryCategory::Core,
-                timestamp: "now".to_string(),
-                session_id: None,
-                score: Some(0.9),
-            },
-            MemoryEntry {
-                id: "2".to_string(),
-                key: "drop".to_string(),
-                content: "too weak".to_string(),
-                category: MemoryCategory::Core,
-                timestamp: "now".to_string(),
-                session_id: None,
-                score: Some(0.1),
-            },
-        ])
+        self.recalls.lock().unwrap().push((
+            query.to_string(),
+            limit,
+            session_id.map(str::to_string),
+        ));
+
+        if self.fail_recall {
+            anyhow::bail!("recall failed");
+        }
+
+        Ok(self.entries.clone())
     }
 
     async fn get(&self, _key: &str) -> anyhow::Result<Option<MemoryEntry>> {
@@ -75,8 +97,66 @@ impl Memory for FakeMemory {
 
 #[tokio::test]
 async fn build_context_filters_low_relevance_entries() {
-    let context = build_context(&FakeMemory, "style", 0.5).await;
+    let memory = FakeMemory::with_entries(vec![
+        memory_entry("keep", "use concise answers", Some(0.9)),
+        memory_entry("drop", "too weak", Some(0.1)),
+    ]);
+    let context = build_context(&memory, "style", 0.5).await;
 
-    assert!(context.contains("- keep: use concise answers"));
+    assert_eq!(context, "[Memory context]\n- keep: use concise answers\n\n");
     assert!(!context.contains("too weak"));
+}
+
+#[tokio::test]
+async fn build_context_keeps_unscored_entries_and_uses_fixed_recall_scope() {
+    let memory =
+        FakeMemory::with_entries(vec![memory_entry("preference", "prefers direct answers", None)]);
+
+    let context = build_context(&memory, "answer style", 0.8).await;
+
+    assert_eq!(context, "[Memory context]\n- preference: prefers direct answers\n\n");
+    assert_eq!(memory.recalls(), vec![("answer style".to_string(), 5, None)]);
+}
+
+#[tokio::test]
+async fn build_context_returns_empty_when_no_entries_are_relevant() {
+    let memory = FakeMemory::with_entries(vec![memory_entry("weak", "ignore me", Some(0.49))]);
+
+    let context = build_context(&memory, "topic", 0.5).await;
+
+    assert!(context.is_empty());
+}
+
+#[tokio::test]
+async fn build_context_skips_assistant_autosave_entries() {
+    let memory = FakeMemory::with_entries(vec![
+        memory_entry("assistant_resp_123", "internal answer", Some(0.95)),
+        memory_entry("user_fact", "likes small patches", Some(0.95)),
+    ]);
+
+    let context = build_context(&memory, "patch style", 0.5).await;
+
+    assert_eq!(context, "[Memory context]\n- user_fact: likes small patches\n\n");
+}
+
+#[tokio::test]
+async fn build_context_clears_header_when_all_entries_are_autosaves() {
+    let memory = FakeMemory::with_entries(vec![memory_entry(
+        " ASSISTANT_RESP ",
+        "internal answer",
+        Some(1.0),
+    )]);
+
+    let context = build_context(&memory, "hidden", 0.5).await;
+
+    assert!(context.is_empty());
+}
+
+#[tokio::test]
+async fn build_context_returns_empty_when_recall_fails() {
+    let memory = FakeMemory::failing();
+
+    let context = build_context(&memory, "style", 0.5).await;
+
+    assert!(context.is_empty());
 }

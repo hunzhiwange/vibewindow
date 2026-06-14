@@ -23,6 +23,19 @@ pub(crate) fn non_cli_natural_language_mode_label(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn parse_runtime_config(contents: &str, config_path: &Path) -> Result<Config> {
+    let mut parsed: Config = if contents.trim_start().starts_with('{') {
+        serde_json::from_str(contents)
+            .with_context(|| format!("Failed to parse {}", config_path.display()))?
+    } else {
+        toml::from_str(contents)
+            .with_context(|| format!("Failed to parse {}", config_path.display()))?
+    };
+    parsed.config_path = config_path.to_path_buf();
+    Ok(parsed)
+}
+
 /// 在 WASM 目标上跳过非 CLI 授权持久化。
 ///
 /// 参数被保留以保持跨目标签名一致。
@@ -59,9 +72,7 @@ pub(crate) async fn persist_non_cli_approval_to_config(
     let contents = tokio::fs::read_to_string(&config_path)
         .await
         .with_context(|| format!("Failed to read {}", config_path.display()))?;
-    let mut parsed: Config = toml::from_str(&contents)
-        .with_context(|| format!("Failed to parse {}", config_path.display()))?;
-    parsed.config_path = config_path.clone();
+    let mut parsed = parse_runtime_config(&contents, &config_path)?;
 
     let mut changed = false;
     if !parsed.autonomy.auto_approve.iter().any(|entry| entry == tool_name) {
@@ -119,9 +130,7 @@ pub(crate) async fn remove_non_cli_approval_from_config(
     let contents = tokio::fs::read_to_string(&config_path)
         .await
         .with_context(|| format!("Failed to read {}", config_path.display()))?;
-    let mut parsed: Config = toml::from_str(&contents)
-        .with_context(|| format!("Failed to parse {}", config_path.display()))?;
-    parsed.config_path = config_path.clone();
+    let mut parsed = parse_runtime_config(&contents, &config_path)?;
 
     let before_auto_approve = parsed.autonomy.auto_approve.len();
     parsed.autonomy.auto_approve.retain(|entry| entry != tool_name);
@@ -280,8 +289,7 @@ pub(crate) async fn describe_non_cli_approvals(
         let contents = tokio::fs::read_to_string(&config_path)
             .await
             .with_context(|| format!("Failed to read {}", config_path.display()))?;
-        let parsed: Config = toml::from_str(&contents)
-            .with_context(|| format!("Failed to parse {}", config_path.display()))?;
+        let parsed = parse_runtime_config(&contents, &config_path)?;
 
         let mut auto_approve = parsed.autonomy.auto_approve;
         auto_approve.sort();

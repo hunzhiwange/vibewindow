@@ -8,19 +8,25 @@
 //! 它本身尽量保持薄入口，只负责环境读取、命令树注册和最终分发，
 //! 具体的参数解析、配置合并和会话执行逻辑下沉到库模块中实现。
 
-use clap::{Arg, ArgAction, ArgMatches, Command};
-use std::env;
-use std::io::IsTerminal;
+use clap::ArgMatches;
+#[cfg(not(test))]
+use clap::{Arg, ArgAction, Command};
+#[cfg(not(test))]
+use std::{env, io::IsTerminal};
+use vw_acp::cli::flags::{
+    GlobalFlagOptions, parse_allowed_tools, parse_auth_policy, parse_max_turns,
+    parse_non_interactive_permission_policy, parse_output_format, parse_prompt_retries,
+    parse_timeout_seconds, parse_ttl_seconds,
+};
+#[cfg(not(test))]
 use vw_acp::{
     ConfigurePublicCliOptions, FindSessionOptions, OutputFormatterOptions, SessionSendOptions,
     build_cli_bootstrap_plan, build_cli_runtime_plan,
     cli::{
         config_command::{ConfigCommand, handle_config_command},
         flags::{
-            GlobalFlagOptions, PermissionFlags, StatusFlags, parse_allowed_tools,
-            parse_auth_policy, parse_max_turns, parse_non_interactive_permission_policy,
-            parse_output_format, parse_prompt_retries, parse_timeout_seconds, parse_ttl_seconds,
-            resolve_agent_invocation, resolve_global_flags, resolve_permission_mode,
+            PermissionFlags, StatusFlags, resolve_agent_invocation, resolve_global_flags,
+            resolve_permission_mode,
         },
         output_render::{
             print_cancel_result_by_format, print_closed_session_by_format,
@@ -67,6 +73,7 @@ fn extract_global_flags(matches: &ArgMatches) -> GlobalFlagOptions {
     }
 }
 
+#[cfg(not(test))]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();

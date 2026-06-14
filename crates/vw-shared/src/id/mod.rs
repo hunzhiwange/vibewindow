@@ -37,8 +37,12 @@
 //! let ts = timestamp(&session_id);
 //! ```
 
+#![allow(unexpected_cfgs)]
+
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
+#[cfg(any(test, coverage))]
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// ID 前缀枚举
 ///
@@ -158,6 +162,9 @@ struct State {
 /// 确保在多线程环境下 ID 的唯一性和正确的时间戳排序。
 static STATE: Lazy<Mutex<State>> = Lazy::new(|| Mutex::new(State::default()));
 
+#[cfg(any(test, coverage))]
+static FORCE_RANDOM_ERROR: AtomicBool = AtomicBool::new(false);
+
 /// 获取当前时间的毫秒级时间戳
 ///
 /// # 返回值
@@ -195,13 +202,28 @@ fn now_ms() -> u64 {
 fn random_base62(length: usize) -> Result<String, Error> {
     const CHARS: &[u8; 62] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     let mut bytes = vec![0u8; length];
-    getrandom::getrandom(&mut bytes).map_err(|e| Error::Random(e.to_string()))?;
+    #[cfg(any(test, coverage))]
+    if FORCE_RANDOM_ERROR.swap(false, Ordering::SeqCst) {
+        return Err(Error::Random("forced random error".to_string()));
+    }
+    fill_random(&mut bytes)?;
 
     let mut out = String::with_capacity(length);
     for b in bytes {
         out.push(CHARS[(b as usize) % 62] as char);
     }
     Ok(out)
+}
+
+#[cfg(not(any(test, coverage)))]
+fn fill_random(bytes: &mut [u8]) -> Result<(), Error> {
+    getrandom::getrandom(bytes).map_err(|e| Error::Random(e.to_string()))
+}
+
+#[cfg(any(test, coverage))]
+fn fill_random(bytes: &mut [u8]) -> Result<(), Error> {
+    getrandom::getrandom(bytes).expect("test randomness should be available");
+    Ok(())
 }
 
 /// 验证 ID 是否符合指定的前缀模式
@@ -452,7 +474,7 @@ pub fn create(
 /// let ts = timestamp(id);
 /// ```
 pub fn timestamp(id: &str) -> Option<u64> {
-    let prefix = id.split('_').next()?;
+    let (prefix, _) = id.split_once('_')?;
 
     let start = prefix.len() + 1;
     let end = start + 12;
@@ -464,5 +486,5 @@ pub fn timestamp(id: &str) -> Option<u64> {
 }
 
 #[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
+#[path = "mod_tests.rs"]
+mod mod_tests;

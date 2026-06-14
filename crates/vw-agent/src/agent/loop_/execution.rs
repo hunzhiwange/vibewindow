@@ -27,6 +27,10 @@ use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 use vw_api_types::tools::{PermissionRequestDto, ToolResultDto};
 
+#[cfg(test)]
+#[path = "execution_tests.rs"]
+mod execution_tests;
+
 /// 执行单个工具调用
 ///
 /// 该函数负责单个工具的完整执行流程，包括：

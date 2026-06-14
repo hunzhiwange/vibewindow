@@ -1,4 +1,6 @@
 use super::*;
+use crate::app::agent::config::AutonomyConfig;
+use tokio_util::sync::CancellationToken;
 
 #[test]
 fn non_cli_approval_context_keeps_sender_and_reply_target() {
@@ -24,4 +26,83 @@ fn non_cli_approval_context_keeps_sender_and_reply_target() {
     assert_eq!(prompt.request_id, "req-1");
     assert_eq!(prompt.tool_name, "shell");
     assert_eq!(prompt.arguments["command"], "pwd");
+}
+
+fn approval_manager_with_request() -> (ApprovalManager, String) {
+    let manager = ApprovalManager::from_config(&AutonomyConfig::default());
+    let request = manager.create_non_cli_pending_request(
+        "shell",
+        "alice",
+        "telegram",
+        "chat-1",
+        Some("needs approval".to_string()),
+        serde_json::json!({"command": "pwd"}),
+        Some("msg-1".to_string()),
+        Some("call-1".to_string()),
+    );
+
+    (manager, request.request_id)
+}
+
+#[tokio::test]
+async fn await_non_cli_approval_decision_returns_recorded_decision() {
+    let (manager, request_id) = approval_manager_with_request();
+    manager.record_non_cli_pending_resolution(&request_id, ApprovalResponse::Yes);
+
+    let decision =
+        await_non_cli_approval_decision(&manager, &request_id, "alice", "telegram", "chat-1", None)
+            .await;
+
+    assert_eq!(decision, ApprovalResponse::Yes);
+    assert_eq!(manager.take_non_cli_pending_resolution(&request_id), None);
+}
+
+#[tokio::test]
+async fn await_non_cli_approval_decision_denies_missing_request() {
+    let manager = ApprovalManager::from_config(&AutonomyConfig::default());
+
+    let decision = await_non_cli_approval_decision(
+        &manager,
+        "apr-missing",
+        "alice",
+        "telegram",
+        "chat-1",
+        None,
+    )
+    .await;
+
+    assert_eq!(decision, ApprovalResponse::No);
+}
+
+#[tokio::test]
+async fn await_non_cli_approval_decision_denies_cancelled_request() {
+    let (manager, request_id) = approval_manager_with_request();
+    let cancellation_token = CancellationToken::new();
+    cancellation_token.cancel();
+
+    let decision = await_non_cli_approval_decision(
+        &manager,
+        &request_id,
+        "alice",
+        "telegram",
+        "chat-1",
+        Some(&cancellation_token),
+    )
+    .await;
+
+    assert_eq!(decision, ApprovalResponse::No);
+    assert!(manager.has_non_cli_pending_request(&request_id));
+}
+
+#[tokio::test(start_paused = true)]
+async fn await_non_cli_approval_decision_denies_and_cleans_up_on_timeout() {
+    let (manager, request_id) = approval_manager_with_request();
+
+    let decision =
+        await_non_cli_approval_decision(&manager, &request_id, "alice", "telegram", "chat-1", None)
+            .await;
+
+    assert_eq!(decision, ApprovalResponse::No);
+    assert!(!manager.has_non_cli_pending_request(&request_id));
+    assert_eq!(manager.take_non_cli_pending_resolution(&request_id), None);
 }

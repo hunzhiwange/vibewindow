@@ -55,3 +55,33 @@ fn build_render_cache_entry_merges_explore_across_hidden_think() {
     assert_eq!(entry.explore_summary_text_blocks.len(), 1);
     assert_eq!(entry.explore_summary_text_blocks[0].1, "2 次读取");
 }
+
+#[test]
+fn build_render_cache_entry_falls_back_to_tool_text_when_visible_text_is_empty() {
+    let raw = "tool bash\n{\"input\":\"pwd\",\"status\":\"completed\",\"output\":\"/tmp\"}\n";
+    let entry = build_render_cache_entry(raw, "", hash_chat_content(""), true);
+
+    assert_eq!(entry.display_text, "pwd");
+    assert_eq!(entry.preview_text, "pwd");
+    assert!(entry.has_special_blocks);
+}
+
+#[test]
+fn build_render_cache_entry_marks_large_and_foldable_by_code_blocks() {
+    let visible = "```text\nx\n```\n".repeat(6);
+    let entry = build_render_cache_entry(&visible, &visible, hash_chat_content(&visible), true);
+
+    assert!(entry.is_large_message);
+    assert!(entry.foldable);
+    assert!(entry.estimated_expanded_height >= entry.estimated_collapsed_height);
+}
+
+#[test]
+fn effective_assistant_render_cache_borrows_fresh_cache() {
+    let raw = "fresh";
+    let entry = build_render_cache_entry(raw, raw, hash_chat_content(raw), false);
+    let resolved =
+        effective_assistant_render_cache(raw, &entry, raw, hash_chat_content(raw), false, false);
+
+    assert!(matches!(resolved, std::borrow::Cow::Borrowed(_)));
+}

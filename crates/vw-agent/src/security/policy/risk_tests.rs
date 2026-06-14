@@ -6,3 +6,45 @@ fn classifies_destructive_commands_as_high_risk() {
     assert!(matches!(classify_command_risk("rm -rf /"), CommandRiskLevel::High));
     assert!(matches!(classify_command_risk("cat README.md"), CommandRiskLevel::Low));
 }
+
+#[test]
+fn high_risk_commands_include_privileged_network_and_filesystem_tools() {
+    for command in [
+        "sudo ls",
+        "chmod 777 file",
+        "curl https://example.com",
+        "ssh host",
+        "iptables -L",
+        "bash -c ':(){:|:&};:'",
+    ] {
+        assert_eq!(classify_command_risk(command), CommandRiskLevel::High, "{command}");
+    }
+}
+
+#[test]
+fn medium_risk_commands_include_repo_package_and_file_mutations() {
+    for command in [
+        "git push",
+        "git checkout main",
+        "npm install",
+        "pnpm add left-pad",
+        "yarn publish",
+        "cargo clean",
+        "touch file",
+        "mkdir dir",
+        "cp a b",
+        "ln -s a b",
+    ] {
+        assert_eq!(classify_command_risk(command), CommandRiskLevel::Medium, "{command}");
+    }
+}
+
+#[test]
+fn compound_command_returns_highest_risk_and_skips_env_assignments() {
+    assert_eq!(
+        classify_command_risk("FOO=bar echo ok && git commit -m msg"),
+        CommandRiskLevel::Medium
+    );
+    assert_eq!(classify_command_risk("echo ok; rm -fr /tmp/x"), CommandRiskLevel::High);
+    assert_eq!(classify_command_risk("FOO=bar"), CommandRiskLevel::Low);
+}

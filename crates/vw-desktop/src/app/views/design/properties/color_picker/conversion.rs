@@ -10,7 +10,7 @@ pub fn format_rgba_to_hex(r: f32, g: f32, b: f32, a: f32) -> String {
     let g_u8 = (g * 255.0).round() as u8;
     let b_u8 = (b * 255.0).round() as u8;
     let a_u8 = (a * 255.0).round() as u8;
-    format!("#{:02x}{:02x}{:02x}{:02x}", r_u8, g_u8, b_u8, a_u8)
+    format!("#{:02X}{:02X}{:02X}{:02X}", r_u8, g_u8, b_u8, a_u8)
 }
 
 /// 处理颜色值的解析、格式化或空间转换。

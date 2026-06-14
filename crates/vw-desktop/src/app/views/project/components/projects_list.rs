@@ -96,9 +96,12 @@ fn icon_image_handle(icon: &str) -> Option<ImageHandle> {
         return None;
     }
     // 尝试移除 file:/// 或 file:// 前缀，获取实际文件路径
-    let path_str =
-        raw.strip_prefix("file:///").or_else(|| raw.strip_prefix("file://")).unwrap_or(raw);
-    let path = std::path::Path::new(path_str);
+    let path_str = raw.strip_prefix("file://").unwrap_or(raw);
+    let path_str = path_str
+        .strip_prefix("//")
+        .map(|rest| format!("/{rest}"))
+        .unwrap_or_else(|| path_str.to_string());
+    let path = std::path::Path::new(&path_str);
     // 仅当文件存在时才创建句柄
     if path.exists() { Some(ImageHandle::from_path(path)) } else { None }
 }

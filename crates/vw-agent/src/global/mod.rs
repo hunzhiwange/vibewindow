@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 /// 应用目录名。
-pub const APP: &str = "vibewindow";
+pub const APP: &str = vw_config_types::paths::APP_DIR_NAME;
 /// 缓存结构版本；变更后会清理旧缓存内容。
 pub const CACHE_VERSION: &str = "21";
 
@@ -31,51 +31,78 @@ pub struct GlobalPaths {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone)]
+struct PlatformDirs {
+    home: PathBuf,
+    data: PathBuf,
+    cache: PathBuf,
+    config: PathBuf,
+    state: Option<PathBuf>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl From<directories::BaseDirs> for PlatformDirs {
+    fn from(base: directories::BaseDirs) -> Self {
+        #[allow(deprecated)]
+        let state = base.state_dir().map(PathBuf::from);
+
+        Self {
+            home: base.home_dir().to_path_buf(),
+            data: base.data_dir().to_path_buf(),
+            cache: base.cache_dir().to_path_buf(),
+            config: base.config_dir().to_path_buf(),
+            state,
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 static PATHS: LazyLock<GlobalPaths> = LazyLock::new(|| {
-    let base = directories::BaseDirs::new();
+    let base = directories::BaseDirs::new().map(PlatformDirs::from);
     // 测试可以通过环境变量隔离 home，避免污染真实用户目录。
-    let home = std::env::var_os("VIBEWINDOW_TEST_HOME")
-        .map(PathBuf::from)
-        .or_else(|| base.as_ref().map(|b| b.home_dir().to_path_buf()))
+    let test_home = std::env::var_os("VIBEWINDOW_TEST_HOME").map(PathBuf::from);
+
+    let paths = resolve_paths(base, test_home);
+    prepare_paths(&paths);
+
+    paths
+});
+
+#[cfg(not(target_arch = "wasm32"))]
+fn resolve_paths(base: Option<PlatformDirs>, test_home: Option<PathBuf>) -> GlobalPaths {
+    let home = test_home
+        .or_else(|| base.as_ref().map(|b| b.home.clone()))
         .unwrap_or_else(|| PathBuf::from("."));
 
     let data = base
         .as_ref()
-        .map(|b| b.data_dir().join(APP))
+        .map(|b| b.data.join(APP))
         .unwrap_or_else(|| home.join(".local").join("share").join(APP));
-    let cache = base
-        .as_ref()
-        .map(|b| b.cache_dir().join(APP))
-        .unwrap_or_else(|| home.join(".cache").join(APP));
-    let config = base
-        .as_ref()
-        .map(|b| b.config_dir().join(APP))
-        .unwrap_or_else(|| home.join(".config").join(APP));
+    let cache =
+        base.as_ref().map(|b| b.cache.join(APP)).unwrap_or_else(|| home.join(".cache").join(APP));
+    let config =
+        base.as_ref().map(|b| b.config.join(APP)).unwrap_or_else(|| home.join(".config").join(APP));
     let state = base
         .as_ref()
-        .map(|b| {
-            #[allow(deprecated)]
-            {
-                if let Some(p) = b.state_dir() {
-                    return p.join(APP);
-                }
-            }
-            b.data_dir().join(APP)
-        })
+        .map(|b| b.state.clone().unwrap_or_else(|| b.data.clone()).join(APP))
         .unwrap_or_else(|| home.join(".local").join("state").join(APP));
-
     let bin = data.join("bin");
     let log = data.join("log");
 
-    // 全局目录在首次访问时创建，调用方可以直接使用返回路径。
-    let _ = std::fs::create_dir_all(&data);
-    let _ = std::fs::create_dir_all(&config);
-    let _ = std::fs::create_dir_all(&state);
-    let _ = std::fs::create_dir_all(&log);
-    let _ = std::fs::create_dir_all(&bin);
-    let _ = std::fs::create_dir_all(&cache);
+    GlobalPaths { home, data, bin, log, cache, config, state }
+}
 
-    let version_path = cache.join("version");
+#[cfg(not(target_arch = "wasm32"))]
+fn prepare_paths(paths: &GlobalPaths) {
+    // 全局目录在首次访问时创建，调用方可以直接使用返回路径。
+    let _ = std::fs::create_dir_all(&paths.data);
+    let _ = std::fs::create_dir_all(&paths.config);
+    let _ = std::fs::create_dir_all(&paths.state);
+    let _ = std::fs::create_dir_all(&paths.log);
+    let _ = std::fs::create_dir_all(&paths.bin);
+    let _ = std::fs::create_dir_all(&paths.cache);
+
+    let version_path = paths.cache.join("version");
     let version = std::fs::read_to_string(&version_path)
         .ok()
         .map(|s| s.trim().to_string())
@@ -84,7 +111,7 @@ static PATHS: LazyLock<GlobalPaths> = LazyLock::new(|| {
 
     if version != CACHE_VERSION {
         // 缓存可重建，版本不匹配时清空目录，避免旧格式数据被误读。
-        if let Ok(entries) = std::fs::read_dir(&cache) {
+        if let Ok(entries) = std::fs::read_dir(&paths.cache) {
             for entry in entries.flatten() {
                 let p = entry.path();
                 let _ =
@@ -93,9 +120,7 @@ static PATHS: LazyLock<GlobalPaths> = LazyLock::new(|| {
         }
         let _ = std::fs::write(&version_path, CACHE_VERSION);
     }
-
-    GlobalPaths { home, data, bin, log, cache, config, state }
-});
+}
 
 #[cfg(target_arch = "wasm32")]
 static PATHS: LazyLock<GlobalPaths> = LazyLock::new(|| {

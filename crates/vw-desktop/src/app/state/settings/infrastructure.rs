@@ -165,7 +165,7 @@ impl Default for SecuritySettingsState {
             otp_gated_domains_input: String::new(),
             otp_gated_domain_categories_input: String::new(),
             estop_enabled: false,
-            estop_state_file: "~/.vibewindow/estop-state.json".to_string(),
+            estop_state_file: vw_config_types::paths::estop_state_file_path(),
             estop_require_otp_to_resume: true,
             syscall_anomaly_enabled: true,
             syscall_anomaly_strict_mode: false,

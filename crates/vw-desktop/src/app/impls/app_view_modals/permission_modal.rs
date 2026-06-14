@@ -188,8 +188,16 @@ pub(crate) fn with_permission_modal<'a>(
         .padding([6, 12])
         .style(primary_action_btn_style);
 
-    let action_row =
-        row![Space::new().width(Length::Fill), reject, always, approve_once].spacing(8);
+    let mut action_row = row![Space::new().width(Length::Fill), reject].spacing(8);
+    if pending_requests.len() > 1 {
+        action_row = action_row.push(
+            button(text("全部始终允许").size(13))
+                .on_press(Message::Chat(message::ChatMessage::PermissionApproveAllAlways))
+                .padding([6, 12])
+                .style(rounded_action_btn_style),
+        );
+    }
+    action_row = action_row.push(always).push(approve_once);
 
     content = content.push(action_row);
 

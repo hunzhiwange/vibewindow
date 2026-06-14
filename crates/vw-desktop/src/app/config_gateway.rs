@@ -1,7 +1,5 @@
 use crate::app::{Message, message::SettingsMessage};
 use iced::Task;
-#[cfg(not(target_arch = "wasm32"))]
-use serde::Deserialize;
 use serde::de::DeserializeOwned;
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::OnceLock;
@@ -9,8 +7,6 @@ use vw_config_types::{config::Config, security::IdentityConfig};
 use vw_gateway_client::{GatewayClient, GatewayEndpoint};
 
 use super::system_settings::load_gateway_client_bootstrap_config;
-#[cfg(not(target_arch = "wasm32"))]
-use super::system_settings::save_gateway_client_bootstrap_config;
 
 fn normalize_identity_format(raw: Option<&str>) -> String {
     let _ = raw;
@@ -23,160 +19,8 @@ fn normalize_gateway_host(raw: &str) -> String {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-#[derive(Debug, Deserialize)]
-struct GatewayPairCodeResponse {
-    require_pairing: bool,
-    paired: bool,
-    pairing_code: Option<String>,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-#[derive(Debug, Deserialize)]
-struct GatewayPairResponse {
-    token: Option<String>,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn is_loopback_host(host: &str) -> bool {
-    matches!(host.trim().to_ascii_lowercase().as_str(), "127.0.0.1" | "localhost" | "::1")
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn gateway_bootstrap_http_client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-        .map_err(|err| err.to_string())
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn endpoint_has_gateway_auth(endpoint: &GatewayEndpoint) -> bool {
-    endpoint.auth.as_ref().is_some_and(|auth| {
-        auth.bearer_token.as_deref().is_some_and(|value| !value.trim().is_empty())
-            || auth.password.as_deref().is_some_and(|value| !value.trim().is_empty())
-            || auth.skey.as_deref().is_some_and(|value| !value.trim().is_empty())
-    })
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn fetch_gateway_pair_code_response(
-    endpoint: &GatewayEndpoint,
-) -> Result<GatewayPairCodeResponse, String> {
-    let pair_code_url = format!("{}/v1/pair-code", endpoint.base_url());
-
-    run_gateway_call(async {
-        let client = gateway_bootstrap_http_client()?;
-        let response = client.get(&pair_code_url).send().await.map_err(|err| err.to_string())?;
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(format!("status={status} body={}", body.trim()));
-        }
-        response.json::<GatewayPairCodeResponse>().await.map_err(|err| err.to_string())
-    })
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn should_attempt_tools_list_request(endpoint: &GatewayEndpoint) -> bool {
-    if endpoint_has_gateway_auth(endpoint) || !is_loopback_host(endpoint.normalized_host()) {
-        return true;
-    }
-
-    match fetch_gateway_pair_code_response(endpoint) {
-        Ok(pairing) if !pairing.require_pairing => true,
-        Ok(pairing) => {
-            tracing::debug!(
-                target: "vw_desktop",
-                endpoint = %endpoint.describe(),
-                paired = pairing.paired,
-                "skipping tools list load until gateway client authentication is available"
-            );
-            false
-        }
-        Err(err) => {
-            tracing::debug!(
-                target: "vw_desktop",
-                endpoint = %endpoint.describe(),
-                error = %err,
-                "skipping tools list load because gateway pairing state is unavailable without credentials"
-            );
-            false
-        }
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn maybe_auto_pair_gateway_client(
-    cfg: &mut vw_config_types::ui::GatewayClientSystemSettingsConfig,
-) {
-    let mut active = cfg.active_server();
-    if !active.bearer_token.trim().is_empty()
-        || !active.username.trim().is_empty()
-        || !active.password.trim().is_empty()
-        || !active.skey.trim().is_empty()
-        || !is_loopback_host(&active.host)
-    {
-        return;
-    }
-
-    let host = normalize_gateway_host(&active.host);
-    let endpoint = GatewayEndpoint::new(host, active.port.clamp(1, u16::MAX));
-    let pair_code_response = match fetch_gateway_pair_code_response(&endpoint) {
-        Ok(response) => response,
-        Err(err) => {
-            tracing::warn!(target: "vw_desktop", error = %err, endpoint = %endpoint.describe(), "failed to fetch gateway pairing bootstrap state");
-            return;
-        }
-    };
-
-    if !pair_code_response.require_pairing {
-        return;
-    }
-
-    let Some(pairing_code) =
-        pair_code_response.pairing_code.filter(|value| !value.trim().is_empty())
-    else {
-        tracing::warn!(target: "vw_desktop", endpoint = %endpoint.describe(), "gateway requires pairing but did not expose a usable loopback pairing code");
-        return;
-    };
-
-    let pair_url = format!("{}/v1/pair", endpoint.base_url());
-    let pair_response = match run_gateway_call(async {
-        let client = gateway_bootstrap_http_client()?;
-        let response = client
-            .post(&pair_url)
-            .header("X-Pairing-Code", pairing_code)
-            .send()
-            .await
-            .map_err(|err| err.to_string())?;
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(format!("status={status} body={}", body.trim()));
-        }
-        response.json::<GatewayPairResponse>().await.map_err(|err| err.to_string())
-    }) {
-        Ok(response) => response,
-        Err(err) => {
-            tracing::warn!(target: "vw_desktop", error = %err, endpoint = %endpoint.describe(), "failed to pair desktop gateway client automatically");
-            return;
-        }
-    };
-
-    let Some(token) = pair_response.token.filter(|value| !value.trim().is_empty()) else {
-        tracing::warn!(target: "vw_desktop", endpoint = %endpoint.describe(), "automatic gateway pairing succeeded without a bearer token payload");
-        return;
-    };
-
-    active.bearer_token = token;
-    let mut servers = cfg.normalized_servers();
-    for server in &mut servers {
-        if server.id == active.id {
-            *server = active.clone();
-        }
-    }
-    cfg.set_servers(servers, active.id.clone());
-    save_gateway_client_bootstrap_config(cfg);
+fn should_attempt_tools_list_request(_endpoint: &GatewayEndpoint) -> bool {
+    true
 }
 
 pub(super) fn apply_main_agent_overrides(config: &mut Config) {
@@ -212,13 +56,14 @@ fn vibewindow_home_config_path() -> Option<std::path::PathBuf> {
     {
         if let Some(home) = std::env::var_os("USERPROFILE") {
             return Some(
-                std::path::PathBuf::from(home).join(".vibewindow").join("vibewindow.json"),
+                vw_config_types::paths::home_config_dir(std::path::PathBuf::from(home))
+                    .join("vibewindow.json"),
             );
         }
     }
     std::env::var_os("HOME")
         .map(std::path::PathBuf::from)
-        .map(|home| home.join(".vibewindow").join("vibewindow.json"))
+        .map(|home| vw_config_types::paths::home_config_dir(home).join("vibewindow.json"))
 }
 
 fn vibewindow_config_path() -> Option<std::path::PathBuf> {
@@ -341,19 +186,19 @@ pub fn spawn_gateway_task(
 
 pub fn gateway_client_endpoint() -> GatewayEndpoint {
     #[cfg(not(target_arch = "wasm32"))]
-    let mut cfg = load_gateway_client_bootstrap_config();
+    let cfg = load_gateway_client_bootstrap_config();
     #[cfg(target_arch = "wasm32")]
     let cfg = load_gateway_client_bootstrap_config();
-    #[cfg(not(target_arch = "wasm32"))]
-    maybe_auto_pair_gateway_client(&mut cfg);
     let active = cfg.active_server();
     let host = normalize_gateway_host(&active.host);
+    let skey = if active.skey.trim().is_empty() {
+        active.bearer_token.trim().to_string()
+    } else {
+        active.skey.trim().to_string()
+    };
     let auth = vw_gateway_client::GatewayAuth {
-        bearer_token: Some(active.bearer_token.trim().to_string())
-            .filter(|value| !value.is_empty()),
-        username: Some(active.username.trim().to_string()).filter(|value| !value.is_empty()),
-        password: Some(active.password.trim().to_string()).filter(|value| !value.is_empty()),
-        skey: Some(active.skey.trim().to_string()).filter(|value| !value.is_empty()),
+        skey: Some(skey).filter(|value| !value.is_empty()),
+        ..vw_gateway_client::GatewayAuth::default()
     };
     GatewayEndpoint::new(host, active.port.clamp(1, u16::MAX)).with_auth(auth)
 }

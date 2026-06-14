@@ -14,9 +14,8 @@
 //!
 //! # 认证机制
 //!
-//! 所有 `/api/*` 路由均要求持有有效的 Bearer Token 进行身份验证。
-//! 认证通过 [`PairingGuard`](crate::app::agent::gateway::api::auth::PairingGuard) 中间件实现，
-//! 确保只有已配对的客户端才能访问 API 资源。
+//! 当网关启用鉴权时，`/api/*` 路由要求持有有效 skey，并通过
+//! `Authorization: Bearer <skey>` 进行身份验证。
 //!
 //! # 公开接口
 //!
@@ -57,7 +56,7 @@
 
 /// 身份认证与授权子模块
 ///
-/// 提供配对认证、Token 验证等安全相关功能。
+/// 提供 skey Bearer 验证等安全相关功能。
 pub mod auth;
 
 /// 核心 API 处理函数子模块

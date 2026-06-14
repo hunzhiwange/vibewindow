@@ -290,6 +290,8 @@ pub(crate) struct EmbeddingRouteDraft {
     pub(crate) model: String,
     /// 维度输入文本
     pub(crate) dimensions: String,
+    /// 可选 API Key 覆盖，优先于全局 api_key。
+    pub(crate) api_key_input: String,
 }
 
 /// 嵌入路由设置面板状态

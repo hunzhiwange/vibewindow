@@ -334,3 +334,85 @@ fn test_real_world_example() {
     assert!(tree.get("fontName").is_some());
     assert!(tree.get("size").is_some());
 }
+
+#[test]
+fn test_convert_missing_or_invalid_parts_returns_none() {
+    let obj = serde_json::from_value::<serde_json::Map<String, JsonValue>>(json!({
+        "value": 10.0
+    }))
+    .unwrap();
+    assert_eq!(convert_to_css_string(&obj), None);
+
+    let obj = serde_json::from_value::<serde_json::Map<String, JsonValue>>(json!({
+        "units": "PIXELS"
+    }))
+    .unwrap();
+    assert_eq!(convert_to_css_string(&obj), None);
+
+    let obj = serde_json::from_value::<serde_json::Map<String, JsonValue>>(json!({
+        "units": 1,
+        "value": 10.0
+    }))
+    .unwrap();
+    assert_eq!(convert_to_css_string(&obj), None);
+
+    let obj = serde_json::from_value::<serde_json::Map<String, JsonValue>>(json!({
+        "units": "PIXELS",
+        "value": "10"
+    }))
+    .unwrap();
+    assert_eq!(convert_to_css_string(&obj), None);
+}
+
+#[test]
+fn test_invalid_target_property_objects_are_preserved() {
+    let mut tree = json!({
+        "letterSpacing": {
+            "units": "EM",
+            "value": 0.1,
+            "nested": {
+                "lineHeight": {
+                    "units": "PIXELS",
+                    "value": 12.0
+                }
+            }
+        },
+        "lineHeight": {
+            "units": "PIXELS",
+            "value": "20"
+        }
+    });
+
+    simplify_text_properties(&mut tree).unwrap();
+
+    assert_eq!(tree["letterSpacing"]["units"].as_str(), Some("EM"));
+    assert_eq!(tree["letterSpacing"]["value"].as_f64(), Some(0.1));
+    assert_eq!(tree["letterSpacing"]["nested"]["lineHeight"].as_str(), Some("12px"));
+    assert_eq!(tree["lineHeight"]["units"].as_str(), Some("PIXELS"));
+    assert_eq!(tree["lineHeight"]["value"].as_str(), Some("20"));
+}
+
+#[test]
+fn test_simplify_root_array_and_primitives() {
+    let mut tree = json!([
+        {
+            "letterSpacing": {
+                "units": "PERCENT",
+                "value": 2.0
+            }
+        },
+        "plain-value",
+        {
+            "lineHeight": {
+                "units": "PIXELS",
+                "value": 18.0
+            }
+        }
+    ]);
+
+    simplify_text_properties(&mut tree).unwrap();
+
+    assert_eq!(tree[0]["letterSpacing"].as_str(), Some("2%"));
+    assert_eq!(tree[1].as_str(), Some("plain-value"));
+    assert_eq!(tree[2]["lineHeight"].as_str(), Some("18px"));
+}

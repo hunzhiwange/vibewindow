@@ -28,6 +28,9 @@ mod handles_tests;
 mod render_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+#[path = "utils_tests.rs"]
+mod utils_tests;
 
 use handles::*;
 use render::*;

@@ -12,7 +12,7 @@ use super::{
     tool_advanced_view, tool_apply_patch_view, tool_bash_view, tool_brief_view, tool_config_view,
     tool_files_view, tool_git_diff_view, tool_lsp_view, tool_name_from_raw, tool_plan_mode_view,
     tool_question_view, tool_read_view, tool_skill_view, tool_text_view, tool_todos_view,
-    tool_todowrite_compact_view, tool_web_view,
+    tool_todowrite_compact_view, tool_web_view, tool_workflow_view,
 };
 
 /// SharedToolRenderKind 描述 tool_renderer 模块支持的离散状态。
@@ -35,6 +35,7 @@ pub(crate) enum SharedToolRenderKind {
     PlanMode,
     Advanced,
     Skill,
+    Workflow,
     Text,
 }
 
@@ -81,6 +82,7 @@ pub(crate) fn shared_tool_render_kind(raw: &str) -> Option<SharedToolRenderKind>
             SharedToolRenderKind::PlanMode
         }
         "skill" => SharedToolRenderKind::Skill,
+        "workflow_node" => SharedToolRenderKind::Workflow,
         "AgentTool" | "Agent" | "browser" | "browser_open" | "open_browser_page"
         | "enter_worktree" | "exit_worktree" | "task_complete" | "tool_search" => {
             SharedToolRenderKind::Advanced
@@ -152,6 +154,8 @@ pub(crate) fn render_shared_tool_view<'a>(
         SharedToolRenderKind::Advanced => tool_advanced_view(app, msg_idx, tool_idx, visible)
             .or_else(|| tool_text_view(app, msg_idx, tool_idx, visible)),
         SharedToolRenderKind::Skill => tool_skill_view(app, msg_idx, tool_idx, visible)
+            .or_else(|| tool_text_view(app, msg_idx, tool_idx, visible)),
+        SharedToolRenderKind::Workflow => tool_workflow_view(app, msg_idx, tool_idx, visible)
             .or_else(|| tool_text_view(app, msg_idx, tool_idx, visible)),
         SharedToolRenderKind::Text => tool_text_view(app, msg_idx, tool_idx, visible),
     }

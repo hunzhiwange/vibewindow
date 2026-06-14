@@ -71,7 +71,7 @@ fn data_dir() -> &'static Path {
 
 fn resolve_session_data_dir() -> PathBuf {
     let paths = crate::global::paths();
-    let session_data_dir = paths.home.join(".vibewindow");
+    let session_data_dir = vw_config_types::paths::home_config_dir(&paths.home);
     migrate_legacy_session_storage_if_needed(&paths.data, &session_data_dir);
     let _ = std::fs::create_dir_all(session_data_dir.join("storage").join("session"));
     backfill_scope_project_metadata(&session_data_dir, &paths.data.join("storage").join("project"));
@@ -114,7 +114,7 @@ fn migrate_legacy_session_storage_if_needed(legacy_data_dir: &Path, session_data
                 target: "vw_agent",
                 legacy_session_dir = %legacy_session_dir.display(),
                 target_session_dir = %target_session_dir.display(),
-                "migrated legacy session ui storage to ~/.vibewindow"
+                "migrated legacy session ui storage to active home config directory"
             );
             return;
         }
@@ -135,7 +135,7 @@ fn migrate_legacy_session_storage_if_needed(legacy_data_dir: &Path, session_data
                 legacy_session_dir = %legacy_session_dir.display(),
                 target_session_dir = %target_session_dir.display(),
                 rename_error = %rename_error,
-                "copied legacy session ui storage to ~/.vibewindow"
+                "copied legacy session ui storage to active home config directory"
             );
         }
     }

@@ -78,6 +78,17 @@ mod tests {
         assert!(path.to_string_lossy().contains("vibewindow"));
     }
 
+    #[test]
+    fn selected_shell_accessors_return_injected_shell_metadata() {
+        let runtime = NativeRuntime::new_for_test(Some(ShellProgram {
+            kind: ShellKind::Sh,
+            program: PathBuf::from("/bin/sh"),
+        }));
+
+        assert_eq!(runtime.selected_shell_kind(), Some("sh"));
+        assert_eq!(runtime.selected_shell_program(), Some(Path::new("/bin/sh")));
+    }
+
     /// 测试 Windows 下 Shell 检测优先选择 Git Bash
     ///
     /// 场景：系统中同时存在 Git Bash、PowerShell 和 CMD
@@ -139,6 +150,23 @@ mod tests {
         )
         .expect("cmd fallback should be detected");
         assert_eq!(cmd_shell.kind, ShellKind::Cmd);
+    }
+
+    #[test]
+    fn detect_shell_windows_prefers_pwsh_over_windows_powershell() {
+        let mut map = HashMap::new();
+        map.insert("pwsh", r"C:\Program Files\PowerShell\7\pwsh.exe");
+        map.insert("powershell", r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
+
+        let shell = detect_native_shell_with(
+            true,
+            |name| map.get(name).map(PathBuf::from),
+            Some(PathBuf::from(r"C:\Windows\System32\cmd.exe")),
+            None,
+        )
+        .expect("pwsh should be detected");
+
+        assert_eq!(shell.kind, ShellKind::Pwsh);
     }
 
     /// 测试 Windows 下排除 System32 中的 WSL bash.exe
@@ -252,6 +280,24 @@ mod tests {
 
         // 应该按优先级选择 zsh
         assert_eq!(shell.kind, ShellKind::Zsh);
+    }
+
+    #[test]
+    fn unix_user_shell_is_ignored_when_unknown_or_missing() {
+        let shell = detect_native_shell_with(
+            false,
+            |name| (name == "sh").then(|| PathBuf::from("/bin/sh")),
+            None,
+            Some(PathBuf::from("/tmp/not-a-supported-shell")),
+        )
+        .expect("fallback shell should be detected");
+
+        assert_eq!(shell.kind, ShellKind::Sh);
+        assert_eq!(classify_unix_shell_program(Path::new("/bin/fish")), None);
+        assert_eq!(
+            classify_unix_shell_program(Path::new("/usr/local/bin/bash")),
+            Some(ShellKind::Bash)
+        );
     }
 
     /// 测试无可用 Shell 时的行为
@@ -374,6 +420,31 @@ mod tests {
         assert!(debug.contains("-l"));
         assert!(debug.contains("-c"));
         assert!(debug.contains("echo hello"));
+    }
+
+    #[test]
+    fn native_builds_sh_and_pwsh_commands() {
+        let sh_runtime = NativeRuntime::new_for_test(Some(ShellProgram {
+            kind: ShellKind::Sh,
+            program: PathBuf::from("/bin/sh"),
+        }));
+        let sh = sh_runtime.build_shell_command("echo sh", Path::new(".")).unwrap();
+        let sh_debug = format!("{sh:?}");
+        assert!(sh_debug.contains("/bin/sh"));
+        assert!(sh_debug.contains("-c"));
+        assert!(sh_debug.contains("echo sh"));
+        assert!(!sh_debug.contains("-l"));
+
+        let pwsh_runtime = NativeRuntime::new_for_test(Some(ShellProgram {
+            kind: ShellKind::Pwsh,
+            program: PathBuf::from("pwsh"),
+        }));
+        let pwsh = pwsh_runtime.build_shell_command("Get-Date", Path::new(".")).unwrap();
+        let pwsh_debug = format!("{pwsh:?}");
+        assert!(pwsh_debug.contains("pwsh"));
+        assert!(pwsh_debug.contains("-NoLogo"));
+        assert!(pwsh_debug.contains("-NonInteractive"));
+        assert!(pwsh_debug.contains("Get-Date"));
     }
 
     /// 测试 Shell 命令构建（集成测试）

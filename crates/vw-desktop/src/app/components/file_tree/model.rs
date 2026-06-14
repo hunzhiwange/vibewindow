@@ -123,7 +123,7 @@ fn to_rel(project_root: &str, path: &str) -> String {
 
     // 优先移除完整项目根路径，保证绝对路径和相对路径最终落到同一棵树。
     if let Some(relative) = strip_root_prefix(&normalized_path, &normalized_root) {
-        return relative.to_string();
+        return relative.trim_start_matches("./").trim_start_matches('/').to_string();
     }
 
     // 有些调用方传入的路径已经去掉父目录，只保留项目目录名，这里保留兼容。

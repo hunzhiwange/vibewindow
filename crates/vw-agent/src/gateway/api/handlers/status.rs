@@ -7,7 +7,7 @@
 //! - **状态查询**：返回代理的完整运行状态，包括：
 //!   - 当前使用的 Provider 和模型配置
 //!   - 系统运行时长（uptime）
-//!   - 配对状态和通道配置
+//!   - skey 鉴权状态和通道配置
 //!   - 内存后端信息
 //!   - 健康检查快照
 //!
@@ -43,7 +43,8 @@ use axum::{
 /// - `gateway_port`: 网关监听端口
 /// - `locale`: 当前语言区域设置
 /// - `memory_backend`: 内存存储后端名称
-/// - `paired`: 是否已完成配对
+/// - `auth_enabled`: 是否启用 skey 鉴权
+/// - `active_skeys`: 当前有效 skey 数量
 /// - `channels`: 各通道的启用状态映射
 /// - `health`: 系统健康状态快照
 ///
@@ -55,7 +56,7 @@ use axum::{
 ///
 /// ```text
 /// GET /api/status
-/// Authorization: Bearer <token>
+/// Authorization: Bearer <skey>
 /// ```
 pub async fn handle_api_status(
     State(state): State<AppState>,
@@ -89,7 +90,8 @@ pub async fn handle_api_status(
         "gateway_port": config.gateway.port,
         "locale": "en",
         "memory_backend": state.mem.name(),
-        "paired": state.pairing.is_paired(),
+        "auth_enabled": state.pairing.auth_enabled(),
+        "active_skeys": state.pairing.active_skey_count(),
         "channels": channels,
         "health": health,
     });
@@ -118,7 +120,7 @@ pub async fn handle_api_status(
 ///
 /// ```text
 /// GET /api/health
-/// Authorization: Bearer <token>
+/// Authorization: Bearer <skey>
 /// ```
 pub async fn handle_api_health(
     State(state): State<AppState>,

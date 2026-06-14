@@ -10,6 +10,9 @@
 
 #[path = "config_agent.rs"]
 mod agent;
+#[cfg(not(target_arch = "wasm32"))]
+#[path = "config_cli_bootstrap.rs"]
+mod cli_bootstrap;
 #[path = "config_cron_jobs.rs"]
 mod cron_jobs;
 #[path = "config_desktop.rs"]
@@ -25,6 +28,8 @@ mod system_settings;
 ///
 /// 调用方通过该入口使用配置或组件能力，无需依赖内部文件布局。
 pub use agent::*;
+#[cfg(not(target_arch = "wasm32"))]
+pub use cli_bootstrap::*;
 pub use cron_jobs::*;
 /// 重新导出 `desktop::*`，作为本模块对外暴露的稳定入口。
 ///

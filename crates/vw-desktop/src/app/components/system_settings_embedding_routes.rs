@@ -45,6 +45,37 @@ fn field_row<'a>(
     .into()
 }
 
+fn secure_field_row<'a>(
+    label: &'static str,
+    description: &'static str,
+    placeholder: &'static str,
+    value: &'a str,
+    on_input: impl Fn(String) -> Message + 'a,
+) -> Element<'a, Message> {
+    container(
+        row![
+            column![
+                text(label).size(13),
+                text(description).size(11).style(settings_muted_text_style),
+            ]
+            .spacing(4)
+            .width(Length::Fixed(SETTINGS_LABEL_WIDTH)),
+            text_input(placeholder, value)
+                .secure(true)
+                .on_input(on_input)
+                .padding([10, 12])
+                .size(13)
+                .style(settings_text_input_style)
+                .width(Length::Fill),
+        ]
+        .spacing(22)
+        .align_y(Alignment::Center),
+    )
+    .padding([14, 0])
+    .width(Length::Fill)
+    .into()
+}
+
 /// 构建或处理 `view` 对应的界面片段与交互数据。
 ///
 /// # 参数
@@ -69,7 +100,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let header = row![
         container(settings_page_intro(
             "嵌入路由",
-            "配置不同语义场景使用的嵌入提供商、模型和维度。在记忆配置中用 hint:模式名 引用路由。"
+            "配置不同语义场景使用的嵌入提供商、模型、维度和 API Key。在记忆配置中用 hint:模式名 引用路由。"
         ))
         .width(Length::Fill),
         goto_memory_btn,
@@ -126,7 +157,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         let provider_row = field_row(
             "提供商",
             "嵌入请求所使用的 provider。",
-            "openai",
+            "alibaba-cn",
             &route.provider,
             move |value| {
                 Message::Settings(message::SettingsMessage::EmbeddingRoutes(
@@ -137,7 +168,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         let model_row = field_row(
             "模型",
             "具体使用的 embedding 模型。",
-            "text-embedding-3-small",
+            "text-embedding-v4",
             &route.model,
             move |value| {
                 Message::Settings(message::SettingsMessage::EmbeddingRoutes(
@@ -148,11 +179,22 @@ pub fn view(app: &App) -> Element<'_, Message> {
         let dimensions_row = field_row(
             "维度",
             "留空时按模型默认维度运行。",
-            "1536",
+            "1024",
             &route.dimensions,
             move |value| {
                 Message::Settings(message::SettingsMessage::EmbeddingRoutes(
                     EmbeddingRoutesMessage::DimensionsChanged(index, value),
+                ))
+            },
+        );
+        let api_key_row = secure_field_row(
+            "API Key",
+            "可选覆盖凭据；阿里填 DashScope API Key。",
+            "DASHSCOPE_API_KEY",
+            &route.api_key_input,
+            move |value| {
+                Message::Settings(message::SettingsMessage::EmbeddingRoutes(
+                    EmbeddingRoutesMessage::ApiKeyChanged(index, value),
                 ))
             },
         );
@@ -177,7 +219,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
             column![
                 route_title,
                 settings_panel(
-                    column![pattern_row, provider_row, model_row, dimensions_row].spacing(0)
+                    column![pattern_row, provider_row, model_row, dimensions_row, api_key_row]
+                        .spacing(0)
                 )
             ]
             .spacing(12),
@@ -205,3 +248,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     container(content).width(Length::Fill).into()
 }
+#[cfg(test)]
+#[path = "system_settings_embedding_routes_tests.rs"]
+mod system_settings_embedding_routes_tests;

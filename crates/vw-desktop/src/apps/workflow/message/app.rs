@@ -95,6 +95,33 @@ pub(super) fn handle(app: &mut App, message: WorkflowMessage) -> Option<Task<Mes
             }
             Task::none()
         }
+        WorkflowMessage::OpenInlineYaml { workflow_yaml, focus_node_id } => {
+            app.workflow_state.close_floating_panels();
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                match load_document_from_text(None, workflow_yaml) {
+                    Ok(loaded) => {
+                        apply_loaded(app, loaded);
+                        if let Some(node_id) =
+                            focus_node_id.as_deref().filter(|value| !value.trim().is_empty())
+                            && let Err(error) =
+                                app.workflow_state.focus_node(node_id, app.window_size)
+                        {
+                            app.workflow_state.set_error(error);
+                        }
+                        app.workflow_state.status_message =
+                            Some("已打开临时工作流预览".to_string());
+                    }
+                    Err(error) => app.workflow_state.set_error(error),
+                }
+            }
+            #[cfg(target_arch = "wasm32")]
+            {
+                let _ = (workflow_yaml, focus_node_id);
+                app.workflow_state.set_error("Web 平台暂不支持预览内联 Workflow YAML".to_string());
+            }
+            Task::none()
+        }
         WorkflowMessage::OpenFile => {
             app.workflow_state.close_floating_panels();
             open_file()

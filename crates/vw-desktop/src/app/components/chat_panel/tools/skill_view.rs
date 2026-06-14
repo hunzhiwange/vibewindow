@@ -40,7 +40,7 @@ pub fn tool_skill_view<'a>(
     let title = if is_error { "技能失败" } else { "技能" };
 
     let detail_btn = button(
-        icon_svg(Icon::Eye)
+        icon_svg(Icon::ChevronRight)
             .width(Length::Fixed(10.0))
             .height(Length::Fixed(10.0))
             .style(eye_icon_svg_style),
@@ -83,7 +83,7 @@ pub fn tool_skill_view<'a>(
     Some(content)
 }
 
-fn skill_display_name(input: &str, output: &str, error: &str) -> String {
+pub(super) fn skill_display_name(input: &str, output: &str, error: &str) -> String {
     skill_name_from_input(input)
         .or_else(|| skill_name_from_output(output))
         .or_else(|| skill_name_from_output(error))
@@ -91,7 +91,7 @@ fn skill_display_name(input: &str, output: &str, error: &str) -> String {
         .unwrap_or_else(|| "未知技能".to_string())
 }
 
-fn skill_name_from_input(input: &str) -> Option<String> {
+pub(super) fn skill_name_from_input(input: &str) -> Option<String> {
     let input = input.trim();
     if input.is_empty() {
         return None;
@@ -106,7 +106,7 @@ fn skill_name_from_input(input: &str) -> Option<String> {
         .map(ToString::to_string)
 }
 
-fn skill_name_from_json_value(value: &Value) -> Option<String> {
+pub(super) fn skill_name_from_json_value(value: &Value) -> Option<String> {
     if let Some(text) = value.as_str().map(str::trim).filter(|text| !text.is_empty()) {
         return Some(text.to_string());
     }
@@ -122,11 +122,11 @@ fn skill_name_from_json_value(value: &Value) -> Option<String> {
     None
 }
 
-fn skill_name_from_output(output: &str) -> Option<String> {
+pub(super) fn skill_name_from_output(output: &str) -> Option<String> {
     quoted_attr_value(output, "name").or_else(|| yaml_name_value(output))
 }
 
-fn quoted_attr_value(text: &str, attr: &str) -> Option<String> {
+pub(super) fn quoted_attr_value(text: &str, attr: &str) -> Option<String> {
     let needle = format!("{attr}=");
     let start = text.find(&needle)? + needle.len();
     let rest = text[start..].trim_start();
@@ -142,7 +142,7 @@ fn quoted_attr_value(text: &str, attr: &str) -> Option<String> {
     if value.is_empty() { None } else { Some(value.to_string()) }
 }
 
-fn yaml_name_value(text: &str) -> Option<String> {
+pub(super) fn yaml_name_value(text: &str) -> Option<String> {
     text.lines().find_map(|line| {
         let value = line.trim().strip_prefix("name:")?.trim();
         let value = value.trim_matches(&['"', '\''][..]).trim();

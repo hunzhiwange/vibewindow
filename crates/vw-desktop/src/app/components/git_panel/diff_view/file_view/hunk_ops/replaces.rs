@@ -46,7 +46,7 @@ const WORD_DIFF_MAX_LINE_LEN: usize = 512;
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn should_compute_word_diff(
+pub(super) fn should_compute_word_diff(
     app: &App,
     // old_len 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
     old_len: usize,

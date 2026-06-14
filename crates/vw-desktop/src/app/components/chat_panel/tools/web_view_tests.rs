@@ -19,3 +19,26 @@ fn web_metadata_text_includes_url() {
 
     assert!(web_metadata_text("web_fetch", &value).contains("https://example.test"));
 }
+
+#[test]
+fn web_metadata_prefers_render_hint_and_search_specific_fields() {
+    let value = json!({
+        "renderHint": {
+            "metadata": {
+                "provider": "bing",
+                "result_count": 12,
+                "truncated": true
+            }
+        },
+        "input": "{\"urls\":[\"https://example.test/a\"],\"query\":\"latest docs\"}"
+    });
+
+    let search_text = web_metadata_text("web_search", &value);
+    assert!(search_text.contains("bing"));
+    assert!(search_text.contains("12 条结果"));
+
+    let fetch_text = web_metadata_text("web_fetch", &value);
+    assert!(fetch_text.contains("https://example.test/a"));
+    assert!(fetch_text.contains("bing"));
+    assert!(fetch_text.contains("已截断"));
+}

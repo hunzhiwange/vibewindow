@@ -9,7 +9,7 @@ use super::common::{build_launchd_env_vars, run_capture, run_checked, xml_escape
 /// macOS launchd 服务的标识符标签。
 pub(super) const SERVICE_LABEL: &str = "com.vibewindow.daemon";
 
-fn config_dir_arg(config: &Config) -> Option<String> {
+pub(super) fn config_dir_arg(config: &Config) -> Option<String> {
     config.config_path.parent().map(|path| path.display().to_string())
 }
 

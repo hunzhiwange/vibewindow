@@ -16,7 +16,7 @@ const ACP_ORDER: &[&str] = &[
     "droid", "iflow", "kilocode", "qwen",
 ];
 
-fn acp_title(agent: &str) -> &'static str {
+pub(super) fn acp_title(agent: &str) -> &'static str {
     match agent {
         "codex" => "Codex CLI",
         "claude" => "Claude Code",
@@ -35,7 +35,7 @@ fn acp_title(agent: &str) -> &'static str {
     }
 }
 
-fn acp_description(agent: &str) -> &'static str {
+pub(super) fn acp_description(agent: &str) -> &'static str {
     match agent {
         "codex" => "OpenAI Codex ACP 适配器，适合把 Codex CLI 作为外部编码后端。",
         "claude" => "Claude Code ACP 适配器，适合连接本机 Claude Code 工作流。",
@@ -54,7 +54,7 @@ fn acp_description(agent: &str) -> &'static str {
     }
 }
 
-fn setup_hint(agent: &str) -> &'static str {
+pub(super) fn setup_hint(agent: &str) -> &'static str {
     match agent {
         "codex" => "初始化：确保 Node.js 可用；首次运行按 Codex CLI 提示完成登录或令牌配置。",
         "claude" => "初始化：安装或登录 Claude Code；非交互运行建议提前完成认证。",
@@ -66,7 +66,7 @@ fn setup_hint(agent: &str) -> &'static str {
     }
 }
 
-fn command_line(config: &AcpAgentConfig) -> String {
+pub(super) fn command_line(config: &AcpAgentConfig) -> String {
     std::iter::once(config.command.as_str())
         .chain(config.args.iter().map(String::as_str))
         .filter(|part| !part.trim().is_empty())
@@ -74,7 +74,7 @@ fn command_line(config: &AcpAgentConfig) -> String {
         .join(" ")
 }
 
-fn ordered_agents(app: &App) -> Vec<String> {
+pub(super) fn ordered_agents(app: &App) -> Vec<String> {
     let mut names = app.acp_settings.catalog.keys().cloned().collect::<Vec<_>>();
     names.sort_by(|left, right| {
         let left_rank =
@@ -207,3 +207,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     content.into()
 }
+#[cfg(test)]
+#[path = "system_settings_acp_tests.rs"]
+mod system_settings_acp_tests;

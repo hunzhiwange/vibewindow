@@ -851,3 +851,7 @@ fn clear_notification_task() -> Task<Message> {
         Message::MarkdownTool(MarkdownToolMessage::ClearNotification),
     )
 }
+
+#[cfg(test)]
+#[path = "markdown_tool_tests.rs"]
+mod markdown_tool_tests;

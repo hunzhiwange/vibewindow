@@ -83,7 +83,7 @@ pub async fn status() -> Vec<FormatterStatus> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn format_file(filepath: &str) -> Result<(), ()> {
+pub(super) async fn format_file(filepath: &str) -> Result<(), ()> {
     let ext = Path::new(filepath)
         .extension()
         .and_then(|s| s.to_str())

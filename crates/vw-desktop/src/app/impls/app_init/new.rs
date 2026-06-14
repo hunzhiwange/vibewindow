@@ -712,6 +712,7 @@ impl App {
                             .dimensions
                             .map(|value| value.to_string())
                             .unwrap_or_default(),
+                        api_key_input: route.api_key.unwrap_or_default(),
                     })
                     .collect(),
                 save_error: gateway_cfg_result
@@ -1044,16 +1045,21 @@ impl App {
             },
 
             gateway_settings: super::state::GatewaySettingsState {
+                active_tab: super::state::GatewaySettingsTab::Config,
                 port: gateway_cfg.port.clamp(1, u16::MAX),
                 host_input: {
                     let value = gateway_cfg.host.trim().to_string();
                     if value.is_empty() { "127.0.0.1".to_string() } else { value }
                 },
-                require_pairing: gateway_cfg.require_pairing,
+                auth_enabled: gateway_cfg.auth_enabled,
+                skeys: gateway_cfg.skeys,
+                new_skey_name_input: String::new(),
+                new_skey_expires_at_input: String::new(),
+                new_skey_calendar_month: String::new(),
+                new_skey_calendar_open: false,
+                last_created_skey: None,
+                last_created_skey_copied: false,
                 allow_public_bind: gateway_cfg.allow_public_bind,
-                paired_tokens: gateway_cfg.paired_tokens,
-                new_paired_token_input: String::new(),
-                pair_rate_limit_per_minute: gateway_cfg.pair_rate_limit_per_minute.clamp(1, 10_000),
                 webhook_rate_limit_per_minute: gateway_cfg
                     .webhook_rate_limit_per_minute
                     .clamp(1, 100_000),
@@ -1067,6 +1073,8 @@ impl App {
                     .node_control
                     .allowed_node_ids
                     .join("\n"),
+                service_action_running: None,
+                service_action_output: None,
                 show_help_modal: false,
                 save_error: None,
             },
@@ -1085,10 +1093,14 @@ impl App {
                     if value.is_empty() { "127.0.0.1".to_string() } else { value }
                 },
                 port: gateway_client_cfg.active_server().port.clamp(1, u16::MAX),
-                bearer_token_input: gateway_client_cfg.active_server().bearer_token,
-                username_input: gateway_client_cfg.active_server().username,
-                password_input: gateway_client_cfg.active_server().password,
-                skey_input: gateway_client_cfg.active_server().skey,
+                skey_input: {
+                    let active = gateway_client_cfg.active_server();
+                    if active.skey.trim().is_empty() {
+                        active.bearer_token
+                    } else {
+                        active.skey
+                    }
+                },
                 pending_remove_server_id: None,
                 show_help_modal: false,
                 save_error: None,
@@ -1331,7 +1343,7 @@ impl App {
                 estop_enabled: security_cfg.estop.enabled,
                 estop_state_file: {
                     let v = security_cfg.estop.state_file.trim().to_string();
-                    if v.is_empty() { "~/.vibewindow/estop-state.json".to_string() } else { v }
+                    if v.is_empty() { vw_config_types::paths::estop_state_file_path() } else { v }
                 },
                 estop_require_otp_to_resume: security_cfg.estop.require_otp_to_resume,
                 // 系统调用异常检测配置

@@ -51,3 +51,7 @@ pub(crate) fn router() -> Router<AppState> {
         .route("/data/query", post(handlers::data_query))
         .route("/data/ai/query", post(handlers::data_ai_query))
 }
+
+#[cfg(test)]
+#[path = "data_tests.rs"]
+mod data_tests;

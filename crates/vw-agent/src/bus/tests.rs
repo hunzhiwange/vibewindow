@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::json;
 
-use super::{define, publish, publish_value, subscribe, subscribe_all};
+use super::{define, global_subscribe, once, publish, publish_value, subscribe, subscribe_all};
 
 #[test]
 fn publish_notifies_typed_and_wildcard_subscribers() {
@@ -48,4 +48,63 @@ fn unsubscribe_stops_future_events() {
     publish_value(def, json!({}), None);
 
     assert_eq!(*seen.lock().unwrap(), 1);
+}
+
+#[test]
+fn once_unsubscribes_after_matching_callback() {
+    let def = define("test.plan6.bus.once");
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let slot = Arc::clone(&seen);
+
+    once(def, move |payload| {
+        let value = payload["properties"]["value"].as_i64().unwrap();
+        slot.lock().unwrap().push(value);
+        value == 2
+    });
+
+    publish_value(def, json!({"value": 1}), None);
+    publish_value(def, json!({"value": 2}), None);
+    publish_value(def, json!({"value": 3}), None);
+
+    assert_eq!(*seen.lock().unwrap(), vec![1, 2]);
+}
+
+#[test]
+fn global_subscribe_receives_directory_payload_and_unsubscribes() {
+    let def = define("test.plan6.bus.global");
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let slot = Arc::clone(&seen);
+    let unsubscribe = global_subscribe(move |event| {
+        slot.lock().unwrap().push((event.directory.clone(), event.payload));
+    });
+
+    publish_value(def, json!({"ok": true}), Some("/tmp/project".to_string()));
+    unsubscribe();
+    publish_value(def, json!({"ok": false}), Some("/tmp/project".to_string()));
+
+    let seen = seen.lock().unwrap();
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0].0.as_deref(), Some("/tmp/project"));
+    assert_eq!(seen[0].1["type"], "test.plan6.bus.global");
+    assert_eq!(seen[0].1["properties"]["ok"], true);
+}
+
+#[test]
+fn publish_returns_serialization_errors_without_dispatching() {
+    struct FailingSerialize;
+
+    impl serde::Serialize for FailingSerialize {
+        fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            Err(serde::ser::Error::custom("intentional serialization failure"))
+        }
+    }
+
+    let error = publish(define("test.plan6.bus.serialize_error"), FailingSerialize, None)
+        .unwrap_err()
+        .to_string();
+
+    assert!(error.contains("intentional serialization failure"));
 }

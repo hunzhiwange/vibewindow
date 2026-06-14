@@ -1,29 +1,49 @@
-// Tests for plan6 task 834.
-const SOURCE: &str = include_str!("controls.rs");
+use super::controls;
+use crate::app::{App, Message, Screen};
+use iced::Element;
 
-fn source_declares_symbol(name: &str) -> bool {
-    let needles = [
-        format!("fn {name}"),
-        format!("pub fn {name}"),
-        format!("struct {name}"),
-        format!("pub struct {name}"),
-        format!("enum {name}"),
-        format!("pub enum {name}"),
-        format!("type {name}"),
-        format!("pub type {name}"),
-        format!("const {name}"),
-        format!("pub const {name}"),
-        format!("static {name}"),
-        format!("pub static {name}"),
-        format!("impl {name}"),
-    ];
+fn test_app() -> App {
+    let (app, _task) = App::new();
+    app
+}
 
-    needles.iter().any(|needle| SOURCE.contains(needle))
+fn keep_element(element: Element<'_, Message>) {
+    std::hint::black_box(element);
 }
 
 #[test]
-fn controls_tests_keeps_planned_coverage_targets() {
-    for name in ["settings_button", "project_view_tools"] {
-        assert!(source_declares_symbol(name), "expected source to declare coverage target {name}");
-    }
+fn settings_button_builds_element() {
+    keep_element(controls::settings_button());
+}
+
+#[test]
+fn project_view_tools_returns_empty_space_outside_project_screen() {
+    let mut app = test_app();
+    app.screen = Screen::Home;
+
+    keep_element(controls::project_view_tools(&app));
+}
+
+#[test]
+fn project_view_tools_builds_project_controls_when_panels_are_hidden() {
+    let mut app = test_app();
+    app.screen = Screen::Project;
+    app.show_settings = false;
+    app.terminal.is_visible = false;
+    app.show_diff = false;
+    app.show_file_manager = false;
+
+    keep_element(controls::project_view_tools(&app));
+}
+
+#[test]
+fn project_view_tools_builds_project_controls_when_panels_are_visible() {
+    let mut app = test_app();
+    app.screen = Screen::Project;
+    app.show_settings = true;
+    app.terminal.is_visible = true;
+    app.show_diff = true;
+    app.show_file_manager = true;
+
+    keep_element(controls::project_view_tools(&app));
 }

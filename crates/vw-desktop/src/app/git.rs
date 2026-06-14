@@ -78,14 +78,8 @@ pub fn git_stage_file(repo_path: &str, file: &str, shell: Shell) -> Result<(), S
 /// ```
 #[cfg(not(target_arch = "wasm32"))]
 pub fn git_commit(repo_path: &str, message: &str, shell: Shell) -> Result<(), String> {
-    /// 对字符串进行 shell 引号转义
-    fn sh_quote(s: &str) -> String {
-        let escaped = s.replace("'", "'\"'\"'");
-        format!("'{}'", escaped)
-    }
-    let cmd = format!("git commit -m {}", sh_quote(message));
-    let _ = run_shell_command(Some(repo_path.to_string()), cmd, shell);
-    Ok(())
+    let _ = shell;
+    git_commit_internal(repo_path, message, None)
 }
 
 /// 使用标题和正文创建 Git 提交
@@ -123,14 +117,34 @@ pub fn git_commit_with_body(
     body: &str,
     shell: Shell,
 ) -> Result<(), String> {
-    /// 对字符串进行 shell 引号转义
-    fn sh_quote(s: &str) -> String {
-        let escaped = s.replace("'", "'\"'\"'");
-        format!("'{}'", escaped)
-    }
-    let cmd = format!("git commit -m {} -m {}", sh_quote(summary), sh_quote(body));
-    let _ = run_shell_command(Some(repo_path.to_string()), cmd, shell);
-    Ok(())
+    let _ = shell;
+    git_commit_internal(repo_path, summary, Some(body))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn git_commit_internal(repo_path: &str, summary: &str, body: Option<&str>) -> Result<(), String> {
+    let repo = git2::Repository::open(repo_path).map_err(|e| e.message().to_string())?;
+    let mut index = repo.index().map_err(|e| e.message().to_string())?;
+    let tree_id = index.write_tree().map_err(|e| e.message().to_string())?;
+    let tree = repo.find_tree(tree_id).map_err(|e| e.message().to_string())?;
+    let signature = repo
+        .signature()
+        .or_else(|_| git2::Signature::now("Vibe Window", "vibe@example.test"))
+        .map_err(|e| e.message().to_string())?;
+    let parents = if let Ok(head) = repo.head() {
+        vec![head.peel_to_commit().map_err(|e| e.message().to_string())?]
+    } else {
+        Vec::new()
+    };
+    let parent_refs: Vec<&git2::Commit<'_>> = parents.iter().collect();
+    let message = match body {
+        Some(body) if !body.is_empty() => format!("{summary}\n\n{body}"),
+        _ => summary.to_string(),
+    };
+
+    repo.commit(Some("HEAD"), &signature, &signature, &message, &tree, &parent_refs)
+        .map_err(|e| e.message().to_string())?;
+    index.write().map_err(|e| e.message().to_string())
 }
 
 /// 获取最近 N 条 Git 提交记录
@@ -158,13 +172,13 @@ pub fn git_commit_with_body(
 /// ```
 #[cfg(not(target_arch = "wasm32"))]
 pub fn git_log(repo_path: &str, n: usize) -> Vec<(String, String)> {
-    let cmd = format!("git log --pretty=format:%H|%s -n {}", n);
+    let cmd = format!("git log --pretty=format:'%H|%s' -n {}", n);
     let out = run_shell_command(Some(repo_path.to_string()), cmd, Shell::Bash);
     out.lines()
         .filter_map(|line| {
             let mut parts = line.splitn(2, '|');
             let id = parts.next()?.to_string();
-            let subject = parts.next().unwrap_or("").to_string();
+            let subject = parts.next()?.to_string();
             Some((id, subject))
         })
         .collect()
@@ -268,6 +282,10 @@ pub fn git_diff_for_file(repo_path: &str, file: &str) -> Option<String> {
         if path == file
             && let Ok(s) = std::str::from_utf8(line.content())
         {
+            match line.origin() {
+                '+' | '-' | ' ' => out.push(line.origin()),
+                _ => {}
+            }
             out.push_str(s);
         }
         true
@@ -471,56 +489,49 @@ pub fn git_discard_hunk(
 /// ```
 #[cfg(not(target_arch = "wasm32"))]
 pub fn git_stage_hunk(repo_path: &str, file: &str, idx: usize, shell: Shell) -> Result<(), String> {
+    let _ = shell;
     let (old_content, new_content) = get_file_content_pair(repo_path, file)
         .ok_or_else(|| "Failed to read file content".to_string())?;
+    let old_lines: Vec<&str> = old_content.lines().collect();
+    let new_lines: Vec<&str> = new_content.lines().collect();
 
     let diff = TextDiff::from_lines(&old_content, &new_content);
-    let hunks: Vec<String> = diff
-        .unified_diff()
-        .context_radius(DIFF_CONTEXT)
-        .iter_hunks()
-        .map(|hunk| hunk.to_string())
-        .collect();
+    let groups = diff.grouped_ops(DIFF_CONTEXT);
 
-    if idx >= hunks.len() {
+    if idx >= groups.len() {
         return Err("bad hunk index".to_string());
     }
 
-    let hunk = &hunks[idx];
-
-    // 构建 patch 文件内容
-    let mut patch = String::new();
-    patch.push_str(&format!("diff --git a/{} b/{}\n", file, file));
-
-    let is_new_file = old_content.is_empty() && !new_content.is_empty();
-    let is_deleted_file = !old_content.is_empty() && new_content.is_empty();
-
-    if is_new_file {
-        patch.push_str("new file mode 100644\n");
-        patch.push_str("index 0000000..0000000\n");
-        patch.push_str("--- /dev/null\n");
-        patch.push_str(&format!("+++ b/{}\n", file));
-    } else if is_deleted_file {
-        patch.push_str("deleted file mode 100644\n");
-        patch.push_str("index 0000000..0000000\n");
-        patch.push_str(&format!("--- a/{}\n", file));
-        patch.push_str("+++ /dev/null\n");
-    } else {
-        patch.push_str("index 0000000..0000000 100644\n");
-        patch.push_str(&format!("--- a/{}\n", file));
-        patch.push_str(&format!("+++ b/{}\n", file));
+    let mut staged_lines: Vec<String> = old_lines.iter().map(|line| (*line).to_string()).collect();
+    let mut offset: isize = 0;
+    for op in groups[idx].clone() {
+        match op {
+            similar::DiffOp::Equal { .. } => {}
+            similar::DiffOp::Delete { old_index, old_len, .. } => {
+                let start = (old_index as isize + offset) as usize;
+                staged_lines.drain(start..start + old_len);
+                offset -= old_len as isize;
+            }
+            similar::DiffOp::Insert { old_index, new_index, new_len } => {
+                let start = (old_index as isize + offset) as usize;
+                let inserted = new_lines[new_index..new_index + new_len]
+                    .iter()
+                    .map(|line| (*line).to_string());
+                staged_lines.splice(start..start, inserted);
+                offset += new_len as isize;
+            }
+            similar::DiffOp::Replace { old_index, old_len, new_index, new_len } => {
+                let start = (old_index as isize + offset) as usize;
+                let inserted = new_lines[new_index..new_index + new_len]
+                    .iter()
+                    .map(|line| (*line).to_string());
+                staged_lines.splice(start..start + old_len, inserted);
+                offset += new_len as isize - old_len as isize;
+            }
+        }
     }
 
-    patch.push_str(hunk);
-
-    // 写入临时 patch 文件并应用到暂存区
-    let tmp = std::env::temp_dir().join(format!("vibe-stage-{}.patch", idx));
-    std::fs::write(&tmp, patch).map_err(|e| e.to_string())?;
-
-    let cmd = format!("git apply --cached {}", tmp.to_string_lossy());
-    let _ = run_shell_command(Some(repo_path.to_string()), cmd, shell);
-    let _ = std::fs::remove_file(&tmp);
-    Ok(())
+    write_index_content(repo_path, file, lines_to_content(staged_lines, &new_content))
 }
 
 /// 暂存指定的新增行
@@ -560,6 +571,7 @@ pub fn git_stage_line_insert(
     new_idx: usize,
     shell: Shell,
 ) -> Result<(), String> {
+    let _ = shell;
     let (old_content, new_content) = get_file_content_pair(repo_path, file_path)
         .ok_or_else(|| "Failed to read file".to_string())?;
     let old_lines: Vec<&str> = old_content.lines().collect();
@@ -603,50 +615,9 @@ pub fn git_stage_line_insert(
 
     let old_pos = target_old_pos.ok_or_else(|| "Cannot locate insertion anchor".to_string())?;
 
-    // 构建最小化 patch（零上下文以精确暂存单行）
-    let _ctx = 0usize;
-    let old_start = old_pos + 1; // unified diff 行号从 1 开始
-    let old_len = 0usize;
-    let new_start = new_idx + 1;
-    let new_len = 1usize;
-
-    let mut patch = String::new();
-    patch.push_str(&format!("diff --git a/{} b/{}\n", file_path, file_path));
-
-    let is_new_file = old_lines.is_empty() && !new_lines.is_empty();
-    let is_deleted_file = !old_lines.is_empty() && new_lines.is_empty();
-
-    if is_new_file {
-        patch.push_str("new file mode 100644\n");
-        patch.push_str("index 0000000..0000000\n");
-        patch.push_str("--- /dev/null\n");
-        patch.push_str(&format!("+++ b/{}\n", file_path));
-    } else if is_deleted_file {
-        patch.push_str("deleted file mode 100644\n");
-        patch.push_str("index 0000000..0000000\n");
-        patch.push_str(&format!("--- a/{}\n", file_path));
-        patch.push_str("+++ /dev/null\n");
-    } else {
-        patch.push_str("index 0000000..0000000 100644\n");
-        patch.push_str(&format!("--- a/{}\n", file_path));
-        patch.push_str(&format!("+++ b/{}\n", file_path));
-    }
-
-    patch.push_str(&format!("@@ -{},{} +{},{} @@\n", old_start, old_len, new_start, new_len));
-    let line = new_lines.get(new_idx).copied().unwrap_or("");
-    patch.push_str(&format!("+{}\n", line));
-
-    // 写入临时文件并应用
-    let tmp = std::env::temp_dir().join(format!(
-        "vibe-line-{}-{}.patch",
-        file_path.replace("/", "_"),
-        new_idx
-    ));
-    std::fs::write(&tmp, patch).map_err(|e| e.to_string())?;
-    let cmd = format!("git apply --cached {}", tmp.to_string_lossy());
-    let _ = run_shell_command(Some(repo_path.to_string()), cmd, shell);
-    let _ = std::fs::remove_file(&tmp);
-    Ok(())
+    let mut staged_lines: Vec<String> = old_lines.iter().map(|line| (*line).to_string()).collect();
+    staged_lines.insert(old_pos, new_lines.get(new_idx).copied().unwrap_or("").to_string());
+    write_index_content(repo_path, file_path, lines_to_content(staged_lines, &new_content))
 }
 
 /// 暂存指定的删除行
@@ -686,10 +657,11 @@ pub fn git_stage_line_delete(
     old_idx: usize,
     shell: Shell,
 ) -> Result<(), String> {
+    let _ = shell;
     let (old_content, new_content) = get_file_content_pair(repo_path, file_path)
         .ok_or_else(|| "Failed to read file".to_string())?;
     let old_lines: Vec<&str> = old_content.lines().collect();
-    let new_lines: Vec<&str> = new_content.lines().collect();
+    let _new_lines: Vec<&str> = new_content.lines().collect();
 
     if old_idx >= old_lines.len() {
         return Err("Old line index out of bounds".to_string());
@@ -730,48 +702,45 @@ pub fn git_stage_line_delete(
         }
     }
 
-    let new_pos = target_new_pos.unwrap_or(last_new_end);
-    let old_start = old_idx + 1;
-    let old_len = 1usize;
-    let new_start = new_pos + 1;
-    let new_len = 0usize;
+    let _ = target_new_pos.unwrap_or(last_new_end);
+    let mut staged_lines: Vec<String> = old_lines.iter().map(|line| (*line).to_string()).collect();
+    staged_lines.remove(old_idx);
+    write_index_content(repo_path, file_path, lines_to_content(staged_lines, &new_content))
+}
 
-    let mut patch = String::new();
-    patch.push_str(&format!("diff --git a/{} b/{}\n", file_path, file_path));
-
-    let is_new_file = old_lines.is_empty() && !new_lines.is_empty();
-    let is_deleted_file = !old_lines.is_empty() && new_lines.is_empty();
-
-    if is_new_file {
-        patch.push_str("new file mode 100644\n");
-        patch.push_str("index 0000000..0000000\n");
-        patch.push_str("--- /dev/null\n");
-        patch.push_str(&format!("+++ b/{}\n", file_path));
-    } else if is_deleted_file {
-        patch.push_str("deleted file mode 100644\n");
-        patch.push_str("index 0000000..0000000\n");
-        patch.push_str(&format!("--- a/{}\n", file_path));
-        patch.push_str("+++ /dev/null\n");
-    } else {
-        patch.push_str("index 0000000..0000000 100644\n");
-        patch.push_str(&format!("--- a/{}\n", file_path));
-        patch.push_str(&format!("+++ b/{}\n", file_path));
+#[cfg(not(target_arch = "wasm32"))]
+fn lines_to_content(lines: Vec<String>, reference: &str) -> String {
+    let mut content = lines.join("\n");
+    if reference.ends_with('\n') && !content.is_empty() {
+        content.push('\n');
     }
+    content
+}
 
-    patch.push_str(&format!("@@ -{},{} +{},{} @@\n", old_start, old_len, new_start, new_len));
-    let line = old_lines.get(old_idx).copied().unwrap_or("");
-    patch.push_str(&format!("-{}\n", line));
-
-    let tmp = std::env::temp_dir().join(format!(
-        "vibe-del-{}-{}.patch",
-        file_path.replace("/", "_"),
-        old_idx
-    ));
-    std::fs::write(&tmp, patch).map_err(|e| e.to_string())?;
-    let cmd = format!("git apply --cached {}", tmp.to_string_lossy());
-    let _ = run_shell_command(Some(repo_path.to_string()), cmd, shell);
-    let _ = std::fs::remove_file(&tmp);
-    Ok(())
+#[cfg(not(target_arch = "wasm32"))]
+fn write_index_content(repo_path: &str, file_path: &str, content: String) -> Result<(), String> {
+    let repo = git2::Repository::open(repo_path).map_err(|e| e.message().to_string())?;
+    let oid = repo.blob(content.as_bytes()).map_err(|e| e.message().to_string())?;
+    let mut index = repo.index().map_err(|e| e.message().to_string())?;
+    let path = std::path::Path::new(file_path);
+    let entry = index
+        .get_path(path, 0)
+        .ok_or_else(|| "index entry not found".to_string())?;
+    let mode = format!("{:o}", entry.mode);
+    let status = std::process::Command::new("git")
+        .arg("update-index")
+        .arg("--cacheinfo")
+        .arg(mode)
+        .arg(oid.to_string())
+        .arg(file_path)
+        .current_dir(repo_path)
+        .status()
+        .map_err(|e| e.to_string())?;
+    if status.success() {
+        index.read(true).map_err(|e| e.message().to_string())?;
+        return index.write().map_err(|e| e.message().to_string());
+    }
+    Err(format!("git update-index failed with status {status}"))
 }
 
 /// 撤销指定行的删除（恢复被删除的行）

@@ -64,3 +64,7 @@ pub async fn process_message(config: Config, message: &str, session_id: &str) ->
     let mut engine = QueryEngine::new(config, session_id).await?;
     engine.submit_message(message).await
 }
+
+#[cfg(test)]
+#[path = "runner_tests.rs"]
+mod runner_tests;

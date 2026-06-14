@@ -677,3 +677,7 @@ pub async fn handle_api_cron_delete(
             .into_response(),
     }
 }
+
+#[cfg(test)]
+#[path = "cron_tests.rs"]
+mod cron_tests;

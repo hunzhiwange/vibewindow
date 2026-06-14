@@ -43,9 +43,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         text("大文件查找工具").size(20),
         Space::new().width(Length::Fill),
         if let Some(notification) = &app.large_file_notification {
-            text(notification).size(14).style(|theme: &Theme| iced::widget::text::Style {
-                color: Some(theme.extended_palette().success.base.color),
-            })
+            text(notification).size(14).style(success_text_style)
         } else {
             text("").size(14)
         }
@@ -165,9 +163,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 app.large_file_current_path.clone()
             })
             .size(13)
-            .style(|theme: &Theme| iced::widget::text::Style {
-                color: Some(theme.extended_palette().secondary.strong.color),
-            })
+            .style(secondary_strong_text_style)
         ]
         .spacing(10),
     )
@@ -205,9 +201,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let hero = container(
         column![
             text(hero_title).size(28),
-            text(hero_subtitle).size(14).style(|theme: &Theme| iced::widget::text::Style {
-                color: Some(theme.extended_palette().secondary.strong.color),
-            }),
+            text(hero_subtitle).size(14).style(secondary_strong_text_style),
             controls,
             progress_panel,
             stats,
@@ -248,13 +242,8 @@ fn stat_card(label: impl Into<String>, value: impl Into<String>) -> Element<'sta
     let value = value.into();
 
     container(
-        column![
-            text(label).size(12).style(|theme: &Theme| iced::widget::text::Style {
-                color: Some(theme.extended_palette().secondary.strong.color),
-            }),
-            text(value).size(22)
-        ]
-        .spacing(6),
+        column![text(label).size(12).style(secondary_strong_text_style), text(value).size(22)]
+            .spacing(6),
     )
     .width(Length::Fill)
     .padding(16)
@@ -291,9 +280,7 @@ fn scanning_view<'a>(app: &'a App, spinner: &'a str) -> Element<'a, Message> {
                 }
             ))
             .size(13)
-            .style(|theme: &Theme| iced::widget::text::Style {
-                color: Some(theme.extended_palette().secondary.strong.color),
-            })
+            .style(secondary_strong_text_style)
         ]
         .spacing(10)
         .width(Length::Fill)
@@ -332,23 +319,13 @@ fn category_card<'a>(app: &'a App, category: &'a LargeFileCategory) -> Element<'
                         row![
                             text(&file.name).size(16),
                             Space::new().width(Length::Fill),
-                            text(format_bytes(file.size_bytes)).size(14).style(|theme: &Theme| {
-                                iced::widget::text::Style {
-                                    color: Some(theme.extended_palette().primary.strong.color),
-                                }
-                            })
+                            text(format_bytes(file.size_bytes))
+                                .size(14)
+                                .style(primary_strong_text_style)
                         ]
                         .align_y(Alignment::Center),
-                        text(&file.path).size(13).style(|theme: &Theme| {
-                            iced::widget::text::Style {
-                                color: Some(theme.extended_palette().secondary.strong.color),
-                            }
-                        }),
-                        text(&file.parent).size(12).style(|theme: &Theme| {
-                            iced::widget::text::Style {
-                                color: Some(theme.extended_palette().secondary.base.color),
-                            }
-                        })
+                        text(&file.path).size(13).style(secondary_strong_text_style),
+                        text(&file.parent).size(12).style(secondary_base_text_style)
                     ]
                     .spacing(6)
                     .width(Length::Fill)
@@ -368,21 +345,15 @@ fn category_card<'a>(app: &'a App, category: &'a LargeFileCategory) -> Element<'
             row![
                 column![
                     text(&category.title).size(22),
-                    text(&category.subtitle).size(13).style(|theme: &Theme| {
-                        iced::widget::text::Style {
-                            color: Some(theme.extended_palette().secondary.strong.color),
-                        }
-                    })
+                    text(&category.subtitle).size(13).style(secondary_strong_text_style)
                 ]
                 .spacing(6),
                 Space::new().width(Length::Fill),
                 column![
                     text(format!("{} 个文件", category.files.len())).size(14),
-                    text(format_bytes(category.total_bytes)).size(16).style(|theme: &Theme| {
-                        iced::widget::text::Style {
-                            color: Some(theme.extended_palette().primary.strong.color),
-                        }
-                    })
+                    text(format_bytes(category.total_bytes))
+                        .size(16)
+                        .style(primary_strong_text_style)
                 ]
                 .spacing(4)
                 .align_x(Alignment::End)
@@ -397,6 +368,22 @@ fn category_card<'a>(app: &'a App, category: &'a LargeFileCategory) -> Element<'
     .padding(20)
     .style(card_style)
     .into()
+}
+
+fn success_text_style(theme: &Theme) -> iced::widget::text::Style {
+    iced::widget::text::Style { color: Some(theme.extended_palette().success.base.color) }
+}
+
+fn secondary_strong_text_style(theme: &Theme) -> iced::widget::text::Style {
+    iced::widget::text::Style { color: Some(theme.extended_palette().secondary.strong.color) }
+}
+
+fn secondary_base_text_style(theme: &Theme) -> iced::widget::text::Style {
+    iced::widget::text::Style { color: Some(theme.extended_palette().secondary.base.color) }
+}
+
+fn primary_strong_text_style(theme: &Theme) -> iced::widget::text::Style {
+    iced::widget::text::Style { color: Some(theme.extended_palette().primary.strong.color) }
 }
 
 fn hero_style(theme: &Theme) -> iced::widget::container::Style {

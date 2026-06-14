@@ -162,6 +162,7 @@ pub(crate) struct AgentRequest {
     pub(crate) acp_recent_count: usize,
     pub(crate) full_access_enabled: bool,
     pub(crate) resume_history_only: bool,
+    pub(crate) workflow_mode_enabled: bool,
     /// 对话历史消息列表
     pub(crate) history: Vec<ChatMessage>,
 }
@@ -194,6 +195,7 @@ pub(crate) struct QueueItem {
     pub(crate) send_behavior: ChatSendBehavior,
     pub(crate) request_history_override: Option<Vec<ChatMessage>>,
     pub(crate) resume_history_only: bool,
+    pub(crate) workflow_mode_enabled: bool,
 }
 
 /// 会话运行时状态
@@ -221,6 +223,8 @@ pub(crate) struct SessionRuntimeState {
     pub(crate) tool_selector: SessionToolSelectorState,
     /// 是否启用任务模式
     pub(crate) task_mode_enabled: bool,
+    /// 是否将本轮聊天包装为临时工作流执行
+    pub(crate) workflow_mode_enabled: bool,
     /// 任务模式的优先级
     pub(crate) task_mode_priority: String,
     /// 任务模式的模型标识符
@@ -330,6 +334,7 @@ impl SessionRuntimeState {
             auto_model,
             tool_selector: SessionToolSelectorState::default(),
             task_mode_enabled: false,
+            workflow_mode_enabled: false,
             task_mode_priority: "999".to_string(),
             task_mode_model,
             task_mode_executor: None,

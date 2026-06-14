@@ -204,6 +204,15 @@ pub(super) fn refresh_git_panel_data_task() -> Task<Message> {
     ])
 }
 
+pub(super) fn refresh_git_panel_data_after_repo_mutation_task(app: &mut App) -> Task<Message> {
+    app.git_changed_files_loading = false;
+    app.git_changed_files_repo_path = None;
+    app.git_diff_file_metas_loading = false;
+    app.git_diff_file_metas_repo_path = None;
+    app.git_diff_contents_loading.clear();
+    refresh_git_panel_data_task()
+}
+
 fn normalize_path(value: &str) -> String {
     value.replace('\\', "/").trim_end_matches('/').to_string()
 }

@@ -14,6 +14,98 @@ use iced::widget::tooltip::{Position as TooltipPosition, Tooltip};
 use iced::widget::{Space, button, column, container, image, row, text};
 use iced::{Color, Element, Length, Theme};
 
+pub(super) const OPEN_EXTERNAL_TARGETS: [ExternalOpenApp; 16] = [
+    ExternalOpenApp::Finder,
+    ExternalOpenApp::Trae,
+    ExternalOpenApp::Windsurf,
+    ExternalOpenApp::Kiro,
+    ExternalOpenApp::Cursor,
+    ExternalOpenApp::VSCode,
+    ExternalOpenApp::Zed,
+    ExternalOpenApp::TextMate,
+    ExternalOpenApp::Antigravity,
+    ExternalOpenApp::Terminal,
+    ExternalOpenApp::ITerm2,
+    ExternalOpenApp::Ghostty,
+    ExternalOpenApp::Xcode,
+    ExternalOpenApp::AndroidStudio,
+    ExternalOpenApp::PowerShell,
+    ExternalOpenApp::SublimeText,
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ExternalAppLogo {
+    Svg(Icon),
+    Image(Icon),
+}
+
+pub(super) fn file_manager_label(platform: Option<RuntimePlatform>) -> &'static str {
+    platform.map(RuntimePlatform::file_manager_label).unwrap_or("File Manager")
+}
+
+pub(super) fn external_app_label(
+    target: ExternalOpenApp,
+    platform: Option<RuntimePlatform>,
+) -> &'static str {
+    match target {
+        ExternalOpenApp::Finder => file_manager_label(platform),
+        _ => target.label(),
+    }
+}
+
+pub(super) fn external_app_logo(
+    target: ExternalOpenApp,
+    platform: Option<RuntimePlatform>,
+) -> ExternalAppLogo {
+    match target {
+        ExternalOpenApp::Finder => {
+            if matches!(platform, Some(RuntimePlatform::MacOs)) {
+                ExternalAppLogo::Image(Icon::AppFinder)
+            } else {
+                ExternalAppLogo::Svg(Icon::AppFileExplorer)
+            }
+        }
+        ExternalOpenApp::VSCode => ExternalAppLogo::Svg(Icon::AppVSCode),
+        ExternalOpenApp::Cursor => ExternalAppLogo::Svg(Icon::AppCursor),
+        ExternalOpenApp::Trae => ExternalAppLogo::Svg(Icon::AppTrae),
+        ExternalOpenApp::Windsurf => ExternalAppLogo::Image(Icon::AppWindsurf),
+        ExternalOpenApp::Kiro => ExternalAppLogo::Svg(Icon::AppKiro),
+        ExternalOpenApp::Zed => ExternalAppLogo::Svg(Icon::AppZed),
+        ExternalOpenApp::TextMate => ExternalAppLogo::Image(Icon::AppTextMate),
+        ExternalOpenApp::Antigravity => ExternalAppLogo::Svg(Icon::AppAntigravity),
+        ExternalOpenApp::Terminal => ExternalAppLogo::Image(Icon::AppTerminal),
+        ExternalOpenApp::ITerm2 => ExternalAppLogo::Svg(Icon::AppITerm2),
+        ExternalOpenApp::Ghostty => ExternalAppLogo::Svg(Icon::AppGhostty),
+        ExternalOpenApp::Xcode => ExternalAppLogo::Image(Icon::AppXcode),
+        ExternalOpenApp::AndroidStudio => ExternalAppLogo::Svg(Icon::AppAndroidStudio),
+        ExternalOpenApp::PowerShell => ExternalAppLogo::Svg(Icon::AppPowerShell),
+        ExternalOpenApp::SublimeText => ExternalAppLogo::Svg(Icon::AppSublimeText),
+    }
+}
+
+fn external_app_logo_element(
+    target: ExternalOpenApp,
+    platform: Option<RuntimePlatform>,
+) -> Element<'static, Message> {
+    match external_app_logo(target, platform) {
+        ExternalAppLogo::Svg(icon) => Svg::new(assets::get_icon(icon))
+            .width(Length::Fixed(16.0))
+            .height(Length::Fixed(16.0))
+            .into(),
+        ExternalAppLogo::Image(icon) => image(assets::get_image(icon))
+            .width(Length::Fixed(16.0))
+            .height(Length::Fixed(16.0))
+            .into(),
+    }
+}
+
+pub(super) fn supported_external_apps(app: &App) -> Vec<ExternalOpenApp> {
+    OPEN_EXTERNAL_TARGETS
+        .into_iter()
+        .filter(|target| app.open_external_exists.contains_key(target))
+        .collect()
+}
+
 /// 构建或处理 `open_external_module` 对应的界面片段与交互数据。
 ///
 /// # 参数
@@ -32,90 +124,8 @@ pub(super) fn open_external_module(app: &App) -> Element<'_, Message> {
         return Space::new().into();
     }
 
-    let file_manager_label = app
-        .open_external_platform
-        .map(RuntimePlatform::file_manager_label)
-        .unwrap_or("File Manager");
-    let app_label = |target: ExternalOpenApp| match target {
-        ExternalOpenApp::Finder => file_manager_label,
-        _ => target.label(),
-    };
     let app_logo = |target: ExternalOpenApp| -> Element<'static, Message> {
-        match target {
-            ExternalOpenApp::Finder => {
-                if matches!(app.open_external_platform, Some(RuntimePlatform::MacOs)) {
-                    image(assets::get_image(Icon::AppFinder))
-                        .width(Length::Fixed(16.0))
-                        .height(Length::Fixed(16.0))
-                        .into()
-                } else {
-                    Svg::new(assets::get_icon(Icon::AppFileExplorer))
-                        .width(Length::Fixed(16.0))
-                        .height(Length::Fixed(16.0))
-                        .into()
-                }
-            }
-            ExternalOpenApp::VSCode => Svg::new(assets::get_icon(Icon::AppVSCode))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::Cursor => Svg::new(assets::get_icon(Icon::AppCursor))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::Trae => Svg::new(assets::get_icon(Icon::AppTrae))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::Windsurf => image(assets::get_image(Icon::AppWindsurf))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::Kiro => Svg::new(assets::get_icon(Icon::AppKiro))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::Zed => Svg::new(assets::get_icon(Icon::AppZed))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::TextMate => image(assets::get_image(Icon::AppTextMate))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::Antigravity => Svg::new(assets::get_icon(Icon::AppAntigravity))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::Terminal => image(assets::get_image(Icon::AppTerminal))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::ITerm2 => Svg::new(assets::get_icon(Icon::AppITerm2))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::Ghostty => Svg::new(assets::get_icon(Icon::AppGhostty))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::Xcode => image(assets::get_image(Icon::AppXcode))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::AndroidStudio => Svg::new(assets::get_icon(Icon::AppAndroidStudio))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::PowerShell => Svg::new(assets::get_icon(Icon::AppPowerShell))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-            ExternalOpenApp::SublimeText => Svg::new(assets::get_icon(Icon::AppSublimeText))
-                .width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
-                .into(),
-        }
+        external_app_logo_element(target, app.open_external_platform)
     };
 
     let open_external_tip = "在外部应用打开项目";
@@ -125,9 +135,11 @@ pub(super) fn open_external_module(app: &App) -> Element<'_, Message> {
         let enabled = can_open_external_preferred;
         let text_alpha = if enabled { 1.0 } else { 0.35 };
         let logo = app_logo(app.open_external_app);
-        let label = text(app_label(app.open_external_app)).size(13).style(move |theme: &Theme| {
-            iced::widget::text::Style { color: Some(theme.palette().text.scale_alpha(text_alpha)) }
-        });
+        let label = text(external_app_label(app.open_external_app, app.open_external_platform))
+            .size(13)
+            .style(move |theme: &Theme| iced::widget::text::Style {
+                color: Some(theme.palette().text.scale_alpha(text_alpha)),
+            });
         let content: Element<'_, Message> = row![
             container(logo).width(Length::Fixed(18.0)).height(Length::Fixed(18.0)),
             Space::new().width(6),
@@ -191,27 +203,7 @@ pub(super) fn open_external_module(app: &App) -> Element<'_, Message> {
         Tooltip::new(btn, tip_content, TooltipPosition::Bottom).gap(2.0).into()
     };
 
-    let supported_apps: Vec<ExternalOpenApp> = [
-        ExternalOpenApp::Finder,
-        ExternalOpenApp::Trae,
-        ExternalOpenApp::Windsurf,
-        ExternalOpenApp::Kiro,
-        ExternalOpenApp::Cursor,
-        ExternalOpenApp::VSCode,
-        ExternalOpenApp::Zed,
-        ExternalOpenApp::TextMate,
-        ExternalOpenApp::Antigravity,
-        ExternalOpenApp::Terminal,
-        ExternalOpenApp::ITerm2,
-        ExternalOpenApp::Ghostty,
-        ExternalOpenApp::Xcode,
-        ExternalOpenApp::AndroidStudio,
-        ExternalOpenApp::PowerShell,
-        ExternalOpenApp::SublimeText,
-    ]
-    .into_iter()
-    .filter(|target| app.open_external_exists.contains_key(target))
-    .collect();
+    let supported_apps = supported_external_apps(app);
 
     let open_external_menu_btn = icon_toggle_button_opt(
         Icon::ChevronDown,
@@ -226,7 +218,7 @@ pub(super) fn open_external_module(app: &App) -> Element<'_, Message> {
         let enabled = app.can_open_external(target);
         open_external_items.push(menu_item_icon_btn(
             app_logo(target),
-            app_label(target),
+            external_app_label(target, app.open_external_platform),
             (app.open_external_app == target).then_some("✓"),
             enabled
                 .then_some(Message::View(message::ViewMessage::OpenProjectInExternalWith(target))),

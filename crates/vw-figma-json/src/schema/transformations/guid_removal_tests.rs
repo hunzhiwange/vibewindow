@@ -236,3 +236,19 @@ fn test_remove_guid_primitives() {
     // 原始值应保持不变
     assert_eq!(tree.as_str(), Some("string value"));
 }
+
+#[test]
+fn test_remove_guid_mixed_array_primitives() {
+    let mut tree = json!([
+        {"guid": {"localID": 1, "sessionID": 2}, "name": "Node"},
+        null,
+        9
+    ]);
+
+    remove_guid_fields(&mut tree).unwrap();
+
+    assert!(tree[0].get("guid").is_none());
+    assert_eq!(tree[0]["name"].as_str(), Some("Node"));
+    assert!(tree[1].is_null());
+    assert_eq!(tree[2].as_i64(), Some(9));
+}

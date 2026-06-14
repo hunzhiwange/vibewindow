@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use vw_api_types::knowledge::{
-    KnowledgeDatasetCreateRequest, KnowledgeDocumentCreateRequest, KnowledgeIndexingMode,
-    KnowledgeRetrievalMode, KnowledgeRetrieveRequest,
+    KnowledgeChunkingMode, KnowledgeDatasetCreateRequest, KnowledgeDocumentCreateRequest,
+    KnowledgeIndexingMode, KnowledgeRetrievalMode, KnowledgeRetrieveRequest,
 };
 
 fn store() -> SqliteKnowledgeStore {
@@ -25,6 +25,28 @@ fn vector_store() -> SqliteKnowledgeStore {
         0.2,
         128,
     )
+}
+
+fn dataset_request(
+    name: &str,
+    indexing_mode: KnowledgeIndexingMode,
+    retrieval_mode: KnowledgeRetrievalMode,
+    embedding_model: Option<String>,
+) -> KnowledgeDatasetCreateRequest {
+    KnowledgeDatasetCreateRequest {
+        name: name.to_string(),
+        description: String::new(),
+        chunking_mode: KnowledgeChunkingMode::General,
+        indexing_mode,
+        retrieval_mode,
+        keyword_count: 10,
+        top_k: 10,
+        score_threshold_enabled: false,
+        score_threshold: 0.15,
+        rerank_enabled: false,
+        embedding_model,
+        rerank_model: None,
+    }
 }
 
 struct FakeEmbedding;
@@ -67,14 +89,12 @@ fn chunk_text_prefers_sentence_boundary() {
 async fn sqlite_store_retrieves_uploaded_document() {
     let store = store();
     let dataset = store
-        .create_dataset(KnowledgeDatasetCreateRequest {
-            name: "Support".to_string(),
-            description: String::new(),
-            indexing_mode: KnowledgeIndexingMode::Economy,
-            retrieval_mode: KnowledgeRetrievalMode::FullText,
-            embedding_model: None,
-            rerank_model: None,
-        })
+        .create_dataset(dataset_request(
+            "Support",
+            KnowledgeIndexingMode::Economy,
+            KnowledgeRetrievalMode::FullText,
+            None,
+        ))
         .await
         .expect("dataset");
     store
@@ -107,17 +127,103 @@ async fn sqlite_store_retrieves_uploaded_document() {
 }
 
 #[tokio::test]
+async fn parent_child_dataset_returns_parent_context() {
+    let store = store();
+    let mut request = dataset_request(
+        "Parent Child KB",
+        KnowledgeIndexingMode::Economy,
+        KnowledgeRetrievalMode::FullText,
+        None,
+    );
+    request.chunking_mode = KnowledgeChunkingMode::ParentChild;
+    let dataset = store.create_dataset(request).await.expect("dataset");
+    let content = format!(
+        "Parent context should be returned. {}\nneedlechild appears in the child chunk.",
+        "filler sentence. ".repeat(40)
+    );
+    store
+        .create_document(
+            dataset.id.clone(),
+            KnowledgeDocumentCreateRequest {
+                name: "Parent child doc".to_string(),
+                content,
+                metadata: json!({ "tag": "pc" }),
+                enabled: true,
+            },
+        )
+        .await
+        .expect("document");
+
+    let response = store
+        .retrieve(KnowledgeRetrieveRequest {
+            query: "needlechild".to_string(),
+            dataset_ids: vec![dataset.id],
+            top_k: 1,
+            score_threshold: None,
+            metadata_filter: None,
+        })
+        .await
+        .expect("retrieve");
+
+    assert_eq!(response.chunks.len(), 1);
+    assert_eq!(response.chunks[0].metadata["chunking_mode"], json!("parent_child"));
+    assert!(response.chunks[0].content.contains("Parent context should be returned"));
+    assert!(
+        response.chunks[0].metadata["child_content"].as_str().unwrap_or("").contains("needlechild")
+    );
+}
+
+#[tokio::test]
+async fn qa_dataset_retrieves_by_question_and_returns_answer() {
+    let store = store();
+    let mut request = dataset_request(
+        "QA KB",
+        KnowledgeIndexingMode::Economy,
+        KnowledgeRetrievalMode::FullText,
+        None,
+    );
+    request.chunking_mode = KnowledgeChunkingMode::Qa;
+    let dataset = store.create_dataset(request).await.expect("dataset");
+    store
+        .create_document(
+            dataset.id.clone(),
+            KnowledgeDocumentCreateRequest {
+                name: "FAQ".to_string(),
+                content: "Q: How do refunds work?\nA: Refunds are handled within seven days.\n\nQ: Where are images configured?\nA: Images are configured on the category page.".to_string(),
+                metadata: json!({ "tag": "faq" }),
+                enabled: true,
+            },
+        )
+        .await
+        .expect("document");
+
+    let response = store
+        .retrieve(KnowledgeRetrieveRequest {
+            query: "refunds".to_string(),
+            dataset_ids: vec![dataset.id],
+            top_k: 1,
+            score_threshold: None,
+            metadata_filter: None,
+        })
+        .await
+        .expect("retrieve");
+
+    assert_eq!(response.chunks.len(), 1);
+    assert_eq!(response.chunks[0].metadata["chunking_mode"], json!("qa"));
+    assert!(response.chunks[0].title.contains("refunds"));
+    assert!(response.chunks[0].content.contains("seven days"));
+}
+
+#[tokio::test]
 async fn workflow_provider_returns_chunks() {
     let store = store();
     let dataset = store
-        .create_dataset(KnowledgeDatasetCreateRequest {
-            name: "Workflow KB".to_string(),
-            description: String::new(),
-            indexing_mode: KnowledgeIndexingMode::Economy,
-            retrieval_mode: KnowledgeRetrievalMode::FullText,
-            embedding_model: None,
-            rerank_model: None,
-        })
+        .create_dataset(dataset_request(
+            "Workflow KB",
+            KnowledgeIndexingMode::Economy,
+            KnowledgeRetrievalMode::FullText,
+            None,
+        ))
         .await
         .expect("dataset");
     store
@@ -154,14 +260,12 @@ async fn workflow_provider_returns_chunks() {
 async fn sqlite_store_uses_vector_retrieval_for_high_quality_dataset() {
     let store = vector_store();
     let dataset = store
-        .create_dataset(KnowledgeDatasetCreateRequest {
-            name: "Vector KB".to_string(),
-            description: String::new(),
-            indexing_mode: KnowledgeIndexingMode::HighQuality,
-            retrieval_mode: KnowledgeRetrievalMode::Vector,
-            embedding_model: Some("fake-embedding".to_string()),
-            rerank_model: None,
-        })
+        .create_dataset(dataset_request(
+            "Vector KB",
+            KnowledgeIndexingMode::HighQuality,
+            KnowledgeRetrievalMode::Vector,
+            Some("fake-embedding".to_string()),
+        ))
         .await
         .expect("dataset");
     store
@@ -208,14 +312,12 @@ async fn sqlite_store_uses_vector_retrieval_for_high_quality_dataset() {
 #[tokio::test]
 async fn unsupported_vector_dataset_is_explicit() {
     let error = store()
-        .create_dataset(KnowledgeDatasetCreateRequest {
-            name: "Vector".to_string(),
-            description: String::new(),
-            indexing_mode: KnowledgeIndexingMode::HighQuality,
-            retrieval_mode: KnowledgeRetrievalMode::Hybrid,
-            embedding_model: Some("text-embedding-v4".to_string()),
-            rerank_model: None,
-        })
+        .create_dataset(dataset_request(
+            "Vector",
+            KnowledgeIndexingMode::HighQuality,
+            KnowledgeRetrievalMode::Hybrid,
+            Some("text-embedding-v4".to_string()),
+        ))
         .await
         .expect_err("unsupported");
 

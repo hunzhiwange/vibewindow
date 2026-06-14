@@ -48,6 +48,19 @@ mod tests {
         assert_eq!(sandbox.name(), "bubblewrap");
     }
 
+    #[test]
+    fn bubblewrap_new_and_probe_follow_installation_probe() {
+        let installed = BubblewrapSandbox::is_installed();
+        assert_eq!(BubblewrapSandbox::new().is_ok(), installed);
+        assert_eq!(BubblewrapSandbox::probe().is_ok(), installed);
+    }
+
+    #[test]
+    fn bubblewrap_description_is_human_readable() {
+        let sandbox = BubblewrapSandbox;
+        assert_eq!(sandbox.description(), "User namespace sandbox (requires bwrap)");
+    }
+
     // ── §1.1 沙箱隔离标志测试 ──────────────────────
 
     /// 测试命令包装是否包含必要的隔离标志
@@ -141,5 +154,18 @@ mod tests {
         assert!(args.contains(&"--ro-bind".to_string()), "must include read-only bind for /usr");
         assert!(args.contains(&"--dev".to_string()), "must include /dev mount");
         assert!(args.contains(&"--proc".to_string()), "must include /proc mount");
+    }
+
+    #[test]
+    fn bubblewrap_wrap_command_places_program_after_sandbox_flags() {
+        let sandbox = BubblewrapSandbox;
+        let mut cmd = Command::new("python3");
+        cmd.args(["-c", "print(1)"]);
+        sandbox.wrap_command(&mut cmd).unwrap();
+
+        let args: Vec<String> = cmd.get_args().map(|s| s.to_string_lossy().to_string()).collect();
+        let program_pos = args.iter().position(|arg| arg == "python3").unwrap();
+        assert!(program_pos > 0);
+        assert_eq!(&args[program_pos..], ["python3", "-c", "print(1)"]);
     }
 }

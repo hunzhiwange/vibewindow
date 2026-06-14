@@ -58,6 +58,26 @@ pub fn validate_config(config: &Config) -> Result<()> {
     if config.gateway.host.trim().is_empty() {
         anyhow::bail!("gateway.host must not be empty");
     }
+    let mut seen_skey_hashes = std::collections::HashSet::new();
+    for (index, skey) in config.gateway.skeys.iter().enumerate() {
+        let hash = skey.skey_hash.trim();
+        let raw_skey_present =
+            skey.skey.as_deref().map(str::trim).is_some_and(|value| !value.is_empty());
+        if !raw_skey_present
+            && (hash.len() != 64 || !hash.chars().all(|value| value.is_ascii_hexdigit()))
+        {
+            anyhow::bail!("gateway.skeys[{index}].skey_hash must be a SHA-256 hex hash");
+        }
+        if !hash.is_empty() && !seen_skey_hashes.insert(hash.to_ascii_lowercase()) {
+            anyhow::bail!("gateway.skeys contains duplicate skey_hash: {hash}");
+        }
+        if let Some(expires_at) =
+            skey.expires_at.as_deref().map(str::trim).filter(|value| !value.is_empty())
+        {
+            chrono::DateTime::parse_from_rfc3339(expires_at)
+                .with_context(|| format!("gateway.skeys[{index}].expires_at must be RFC3339"))?;
+        }
+    }
 
     let configured_fallbacks = config
         .reliability

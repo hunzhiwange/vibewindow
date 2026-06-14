@@ -1,14 +1,49 @@
 use super::*;
 
 #[test]
-fn detects_cancelled_and_iteration_limit_errors() {
+fn tool_loop_cancelled_displays_stable_message() {
+    assert_eq!(ToolLoopCancelled.to_string(), "tool loop cancelled");
+}
+
+#[test]
+fn is_tool_loop_cancelled_detects_direct_cancel_error() {
     let cancelled = anyhow::Error::new(ToolLoopCancelled);
+
     assert!(is_tool_loop_cancelled(&cancelled));
+}
 
-    let limit = anyhow::anyhow!("Agent exceeded maximum tool iterations");
-    assert!(is_tool_iteration_limit_error(&limit));
+#[test]
+fn is_tool_loop_cancelled_detects_cancel_error_in_chain() {
+    let cancelled = anyhow::Error::new(ToolLoopCancelled).context("outer failure");
 
+    assert!(is_tool_loop_cancelled(&cancelled));
+}
+
+#[test]
+fn is_tool_loop_cancelled_rejects_unrelated_error() {
     let other = anyhow::anyhow!("different failure");
+
     assert!(!is_tool_loop_cancelled(&other));
+}
+
+#[test]
+fn is_tool_iteration_limit_error_detects_direct_message() {
+    let limit = anyhow::anyhow!("Agent exceeded maximum tool iterations");
+
+    assert!(is_tool_iteration_limit_error(&limit));
+}
+
+#[test]
+fn is_tool_iteration_limit_error_detects_message_in_chain() {
+    let limit =
+        anyhow::anyhow!("Agent exceeded maximum tool iterations (100)").context("outer failure");
+
+    assert!(is_tool_iteration_limit_error(&limit));
+}
+
+#[test]
+fn is_tool_iteration_limit_error_rejects_unrelated_error() {
+    let other = anyhow::anyhow!("different failure");
+
     assert!(!is_tool_iteration_limit_error(&other));
 }

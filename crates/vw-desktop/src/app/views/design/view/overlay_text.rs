@@ -16,6 +16,36 @@ use crate::app::views::design::state::DesignState;
 use crate::app::views::design::utils::transparent_editor_style;
 use crate::app::{App, Message};
 
+fn html_preview_backdrop_style(theme: &iced::Theme) -> container::Style {
+    let palette = theme.palette();
+    container::Style {
+        background: Some(iced::Color { a: 0.5, ..palette.background }.into()),
+        ..Default::default()
+    }
+}
+
+fn edit_editor_action_message(action: text_editor::Action) -> Message {
+    Message::Design(DesignMessage::EditEditorAction(action))
+}
+
+fn html_preview_action_message(action: text_editor::Action) -> Message {
+    Message::Design(DesignMessage::HtmlPreviewAction(action))
+}
+
+fn inline_text_editor_style(
+    text_color: iced::Color,
+    _theme: &iced::Theme,
+    _status: text_editor::Status,
+) -> text_editor::Style {
+    transparent_editor_style(text_color)
+}
+
+fn inline_text_editor_style_for(
+    text_color: iced::Color,
+) -> impl Fn(&iced::Theme, text_editor::Status) -> text_editor::Style + Clone {
+    move |theme, status| inline_text_editor_style(text_color, theme, status)
+}
+
 /// 执行本模块的界面辅助逻辑。
 ///
 /// # 参数
@@ -62,12 +92,12 @@ pub fn inline_text_editor_overlay<'a>(state: &'a DesignState) -> Element<'a, Mes
         let font = IcedFont { weight, ..Default::default() };
 
         let editor = text_editor(&state.editing_editor)
-            .on_action(|a| Message::Design(DesignMessage::EditEditorAction(a)))
+            .on_action(edit_editor_action_message)
             .size(font_size)
             .width(content_w)
             .height(content_h)
             .font(font)
-            .style(move |_theme, _status| transparent_editor_style(text_color));
+            .style(inline_text_editor_style_for(text_color));
 
         overlay = container(editor)
             .padding(0)
@@ -119,7 +149,7 @@ pub fn html_preview_layers<'a>(app: &'a App) -> Vec<Element<'a, Message>> {
             .into(),
             container(
                 text_editor(&app.element_html_preview_editor)
-                    .on_action(|a| Message::Design(DesignMessage::HtmlPreviewAction(a)))
+                    .on_action(html_preview_action_message)
                     .font(iced::Font::with_name("JetBrains Mono")),
             )
             .style(container::rounded_box)
@@ -140,13 +170,7 @@ pub fn html_preview_layers<'a>(app: &'a App) -> Vec<Element<'a, Message>> {
             .height(Length::Fill)
             .align_x(iced::alignment::Horizontal::Center)
             .align_y(iced::alignment::Vertical::Center)
-            .style(|theme: &iced::Theme| {
-                let palette = theme.palette();
-                container::Style {
-                    background: Some(iced::Color { a: 0.5, ..palette.background }.into()),
-                    ..Default::default()
-                }
-            })
+            .style(html_preview_backdrop_style)
             .into(),
     ]
 }

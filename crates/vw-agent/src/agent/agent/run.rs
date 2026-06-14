@@ -60,6 +60,25 @@ pub async fn run(
     model_override: Option<String>,
     temperature: f64,
 ) -> Result<String> {
+    run_with_agent_factory(
+        config,
+        message,
+        provider_override,
+        model_override,
+        temperature,
+        Agent::from_config,
+    )
+    .await
+}
+
+pub(super) async fn run_with_agent_factory(
+    config: Config,
+    message: Option<String>,
+    provider_override: Option<String>,
+    model_override: Option<String>,
+    temperature: f64,
+    agent_factory: impl FnOnce(&Config) -> Result<Agent>,
+) -> Result<String> {
     let mut effective_config = config;
     if let Some(p) = provider_override {
         effective_config.default_provider = Some(p);
@@ -76,7 +95,7 @@ pub async fn run(
     }
 
     let start = Instant::now();
-    let mut agent = Agent::from_config(&effective_config)?;
+    let mut agent = agent_factory(&effective_config)?;
 
     let provider_name =
         effective_config.default_provider.as_deref().unwrap_or("openrouter").to_string();

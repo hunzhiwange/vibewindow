@@ -1,8 +1,21 @@
 use std::collections::HashMap;
+#[cfg(unix)]
+use std::fs;
+use std::path::PathBuf;
+#[cfg(unix)]
+use std::sync::atomic::{AtomicU64, Ordering};
+#[cfg(unix)]
+use std::time::{Duration as StdDuration, Instant};
 
-use crate::{AcpAgentConfig, AgentLifecycleExit};
+use tokio::sync::{mpsc, oneshot};
+#[cfg(unix)]
+use tokio::time::Duration;
 
-use super::super::{AcpClient, ChildExitSummary};
+use crate::{
+    AcpAgentConfig, AcpError, AgentLifecycleExit, PermissionStats, PromptRequest, SessionInfo,
+};
+
+use super::super::{AcpClient, ActorCommand, ChildExitSummary};
 
 fn client(command: &str, args: &[&str]) -> AcpClient {
     AcpClient::new(
@@ -14,6 +27,9 @@ fn client(command: &str, args: &[&str]) -> AcpClient {
         },
     )
 }
+
+#[cfg(unix)]
+static UNIQUE_TEST_ID: AtomicU64 = AtomicU64::new(1);
 
 #[test]
 fn command_family_detection_uses_basename_and_arguments() {
@@ -67,4 +83,457 @@ fn record_actor_start_and_exit_update_lifecycle_snapshot() {
             unexpected_during_prompt: true,
         })
     );
+}
+
+#[test]
+fn run_actor_thread_reports_startup_and_exits_when_channel_closes() {
+    let client = client("agent", &[]);
+    let (command_tx, command_rx) = mpsc::unbounded_channel();
+    let (startup_tx, startup_rx) = oneshot::channel();
+    drop(command_tx);
+
+    client.run_actor_thread(command_rx, startup_tx);
+
+    let runtime =
+        tokio::runtime::Builder::new_current_thread().enable_all().build().expect("test runtime");
+    let startup = runtime.block_on(startup_rx).expect("startup response");
+    assert!(startup.is_ok());
+}
+
+#[tokio::test]
+async fn actor_loop_dispatches_runtime_commands_and_close_response() {
+    let client = client("", &[]);
+    *client.permission_stats.lock() =
+        PermissionStats { requested: 3, approved: 2, denied: 1, cancelled: 0 };
+    client.store_reusable_session(Some("stale-session".to_string()));
+
+    let (command_tx, command_rx) = mpsc::unbounded_channel();
+    let cwd = PathBuf::from(".");
+
+    let (create_tx, create_rx) = oneshot::channel();
+    assert!(
+        command_tx
+            .send(ActorCommand::CreateSession { cwd: cwd.clone(), response_tx: create_tx })
+            .is_ok()
+    );
+
+    let (load_tx, load_rx) = oneshot::channel();
+    assert!(
+        command_tx
+            .send(ActorCommand::LoadSession {
+                session_id: "load-session".to_string(),
+                cwd: cwd.clone(),
+                response_tx: load_tx,
+            })
+            .is_ok()
+    );
+
+    let (resume_tx, resume_rx) = oneshot::channel();
+    assert!(
+        command_tx
+            .send(ActorCommand::ResumeSession {
+                session_id: "resume-session".to_string(),
+                cwd: cwd.clone(),
+                response_tx: resume_tx,
+            })
+            .is_ok()
+    );
+
+    let (mode_tx, mode_rx) = oneshot::channel();
+    assert!(
+        command_tx
+            .send(ActorCommand::SetSessionMode {
+                session_id: "mode-session".to_string(),
+                cwd: cwd.clone(),
+                mode_id: "plan".to_string(),
+                response_tx: mode_tx,
+            })
+            .is_ok()
+    );
+
+    let (config_tx, config_rx) = oneshot::channel();
+    assert!(
+        command_tx
+            .send(ActorCommand::SetSessionConfigOption {
+                session_id: "config-session".to_string(),
+                cwd: cwd.clone(),
+                option_name: "model".to_string(),
+                value_id: "fast".to_string(),
+                response_tx: config_tx,
+            })
+            .is_ok()
+    );
+
+    let (model_tx, model_rx) = oneshot::channel();
+    assert!(
+        command_tx
+            .send(ActorCommand::SetSessionModel {
+                session_id: "model-session".to_string(),
+                cwd: cwd.clone(),
+                model: "sonnet".to_string(),
+                response_tx: model_tx,
+            })
+            .is_ok()
+    );
+
+    let (event_tx, _event_rx) = mpsc::unbounded_channel();
+    let (prompt_tx, prompt_rx) = oneshot::channel();
+    assert!(
+        command_tx
+            .send(ActorCommand::RunPrompt {
+                request: PromptRequest::new(cwd, "hello"),
+                event_tx,
+                response_tx: prompt_tx,
+            })
+            .is_ok()
+    );
+
+    let (close_tx, close_rx) = oneshot::channel();
+    assert!(command_tx.send(ActorCommand::Close { response_tx: close_tx }).is_ok());
+
+    client.actor_loop(command_rx).await;
+
+    assert_empty_command(create_rx.await.expect("create response"));
+    assert_empty_command(load_rx.await.expect("load response"));
+    assert_empty_command(resume_rx.await.expect("resume response"));
+    assert_empty_command(mode_rx.await.expect("mode response"));
+    assert_empty_command(config_rx.await.expect("config response"));
+    assert_empty_command(model_rx.await.expect("model response"));
+    assert_empty_command(prompt_rx.await.expect("prompt response"));
+    close_rx.await.expect("close response");
+    assert_eq!(*client.permission_stats.lock(), PermissionStats::default());
+    assert!(client.actor_state.lock().reusable_session_id.is_none());
+}
+
+#[tokio::test]
+async fn actor_loop_clears_reusable_session_when_command_channel_closes() {
+    let client = client("agent", &[]);
+    client.store_reusable_session(Some("stale-session".to_string()));
+    let (command_tx, command_rx) = mpsc::unbounded_channel();
+    drop(command_tx);
+
+    client.actor_loop(command_rx).await;
+
+    assert!(client.actor_state.lock().reusable_session_id.is_none());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn actor_loop_dispatches_successful_session_commands_until_close() {
+    let local = tokio::task::LocalSet::new();
+    local
+        .run_until(async {
+            let fixture = MockActorAgentFixture::new();
+            let client = fixture.client(Duration::from_secs(60));
+            let (command_tx, command_rx) = mpsc::unbounded_channel();
+            let actor_client = client.clone();
+            let actor_task =
+                tokio::task::spawn_local(async move { actor_client.actor_loop(command_rx).await });
+
+            let created =
+                send_create(&command_tx, fixture.cwd.clone()).await.expect("create should succeed");
+            assert_eq!(created.session_id, "session-1");
+            assert!(client.has_reusable_session("session-1"));
+
+            let loaded = send_load(&command_tx, "loaded", fixture.cwd.clone())
+                .await
+                .expect("load should succeed");
+            assert_eq!(loaded.session_id, "loaded");
+            assert!(client.has_reusable_session("loaded"));
+
+            let resumed = send_resume(&command_tx, "resumed", fixture.cwd.clone())
+                .await
+                .expect("resume should succeed");
+            assert_eq!(resumed.session_id, "resumed");
+            assert!(client.has_reusable_session("resumed"));
+
+            send_mode(&command_tx, "resumed", fixture.cwd.clone(), "plan")
+                .await
+                .expect("mode should succeed");
+            send_config(&command_tx, "resumed", fixture.cwd.clone(), "effort", "high")
+                .await
+                .expect("config should succeed");
+            send_model(&command_tx, "resumed", fixture.cwd.clone(), "sonnet")
+                .await
+                .expect("model should succeed");
+
+            let (close_tx, close_rx) = oneshot::channel();
+            command_tx.send(ActorCommand::Close { response_tx: close_tx }).expect("send close");
+            close_rx.await.expect("close response");
+            actor_task.await.expect("actor task should finish");
+
+            assert!(client.actor_state.lock().reusable_session_id.is_none());
+            assert_eq!(
+                fixture.logged_methods(),
+                vec![
+                    "initialize",
+                    "session/new",
+                    "session/load",
+                    "session/resume",
+                    "session/resume",
+                    "session/set_mode",
+                    "session/resume",
+                    "session/set_config_option",
+                    "session/resume",
+                    "session/set_model",
+                ]
+            );
+        })
+        .await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn actor_loop_idle_timeout_shutdown_clears_runtime_and_accepts_close() {
+    let local = tokio::task::LocalSet::new();
+    local
+        .run_until(async {
+            let fixture = MockActorAgentFixture::new();
+            let client = fixture.client(Duration::from_millis(20));
+            let (command_tx, command_rx) = mpsc::unbounded_channel();
+            let actor_client = client.clone();
+            let actor_task =
+                tokio::task::spawn_local(async move { actor_client.actor_loop(command_rx).await });
+
+            send_create(&command_tx, fixture.cwd.clone())
+                .await
+                .expect("create should succeed before idle timeout");
+
+            let snapshot =
+                wait_for_idle_shutdown(&client).await.expect("idle timeout should record shutdown");
+            let exit = snapshot.last_exit.expect("idle shutdown exit");
+            assert!(snapshot.pid.is_none());
+            assert_eq!(exit.reason.as_deref(), Some("idle_timeout"));
+            assert!(client.actor_state.lock().reusable_session_id.is_none());
+
+            let (close_tx, close_rx) = oneshot::channel();
+            command_tx.send(ActorCommand::Close { response_tx: close_tx }).expect("send close");
+            close_rx.await.expect("close response");
+            actor_task.await.expect("actor task should finish");
+        })
+        .await;
+}
+
+#[cfg(unix)]
+async fn send_create(
+    command_tx: &mpsc::UnboundedSender<ActorCommand>,
+    cwd: PathBuf,
+) -> Result<SessionInfo, AcpError> {
+    let (response_tx, response_rx) = oneshot::channel();
+    command_tx.send(ActorCommand::CreateSession { cwd, response_tx }).expect("send create");
+    response_rx.await.expect("create response")
+}
+
+#[cfg(unix)]
+async fn send_load(
+    command_tx: &mpsc::UnboundedSender<ActorCommand>,
+    session_id: &str,
+    cwd: PathBuf,
+) -> Result<SessionInfo, AcpError> {
+    let (response_tx, response_rx) = oneshot::channel();
+    command_tx
+        .send(ActorCommand::LoadSession { session_id: session_id.to_string(), cwd, response_tx })
+        .expect("send load");
+    response_rx.await.expect("load response")
+}
+
+#[cfg(unix)]
+async fn send_resume(
+    command_tx: &mpsc::UnboundedSender<ActorCommand>,
+    session_id: &str,
+    cwd: PathBuf,
+) -> Result<SessionInfo, AcpError> {
+    let (response_tx, response_rx) = oneshot::channel();
+    command_tx
+        .send(ActorCommand::ResumeSession { session_id: session_id.to_string(), cwd, response_tx })
+        .expect("send resume");
+    response_rx.await.expect("resume response")
+}
+
+#[cfg(unix)]
+async fn send_mode(
+    command_tx: &mpsc::UnboundedSender<ActorCommand>,
+    session_id: &str,
+    cwd: PathBuf,
+    mode_id: &str,
+) -> Result<(), AcpError> {
+    let (response_tx, response_rx) = oneshot::channel();
+    command_tx
+        .send(ActorCommand::SetSessionMode {
+            session_id: session_id.to_string(),
+            cwd,
+            mode_id: mode_id.to_string(),
+            response_tx,
+        })
+        .expect("send mode");
+    response_rx.await.expect("mode response")
+}
+
+#[cfg(unix)]
+async fn send_config(
+    command_tx: &mpsc::UnboundedSender<ActorCommand>,
+    session_id: &str,
+    cwd: PathBuf,
+    option_name: &str,
+    value_id: &str,
+) -> Result<agent_client_protocol::SetSessionConfigOptionResponse, AcpError> {
+    let (response_tx, response_rx) = oneshot::channel();
+    command_tx
+        .send(ActorCommand::SetSessionConfigOption {
+            session_id: session_id.to_string(),
+            cwd,
+            option_name: option_name.to_string(),
+            value_id: value_id.to_string(),
+            response_tx,
+        })
+        .expect("send config");
+    response_rx.await.expect("config response")
+}
+
+#[cfg(unix)]
+async fn send_model(
+    command_tx: &mpsc::UnboundedSender<ActorCommand>,
+    session_id: &str,
+    cwd: PathBuf,
+    model: &str,
+) -> Result<(), AcpError> {
+    let (response_tx, response_rx) = oneshot::channel();
+    command_tx
+        .send(ActorCommand::SetSessionModel {
+            session_id: session_id.to_string(),
+            cwd,
+            model: model.to_string(),
+            response_tx,
+        })
+        .expect("send model");
+    response_rx.await.expect("model response")
+}
+
+#[cfg(unix)]
+async fn wait_for_idle_shutdown(client: &AcpClient) -> Option<crate::AgentLifecycleSnapshot> {
+    let deadline = Instant::now() + StdDuration::from_secs(3);
+    while Instant::now() < deadline {
+        let snapshot = client.get_agent_lifecycle_snapshot();
+        if snapshot.pid.is_none()
+            && snapshot.last_exit.as_ref().and_then(|exit| exit.reason.as_deref())
+                == Some("idle_timeout")
+        {
+            return Some(snapshot);
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    None
+}
+
+#[cfg(unix)]
+struct MockActorAgentFixture {
+    cwd: PathBuf,
+    script_path: PathBuf,
+    calls_log: PathBuf,
+}
+
+#[cfg(unix)]
+impl MockActorAgentFixture {
+    fn new() -> Self {
+        let id = UNIQUE_TEST_ID.fetch_add(1, Ordering::Relaxed);
+        let base = std::env::temp_dir().join(format!("vw-acp-actor-test-{id}"));
+        let cwd = base.join("cwd");
+        let script_path = base.join("mock_agent.py");
+        let calls_log = base.join("calls.jsonl");
+        fs::create_dir_all(&cwd).expect("fixture cwd");
+        fs::write(&script_path, mock_actor_agent_script()).expect("fixture script");
+        fs::write(&calls_log, "").expect("fixture calls log");
+        Self { cwd, script_path, calls_log }
+    }
+
+    fn client(&self, actor_idle_timeout: Duration) -> AcpClient {
+        let args = vec![
+            "-u".to_string(),
+            self.script_path.display().to_string(),
+            self.calls_log.display().to_string(),
+        ];
+        AcpClient::new(
+            "mock",
+            AcpAgentConfig { command: "python3".to_string(), args, env: HashMap::new() },
+        )
+        .with_actor_idle_timeout(actor_idle_timeout)
+    }
+
+    fn logged_methods(&self) -> Vec<String> {
+        fs::read_to_string(&self.calls_log)
+            .unwrap_or_default()
+            .lines()
+            .filter_map(|line| {
+                let value: serde_json::Value = serde_json::from_str(line).ok()?;
+                value.get("method")?.as_str().map(ToString::to_string)
+            })
+            .collect()
+    }
+}
+
+#[cfg(unix)]
+impl Drop for MockActorAgentFixture {
+    fn drop(&mut self) {
+        if let Some(base) = self.script_path.parent().filter(|path| path.exists()) {
+            let _ = fs::remove_dir_all(base);
+        }
+    }
+}
+
+#[cfg(unix)]
+fn mock_actor_agent_script() -> &'static str {
+    r#"import json
+import sys
+
+calls_log = sys.argv[1]
+session_counter = 0
+
+def write_call(message):
+    with open(calls_log, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps({
+            "method": message.get("method"),
+            "params": message.get("params", {}),
+        }) + "\n")
+        handle.flush()
+
+for raw_line in sys.stdin:
+    line = raw_line.strip()
+    if not line:
+        continue
+    message = json.loads(line)
+    method = message.get("method")
+    request_id = message.get("id")
+    write_call(message)
+
+    if method == "initialize":
+        result = {
+            "protocolVersion": message["params"]["protocolVersion"],
+            "agentCapabilities": {},
+            "authMethods": [],
+            "agentInfo": {"name": "mock-acp-agent", "version": "0.1.0"},
+        }
+    elif method == "session/new":
+        session_counter += 1
+        result = {"sessionId": f"session-{session_counter}"}
+    elif method in (
+        "session/load",
+        "session/resume",
+        "session/set_mode",
+        "session/set_model",
+    ):
+        result = {}
+    elif method == "session/set_config_option":
+        result = {"configOptions": []}
+    else:
+        if request_id is None:
+            continue
+        result = {}
+
+    sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": request_id, "result": result}) + "\n")
+    sys.stdout.flush()
+"#
+}
+
+fn assert_empty_command<T>(result: Result<T, AcpError>) {
+    assert!(matches!(result, Err(AcpError::EmptyCommand)));
 }

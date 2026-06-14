@@ -70,10 +70,16 @@ const FIND_RESULTS_LIMIT: usize = 3000;
 /// // rel = "src/main.rs"
 /// ```
 pub(super) fn to_relative_path(project_root: &str, path: &str) -> String {
-    let p = std::path::Path::new(path);
-    let root = std::path::Path::new(project_root);
-    // 尝试剥离项目根路径前缀，失败则返回原路径
-    p.strip_prefix(root).ok().and_then(|v| v.to_str()).unwrap_or(path).replace('\\', "/")
+    let normalized_root = project_root.trim().replace('\\', "/").trim_end_matches('/').to_string();
+    let normalized_path = path.trim().replace('\\', "/");
+    if let Some(relative) = normalized_path
+        .strip_prefix(&normalized_root)
+        .map(|value| value.trim_start_matches('/'))
+        .filter(|value| !value.is_empty())
+    {
+        return relative.to_string();
+    }
+    normalized_path
 }
 
 /// 根据主题计算搜索匹配高亮的背景颜色

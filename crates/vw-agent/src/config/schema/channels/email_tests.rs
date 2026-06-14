@@ -6,3 +6,14 @@ fn email_channel_metadata_is_stable() {
     assert_eq!(EmailConfig::name(), "Email");
     assert_eq!(EmailConfig::desc(), "Email over IMAP/SMTP");
 }
+
+#[test]
+fn email_default_keeps_tls_ports_and_inbox_defaults() {
+    let config = EmailConfig::default();
+
+    assert_eq!(config.imap_port, 993);
+    assert_eq!(config.smtp_port, 465);
+    assert_eq!(config.imap_folder, "INBOX");
+    assert!(config.smtp_tls);
+    assert_eq!(config.idle_timeout_secs, 1740);
+}

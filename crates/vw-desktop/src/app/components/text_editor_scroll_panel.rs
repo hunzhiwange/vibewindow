@@ -11,7 +11,11 @@ use iced::advanced::{Clipboard, Layout, Shell, Widget};
 use iced::mouse;
 use iced::widget::slider::Rail;
 use iced::widget::{container, row, vertical_slider};
-use iced::{Border, Color, Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector};
+use iced::{Border, Color, Element, Event, Length, Rectangle, Size, Theme, Vector};
+
+#[cfg(test)]
+#[path = "text_editor_scroll_panel_tests.rs"]
+mod tests;
 
 #[derive(Debug, Clone, Copy)]
 /// `TextEditorScrollPanelMetrics` 结构体，用于表达本模块对该领域对象的建模。
@@ -22,6 +26,67 @@ pub struct TextEditorScrollPanelMetrics {
     pub line_height: f32,
     pub line_count: usize,
     pub scroll_top_line: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ScrollPanelState {
+    viewport_height: f32,
+    max_scroll: f32,
+    scroll_top_line: f32,
+}
+
+fn scroll_panel_state(size: Size, metrics: TextEditorScrollPanelMetrics) -> ScrollPanelState {
+    let viewport_height = (size.height - metrics.viewport_padding).max(1.0);
+    let line_height = metrics.line_height.max(1.0);
+    let total_lines = metrics.line_count.max(1) as f32;
+    let visible_lines = (viewport_height / line_height).floor().max(1.0);
+    let max_scroll = (total_lines - visible_lines).max(0.0);
+    let scroll_top_line = metrics.scroll_top_line.clamp(0.0, max_scroll);
+
+    ScrollPanelState { viewport_height, max_scroll, scroll_top_line }
+}
+
+fn scrollbar_style(
+    theme: &Theme,
+    status: iced::widget::vertical_slider::Status,
+) -> iced::widget::vertical_slider::Style {
+    let palette = theme.extended_palette();
+    let thumb = match status {
+        iced::widget::vertical_slider::Status::Active => {
+            palette.background.strong.color.scale_alpha(0.85)
+        }
+        iced::widget::vertical_slider::Status::Hovered => theme.palette().primary.scale_alpha(0.75),
+        iced::widget::vertical_slider::Status::Dragged => theme.palette().primary,
+    };
+
+    iced::widget::vertical_slider::Style {
+        rail: Rail {
+            backgrounds: (
+                palette.background.weak.color.scale_alpha(0.30).into(),
+                palette.background.weak.color.scale_alpha(0.30).into(),
+            ),
+            width: 4.0,
+            border: Border { radius: 999.0.into(), width: 0.0, color: Color::TRANSPARENT },
+        },
+        handle: iced::widget::vertical_slider::Handle {
+            shape: iced::widget::vertical_slider::HandleShape::Rectangle {
+                width: 8,
+                border_radius: 999.0.into(),
+            },
+            background: thumb.into(),
+            border_width: 0.0,
+            border_color: Color::TRANSPARENT,
+        },
+    }
+}
+
+fn panel_style(theme: &Theme) -> iced::widget::container::Style {
+    let palette = theme.extended_palette();
+    iced::widget::container::Style {
+        background: Some(palette.background.base.color.into()),
+        border: Border { width: 1.0, color: palette.background.strong.color, radius: 10.0.into() },
+        ..Default::default()
+    }
 }
 
 /// 构建或处理 `text_editor_scroll_panel` 对应的界面片段与交互数据。
@@ -47,60 +112,21 @@ pub fn text_editor_scroll_panel<'a, Message>(
 where
     Message: Clone + 'a,
 {
-    let viewport_height = (size.height - metrics.viewport_padding).max(1.0);
-    let line_height = metrics.line_height.max(1.0);
-    let total_lines = metrics.line_count.max(1) as f32;
-    let visible_lines = (viewport_height / line_height).floor().max(1.0);
-    let max_scroll = (total_lines - visible_lines).max(0.0);
-    let scroll_top_line = metrics.scroll_top_line.clamp(0.0, max_scroll);
+    let state = scroll_panel_state(size, metrics);
 
-    let content = wheel_interceptor(content, move |delta| on_wheel(delta, viewport_height));
+    let content = wheel_interceptor(content, move |delta| on_wheel(delta, state.viewport_height));
     let mut body = row![container(content).width(Length::Fill).height(Length::Fill)];
 
-    if max_scroll > 0.0 {
-        let slider =
-            vertical_slider(0.0..=max_scroll, max_scroll - scroll_top_line, move |value| {
-                on_scrollbar_changed(max_scroll - value, viewport_height)
-            })
-            .step(1.0)
-            .width(10)
-            .height(Length::Fill)
-            .style(|theme: &Theme, status| {
-                let palette = theme.extended_palette();
-                let thumb = match status {
-                    iced::widget::vertical_slider::Status::Active => {
-                        palette.background.strong.color.scale_alpha(0.85)
-                    }
-                    iced::widget::vertical_slider::Status::Hovered => {
-                        theme.palette().primary.scale_alpha(0.75)
-                    }
-                    iced::widget::vertical_slider::Status::Dragged => theme.palette().primary,
-                };
-
-                iced::widget::vertical_slider::Style {
-                    rail: Rail {
-                        backgrounds: (
-                            palette.background.weak.color.scale_alpha(0.30).into(),
-                            palette.background.weak.color.scale_alpha(0.30).into(),
-                        ),
-                        width: 4.0,
-                        border: Border {
-                            radius: 999.0.into(),
-                            width: 0.0,
-                            color: Color::TRANSPARENT,
-                        },
-                    },
-                    handle: iced::widget::vertical_slider::Handle {
-                        shape: iced::widget::vertical_slider::HandleShape::Rectangle {
-                            width: 8,
-                            border_radius: 999.0.into(),
-                        },
-                        background: thumb.into(),
-                        border_width: 0.0,
-                        border_color: Color::TRANSPARENT,
-                    },
-                }
-            });
+    if state.max_scroll > 0.0 {
+        let slider = vertical_slider(
+            0.0..=state.max_scroll,
+            state.max_scroll - state.scroll_top_line,
+            move |value| on_scrollbar_changed(state.max_scroll - value, state.viewport_height),
+        )
+        .step(1.0)
+        .width(10)
+        .height(Length::Fill)
+        .style(scrollbar_style);
 
         body = body.push(container(slider).width(Length::Fixed(10.0)).height(Length::Fill));
     }
@@ -109,37 +135,32 @@ where
         .padding(12)
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(|theme: &Theme| {
-            let palette = theme.extended_palette();
-            iced::widget::container::Style {
-                background: Some(palette.background.base.color.into()),
-                border: Border {
-                    width: 1.0,
-                    color: palette.background.strong.color,
-                    radius: 10.0.into(),
-                },
-                ..Default::default()
-            }
-        })
+        .style(panel_style)
         .into()
 }
 
-fn wheel_interceptor<'a, Message>(
-    content: impl Into<Element<'a, Message>>,
+fn wheel_interceptor<'a, Message, Theme, Renderer>(
+    content: impl Into<Element<'a, Message, Theme, Renderer>>,
     on_scroll: impl Fn(mouse::ScrollDelta) -> Message + 'a,
-) -> Element<'a, Message>
+) -> Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
+    Theme: 'a,
+    Renderer: iced::advanced::Renderer + 'a,
 {
     Element::new(WheelInterceptor { content: content.into(), on_scroll: Box::new(on_scroll) })
 }
 
-struct WheelInterceptor<'a, Message> {
-    content: Element<'a, Message>,
+struct WheelInterceptor<'a, Message, Theme, Renderer> {
+    content: Element<'a, Message, Theme, Renderer>,
     on_scroll: Box<dyn Fn(mouse::ScrollDelta) -> Message + 'a>,
 }
 
-impl<Message> Widget<Message, Theme, Renderer> for WheelInterceptor<'_, Message> {
+impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for WheelInterceptor<'_, Message, Theme, Renderer>
+where
+    Renderer: iced::advanced::Renderer,
+{
     fn children(&self) -> Vec<Tree> {
         vec![Tree::new(&self.content)]
     }

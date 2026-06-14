@@ -1,0 +1,99 @@
+use super::{
+    SkillTool, available_skill_names, base_dir_url, file_url, skill_file_id, skill_location,
+    skill_matches_name, skill_prompt_content, xml_escape,
+};
+use crate::app::agent::skills::Skill;
+use serde_json::json;
+use std::path::PathBuf;
+
+fn skill(name: &str, location: Option<PathBuf>, prompts: Vec<&str>) -> Skill {
+    Skill {
+        name: name.to_string(),
+        description: format!("{name} description"),
+        version: "1.0.0".to_string(),
+        author: None,
+        tags: Vec::new(),
+        tools: Vec::new(),
+        prompts: prompts.into_iter().map(ToOwned::to_owned).collect(),
+        location,
+    }
+}
+
+#[test]
+fn schema_requires_name_string() {
+    let schema = SkillTool::schema();
+
+    assert_eq!(schema["type"], "object");
+    assert_eq!(schema["properties"]["name"]["type"], "string");
+    assert_eq!(schema["required"], json!(["name"]));
+}
+
+#[test]
+fn skill_file_id_uses_parent_for_standard_skill_files() {
+    let md = skill("Display Name", Some(PathBuf::from("/tmp/my-skill/SKILL.md")), vec![]);
+    let toml = skill("Display Name", Some(PathBuf::from("/tmp/other-skill/SKILL.toml")), vec![]);
+    let custom = skill("Display Name", Some(PathBuf::from("/tmp/custom-name.md")), vec![]);
+    let missing = skill("Display Name", None, vec![]);
+
+    assert_eq!(skill_file_id(&md).as_deref(), Some("my-skill"));
+    assert_eq!(skill_file_id(&toml).as_deref(), Some("other-skill"));
+    assert_eq!(skill_file_id(&custom).as_deref(), Some("custom-name"));
+    assert_eq!(skill_file_id(&missing), None);
+}
+
+#[test]
+fn skill_matching_accepts_display_name_or_file_id() {
+    let item = skill("Display Name", Some(PathBuf::from("/tmp/my-skill/SKILL.md")), vec![]);
+
+    assert!(skill_matches_name(&item, "Display Name"));
+    assert!(skill_matches_name(&item, "my-skill"));
+    assert!(!skill_matches_name(&item, "missing"));
+}
+
+#[test]
+fn skill_location_defaults_to_workspace_skills_directory() {
+    let workspace = PathBuf::from("/workspace");
+    let explicit = skill("explicit", Some(PathBuf::from("/tmp/skill/SKILL.md")), vec![]);
+    let implicit = skill("implicit", None, vec![]);
+
+    assert_eq!(skill_location(&explicit, &workspace), PathBuf::from("/tmp/skill/SKILL.md"));
+    assert_eq!(
+        skill_location(&implicit, &workspace),
+        PathBuf::from("/workspace/skills/implicit/SKILL.md")
+    );
+}
+
+#[test]
+fn available_skill_names_includes_sorted_names_and_file_ids() {
+    let skills = vec![
+        skill("zeta", Some(PathBuf::from("/tmp/alpha/SKILL.md")), vec![]),
+        skill("beta", Some(PathBuf::from("/tmp/custom-gamma.md")), vec![]),
+    ];
+
+    assert_eq!(available_skill_names(&skills), "alpha, beta, custom-gamma, zeta");
+    assert_eq!(available_skill_names(&[]), "无");
+}
+
+#[test]
+fn skill_prompt_content_trims_empties_and_uses_fallback() {
+    let with_prompts = skill("s", None, vec![" first ", "", "\nsecond\n"]);
+    let empty = skill("s", None, vec![" ", ""]);
+
+    assert_eq!(skill_prompt_content(&with_prompts), "first\n\nsecond");
+    assert_eq!(skill_prompt_content(&empty), "该技能没有内联指令。");
+}
+
+#[test]
+fn xml_escape_replaces_special_characters() {
+    assert_eq!(xml_escape("a&b<c>d\"e'f"), "a&amp;b&lt;c&gt;d&quot;e&apos;f");
+}
+
+#[test]
+fn file_urls_are_absolute_and_directory_urls_have_trailing_slash() {
+    let url = file_url(PathBuf::from("relative-skill/SKILL.md").as_path());
+    assert!(url.starts_with("file:///"));
+    assert!(url.ends_with("/relative-skill/SKILL.md"));
+
+    assert_eq!(base_dir_url(PathBuf::from("/tmp/skill").as_path()), "file:////tmp/skill/");
+    assert_eq!(base_dir_url(PathBuf::from("/tmp/skill/").as_path()), "file:////tmp/skill/");
+}

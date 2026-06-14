@@ -425,3 +425,7 @@ pub async fn delete_cron_jobs_async(job_ids: Vec<String>) -> Result<(), String> 
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "config_cron_jobs_tests.rs"]
+mod config_cron_jobs_tests;

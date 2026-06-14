@@ -23,8 +23,7 @@ impl PostgresMemory {
                     db_url.parse().context("invalid PostgreSQL connection URL")?;
 
                 if let Some(timeout_secs) = connect_timeout_secs {
-                    let bounded = timeout_secs.min(POSTGRES_CONNECT_TIMEOUT_CAP_SECS);
-                    config.connect_timeout(Duration::from_secs(bounded));
+                    config.connect_timeout(Self::bounded_connect_timeout(timeout_secs));
                 }
 
                 let mut client = if tls_mode {
@@ -63,7 +62,17 @@ impl PostgresMemory {
         schema_ident: &str,
         qualified_table: &str,
     ) -> Result<()> {
-        client.batch_execute(&format!(
+        client.batch_execute(&Self::schema_sql(schema_ident, qualified_table))?;
+
+        Ok(())
+    }
+
+    fn bounded_connect_timeout(timeout_secs: u64) -> Duration {
+        Duration::from_secs(timeout_secs.min(POSTGRES_CONNECT_TIMEOUT_CAP_SECS))
+    }
+
+    fn schema_sql(schema_ident: &str, qualified_table: &str) -> String {
+        format!(
             "
             CREATE SCHEMA IF NOT EXISTS {schema_ident};
 
@@ -81,9 +90,7 @@ impl PostgresMemory {
             CREATE INDEX IF NOT EXISTS idx_memories_session_id ON {qualified_table}(session_id);
             CREATE INDEX IF NOT EXISTS idx_memories_updated_at ON {qualified_table}(updated_at DESC);
             "
-        ))?;
-
-        Ok(())
+        )
     }
 }
 

@@ -144,20 +144,5 @@ pub(crate) async fn dispatch_stream_request(
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
-mod tests {
-    use super::{DriverKind, resolve_driver_kind};
-
-    #[test]
-    fn alibaba_cn_uses_provider_specific_driver() {
-        assert_eq!(resolve_driver_kind("alibaba-cn", "openai-compatible"), DriverKind::AlibabaCn);
-    }
-
-    #[test]
-    fn generic_openai_compatible_providers_fall_back_to_generic_driver() {
-        assert_eq!(
-            resolve_driver_kind("deepseek", "openai-compatible"),
-            DriverKind::OpenAICompatible
-        );
-        assert_eq!(resolve_driver_kind("openai", "openai"), DriverKind::OpenAICompatible);
-    }
-}
+#[path = "driver_tests.rs"]
+mod driver_tests;

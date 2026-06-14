@@ -165,7 +165,7 @@ pub(crate) fn is_session_unavailable_error(message: &str) -> bool {
 /// 从工作区目录或 home 下的全局配置文件加载 MCP 服务器列表。
 ///
 /// 优先查找 `<workspace_root>/.vwacprc.json`，若不存在则尝试
-/// `~/.vibewindow/acp/config.json`。解析 `mcpServers` 字段。
+/// active home config dir's `acp/config.json`。解析 `mcpServers` 字段。
 fn build_mcp_overlay(workspace_root: Option<&std::path::Path>) -> UiMcpOverlay {
     // 候选配置文件路径：project 优先，fallback 到 global
     let candidates: Vec<(std::path::PathBuf, &str)> = {
@@ -174,7 +174,10 @@ fn build_mcp_overlay(workspace_root: Option<&std::path::Path>) -> UiMcpOverlay {
             v.push((root.join(".vwacprc.json"), "project"));
         }
         if let Some(home) = dirs_home() {
-            v.push((home.join(".vibewindow").join("acp").join("config.json"), "global"));
+            v.push((
+                vw_config_types::paths::home_config_dir(home).join("acp").join("config.json"),
+                "global",
+            ));
         }
         v
     };
@@ -256,7 +259,7 @@ const MEMORY_PREVIEW_MAX_LINES: usize = 30;
 /// 扫描路径（按优先级）：
 /// - `<workspace_root>/AGENTS.md`（项目代理配置）
 /// - `<workspace_root>/.vibewindow/memory/*.md`（项目内存）
-/// - `~/.vibewindow/memory/*.md`（全局内存）
+/// - active home config dir's `memory/*.md`（全局内存）
 fn build_memory_overlay(workspace_root: Option<&std::path::Path>) -> UiMemoryOverlay {
     let mut entries: Vec<UiMemoryEntry> = Vec::new();
 
@@ -274,9 +277,9 @@ fn build_memory_overlay(workspace_root: Option<&std::path::Path>) -> UiMemoryOve
         collect_memory_dir_entries(&project_memory_dir, "project", &mut entries);
     }
 
-    // 扫描 ~/.vibewindow/memory/*.md
+    // 扫描 active home config dir's memory/*.md
     if let Some(home) = dirs_home() {
-        let global_memory_dir = home.join(".vibewindow").join("memory");
+        let global_memory_dir = vw_config_types::paths::home_config_dir(home).join("memory");
         collect_memory_dir_entries(&global_memory_dir, "global", &mut entries);
     }
 

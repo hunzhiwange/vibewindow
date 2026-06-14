@@ -282,9 +282,9 @@ pub fn is_assistant_autosave_key(key: &str) -> bool {
 /// 用于创建嵌入向量提供者实例。配置可能来自默认设置或路由规则。
 #[derive(Clone, PartialEq, Eq)]
 pub struct ResolvedEmbeddingConfig {
-    /// 嵌入提供者名称，如 "openai"、"cohere" 等
+    /// 嵌入提供者名称，如 "openai"、"alibaba-cn" 等
     pub provider: String,
-    /// 嵌入模型名称，如 "text-embedding-3-small"
+    /// 嵌入模型名称，如 "text-embedding-v4" 或 "text-embedding-3-small"
     pub model: String,
     /// 嵌入向量维度
     pub dimensions: usize,
@@ -896,3 +896,7 @@ pub fn create_response_cache(config: &MemoryConfig, workspace_dir: &Path) -> Opt
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

@@ -70,3 +70,46 @@ mod tests {
         assert_eq!(cfg.sources, vec!["github", "clawhub"]);
     }
 }
+
+#[test]
+fn debug_redacts_github_token() {
+    let cfg =
+        SkillForgeConfig { github_token: Some("ghp_secret".to_string()), ..Default::default() };
+    let rendered = format!("{cfg:?}");
+
+    assert!(rendered.contains("***"));
+    assert!(!rendered.contains("ghp_secret"));
+}
+
+#[test]
+fn config_deserialization_fills_defaults() {
+    let cfg: SkillForgeConfig =
+        serde_json::from_str(r#"{"enabled":true,"github_token":"token"}"#).unwrap();
+
+    assert!(cfg.enabled);
+    assert!(cfg.auto_integrate);
+    assert_eq!(cfg.sources, vec!["github", "clawhub"]);
+    assert_eq!(cfg.scan_interval_hours, 24);
+    assert!((cfg.min_score - 0.7).abs() < f64::EPSILON);
+    assert_eq!(cfg.output_dir, "./skills");
+    assert_eq!(cfg.github_token.as_deref(), Some("token"));
+}
+
+#[tokio::test]
+async fn enabled_unimplemented_sources_return_empty_report_without_network() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let cfg = SkillForgeConfig {
+        enabled: true,
+        sources: vec!["clawhub".to_string(), "huggingface".to_string()],
+        output_dir: dir.path().to_string_lossy().to_string(),
+        ..Default::default()
+    };
+
+    let report = SkillForge::new(cfg).forge().await.unwrap();
+
+    assert_eq!(report.discovered, 0);
+    assert_eq!(report.evaluated, 0);
+    assert_eq!(report.auto_integrated, 0);
+    assert_eq!(report.manual_review, 0);
+    assert_eq!(report.skipped, 0);
+}

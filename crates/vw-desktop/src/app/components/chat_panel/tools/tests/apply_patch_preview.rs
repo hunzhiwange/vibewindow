@@ -4,7 +4,7 @@
 
 use super::{
     ChangeFile, apply_patch_paths_match, collect_apply_patch_changes, find_apply_patch_change,
-    parse_apply_patch_change_files,
+    parse_apply_patch_change_files, parse_unified_diff_change_files,
 };
 
 /// 验证 apply patch paths match accepts relative absolute and diff prefixed paths 这一行为，确保对应解析或视图契约稳定。
@@ -199,4 +199,65 @@ fn collect_apply_patch_changes_prefers_diff_body_over_empty_changes_entry_for_de
     assert!(changes[0].before.contains("old line"));
     assert!(changes[0].before.contains("another line"));
     assert!(changes[0].after.is_empty());
+}
+
+#[test]
+fn parse_unified_diff_change_files_handles_add_modify_delete_and_metadata() {
+    let diff = concat!(
+        "diff --git a/src/new.rs b/src/new.rs\n",
+        "new file mode 100644\n",
+        "--- /dev/null\n",
+        "+++ b/src/new.rs\n",
+        "@@ -0,0 +1 @@\n",
+        "+new\n",
+        "diff --git a/src/mod.rs b/src/mod.rs\n",
+        "index 111..222 100644\n",
+        "--- a/src/mod.rs\n",
+        "+++ b/src/mod.rs\n",
+        "@@ -1 +1 @@\n",
+        "-old\n",
+        "+new\n",
+        "\\ No newline at end of file\n",
+        "diff --git a/src/old.rs b/src/old.rs\n",
+        "deleted file mode 100644\n",
+        "--- a/src/old.rs\n",
+        "+++ /dev/null\n",
+        "@@ -1 +0,0 @@\n",
+        "-old\n"
+    );
+
+    let changes = parse_unified_diff_change_files(diff);
+    assert_eq!(changes.len(), 3);
+    assert_eq!(changes[0].path, "src/new.rs");
+    assert_eq!(changes[0].additions, 1);
+    assert_eq!(changes[1].deletions, 1);
+    assert_eq!(changes[2].path, "src/old.rs");
+    assert!(changes[2].after.is_empty());
+}
+
+#[test]
+fn collect_apply_patch_changes_prefers_changes_block_then_fills_missing_diff_fields() {
+    let output = concat!(
+        "<diff>\n",
+        "--- a/src/main.rs\n",
+        "+++ b/src/main.rs\n",
+        "@@\n",
+        "-old\n",
+        "+new\n",
+        "</diff>\n",
+        "<changes>\n",
+        "{\"files\":[{\"path\":\"src/main.rs\",\"additions\":1,\"deletions\":1,\"before\":\"\",\"after\":\"\"}]}\n",
+        "</changes>"
+    );
+
+    let changes = collect_apply_patch_changes(output, "");
+    assert_eq!(changes.len(), 1);
+    assert_eq!(changes[0].path, "src/main.rs");
+    assert_eq!(changes[0].before, "old");
+    assert_eq!(changes[0].after, "new");
+}
+
+#[test]
+fn parse_apply_patch_change_files_returns_empty_for_invalid_patch() {
+    assert!(parse_apply_patch_change_files("not a patch").is_empty());
 }

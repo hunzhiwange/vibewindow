@@ -7,10 +7,6 @@ use serde_yaml::Value;
 #[cfg(not(target_arch = "wasm32"))]
 use std::fmt::Write as _;
 
-#[cfg(test)]
-#[path = "utils_tests.rs"]
-mod tests;
-
 pub(super) fn distance_to_segment(point: Point, start: Point, end: Point) -> f32 {
     let dx = end.x - start.x;
     let dy = end.y - start.y;

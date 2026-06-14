@@ -159,7 +159,7 @@ pub(super) fn parse_answers(value: &serde_json::Value, output: &str) -> BTreeMap
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn derived_summary(
+pub(super) fn derived_summary(
     app: &App,
     // questions 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
     questions: &[vw_shared::question::Info],
@@ -265,7 +265,7 @@ pub fn tool_question_view<'a>(
     };
 
     let detail_btn = button(
-        icon_svg(Icon::Eye)
+        icon_svg(Icon::ChevronRight)
             .width(Length::Fixed(10.0))
             .height(Length::Fixed(10.0))
             .style(eye_icon_svg_style),

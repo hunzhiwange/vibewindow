@@ -9,6 +9,7 @@
 //! 这些测试确保网关的安全默认值和数据结构符合预期行为。
 
 use super::*;
+use std::time::Duration;
 
 /// 验证请求体大小限制为 5MB
 ///
@@ -26,6 +27,23 @@ fn security_body_limit_is_5mb() {
 #[test]
 fn security_timeout_is_30_seconds() {
     assert_eq!(REQUEST_TIMEOUT_SECS, 30);
+}
+
+#[test]
+fn workflow_chat_messages_timeout_is_one_hour() {
+    assert_eq!(WORKFLOW_CHAT_MESSAGES_TIMEOUT_SECS, 3_600);
+    assert_eq!(
+        request_timeout_for_path("/v1/workflow/applications/chat-messages"),
+        Duration::from_secs(WORKFLOW_CHAT_MESSAGES_TIMEOUT_SECS)
+    );
+    assert_eq!(
+        request_timeout_for_path("/v1/workflow/applications/demo/chat-messages"),
+        Duration::from_secs(WORKFLOW_CHAT_MESSAGES_TIMEOUT_SECS)
+    );
+    assert_eq!(
+        request_timeout_for_path("/v1/workflow/applications"),
+        Duration::from_secs(REQUEST_TIMEOUT_SECS)
+    );
 }
 
 /// 验证 Webhook 请求体必须包含 message 字段

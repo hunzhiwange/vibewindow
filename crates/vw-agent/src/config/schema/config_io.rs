@@ -92,6 +92,9 @@ pub(crate) fn upsert_config_payload(
 
     if let Some(config_obj) = config_payload.as_object() {
         for (key, value) in config_obj {
+            if key == CONFIG_AGENT_KEY {
+                continue;
+            }
             root_obj.insert(key.clone(), value.clone());
         }
     }

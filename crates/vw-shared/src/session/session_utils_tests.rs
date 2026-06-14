@@ -7,6 +7,21 @@ fn generated_slug_has_expected_shape() {
 }
 
 #[test]
+fn slug_from_random_bytes_maps_each_byte_to_base62_character() {
+    let slug = super::slug_from_random_result(Ok([0, 1, 9, 10, 35, 36, 61, 62]));
+
+    assert_eq!(slug, "019AZaz0");
+}
+
+#[test]
+fn slug_from_random_error_falls_back_to_hex_timestamp() {
+    let slug = super::slug_from_random_result(Err(()));
+
+    assert!(!slug.is_empty());
+    assert!(slug.bytes().all(|b| b.is_ascii_hexdigit()));
+}
+
+#[test]
 fn default_title_matches_only_generated_titles() {
     assert!(super::is_default_title("New session - 2026-05-24T12:34:56.789Z"));
     assert!(super::is_default_title("Child session - 2026-05-24T12:34:56.789Z"));

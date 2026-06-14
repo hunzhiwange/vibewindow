@@ -191,6 +191,7 @@ pub fn mask_sensitive_fields(config: &Config) -> Config {
     mask_optional_secret(&mut masked.api_key);
     mask_vec_secrets(&mut masked.reliability.api_keys);
     mask_optional_secret(&mut masked.composio.api_key);
+    mask_vec_secrets(&mut masked.gateway.paired_tokens);
 
     // 掩码代理配置
     mask_optional_secret(&mut masked.proxy.http_proxy);
@@ -220,6 +221,11 @@ pub fn mask_sensitive_fields(config: &Config) -> Config {
     // 掩码所有代理的 API 密钥
     for agent in masked.agents.values_mut() {
         mask_optional_secret(&mut agent.api_key);
+    }
+
+    // 掩码嵌入路由的 API 密钥
+    for route in &mut masked.embedding_routes {
+        mask_optional_secret(&mut route.api_key);
     }
 
     // 掩码 Telegram 通道配置
@@ -346,6 +352,7 @@ fn restore_masked_sensitive_fields(incoming: &mut Config, current: &Config) {
     restore_optional_secret(&mut incoming.api_key, &current.api_key);
     restore_vec_secrets(&mut incoming.reliability.api_keys, &current.reliability.api_keys);
     restore_optional_secret(&mut incoming.composio.api_key, &current.composio.api_key);
+    restore_vec_secrets(&mut incoming.gateway.paired_tokens, &current.gateway.paired_tokens);
 
     // 恢复代理配置
     restore_optional_secret(&mut incoming.proxy.http_proxy, &current.proxy.http_proxy);
@@ -392,6 +399,16 @@ fn restore_masked_sensitive_fields(incoming: &mut Config, current: &Config) {
         if let Some(current_agent) = current.agents.get(name) {
             restore_optional_secret(&mut agent.api_key, &current_agent.api_key);
         }
+    }
+
+    // 恢复嵌入路由 API 密钥
+    for incoming_route in &mut incoming.embedding_routes {
+        let Some(current_route) =
+            current.embedding_routes.iter().find(|route| route.hint == incoming_route.hint)
+        else {
+            continue;
+        };
+        restore_optional_secret(&mut incoming_route.api_key, &current_route.api_key);
     }
 
     // 恢复 Telegram 通道配置

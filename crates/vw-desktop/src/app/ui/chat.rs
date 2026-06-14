@@ -23,6 +23,7 @@ pub fn append_line(input_editor: &mut text_editor::Content, s: &str) {
 ///
 /// 参数由调用方提供，返回值表达该步骤的计算结果；遇到不可恢复的外部状态时通过现有返回类型向上层传播错误或空结果。
 pub fn insert_at_cursor(input_editor: &mut text_editor::Content, s: &str) {
+    input_editor.perform(text_editor::Action::Move(text_editor::Motion::DocumentEnd));
     input_editor
         .perform(text_editor::Action::Edit(text_editor::Edit::Paste(Arc::new(s.to_string()))));
 }
@@ -72,6 +73,9 @@ pub fn split_think(raw: &str) -> (Vec<String>, String, bool) {
         for raw_line in s.split('\n') {
             let line = raw_line.trim_end_matches('\r');
             if line.trim_start().starts_with("```") {
+                if !in_fence && out.ends_with("\n\n") {
+                    out.pop();
+                }
                 in_fence = !in_fence;
             }
             if in_fence {
@@ -94,7 +98,7 @@ pub fn split_think(raw: &str) -> (Vec<String>, String, bool) {
                 prev_blank = false;
             }
         }
-        if out.ends_with('\n') {
+        while out.ends_with('\n') {
             out.pop();
         }
         out
@@ -217,7 +221,6 @@ pub fn split_think(raw: &str) -> (Vec<String>, String, bool) {
         let think_chunk = &rest[..end];
         if let Some(tool_start) = find_tool_start(think_chunk) {
             thinks.push(think_chunk[..tool_start].to_string());
-            visible.push_str(&think_chunk[tool_start..]);
         } else {
             thinks.push(think_chunk.to_string());
         }

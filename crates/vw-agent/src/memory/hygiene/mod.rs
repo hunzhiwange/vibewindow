@@ -723,6 +723,8 @@ mod imp {
     #[cfg(test)]
     mod tests {
         include!("tests.rs");
+
+        include!("mod_tests.rs");
     }
 }
 

@@ -33,6 +33,9 @@ use std::env;
 use std::sync::LazyLock;
 
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 mod tests;
 
 /// 从环境变量中读取字符串值

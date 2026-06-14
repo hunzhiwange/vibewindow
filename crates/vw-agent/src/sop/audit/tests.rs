@@ -276,4 +276,29 @@ mod tests {
         // 验证返回值为 None
         assert!(result.is_none());
     }
+
+    #[tokio::test]
+    async fn malformed_run_json_is_returned_as_parse_error() {
+        let mem_cfg = crate::app::agent::config::MemoryConfig {
+            backend: "sqlite".into(),
+            ..crate::app::agent::config::MemoryConfig::default()
+        };
+
+        let tmp = tempfile::tempdir().unwrap();
+        let memory: Arc<dyn Memory> = Arc::from(
+            crate::app::agent::memory::create_memory(&mem_cfg, tmp.path(), None).unwrap(),
+        );
+        memory.store(&run_key("broken"), "{not json", category(), None).await.unwrap();
+
+        let logger = SopAuditLogger::new(memory);
+        let error = logger.get_run("broken").await.unwrap_err().to_string();
+        assert!(error.contains("expected") || error.contains("key must be a string"));
+    }
+
+    #[test]
+    fn audit_keys_and_category_are_stable() {
+        assert_eq!(run_key("run-1"), "sop_run_run-1");
+        assert_eq!(step_key("run-1", 3), "sop_step_run-1_3");
+        assert_eq!(category(), MemoryCategory::Custom("sop".to_string()));
+    }
 }

@@ -33,8 +33,9 @@ use super::{
 };
 use crate::app::components::chat_panel::utils::{
     bold_font, change_pills, chat_context_menu, chat_context_target_key, chat_scroll_direction,
-    deletions_pill, eye_icon_button_style, file_button_style, icon_svg, resolve_path,
-    simplified_block_style, simplified_code_block_style, truncate_chars, truncate_lines_middle,
+    deletions_pill, eye_icon_button_style, eye_icon_svg_style, file_button_style, icon_svg,
+    resolve_path, simplified_block_style, simplified_code_block_style, truncate_chars,
+    truncate_lines_middle,
 };
 
 /// 执行 tool_apply_patch_view 对应的模块功能。
@@ -124,15 +125,19 @@ pub fn tool_apply_patch_view<'a>(
     let context_menu_open = app.chat_context_menu_target == Some(context_key);
     let context_menu_anchor = app.chat_context_menu_pos.unwrap_or((12.0, 26.0));
     let selected_context_text = selected_chat_text_for_target(app, context_key);
-    let detail_btn =
-        button(icon_svg(Icon::Eye).width(Length::Fixed(10.0)).height(Length::Fixed(10.0)))
-            .padding([2, 4])
-            .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
-            .on_press(Message::Chat(message::ChatMessage::OpenToolDetail(
-                msg_idx,
-                tool_idx,
-                visible.to_string(),
-            )));
+    let detail_btn = button(
+        icon_svg(Icon::ChevronRight)
+            .width(Length::Fixed(10.0))
+            .height(Length::Fixed(10.0))
+            .style(eye_icon_svg_style),
+    )
+    .padding([2, 4])
+    .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
+    .on_press(Message::Chat(message::ChatMessage::OpenToolDetail(
+        msg_idx,
+        tool_idx,
+        visible.to_string(),
+    )));
 
     let (primary_name, primary_dir, trailing_summary) = apply_patch_header_summary(&files);
     let permission_target = tool_permission_target_summary(tool_name, &v);
@@ -442,7 +447,7 @@ pub fn tool_apply_patch_view<'a>(
             let open_path = resolve_output_path(app, op);
             let btn = button(
                 row![
-                    icon_svg(Icon::Eye).style(|theme: &Theme, _status| {
+                    icon_svg(Icon::ChevronRight).style(|theme: &Theme, _status| {
                         svg::Style { color: Some(apply_patch_secondary_text(theme, 0.92, 0.90)) }
                     }),
                     text("打开完整输出").size(14)
@@ -749,8 +754,10 @@ fn apply_patch_header_file_icon(path: &str) -> Icon {
 }
 
 fn preview_eye_button<'a>(abs: String) -> Element<'a, Message> {
-    let eye = icon_svg(Icon::Eye).width(Length::Fixed(12.0)).height(Length::Fixed(12.0)).style(
-        |theme: &Theme, _status| {
+    let eye = icon_svg(Icon::ChevronRight)
+        .width(Length::Fixed(12.0))
+        .height(Length::Fixed(12.0))
+        .style(|theme: &Theme, _status| {
             let is_dark = theme.palette().background.r
                 + theme.palette().background.g
                 + theme.palette().background.b
@@ -762,8 +769,7 @@ fn preview_eye_button<'a>(abs: String) -> Element<'a, Message> {
                     theme.extended_palette().secondary.base.text
                 }),
             }
-        },
-    );
+        });
     mouse_area(container(eye).padding([4, 6]))
         .on_press(Message::Preview(message::PreviewMessage::Open(abs)))
         .into()

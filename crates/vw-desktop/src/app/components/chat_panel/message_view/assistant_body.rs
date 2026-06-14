@@ -559,6 +559,3 @@ pub(super) fn render_assistant_body<'a>(
         body
     }
 }
-#[cfg(test)]
-#[path = "assistant_body_tests.rs"]
-mod assistant_body_tests;

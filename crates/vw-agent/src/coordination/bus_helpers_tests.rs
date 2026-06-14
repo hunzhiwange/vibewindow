@@ -19,4 +19,7 @@ fn correlation_count_helpers_remove_empty_entries() {
     decrement_correlation_count(&mut counts, &envelope);
 
     assert!(!counts.contains_key("corr-a"));
+
+    decrement_correlation_count(&mut counts, &envelope);
+    assert!(counts.is_empty());
 }

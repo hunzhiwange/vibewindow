@@ -446,7 +446,7 @@ pub struct EstopConfig {
 }
 
 fn default_estop_state_file() -> String {
-    "~/.vibewindow/estop-state.json".to_string()
+    crate::paths::estop_state_file_path()
 }
 
 impl Default for EstopConfig {

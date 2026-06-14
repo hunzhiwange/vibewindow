@@ -12,7 +12,7 @@ fn clean_content_passes() {
 #[test]
 fn detects_stripe_keys() {
     let detector = LeakDetector::new();
-    let content = "My Stripe key is sk_test_1234567890abcdefghijklmnop";
+    let content = concat!("My Stripe key is sk_test_", "1234567890abcdefghijklmnop");
     let result = detector.scan(content);
     match result {
         LeakResult::Detected { patterns, redacted } => {

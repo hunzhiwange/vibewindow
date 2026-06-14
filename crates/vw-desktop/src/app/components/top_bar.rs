@@ -47,24 +47,26 @@ pub fn view(app: &App) -> Element<'_, Message> {
     )
     .padding([0, 6])
     .height(Length::Fixed(TOP_BAR_HEIGHT))
-    .style(|theme: &Theme| {
-        let palette = theme.extended_palette();
-        iced::widget::container::Style {
-            // 半透明背景，使用弱背景色
-            background: Some(iced::Background::Color(color_with_alpha(
-                palette.background.weak.color,
-                0.88,
-            ))),
-            // 底部边框
-            border: iced::Border {
-                width: 1.0,
-                color: palette.background.strong.color.scale_alpha(0.60),
-                radius: 0.0.into(),
-            },
-            ..Default::default()
-        }
-    })
+    .style(top_bar_style)
     .into()
+}
+
+pub(super) fn top_bar_style(theme: &Theme) -> container::Style {
+    let palette = theme.extended_palette();
+    container::Style {
+        // 半透明背景，使用弱背景色
+        background: Some(iced::Background::Color(color_with_alpha(
+            palette.background.weak.color,
+            0.88,
+        ))),
+        // 底部边框
+        border: iced::Border {
+            width: 1.0,
+            color: palette.background.strong.color.scale_alpha(0.60),
+            radius: 0.0.into(),
+        },
+        ..Default::default()
+    }
 }
 
 #[cfg(test)]

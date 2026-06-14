@@ -247,3 +247,7 @@ pub fn update(app: &mut App, message: NotificationMessage) -> Task<Message> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "notification_tests.rs"]
+mod notification_tests;

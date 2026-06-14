@@ -8,7 +8,15 @@ use crate::app::components::system_settings_common::{
     settings_modal_card, settings_modal_overlay, settings_muted_text_style,
 };
 use iced::widget::{Space, button, column, row, text};
-use iced::{Alignment, Element, Length};
+use iced::{Alignment, Color, Element, Length, Theme};
+
+fn action_button_title_text_style(_theme: &Theme) -> iced::widget::text::Style {
+    iced::widget::text::Style { color: Some(Color::WHITE) }
+}
+
+fn action_button_detail_text_style(_theme: &Theme) -> iced::widget::text::Style {
+    iced::widget::text::Style { color: Some(Color::WHITE.scale_alpha(0.82)) }
+}
 
 pub(crate) fn with_chat_reset_dialog<'a>(
     app: &App,
@@ -36,16 +44,20 @@ pub(crate) fn with_chat_reset_dialog<'a>(
             .size(13)
             .style(settings_muted_text_style),
             button(column![
-                text("仅重置会话历史").size(14),
-                text("保留当前文件内容，只把聊天回到此点").size(12).style(settings_muted_text_style),
+                text("仅重置会话历史").size(14).style(action_button_title_text_style),
+                text("保留当前文件内容，只把聊天回到此点")
+                    .size(12)
+                    .style(action_button_detail_text_style),
             ])
             .width(Length::Fill)
             .padding([12, 14])
             .style(primary_action_btn_style)
             .on_press(keep_files_message),
             button(column![
-                text("回滚代码并重置").size(14),
-                text("同时撤销此点之后产生的文件改动").size(12).style(settings_muted_text_style),
+                text("回滚代码并重置").size(14).style(action_button_title_text_style),
+                text("同时撤销此点之后产生的文件改动")
+                    .size(12)
+                    .style(action_button_detail_text_style),
             ])
             .width(Length::Fill)
             .padding([12, 14])
@@ -66,3 +78,7 @@ pub(crate) fn with_chat_reset_dialog<'a>(
 
     settings_modal_overlay(Some(root_content), close_message, card)
 }
+
+#[cfg(test)]
+#[path = "chat_reset_tests.rs"]
+mod chat_reset_tests;

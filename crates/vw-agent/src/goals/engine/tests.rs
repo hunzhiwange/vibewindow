@@ -806,4 +806,180 @@ mod tests {
             assert_eq!(*priority, parsed);
         }
     }
+
+    #[tokio::test]
+    async fn load_state_empty_file_returns_default_state() {
+        let tmp = TempDir::new().unwrap();
+        let state_dir = tmp.path().join("state");
+        tokio::fs::create_dir_all(&state_dir).await.unwrap();
+        tokio::fs::write(state_dir.join("goals.json"), "").await.unwrap();
+
+        let engine = GoalEngine::new(tmp.path());
+        let state = engine.load_state().await.unwrap();
+
+        assert!(state.goals.is_empty());
+    }
+
+    #[tokio::test]
+    async fn load_state_invalid_json_returns_error() {
+        let tmp = TempDir::new().unwrap();
+        let state_dir = tmp.path().join("state");
+        tokio::fs::create_dir_all(&state_dir).await.unwrap();
+        tokio::fs::write(state_dir.join("goals.json"), "{not json").await.unwrap();
+
+        let engine = GoalEngine::new(tmp.path());
+        let error = engine.load_state().await.unwrap_err();
+
+        assert!(error.to_string().contains("key must be a string"));
+    }
+
+    #[test]
+    fn select_next_actionable_keeps_first_goal_on_equal_priority() {
+        let mut state = sample_goal_state();
+        state.goals[0].priority = GoalPriority::High;
+        state.goals[1].priority = GoalPriority::High;
+
+        assert_eq!(GoalEngine::select_next_actionable(&state), Some((0, 1)));
+    }
+
+    #[test]
+    fn select_next_actionable_ignores_non_pending_steps() {
+        let state = GoalState {
+            goals: vec![Goal {
+                id: "g1".into(),
+                description: "No pending work".into(),
+                status: GoalStatus::InProgress,
+                priority: GoalPriority::Critical,
+                created_at: String::new(),
+                updated_at: String::new(),
+                steps: vec![
+                    Step {
+                        id: "s1".into(),
+                        description: "Running".into(),
+                        status: StepStatus::InProgress,
+                        result: None,
+                        attempts: 0,
+                    },
+                    Step {
+                        id: "s2".into(),
+                        description: "Failed".into(),
+                        status: StepStatus::Failed,
+                        result: None,
+                        attempts: 0,
+                    },
+                ],
+                context: String::new(),
+                last_error: None,
+            }],
+        };
+
+        assert_eq!(GoalEngine::select_next_actionable(&state), None);
+    }
+
+    #[test]
+    fn build_step_prompt_uses_no_result_for_completed_step_without_result() {
+        let goal = Goal {
+            id: "g1".into(),
+            description: "Handle missing result".into(),
+            status: GoalStatus::InProgress,
+            priority: GoalPriority::Medium,
+            created_at: String::new(),
+            updated_at: String::new(),
+            steps: vec![
+                Step {
+                    id: "s1".into(),
+                    description: "Already done".into(),
+                    status: StepStatus::Completed,
+                    result: None,
+                    attempts: 1,
+                },
+                Step {
+                    id: "s2".into(),
+                    description: "Continue".into(),
+                    status: StepStatus::Pending,
+                    result: None,
+                    attempts: 0,
+                },
+            ],
+            context: String::new(),
+            last_error: None,
+        };
+
+        let prompt = GoalEngine::build_step_prompt(&goal, &goal.steps[1]);
+
+        assert!(prompt.contains("- [done] Already done: (no result)"));
+        assert!(!prompt.contains("Context so far"));
+    }
+
+    #[test]
+    fn build_step_prompt_retry_without_last_error_uses_unknown() {
+        let mut state = sample_goal_state();
+        state.goals[0].steps[1].attempts = 1;
+        state.goals[0].last_error = None;
+
+        let prompt = GoalEngine::build_step_prompt(&state.goals[0], &state.goals[0].steps[1]);
+
+        assert!(prompt.contains("Last error: unknown"));
+    }
+
+    #[test]
+    fn interpret_result_is_case_insensitive_and_matches_all_indicators() {
+        for output in [
+            "FAILED TO create file",
+            "Could not connect",
+            "PANIC: unreachable",
+            "The process CANNOT continue",
+        ] {
+            assert!(!GoalEngine::interpret_result(output), "{output}");
+        }
+        assert!(GoalEngine::interpret_result("No failure keywords here"));
+    }
+
+    #[test]
+    fn max_step_attempts_exposes_retry_limit() {
+        assert_eq!(GoalEngine::max_step_attempts(), MAX_STEP_ATTEMPTS);
+    }
+
+    #[test]
+    fn build_reflection_prompt_tags_failed_blocked_pending_and_no_result() {
+        let goal = Goal {
+            id: "g1".into(),
+            description: "Mixed tags".into(),
+            status: GoalStatus::InProgress,
+            priority: GoalPriority::Medium,
+            created_at: String::new(),
+            updated_at: String::new(),
+            steps: vec![
+                Step {
+                    id: "s1".into(),
+                    description: "Failed step".into(),
+                    status: StepStatus::Failed,
+                    result: Some("failed".into()),
+                    attempts: 1,
+                },
+                Step {
+                    id: "s2".into(),
+                    description: "Blocked step".into(),
+                    status: StepStatus::Blocked,
+                    result: None,
+                    attempts: 0,
+                },
+                Step {
+                    id: "s3".into(),
+                    description: "Fresh pending".into(),
+                    status: StepStatus::Pending,
+                    result: None,
+                    attempts: 0,
+                },
+            ],
+            context: String::new(),
+            last_error: None,
+        };
+
+        let prompt = GoalEngine::build_reflection_prompt(&goal);
+
+        assert!(prompt.contains("[blocked] Failed step: failed"));
+        assert!(prompt.contains("[blocked] Blocked step: (no result)"));
+        assert!(prompt.contains("[pending] Fresh pending: (no result)"));
+    }
 }

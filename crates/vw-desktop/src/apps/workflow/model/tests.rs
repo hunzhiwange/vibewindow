@@ -1,7 +1,7 @@
 //! 工作流模型测试，验证节点、连接和应用元数据的数据结构行为。
 
 use super::*;
-use iced::{Point, Size};
+use iced::{Point, Rectangle, Size};
 use serde_yaml::Value;
 
 fn workflow_node_with_raw(block_type: &str, raw_node: Value) -> WorkflowNode {
@@ -70,4 +70,161 @@ fn default_start_node_data_initializes_query_and_files_variables() {
     assert_eq!(variables[0].value_type, "string");
     assert_eq!(variables[1].name, "files");
     assert_eq!(variables[1].value_type, "array[file]");
+}
+
+#[test]
+fn viewport_and_app_meta_defaults_match_new_workflow_baseline() {
+    let viewport = WorkflowViewport::default();
+    let app_meta = WorkflowAppMeta::default();
+
+    assert_eq!(viewport, WorkflowViewport { x: 120.0, y: 120.0, zoom: 1.0 });
+    assert_eq!(app_meta.name, "未命名应用");
+    assert_eq!(app_meta.description, "");
+    assert_eq!(app_meta.icon, "🤖");
+    assert_eq!(app_meta.icon_background, "#FFEAD5");
+    assert_eq!(app_meta.mode, "advanced-chat");
+    assert!(!app_meta.use_icon_as_answer_icon);
+    assert_eq!(app_meta.max_active_requests, 0);
+}
+
+#[test]
+fn workflow_node_helpers_return_rect_group_and_handles() {
+    let node = WorkflowNode {
+        source_handles: vec![WorkflowHandle {
+            id: "source".to_string(),
+            label: "输出".to_string(),
+            kind: WorkflowHandleKind::Source,
+        }],
+        target_handles: vec![WorkflowHandle {
+            id: "target".to_string(),
+            label: "输入".to_string(),
+            kind: WorkflowHandleKind::Target,
+        }],
+        size: Size::new(200.0, 140.0),
+        position: Point::new(12.0, 34.0),
+        ..workflow_node_with_raw("custom", Value::Null)
+    };
+
+    assert_eq!(node.rect_world(), Rectangle::new(Point::new(12.0, 34.0), Size::new(200.0, 140.0)));
+    assert!(node.is_group());
+    assert_eq!(
+        node.handle(WorkflowHandleKind::Source, "source").map(|handle| handle.label.as_str()),
+        Some("输出")
+    );
+    assert_eq!(
+        node.handle(WorkflowHandleKind::Target, "target").map(|handle| handle.label.as_str()),
+        Some("输入")
+    );
+    assert!(node.handle(WorkflowHandleKind::Source, "missing").is_none());
+
+    let iteration = WorkflowNode {
+        size: Size::new(80.0, 60.0),
+        ..workflow_node_with_raw("iteration", Value::Null)
+    };
+    assert!(iteration.is_group());
+}
+
+#[test]
+fn workflow_start_node_variables_ignore_non_start_nodes_and_map_all_supported_types() {
+    let raw_node = serde_yaml::from_str::<Value>(
+        r#"
+data:
+  variables:
+    - variable: amount
+      type: number
+    - variable: agreed
+      type: checkbox
+    - variable: avatar
+      type: file
+    - variable: attachments
+      type: file-list
+    - variable: note
+      type: text-input
+"#,
+    )
+    .expect("start variable yaml should parse");
+    let start_node = workflow_node_with_raw("start", raw_node);
+    let answer_node = workflow_node_with_raw("answer", start_node.raw_node.clone());
+
+    assert!(workflow_start_node_variables(&answer_node).is_empty());
+    assert_eq!(
+        workflow_start_node_variables(&start_node)
+            .iter()
+            .map(|item| (item.name.as_str(), item.value_type.as_str()))
+            .collect::<Vec<_>>(),
+        vec![
+            ("amount", "number"),
+            ("agreed", "boolean"),
+            ("avatar", "file"),
+            ("attachments", "array[file]"),
+            ("note", "string"),
+        ]
+    );
+}
+
+#[test]
+fn workflow_document_bounds_and_lookup_helpers_cover_nested_nodes_and_edges() {
+    let parent = WorkflowNode {
+        id: "parent".to_string(),
+        position: Point::new(10.0, 20.0),
+        size: Size::new(100.0, 80.0),
+        ..workflow_node_with_raw("loop", Value::Null)
+    };
+    let child = WorkflowNode {
+        id: "child".to_string(),
+        parent_id: Some("parent".to_string()),
+        position: Point::new(-30.0, 150.0),
+        size: Size::new(60.0, 40.0),
+        ..workflow_node_with_raw("code", Value::Null)
+    };
+    let grandchild = WorkflowNode {
+        id: "grandchild".to_string(),
+        parent_id: Some("child".to_string()),
+        position: Point::new(240.0, -10.0),
+        size: Size::new(30.0, 20.0),
+        ..workflow_node_with_raw("answer", Value::Null)
+    };
+    let edge = WorkflowEdge {
+        id: "edge".to_string(),
+        source: "parent".to_string(),
+        target: "grandchild".to_string(),
+        source_handle: Some("source".to_string()),
+        target_handle: Some("target".to_string()),
+        source_type: "loop".to_string(),
+        target_type: "answer".to_string(),
+        selected: false,
+        z_index: 2.0,
+        raw_edge: Value::Null,
+    };
+    let mut document = WorkflowDocument {
+        name: "Doc".to_string(),
+        nodes: vec![parent, child, grandchild],
+        edges: vec![edge],
+        viewport: WorkflowViewport::default(),
+    };
+
+    let bounds = document.bounds().expect("document should have bounds");
+    assert_eq!(bounds.x, -30.0);
+    assert_eq!(bounds.y, -10.0);
+    assert_eq!(bounds.width, 300.0);
+    assert_eq!(bounds.height, 200.0);
+    assert_eq!(document.node("child").map(|node| node.block_type.as_str()), Some("code"));
+    assert_eq!(document.node_mut("child").map(|node| node.title = "Child".to_string()), Some(()));
+    assert_eq!(document.edge("edge").map(|edge| edge.source.as_str()), Some("parent"));
+    assert_eq!(document.group_child_count("parent"), 1);
+    assert_eq!(
+        document.ancestor_ids("grandchild"),
+        vec!["child".to_string(), "parent".to_string()]
+    );
+    assert_eq!(
+        document.descendant_ids("parent"),
+        vec!["child".to_string(), "grandchild".to_string()]
+    );
+    assert_eq!(document.remove_edge("edge").map(|edge| edge.id), Some("edge".to_string()));
+    assert!(document.remove_edge("edge").is_none());
+}
+
+#[test]
+fn empty_workflow_document_has_no_bounds() {
+    assert!(WorkflowDocument::default().bounds().is_none());
 }

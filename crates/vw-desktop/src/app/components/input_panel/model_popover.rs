@@ -33,7 +33,7 @@ use crate::app::components::input_panel::styles::{
 use crate::app::components::system_settings_common::settings_text_input_style;
 use crate::app::{App, Message, message};
 
-fn normalize_model_input(model: &str) -> String {
+pub(super) fn normalize_model_input(model: &str) -> String {
     let trimmed = model.trim();
     if trimmed.is_empty() { "auto".to_string() } else { trimmed.to_string() }
 }

@@ -733,6 +733,10 @@ pub fn resolve_output_path(app: &crate::app::App, output_path: &str) -> String {
     let p = crate::app::components::chat_panel::utils::normalize_file_url_to_path(output_path)
         .to_string();
 
+    if output_path.trim_start().starts_with("file://") {
+        return p;
+    }
+
     // 如果已经是绝对路径，直接返回
     if std::path::Path::new(&p).is_absolute() {
         return p;

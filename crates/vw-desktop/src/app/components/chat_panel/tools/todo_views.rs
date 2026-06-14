@@ -6,11 +6,11 @@ use iced::widget::{Space, button, column, container, mouse_area, row, scrollable
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
 use crate::app::assets::Icon;
-use crate::app::components::animated_text::animated_gradient_text_color;
+use crate::app::components::chat_panel::tool_text_support::chat_text_font;
 use crate::app::components::chat_panel::utils::{
-    bold_font, chat_context_menu, chat_context_target_key, chat_scroll_direction,
-    chat_secondary_text_color, eye_icon_button_style, eye_icon_svg_style, icon_svg,
-    simplified_block_style, truncate_chars,
+    chat_context_menu, chat_context_target_key, chat_scroll_direction,
+    chat_secondary_subtle_text_color, chat_secondary_text_color, icon_svg, simplified_block_style,
+    truncate_chars,
 };
 use crate::app::components::input_panel::todo_panel::read_todos_for_panel;
 use crate::app::components::overlays::PointBelowOverlay;
@@ -22,7 +22,11 @@ use super::tool_meta::tool_emoji;
 use super::{ToolTextTarget, canonical_tool_name, selected_chat_text_for_target, tool_text_editor};
 
 pub(super) fn tool_expanded(app: &App, key: u64, _is_running: bool) -> bool {
-    _is_running || app.chat_tool_expanded.contains(&key)
+    todo_tool_expanded(app.chat_tool_expanded.contains(&key), _is_running)
+}
+
+pub(super) fn todo_tool_expanded(manual_expanded: bool, _is_running: bool) -> bool {
+    manual_expanded
 }
 
 pub(super) fn todo_tool_card_padding() -> iced::Padding {
@@ -33,7 +37,7 @@ fn todo_tool_header<'a>(
     app: &'a App,
     msg_idx: usize,
     tool_idx: usize,
-    emoji: &'static str,
+    _emoji: &'static str,
     detail_raw: String,
     label: String,
     meta: Element<'a, Message>,
@@ -42,48 +46,43 @@ fn todo_tool_header<'a>(
 ) -> Element<'a, Message> {
     let key = ((msg_idx as u64) << 32) | (tool_idx as u64);
     let is_hovered = app.chat_tool_hovered_idx == Some(key);
-    let now_ms = crate::app::time::now_ms();
-    let title = text(label).size(14).font(bold_font()).style(move |theme: &Theme| {
-        let color = if is_running {
-            animated_gradient_text_color(theme, now_ms, true)
-        } else {
-            Some(chat_secondary_text_color(theme))
-        };
-        iced::widget::text::Style { color }
+    let title = text(label).size(13).font(chat_text_font()).style(move |theme: &Theme| {
+        iced::widget::text::Style {
+            color: Some(if is_running {
+                chat_secondary_text_color(theme)
+            } else {
+                chat_secondary_subtle_text_color(theme)
+            }),
+        }
     });
-    let _ = emoji;
     let detail_btn = button(
-        icon_svg(Icon::Eye)
-            .width(Length::Fixed(10.0))
-            .height(Length::Fixed(10.0))
-            .style(eye_icon_svg_style),
+        icon_svg(Icon::ChevronRight).width(Length::Fixed(10.0)).height(Length::Fixed(10.0)).style(
+            |theme: &Theme, _status| iced::widget::svg::Style {
+                color: Some(chat_secondary_subtle_text_color(theme)),
+            },
+        ),
     )
-    .padding([2, 4])
-    .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
+    .padding([0, 1])
+    .style(todo_header_button_style)
     .on_press(Message::Chat(message::ChatMessage::OpenToolDetail(msg_idx, tool_idx, detail_raw)));
     let detail_slot: Element<'a, Message> =
-        if is_hovered { detail_btn.into() } else { Space::new().width(Length::Fixed(22.0)).into() };
+        if is_hovered { detail_btn.into() } else { Space::new().width(Length::Fixed(14.0)).into() };
     let toggle_btn = button(
         icon_svg(if expanded { Icon::ChevronUp } else { Icon::ChevronDown })
             .width(Length::Fixed(10.0))
             .height(Length::Fixed(10.0))
             .style(|theme: &Theme, _status| iced::widget::svg::Style {
-                color: Some(chat_secondary_text_color(theme)),
+                color: Some(chat_secondary_subtle_text_color(theme)),
             }),
     )
-    .padding([1, 3])
-    .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
+    .padding([0, 1])
+    .style(todo_header_button_style)
     .on_press(Message::Chat(message::ChatMessage::ToggleTool(msg_idx, tool_idx)));
     mouse_area(
         container(
-            row![
-                title,
-                meta,
-                row![toggle_btn, detail_slot].spacing(2).align_y(Alignment::Center),
-                container(Space::new()).width(Length::Fill)
-            ]
-            .spacing(4)
-            .align_y(Alignment::Center),
+            row![title, meta, toggle_btn, detail_slot, container(Space::new()).width(Length::Fill)]
+                .spacing(7)
+                .align_y(Alignment::Center),
         )
         .width(Length::Fill),
     )
@@ -92,24 +91,21 @@ fn todo_tool_header<'a>(
     .into()
 }
 
-fn todo_meta_pill<'a>(label: String) -> Element<'a, Message> {
-    container(text(label).size(11))
-        .padding([2, 8])
-        .style(|theme: &Theme| {
-            let ext = theme.extended_palette();
-            let bg = ext.background.strong.color.scale_alpha(0.20);
-            iced::widget::container::Style {
-                background: Some(Background::Color(bg)),
-                border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 999.0.into() },
-                text_color: Some(chat_secondary_text_color(theme)),
-                ..Default::default()
-            }
-        })
-        .into()
+fn todo_header_button_style(
+    theme: &Theme,
+    _status: iced::widget::button::Status,
+) -> iced::widget::button::Style {
+    iced::widget::button::Style {
+        background: None,
+        border: iced::Border { width: 0.0, color: iced::Color::TRANSPARENT, radius: 0.0.into() },
+        text_color: chat_secondary_subtle_text_color(theme),
+        shadow: iced::Shadow::default(),
+        ..Default::default()
+    }
 }
 
-fn todo_summary_pill<'a>(summary_text: String) -> Element<'a, Message> {
-    container(text(summary_text).size(12))
+fn todo_meta_pill<'a>(label: String) -> Element<'a, Message> {
+    container(text(label).size(12).font(chat_text_font()))
         .padding([1, 8])
         .style(|theme: &Theme| {
             let ext = theme.extended_palette();
@@ -125,7 +121,31 @@ fn todo_summary_pill<'a>(summary_text: String) -> Element<'a, Message> {
             iced::widget::container::Style {
                 background: Some(Background::Color(bg)),
                 border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 999.0.into() },
-                text_color: Some(chat_secondary_text_color(theme)),
+                text_color: Some(chat_secondary_subtle_text_color(theme)),
+                ..Default::default()
+            }
+        })
+        .into()
+}
+
+fn todo_summary_pill<'a>(summary_text: String) -> Element<'a, Message> {
+    container(text(summary_text).size(12).font(chat_text_font()))
+        .padding([1, 8])
+        .style(|theme: &Theme| {
+            let ext = theme.extended_palette();
+            let is_dark = theme.palette().background.r
+                + theme.palette().background.g
+                + theme.palette().background.b
+                < 1.5;
+            let bg = if is_dark {
+                ext.background.strong.color.scale_alpha(0.26)
+            } else {
+                ext.background.weak.color.scale_alpha(0.7)
+            };
+            iced::widget::container::Style {
+                background: Some(Background::Color(bg)),
+                border: Border { width: 0.0, color: Color::TRANSPARENT, radius: 999.0.into() },
+                text_color: Some(chat_secondary_subtle_text_color(theme)),
                 ..Default::default()
             }
         })

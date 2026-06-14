@@ -1,6 +1,6 @@
 [package]
 name = "vw-webview"
-version = "0.2.7"
+version = "0.2.8"
 edition = "2024"
 repository = "https://github.com/hunzhiwange/vibewindow"
 homepage = "https://github.com/hunzhiwange/vibewindow"
@@ -10,6 +10,9 @@ default-run = "vw-webview"
 
 [package.metadata.dist]
 dist = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 [[bin]]
 name = "vw-webview"

@@ -9,6 +9,9 @@ pub mod state;
 pub mod view;
 
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 mod tests;
 
 pub use message::WorkflowMessage;

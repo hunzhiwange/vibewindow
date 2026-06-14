@@ -63,6 +63,8 @@ impl std::fmt::Display for SettingsTab {
 /// 公开的 Message 枚举，描述该模块支持的一组离散状态或事件。
 #[derive(Debug, Clone)]
 pub enum Message {
+    #[cfg(not(target_arch = "wasm32"))]
+    StartupCliServiceBootstrapped(Result<(), String>),
     StartupAppConfigLoaded(Result<serde_json::Value, String>),
     StartupSystemSettingsLoaded(Result<vw_config_types::ui::AppSystemSettingsConfig, String>),
     StartupBrowserConfigLoaded(Result<vw_config_types::tools::BrowserConfig, String>),

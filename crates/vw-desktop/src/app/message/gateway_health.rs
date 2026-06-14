@@ -27,9 +27,15 @@ pub(crate) fn server_health_key(server: &GatewayClientServerDraft) -> Option<Str
     if url.port().is_none() {
         let _ = url.set_port(Some(server.port.clamp(1, u16::MAX)));
     }
-    url.set_path("/v1/health");
-    url.set_query(None);
-    Some(url.to_string())
+    let scheme = url.scheme();
+    let host = url.host_str()?;
+    let host = if host.contains(':') && !host.starts_with('[') {
+        format!("[{host}]")
+    } else {
+        host.to_string()
+    };
+    let port = url.port().unwrap_or_else(|| server.port.clamp(1, u16::MAX));
+    Some(format!("{scheme}://{host}:{port}/v1/health"))
 }
 
 async fn check_server(client: &reqwest::Client, server: &GatewayClientServerDraft) -> bool {

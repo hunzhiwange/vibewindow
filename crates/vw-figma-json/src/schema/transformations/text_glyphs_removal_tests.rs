@@ -204,3 +204,38 @@ fn test_glyphs_in_other_contexts_preserved() {
     let derived_text_data = tree.get("derivedTextData").unwrap();
     assert!(derived_text_data.get("glyphs").is_none());
 }
+
+#[test]
+fn test_non_object_derived_text_data_is_preserved() {
+    let mut tree = json!({
+        "children": [
+            {
+                "name": "TextDataAsArray",
+                "derivedTextData": [
+                    {
+                        "glyphs": [{"advance": 0.5}]
+                    }
+                ]
+            },
+            {
+                "name": "TextDataAsString",
+                "derivedTextData": "not-an-object"
+            },
+            {
+                "name": "NestedObjectStillProcessed",
+                "derivedTextData": {
+                    "glyphs": [{"advance": 0.75}],
+                    "keep": true
+                }
+            }
+        ]
+    });
+
+    remove_text_glyphs(&mut tree).unwrap();
+
+    assert!(tree["children"][0]["derivedTextData"].is_array());
+    assert!(tree["children"][0]["derivedTextData"][0].get("glyphs").is_some());
+    assert_eq!(tree["children"][1]["derivedTextData"].as_str(), Some("not-an-object"));
+    assert!(tree["children"][2]["derivedTextData"].get("glyphs").is_none());
+    assert_eq!(tree["children"][2]["derivedTextData"]["keep"].as_bool(), Some(true));
+}

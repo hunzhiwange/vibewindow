@@ -196,18 +196,22 @@ pub(super) fn provider_validation_error(name: &str) -> Option<String> {
 
 /// 校验 embedding provider 配置。
 ///
-/// 参数 `name` 支持 `none`、`openai` 或 `custom:<url>`。返回 `None` 表示有效；返回
-/// `Some` 时说明不支持的值、空 URL 或 URL scheme 错误。只允许 http/https，避免把
-/// embedding 请求导向未定义的传输协议。
+/// 参数 `name` 支持 `none`、`openai`、`alibaba`、`alibaba-cn` 或 `custom:<url>`。
+/// 返回 `None` 表示有效；返回 `Some` 时说明不支持的值、空 URL 或 URL scheme 错误。
+/// 只允许 http/https，避免把 embedding 请求导向未定义的传输协议。
 pub(super) fn embedding_provider_validation_error(name: &str) -> Option<String> {
     let normalized = name.trim();
 
-    if normalized.eq_ignore_ascii_case("none") || normalized.eq_ignore_ascii_case("openai") {
+    if normalized.eq_ignore_ascii_case("none")
+        || normalized.eq_ignore_ascii_case("openai")
+        || normalized.eq_ignore_ascii_case("alibaba")
+        || normalized.eq_ignore_ascii_case("alibaba-cn")
+    {
         return None;
     }
 
     let Some(url) = normalized.strip_prefix("custom:") else {
-        return Some("supported values: none, openai, custom:<url>".into());
+        return Some("supported values: none, openai, alibaba, alibaba-cn, custom:<url>".into());
     };
 
     let url = url.trim();

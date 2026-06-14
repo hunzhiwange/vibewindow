@@ -80,6 +80,21 @@ mod tests {
         assert!(!matcher.is_gated("developer.mozilla.org"));
     }
 
+    #[test]
+    fn categories_are_trimmed_case_insensitive_and_deduped() {
+        let matcher = DomainMatcher::new(
+            &["*.example.com".to_string(), "*.example.com".to_string()],
+            &[" Banking ".to_string()],
+        )
+        .unwrap();
+
+        assert_eq!(
+            matcher.patterns().iter().filter(|pattern| *pattern == "*.example.com").count(),
+            1
+        );
+        assert!(matcher.patterns().contains(&"*.paypal.com".to_string()));
+    }
+
     /// 测试非匹配域名返回 false
     ///
     /// # 测试场景
@@ -97,6 +112,31 @@ mod tests {
         assert!(!matcher.is_gated("example.com"));
     }
 
+    #[test]
+    fn input_domains_are_normalized_before_matching() {
+        let matcher = DomainMatcher::new(&["secure.example.com".to_string()], &[]).unwrap();
+
+        assert!(matcher.is_gated("HTTPS://user:pass@SECURE.EXAMPLE.COM:443/path?q=1#frag."));
+        assert!(!matcher.is_gated(""));
+        assert!(!matcher.is_gated("   "));
+    }
+
+    #[test]
+    fn wildcard_star_matches_any_normalized_domain() {
+        let matcher = DomainMatcher::new(&["*".to_string()], &[]).unwrap();
+
+        assert!(matcher.is_gated("anything.example"));
+        assert!(matcher.is_gated("https://nested.example/path"));
+    }
+
+    #[test]
+    fn wildcard_matching_supports_middle_and_trailing_stars() {
+        assert!(domain_matches_pattern("api.*.example.*", "api.us.example.com"));
+        assert!(domain_matches_pattern("*.example.com", "deep.api.example.com"));
+        assert!(domain_matches_pattern("prefix*", "prefix"));
+        assert!(!domain_matches_pattern("api.*.example.com", "web.us.example.com"));
+    }
+
     /// 测试拒绝格式错误的域名模式
     ///
     /// # 测试场景
@@ -112,6 +152,24 @@ mod tests {
         let err = DomainMatcher::new(&["bad domain.com".to_string()], &[] as &[String])
             .expect_err("expected invalid pattern");
         assert!(err.to_string().contains("invalid characters"));
+    }
+
+    #[test]
+    fn invalid_patterns_explain_the_rejected_shape() {
+        for (pattern, expected) in [
+            ("", "must not be empty"),
+            (".example.com", "must not start or end"),
+            ("example.com.", "must not start or end"),
+            ("example..com", "consecutive dots"),
+            ("a**.example.com", "consecutive '*'"),
+            ("*.com/path", "invalid characters"),
+        ] {
+            let err = DomainMatcher::validate_pattern(pattern).expect_err("pattern should fail");
+            assert!(
+                err.to_string().contains(expected),
+                "expected {pattern:?} error to contain {expected:?}, got {err}"
+            );
+        }
     }
 
     /// 测试拒绝未知的域名类别

@@ -197,7 +197,7 @@ fn running_think_blocks_show_when_reasoning_summary_is_disabled() {
 }
 
 #[test]
-fn running_think_block_defaults_expanded_but_manual_collapse_wins() {
+fn running_think_block_defaults_collapsed_and_manual_collapse_still_wins() {
     let timing = ThinkTiming { start_ms: 10, end_ms: None, last_update_ms: 10 };
     let key = 42_u64;
 
@@ -209,7 +209,7 @@ fn running_think_block_defaults_expanded_but_manual_collapse_wins() {
         &HashSet::from([key]),
     );
 
-    assert!(default_expanded);
+    assert!(!default_expanded);
     assert!(!resolved);
 }
 
@@ -238,10 +238,10 @@ fn finished_think_block_defaults_collapsed_even_when_reasoning_summary_is_enable
 }
 
 #[test]
-fn running_think_block_defaults_expanded_when_reasoning_summary_is_enabled() {
+fn running_think_block_defaults_collapsed_when_reasoning_summary_is_enabled() {
     let timing = ThinkTiming { start_ms: 10, end_ms: None, last_update_ms: 10 };
 
-    assert!(think_block_default_expanded(true, true, Some(&timing)));
+    assert!(!think_block_default_expanded(true, true, Some(&timing)));
 }
 
 #[test]

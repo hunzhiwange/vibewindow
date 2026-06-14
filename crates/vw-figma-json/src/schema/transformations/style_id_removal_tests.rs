@@ -155,6 +155,15 @@ fn test_remove_style_ids_missing() {
 }
 
 #[test]
+fn test_remove_style_ids_primitive_value() {
+    let mut tree = json!("style");
+
+    remove_style_ids(&mut tree).unwrap();
+
+    assert_eq!(tree.as_str(), Some("style"));
+}
+
+#[test]
 fn test_remove_style_ids_preserves_actual_styles() {
     let mut tree = json!({
         "name": "Text",

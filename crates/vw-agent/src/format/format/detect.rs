@@ -91,7 +91,7 @@ pub(super) fn which(program: &str) -> Option<PathBuf> {
     None
 }
 
-async fn prettier_enabled() -> bool {
+pub(super) async fn prettier_enabled() -> bool {
     if which("bun").is_none() {
         return false;
     }
@@ -121,7 +121,7 @@ async fn prettier_enabled() -> bool {
     false
 }
 
-async fn oxfmt_enabled() -> bool {
+pub(super) async fn oxfmt_enabled() -> bool {
     if !*flag::VIBEWINDOW_EXPERIMENTAL_OXFMT {
         return false;
     }
@@ -154,7 +154,7 @@ async fn oxfmt_enabled() -> bool {
     false
 }
 
-async fn biome_enabled() -> bool {
+pub(super) async fn biome_enabled() -> bool {
     if which("bun").is_none() {
         return false;
     }
@@ -179,7 +179,7 @@ async fn biome_enabled() -> bool {
     false
 }
 
-async fn clang_format_enabled() -> bool {
+pub(super) async fn clang_format_enabled() -> bool {
     if which("clang-format").is_none() {
         return false;
     }
@@ -199,7 +199,7 @@ async fn clang_format_enabled() -> bool {
     !found.is_empty()
 }
 
-async fn ocamlformat_enabled() -> bool {
+pub(super) async fn ocamlformat_enabled() -> bool {
     if which("ocamlformat").is_none() {
         return false;
     }
@@ -219,7 +219,7 @@ async fn ocamlformat_enabled() -> bool {
     !found.is_empty()
 }
 
-async fn ruff_enabled() -> bool {
+pub(super) async fn ruff_enabled() -> bool {
     if which("ruff").is_none() {
         return false;
     }
@@ -271,7 +271,7 @@ async fn ruff_enabled() -> bool {
     false
 }
 
-async fn uvformat_enabled() -> bool {
+pub(super) async fn uvformat_enabled() -> bool {
     if ruff_enabled().await {
         return false;
     }
@@ -288,7 +288,7 @@ async fn uvformat_enabled() -> bool {
     status.is_ok_and(|s| s.success())
 }
 
-async fn pint_enabled() -> bool {
+pub(super) async fn pint_enabled() -> bool {
     let start = instance::directory();
     if start.trim().is_empty() {
         return false;
@@ -325,7 +325,7 @@ async fn pint_enabled() -> bool {
     false
 }
 
-async fn rlang_air_enabled() -> bool {
+pub(super) async fn rlang_air_enabled() -> bool {
     if which("air").is_none() {
         return false;
     }
@@ -350,7 +350,7 @@ async fn rlang_air_enabled() -> bool {
     first_line.contains("R language") && first_line.contains("formatter")
 }
 
-fn has_dep(json: &Value, name: &str) -> bool {
+pub(super) fn has_dep(json: &Value, name: &str) -> bool {
     json.get("dependencies").and_then(|v| v.as_object()).is_some_and(|m| m.contains_key(name))
         || json
             .get("devDependencies")

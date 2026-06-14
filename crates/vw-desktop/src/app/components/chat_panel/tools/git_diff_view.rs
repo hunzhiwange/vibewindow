@@ -32,17 +32,17 @@ use super::tool_parse::{tool_error_text, tool_input, tool_status};
 #[derive(Clone)]
 pub(super) struct GitDiffPreview {
     // path 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-    path: String,
+    pub(super) path: String,
     // before 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-    before: String,
+    pub(super) before: String,
     // after 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-    after: String,
+    pub(super) after: String,
     // additions 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-    additions: usize,
+    pub(super) additions: usize,
     // deletions 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-    deletions: usize,
+    pub(super) deletions: usize,
     // cached 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
-    cached: bool,
+    pub(super) cached: bool,
 }
 
 /// 处理 append preview line 对应的局部职责。
@@ -700,8 +700,8 @@ pub fn tool_git_diff_view<'a>(
         None
     };
 
-    let detail_btn: Element<'a, Message> =
-        button(icon_svg(Icon::Eye).width(Length::Fixed(10.0)).height(Length::Fixed(10.0)).style(
+    let detail_btn: Element<'a, Message> = button(
+        icon_svg(Icon::ChevronRight).width(Length::Fixed(10.0)).height(Length::Fixed(10.0)).style(
             |theme: &Theme, _status| {
                 let is_dark = theme.palette().background.r
                     + theme.palette().background.g
@@ -716,15 +716,16 @@ pub fn tool_git_diff_view<'a>(
                     }),
                 }
             },
-        ))
-        .padding([2, 4])
-        .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
-        .on_press(Message::Chat(message::ChatMessage::OpenToolDetail(
-            msg_idx,
-            tool_idx,
-            visible.to_string(),
-        )))
-        .into();
+        ),
+    )
+    .padding([2, 4])
+    .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
+    .on_press(Message::Chat(message::ChatMessage::OpenToolDetail(
+        msg_idx,
+        tool_idx,
+        visible.to_string(),
+    )))
+    .into();
 
     let mut head_row = row![
         tool_header_title("git_diff", title, is_error),

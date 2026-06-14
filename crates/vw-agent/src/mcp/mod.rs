@@ -27,7 +27,7 @@ use rmcp::model::{
 };
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::transport::io::stdio;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::sync::Arc;
 
 /// MCP 工具服务器
@@ -150,6 +150,42 @@ impl AgentToolServer {
     }
 }
 
+fn mcp_tools_from_registry() -> Vec<Tool> {
+    tools::registry::spec_dtos(None)
+        .into_iter()
+        .map(|s| {
+            let schema = match s.input_schema {
+                Value::Object(m) => m,
+                _ => Map::new(),
+            };
+            Tool::new(s.id.0, s.description, Arc::new(schema))
+        })
+        .collect()
+}
+
+fn serialize_tool_arguments(arguments: Option<Map<String, Value>>) -> String {
+    let args = arguments.unwrap_or_default();
+    serde_json::to_string(&Value::Object(args)).unwrap_or_else(|_| "{}".to_string())
+}
+
+fn call_tool_with_context(
+    name: &str,
+    arguments: Option<Map<String, Value>>,
+    ctx: &tools::ToolRuntimeContext,
+) -> CallToolResult {
+    let input = serialize_tool_arguments(arguments);
+    mcp_call_tool_result(tools::execute_tool_call(name, &input, ctx))
+}
+
+fn mcp_call_tool_result(
+    result: Result<tools::ToolCallResult, tools::ToolCallError>,
+) -> CallToolResult {
+    match result {
+        Ok(r) => CallToolResult::success(vec![Content::text(r.model_text())]),
+        Err(e) => CallToolResult::error(vec![Content::text(format!("{:?}", e))]),
+    }
+}
+
 /// MCP 服务器处理器实现
 ///
 /// 为 `AgentToolServer` 实现 `rmcp::ServerHandler` trait，
@@ -206,22 +242,8 @@ impl ServerHandler for AgentToolServer {
         _context: RequestContext<RoleServer>,
     ) -> impl std::future::Future<Output = Result<ListToolsResult, McpError>> + Send + '_ {
         async move {
-            // 从共享 DTO 规格生成 MCP 工具定义。
-            let tools = tools::registry::spec_dtos(None)
-                .into_iter()
-                .map(|s| {
-                    // 确保参数 schema 是有效的 JSON 对象
-                    // 如果不是对象类型（如 null 或其他类型），则使用空对象
-                    let schema = match s.input_schema {
-                        Value::Object(m) => m,
-                        _ => serde_json::Map::new(),
-                    };
-                    // 创建 MCP 工具定义
-                    Tool::new(s.id.0, s.description, Arc::new(schema))
-                })
-                .collect();
             // 返回工具列表结果
-            Ok(ListToolsResult { tools, ..Default::default() })
+            Ok(ListToolsResult { tools: mcp_tools_from_registry(), ..Default::default() })
         }
     }
 
@@ -252,21 +274,9 @@ impl ServerHandler for AgentToolServer {
         _context: RequestContext<RoleServer>,
     ) -> impl std::future::Future<Output = Result<CallToolResult, McpError>> + Send + '_ {
         async move {
-            // 获取工具参数，若无参数则使用空对象
-            let args = request.arguments.unwrap_or_default();
-
-            // 将参数对象序列化为 JSON 字符串，用于传递给工具执行器
-            // 如果序列化失败，使用空对象 "{}" 作为默认值
-            let input =
-                serde_json::to_string(&Value::Object(args)).unwrap_or_else(|_| "{}".to_string());
-
-            // 调用工具执行引擎，根据结果构造 MCP 响应
-            match tools::execute_tool_call(request.name.as_ref(), &input, &self.ctx) {
-                // 执行成功，返回包含输出文本的成功结果
-                Ok(r) => Ok(CallToolResult::success(vec![Content::text(r.model_text())])),
-                // 执行失败，返回包含错误详情的错误结果（非协议错误）
-                Err(e) => Ok(CallToolResult::error(vec![Content::text(format!("{:?}", e))])),
-            }
+            let name = request.name;
+            let arguments = request.arguments;
+            Ok(call_tool_with_context(name.as_ref(), arguments, self.ctx.as_ref()))
         }
     }
 }

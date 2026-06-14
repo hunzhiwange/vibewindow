@@ -1,5 +1,8 @@
+use super::*;
 // Tests for plan6 task 818.
 const SOURCE: &str = include_str!("system_settings_skills.rs");
+
+use crate::app::state::SkillsSettingsTab;
 
 fn source_declares_symbol(name: &str) -> bool {
     let needles = [
@@ -19,6 +22,19 @@ fn source_declares_symbol(name: &str) -> bool {
     ];
 
     needles.iter().any(|needle| SOURCE.contains(needle))
+}
+
+#[test]
+fn skills_tab_labels_keep_expected_order() {
+    assert_eq!(
+        skills_tab_labels(),
+        &[
+            ("技能", SkillsSettingsTab::Skills),
+            ("顺序", SkillsSettingsTab::DiscoveryOrder),
+            ("插件", SkillsSettingsTab::Plugins),
+            ("系统配置", SkillsSettingsTab::SystemConfig),
+        ]
+    );
 }
 
 #[test]

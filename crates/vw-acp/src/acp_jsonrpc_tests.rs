@@ -28,7 +28,14 @@ fn json_rpc_message_accepts_requests_notifications_and_responses() {
 #[test]
 fn json_rpc_message_rejects_invalid_shapes() {
     assert!(!is_acp_json_rpc_message(&json!({ "jsonrpc": "1.0", "method": "x" })));
+    assert!(!is_acp_json_rpc_message(&json!(null)));
+    assert!(!is_acp_json_rpc_message(&json!({ "jsonrpc": "2.0" })));
+    assert!(!is_acp_json_rpc_message(&json!({ "jsonrpc": "2.0", "method": "" })));
+    assert!(!is_acp_json_rpc_message(&json!({ "jsonrpc": "2.0", "method": 1 })));
     assert!(!is_acp_json_rpc_message(&json!({ "jsonrpc": "2.0", "id": true, "result": {} })));
+    assert!(!is_acp_json_rpc_message(&json!({ "jsonrpc": "2.0", "id": {}, "result": {} })));
+    assert!(!is_acp_json_rpc_message(&json!({ "jsonrpc": "2.0", "id": [], "result": {} })));
+    assert!(!is_acp_json_rpc_message(&json!({ "jsonrpc": "2.0", "id": 1 })));
     assert!(!is_acp_json_rpc_message(&json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -39,6 +46,26 @@ fn json_rpc_message_rejects_invalid_shapes() {
         "jsonrpc": "2.0",
         "id": 1,
         "error": { "code": "bad", "message": "failed" }
+    })));
+    assert!(!is_acp_json_rpc_message(&json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": { "code": -1 }
+    })));
+    assert!(!is_acp_json_rpc_message(&json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": { "code": -1, "message": 1 }
+    })));
+    assert!(!is_acp_json_rpc_message(&json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "error": "failed"
+    })));
+    assert!(!is_acp_json_rpc_message(&json!({
+        "jsonrpc": "2.0",
+        "method": "session/new",
+        "id": true
     })));
 }
 
@@ -56,11 +83,81 @@ fn notification_helpers_require_session_update_payload() {
     assert!(is_json_rpc_notification(&valid));
     assert!(is_session_update_notification(&valid));
     assert!(extract_session_update_notification(&valid).is_some());
+    assert!(is_json_rpc_notification(&json!({ "method": "" })));
+    assert!(!is_json_rpc_notification(&json!(null)));
+    assert!(!is_json_rpc_notification(&json!({ "method": 1 })));
+    assert!(!is_json_rpc_notification(&json!({ "method": "session/update", "id": 1 })));
+    assert!(!is_session_update_notification(&json!(null)));
+    assert!(!is_session_update_notification(&json!({ "method": "session/update", "id": 1 })));
+    assert!(
+        extract_session_update_notification(&json!({
+            "jsonrpc": "2.0",
+            "method": "session/cancel"
+        }))
+        .is_none()
+    );
+    assert!(
+        extract_session_update_notification(&json!({
+            "jsonrpc": "2.0",
+            "method": "session/update"
+        }))
+        .is_none()
+    );
+    assert!(
+        extract_session_update_notification(&json!({
+            "jsonrpc": "2.0",
+            "method": "session/update",
+            "params": []
+        }))
+        .is_none()
+    );
+    assert!(
+        extract_session_update_notification(&json!({
+            "jsonrpc": "2.0",
+            "method": "session/update",
+            "params": {
+                "update": { "sessionUpdate": "plan", "entries": [] }
+            }
+        }))
+        .is_none()
+    );
+    assert!(
+        extract_session_update_notification(&json!({
+            "jsonrpc": "2.0",
+            "method": "session/update",
+            "params": {
+                "sessionId": "session-1"
+            }
+        }))
+        .is_none()
+    );
+    assert!(
+        extract_session_update_notification(&json!({
+            "jsonrpc": "2.0",
+            "method": "session/update",
+            "params": {
+                "sessionId": "session-1",
+                "update": []
+            }
+        }))
+        .is_none()
+    );
     assert!(
         extract_session_update_notification(&json!({
             "jsonrpc": "2.0",
             "method": "session/update",
             "params": { "sessionId": "session-1", "update": {} }
+        }))
+        .is_none()
+    );
+    assert!(
+        extract_session_update_notification(&json!({
+            "jsonrpc": "2.0",
+            "method": "session/update",
+            "params": {
+                "sessionId": "session-1",
+                "update": { "sessionUpdate": "not_a_real_update" }
+            }
         }))
         .is_none()
     );
@@ -76,5 +173,18 @@ fn parse_prompt_stop_reason_and_error_message() {
         parse_json_rpc_error_message(&json!({ "error": { "message": "boom" } })),
         Some("boom".to_string())
     );
+    assert!(parse_prompt_stop_reason(&json!(null)).is_none());
+    assert!(parse_prompt_stop_reason(&json!({})).is_none());
+    assert!(parse_prompt_stop_reason(&json!({ "result": [] })).is_none());
     assert!(parse_prompt_stop_reason(&json!({ "result": {} })).is_none());
+    assert!(parse_prompt_stop_reason(&json!({ "result": { "stopReason": 1 } })).is_none());
+    assert!(parse_json_rpc_error_message(&json!(null)).is_none());
+    assert!(parse_json_rpc_error_message(&json!({})).is_none());
+    assert!(parse_json_rpc_error_message(&json!({ "error": [] })).is_none());
+    assert!(
+        parse_json_rpc_error_message(&json!({
+            "error": { "message": 1 }
+        }))
+        .is_none()
+    );
 }

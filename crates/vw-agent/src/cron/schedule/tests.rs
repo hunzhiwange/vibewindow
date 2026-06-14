@@ -47,4 +47,70 @@ mod tests {
         // 验证：洛杉矶时间 09:00 = UTC 17:00
         assert_eq!(next, Utc.with_ymd_and_hms(2026, 2, 16, 17, 0, 0).unwrap());
     }
+
+    #[test]
+    fn normalize_expression_handles_supported_field_counts() {
+        assert_eq!(normalize_expression(" 0 9 * * * ").unwrap(), "0 0 9 * * *");
+        assert_eq!(normalize_expression("5 0 9 * * *").unwrap(), "5 0 9 * * *");
+        assert_eq!(normalize_expression("5 0 9 * * * 2026").unwrap(), "5 0 9 * * * 2026");
+    }
+
+    #[test]
+    fn normalize_expression_rejects_unsupported_field_counts() {
+        let err = normalize_expression("* * * *").unwrap_err().to_string();
+        assert!(err.contains("expected 5, 6, or 7 fields"));
+
+        let empty = normalize_expression("   ").unwrap_err().to_string();
+        assert!(empty.contains("got 0"));
+    }
+
+    #[test]
+    fn next_run_for_at_and_every_schedules() {
+        let from = Utc.with_ymd_and_hms(2026, 6, 12, 10, 0, 0).unwrap();
+        let at = Utc.with_ymd_and_hms(2026, 6, 12, 11, 30, 0).unwrap();
+
+        assert_eq!(next_run_for_schedule(&Schedule::At { at }, from).unwrap(), at);
+        assert_eq!(
+            next_run_for_schedule(&Schedule::Every { every_ms: 90_000 }, from).unwrap(),
+            Utc.with_ymd_and_hms(2026, 6, 12, 10, 1, 30).unwrap()
+        );
+    }
+
+    #[test]
+    fn next_run_for_every_rejects_zero_and_oversized_interval() {
+        let from = Utc.with_ymd_and_hms(2026, 6, 12, 10, 0, 0).unwrap();
+
+        let zero =
+            next_run_for_schedule(&Schedule::Every { every_ms: 0 }, from).unwrap_err().to_string();
+        assert!(zero.contains("every_ms must be > 0"));
+
+        let oversized = next_run_for_schedule(&Schedule::Every { every_ms: u64::MAX }, from)
+            .unwrap_err()
+            .to_string();
+        assert!(oversized.contains("every_ms is too large"));
+    }
+
+    #[test]
+    fn validate_schedule_rejects_past_at_and_invalid_cron_timezone() {
+        let now = Utc.with_ymd_and_hms(2026, 6, 12, 10, 0, 0).unwrap();
+        let past = Schedule::At { at: Utc.with_ymd_and_hms(2026, 6, 12, 9, 59, 59).unwrap() };
+        let past_err = validate_schedule(&past, now).unwrap_err().to_string();
+        assert!(past_err.contains("'at' must be in the future"));
+
+        let invalid_tz =
+            Schedule::Cron { expr: "0 9 * * *".into(), tz: Some("Mars/Olympus".into()) };
+        let tz_err = validate_schedule(&invalid_tz, now).unwrap_err().to_string();
+        assert!(tz_err.contains("Invalid IANA timezone"));
+    }
+
+    #[test]
+    fn schedule_cron_expression_only_returns_cron_expressions() {
+        let cron = Schedule::Cron { expr: "0 9 * * *".into(), tz: None };
+        let at = Schedule::At { at: Utc.with_ymd_and_hms(2026, 6, 12, 10, 0, 0).unwrap() };
+        let every = Schedule::Every { every_ms: 1000 };
+
+        assert_eq!(schedule_cron_expression(&cron).as_deref(), Some("0 9 * * *"));
+        assert!(schedule_cron_expression(&at).is_none());
+        assert!(schedule_cron_expression(&every).is_none());
+    }
 }

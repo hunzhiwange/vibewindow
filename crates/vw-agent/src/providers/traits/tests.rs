@@ -601,3 +601,106 @@ mod tests {
         assert!(message.contains("non-prompt-guided"));
     }
 }
+
+struct HistoryEchoProvider;
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl Provider for HistoryEchoProvider {
+    async fn chat_with_system(
+        &self,
+        system: Option<&str>,
+        message: &str,
+        _model: &str,
+        _temperature: f64,
+    ) -> anyhow::Result<String> {
+        Ok(format!("system={}; message={message}", system.unwrap_or("")))
+    }
+}
+
+#[tokio::test]
+async fn default_history_and_tool_chat_use_system_and_last_user() {
+    let provider = HistoryEchoProvider;
+    let messages = vec![
+        ChatMessage::system("sys"),
+        ChatMessage::user("first"),
+        ChatMessage::assistant("assistant"),
+        ChatMessage::user("last"),
+    ];
+
+    let text = provider.chat_with_history(&messages, "model", 0.0).await.unwrap();
+    assert_eq!(text, "system=sys; message=last");
+
+    let response = provider.chat_with_tools(&messages, &[], "model", 0.0).await.unwrap();
+    assert_eq!(response.text_or_empty(), "system=sys; message=last");
+    assert!(!response.has_tool_calls());
+}
+
+#[tokio::test]
+async fn simple_chat_delegates_without_system_prompt_and_warmup_is_noop() {
+    let provider = HistoryEchoProvider;
+    assert_eq!(
+        provider.simple_chat("hello", "model", 0.0).await.unwrap(),
+        "system=; message=hello"
+    );
+    provider.warmup().await.unwrap();
+}
+
+#[tokio::test]
+async fn chat_with_empty_tools_uses_plain_history_path() {
+    let provider = HistoryEchoProvider;
+    let messages = [ChatMessage::user("plain")];
+    let tools: Vec<ToolSpec> = Vec::new();
+
+    let response = provider
+        .chat(ChatRequest { messages: &messages, tools: Some(&tools) }, "model", 0.0)
+        .await
+        .unwrap();
+
+    assert_eq!(response.text_or_empty(), "system=; message=plain");
+}
+
+#[test]
+fn stream_chunks_and_options_helpers_are_stable() {
+    let chunk = StreamChunk::delta("abcdef").with_token_estimate();
+    assert_eq!(chunk.delta, "abcdef");
+    assert_eq!(chunk.token_count, 2);
+    assert!(!chunk.is_final);
+
+    let final_chunk = StreamChunk::final_chunk();
+    assert!(final_chunk.is_final);
+    assert!(final_chunk.delta.is_empty());
+
+    let error = StreamChunk::error("boom");
+    assert!(error.is_final);
+    assert_eq!(error.delta, "boom");
+
+    let options = StreamOptions::new(true).with_token_count();
+    assert!(options.enabled);
+    assert!(options.count_tokens);
+}
+
+#[tokio::test]
+async fn default_streaming_returns_empty_stream() {
+    use futures_util::StreamExt;
+
+    let provider = HistoryEchoProvider;
+    let messages = [ChatMessage::user("hi")];
+    let mut stream =
+        provider.stream_chat_with_history(&messages, "model", 0.0, StreamOptions::new(true));
+
+    assert!(stream.next().await.is_none());
+    assert!(!provider.supports_streaming());
+}
+
+#[test]
+fn capability_error_and_stream_errors_display_context() {
+    let err = ProviderCapabilityError {
+        provider: "p".to_string(),
+        capability: "vision".to_string(),
+        message: "disabled".to_string(),
+    };
+    assert!(err.to_string().contains("provider=p"));
+    assert!(StreamError::Provider("bad".to_string()).to_string().contains("bad"));
+    assert!(StreamError::InvalidSse("line".to_string()).to_string().contains("line"));
+}

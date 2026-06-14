@@ -28,6 +28,25 @@ use iced::advanced::{Clipboard, Layout, Shell, Widget, layout, mouse, overlay, r
 use iced::{Element, Length};
 use iced::{Event, Point, Rectangle, Size, Theme, Vector};
 
+fn compute_inline_right_position(
+    position: Point,
+    target_bounds: Rectangle,
+    viewport: Rectangle,
+    overlay_size: Size,
+    gap: f32,
+    snap_within_viewport: bool,
+) -> Point {
+    let mut x = position.x + target_bounds.width + gap;
+    let mut y = position.y;
+
+    if snap_within_viewport {
+        x = x.clamp(0.0, (viewport.width - overlay_size.width).max(0.0));
+        y = y.clamp(0.0, (viewport.height - overlay_size.height).max(0.0));
+    }
+
+    Point::new(x, y)
+}
+
 /// 右侧内联覆盖层组件
 ///
 /// 该组件在主内容区域右侧显示一个覆盖层，适用于显示详细信息面板、
@@ -519,17 +538,17 @@ where
         // 计算覆盖层的初始位置
         // X: 主内容右边界 - 覆盖层宽度 - 间距
         // Y: 与主内容顶部对齐
-        let mut x = self.position.x + self.target_bounds.width + self.gap;
-        let mut y = self.position.y;
-
-        // 如果启用了视口限制，将覆盖层位置限制在视口范围内
-        if self.snap_within_viewport {
-            x = x.clamp(0.0, (self.viewport.width - size.width).max(0.0));
-            y = y.clamp(0.0, (self.viewport.height - size.height).max(0.0));
-        }
+        let position = compute_inline_right_position(
+            self.position,
+            self.target_bounds,
+            self.viewport,
+            size,
+            self.gap,
+            self.snap_within_viewport,
+        );
 
         // 将布局节点移动到计算出的位置
-        node.move_to(Point::new(x, y))
+        node.move_to(position)
     }
 
     /// 处理覆盖层的事件
@@ -640,3 +659,7 @@ where
             .draw(self.tree, renderer, theme, defaults, layout, cursor, &bounds);
     }
 }
+
+#[cfg(test)]
+#[path = "inline_right_tests.rs"]
+mod tests;

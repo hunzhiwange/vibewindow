@@ -1,29 +1,47 @@
-// Tests for plan6 task 823.
-const SOURCE: &str = include_str!("system_settings_storage.rs");
+use super::*;
+use iced::Element;
+use crate::app::message::settings::StorageMessage;
+use crate::app::{App, Message, message};
+use iced::widget::text;
 
-fn source_declares_symbol(name: &str) -> bool {
-    let needles = [
-        format!("fn {name}"),
-        format!("pub fn {name}"),
-        format!("struct {name}"),
-        format!("pub struct {name}"),
-        format!("enum {name}"),
-        format!("pub enum {name}"),
-        format!("type {name}"),
-        format!("pub type {name}"),
-        format!("const {name}"),
-        format!("pub const {name}"),
-        format!("static {name}"),
-        format!("pub static {name}"),
-        format!("impl {name}"),
-    ];
+fn test_app() -> App {
+    App::new().0
+}
 
-    needles.iter().any(|needle| SOURCE.contains(needle))
+fn keep_element(element: Element<'_, Message>) {
+    std::hint::black_box(element);
 }
 
 #[test]
-fn system_settings_storage_tests_keeps_planned_coverage_targets() {
-    for name in ["field_row", "text_row", "view"] {
-        assert!(source_declares_symbol(name), "expected source to declare coverage target {name}");
-    }
+fn field_rows_build_labels_inputs_and_controls() {
+    keep_element(field_row("标签", "说明", text("control")));
+    keep_element(text_row("地址", "说明", "placeholder", "value", |value| {
+        Message::Settings(message::SettingsMessage::Storage(StorageMessage::DbUrlChanged(value)))
+    }));
+}
+
+#[test]
+fn view_builds_with_default_known_and_unknown_provider() {
+    let app = test_app();
+    keep_element(view(&app));
+
+    let mut app = test_app();
+    app.storage_settings.provider = "postgres".to_string();
+    app.storage_settings.db_url_input = "postgres://user:pass@localhost/db".to_string();
+    app.storage_settings.schema = "public".to_string();
+    app.storage_settings.table = "memories".to_string();
+    app.storage_settings.connect_timeout_secs_input = "30".to_string();
+    app.storage_settings.tls = true;
+    keep_element(view(&app));
+
+    app.storage_settings.provider = "unsupported".to_string();
+    keep_element(view(&app));
+}
+
+#[test]
+fn view_appends_save_error_banner() {
+    let mut app = test_app();
+    app.storage_settings.save_error = Some("保存失败".to_string());
+
+    keep_element(view(&app));
 }

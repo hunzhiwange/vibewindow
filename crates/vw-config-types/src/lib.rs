@@ -11,6 +11,7 @@ pub mod gateway;
 pub mod hooks;
 pub mod memory;
 pub mod observability;
+pub mod paths;
 pub mod provider;
 pub mod proxy;
 pub mod reliability;

@@ -3,21 +3,36 @@
 use crate::app::assets::Icon;
 use crate::app::components::system_settings_common::{
     danger_action_btn_style, icon_svg, primary_action_btn_style, rounded_action_btn_style,
-    settings_error_banner, settings_muted_text_style, settings_panel, settings_panel_style,
+    settings_checkbox_style, settings_error_banner, settings_muted_text_style, settings_panel,
+    settings_panel_style, settings_pick_list_menu_style, settings_pick_list_style,
     settings_success_banner, settings_text_editor_style, settings_text_input_style,
     settings_value_badge,
 };
 use crate::app::message::KnowledgeToolMessage;
-use crate::app::state::KnowledgeDetailTab;
+use crate::app::state::{EmbeddingRouteDraft, KnowledgeDetailTab};
 use crate::app::{App, Message};
 use iced::widget::{
-    button, column, container, responsive, row, scrollable, text, text_editor, text_input,
+    button, checkbox, column, container, pick_list, responsive, row, scrollable, text, text_editor,
+    text_input,
 };
 use iced::{Alignment, Background, Border, Color, Element, Length, Size, Theme};
+use std::fmt;
 use vw_gateway_client::{
-    KnowledgeChunkDto, KnowledgeDatasetDto, KnowledgeDocumentDto, KnowledgeIndexingMode,
-    KnowledgeRetrievalMode,
+    KnowledgeChunkDto, KnowledgeChunkingMode, KnowledgeDatasetDto, KnowledgeDocumentDto,
+    KnowledgeIndexingMode, KnowledgeRetrievalMode,
 };
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct KnowledgeEmbeddingModelOption {
+    value: String,
+    label: String,
+}
+
+impl fmt::Display for KnowledgeEmbeddingModelOption {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.label)
+    }
+}
 
 pub fn view(app: &App) -> Element<'_, Message> {
     let hero = build_hero(app);
@@ -133,6 +148,7 @@ fn build_sidebar(app: &App) -> Element<'_, Message> {
     let create_panel = settings_panel(
         column![
             text("创建知识库").size(14),
+            text("配置分段、索引和检索参数。").size(12).style(settings_muted_text_style),
             text_input("名称", &app.knowledge.dataset_name_input)
                 .on_input(|value| Message::Knowledge(KnowledgeToolMessage::DatasetNameChanged(
                     value
@@ -147,7 +163,11 @@ fn build_sidebar(app: &App) -> Element<'_, Message> {
                 .padding([9, 10])
                 .size(13)
                 .style(settings_text_input_style),
-            build_retrieval_mode_row(app),
+            build_chunking_mode_section(app),
+            build_indexing_mode_section(app),
+            build_embedding_model_section(app),
+            build_retrieval_mode_section(app),
+            build_dataset_param_section(app),
             button(
                 container(
                     row![icon_svg(Icon::Plus, 14.0), text("创建").size(13)]
@@ -205,53 +225,253 @@ fn build_sidebar(app: &App) -> Element<'_, Message> {
     .into()
 }
 
-fn build_retrieval_mode_row(app: &App) -> Element<'_, Message> {
+fn build_chunking_mode_section(app: &App) -> Element<'_, Message> {
     column![
-        row![
-            segment_button(
-                "全文",
-                app.knowledge.dataset_retrieval_mode == KnowledgeRetrievalMode::FullText,
-                Message::Knowledge(KnowledgeToolMessage::DatasetRetrievalModeChanged(
-                    KnowledgeRetrievalMode::FullText,
-                )),
-            ),
-            segment_button(
-                "向量",
-                app.knowledge.dataset_retrieval_mode == KnowledgeRetrievalMode::Vector,
-                Message::Knowledge(KnowledgeToolMessage::DatasetRetrievalModeChanged(
-                    KnowledgeRetrievalMode::Vector,
-                )),
-            ),
-            segment_button(
-                "混合",
-                app.knowledge.dataset_retrieval_mode == KnowledgeRetrievalMode::Hybrid,
-                Message::Knowledge(KnowledgeToolMessage::DatasetRetrievalModeChanged(
-                    KnowledgeRetrievalMode::Hybrid,
-                )),
-            ),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-        row![
-            segment_button(
-                "经济",
-                app.knowledge.dataset_indexing_mode == KnowledgeIndexingMode::Economy,
-                Message::Knowledge(KnowledgeToolMessage::DatasetIndexingModeChanged(
-                    KnowledgeIndexingMode::Economy,
-                )),
-            ),
-            segment_button(
-                "高质量",
-                app.knowledge.dataset_indexing_mode == KnowledgeIndexingMode::HighQuality,
-                Message::Knowledge(KnowledgeToolMessage::DatasetIndexingModeChanged(
-                    KnowledgeIndexingMode::HighQuality,
-                )),
-            ),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
+        section_header("分段模式", "选择文档入库结构。"),
+        option_card(
+            "General",
+            "通用文本分块。",
+            Icon::ListUl,
+            app.knowledge.dataset_chunking_mode == KnowledgeChunkingMode::General,
+            true,
+            false,
+            Message::Knowledge(KnowledgeToolMessage::DatasetChunkingModeChanged(
+                KnowledgeChunkingMode::General,
+            )),
+        ),
+        option_card(
+            "Parent-Child",
+            "子块检索，父块返回。",
+            Icon::Columns,
+            app.knowledge.dataset_chunking_mode == KnowledgeChunkingMode::ParentChild,
+            true,
+            false,
+            Message::Knowledge(KnowledgeToolMessage::DatasetChunkingModeChanged(
+                KnowledgeChunkingMode::ParentChild,
+            )),
+        ),
+        option_card(
+            "Q&A",
+            "问题检索，答案返回。",
+            Icon::ChatTextFill,
+            app.knowledge.dataset_chunking_mode == KnowledgeChunkingMode::Qa,
+            true,
+            false,
+            Message::Knowledge(KnowledgeToolMessage::DatasetChunkingModeChanged(
+                KnowledgeChunkingMode::Qa,
+            )),
+        ),
     ]
     .spacing(8)
+    .into()
+}
+
+fn build_indexing_mode_section(app: &App) -> Element<'_, Message> {
+    let vector_available =
+        app.knowledge.runtime_status.as_ref().is_some_and(|status| status.vector);
+    column![
+        section_header("索引模式", "高质量需要嵌入能力。"),
+        option_card(
+            "高质量",
+            "生成向量索引。",
+            Icon::Speedometer2,
+            app.knowledge.dataset_indexing_mode == KnowledgeIndexingMode::HighQuality,
+            vector_available,
+            true,
+            Message::Knowledge(KnowledgeToolMessage::DatasetIndexingModeChanged(
+                KnowledgeIndexingMode::HighQuality,
+            )),
+        ),
+        option_card(
+            "经济",
+            "关键词检索。",
+            Icon::HddNetwork,
+            app.knowledge.dataset_indexing_mode == KnowledgeIndexingMode::Economy,
+            true,
+            false,
+            Message::Knowledge(KnowledgeToolMessage::DatasetIndexingModeChanged(
+                KnowledgeIndexingMode::Economy,
+            )),
+        ),
+    ]
+    .spacing(8)
+    .into()
+}
+
+fn build_embedding_model_section(app: &App) -> Element<'_, Message> {
+    let options = knowledge_embedding_model_options(app);
+    let selected = knowledge_embedding_model_selected(app);
+    let picker = pick_list(options, Some(selected), |option| {
+        Message::Knowledge(KnowledgeToolMessage::DatasetEmbeddingModelChanged(option.value))
+    })
+    .padding([9, 10])
+    .text_size(13)
+    .style(settings_pick_list_style)
+    .menu_style(settings_pick_list_menu_style)
+    .width(Length::Fill);
+
+    column![section_header("Embedding 模型", "共用记忆配置里的向量化。"), picker,].spacing(8).into()
+}
+
+fn build_retrieval_mode_section(app: &App) -> Element<'_, Message> {
+    let vector_available =
+        app.knowledge.runtime_status.as_ref().is_some_and(|status| status.vector);
+    column![
+        section_header("检索设置", "选择召回策略。"),
+        option_card(
+            "向量检索",
+            "语义相似召回。",
+            Icon::Grid1x2,
+            app.knowledge.dataset_retrieval_mode == KnowledgeRetrievalMode::Vector,
+            vector_available,
+            false,
+            Message::Knowledge(KnowledgeToolMessage::DatasetRetrievalModeChanged(
+                KnowledgeRetrievalMode::Vector,
+            )),
+        ),
+        option_card(
+            "全文检索",
+            "按词汇召回。",
+            Icon::FileText,
+            app.knowledge.dataset_retrieval_mode == KnowledgeRetrievalMode::FullText,
+            true,
+            false,
+            Message::Knowledge(KnowledgeToolMessage::DatasetRetrievalModeChanged(
+                KnowledgeRetrievalMode::FullText,
+            )),
+        ),
+        option_card(
+            "混合检索",
+            "全文和向量合并。",
+            Icon::Grid1x2,
+            app.knowledge.dataset_retrieval_mode == KnowledgeRetrievalMode::Hybrid,
+            vector_available,
+            true,
+            Message::Knowledge(KnowledgeToolMessage::DatasetRetrievalModeChanged(
+                KnowledgeRetrievalMode::Hybrid,
+            )),
+        ),
+    ]
+    .spacing(8)
+    .into()
+}
+
+fn build_dataset_param_section(app: &App) -> Element<'_, Message> {
+    let mut content = column![section_header("参数", "默认召回参数。")].spacing(8);
+    if app.knowledge.dataset_indexing_mode == KnowledgeIndexingMode::Economy {
+        content = content.push(compact_input_row(
+            "关键词数量",
+            &app.knowledge.dataset_keyword_count_input,
+            |value| Message::Knowledge(KnowledgeToolMessage::DatasetKeywordCountChanged(value)),
+        ));
+    }
+    content =
+        content.push(compact_input_row("Top K", &app.knowledge.dataset_top_k_input, |value| {
+            Message::Knowledge(KnowledgeToolMessage::DatasetTopKChanged(value))
+        }));
+    content = content.push(
+        checkbox(app.knowledge.dataset_score_threshold_enabled)
+            .label("Score 阈值")
+            .on_toggle(|value| {
+                Message::Knowledge(KnowledgeToolMessage::DatasetScoreThresholdEnabledChanged(value))
+            })
+            .style(settings_checkbox_style),
+    );
+    content = content.push(compact_input_row(
+        "阈值",
+        &app.knowledge.dataset_score_threshold_input,
+        |value| Message::Knowledge(KnowledgeToolMessage::DatasetScoreThresholdChanged(value)),
+    ));
+    content = content.push(build_rerank_toggle(app));
+    if app.knowledge.dataset_rerank_enabled {
+        content = content.push(
+            text_input("rerank 模型", &app.knowledge.dataset_rerank_model_input)
+                .on_input(|value| {
+                    Message::Knowledge(KnowledgeToolMessage::DatasetRerankModelChanged(value))
+                })
+                .padding([9, 10])
+                .size(13)
+                .style(settings_text_input_style),
+        );
+    }
+    content.into()
+}
+
+fn build_rerank_toggle(app: &App) -> Element<'_, Message> {
+    let rerank_available =
+        app.knowledge.runtime_status.as_ref().is_some_and(|status| status.rerank);
+    let label = if rerank_available { "Rerank 模型" } else { "Rerank 模型（未配置）" };
+    let toggle = checkbox(app.knowledge.dataset_rerank_enabled && rerank_available)
+        .label(label)
+        .style(settings_checkbox_style);
+    if rerank_available {
+        toggle
+            .on_toggle(|value| {
+                Message::Knowledge(KnowledgeToolMessage::DatasetRerankEnabledChanged(value))
+            })
+            .into()
+    } else {
+        toggle.into()
+    }
+}
+
+fn section_header<'a>(title: &'a str, description: &'a str) -> Element<'a, Message> {
+    column![text(title).size(12), text(description).size(11).style(settings_muted_text_style),]
+        .spacing(2)
+        .into()
+}
+
+fn compact_input_row<'a>(
+    label: &'a str,
+    value: &'a str,
+    on_input: impl Fn(String) -> Message + 'a,
+) -> Element<'a, Message> {
+    row![
+        text(label).size(12).style(settings_muted_text_style).width(Length::Fixed(82.0)),
+        text_input("", value)
+            .on_input(on_input)
+            .padding([8, 9])
+            .size(13)
+            .style(settings_text_input_style)
+            .width(Length::Fill),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center)
+    .into()
+}
+
+fn option_card<'a>(
+    title: &'a str,
+    description: &'a str,
+    icon: Icon,
+    active: bool,
+    enabled: bool,
+    recommended: bool,
+    message: Message,
+) -> Element<'a, Message> {
+    let mut title_row = row![text(title).size(13)].spacing(6).align_y(Alignment::Center);
+    if recommended {
+        title_row = title_row.push(settings_value_badge("推荐"));
+    }
+    let content = row![
+        icon_badge(icon, active),
+        column![title_row, text(description).size(11).style(settings_muted_text_style),]
+            .spacing(3)
+            .width(Length::Fill),
+    ]
+    .spacing(10)
+    .align_y(Alignment::Center);
+
+    button(
+        container(content)
+            .padding([10, 10])
+            .width(Length::Fill)
+            .style(move |theme: &Theme| option_card_style(theme, active, enabled)),
+    )
+    .padding(0)
+    .width(Length::Fill)
+    .style(button::text)
+    .on_press_maybe(enabled.then_some(message))
     .into()
 }
 
@@ -280,6 +500,10 @@ fn dataset_item<'a>(app: &'a App, dataset: &'a KnowledgeDatasetDto) -> Element<'
         row![
             settings_value_badge(format!("{} 文档", dataset.document_count)),
             settings_value_badge(format!("{} 分段", dataset.chunk_count)),
+        ]
+        .spacing(6),
+        row![
+            settings_value_badge(chunking_label(&dataset.chunking_mode)),
             settings_value_badge(retrieval_label(&dataset.retrieval_mode)),
         ]
         .spacing(6),
@@ -318,6 +542,7 @@ fn build_detail<'a>(app: &'a App, size: Size) -> Element<'a, Message> {
         column![
             text(&dataset.name).size(18),
             row![
+                settings_value_badge(chunking_label(&dataset.chunking_mode)),
                 settings_value_badge(indexing_label(&dataset.indexing_mode)),
                 settings_value_badge(retrieval_label(&dataset.retrieval_mode)),
                 settings_value_badge(format!("{} 文档", dataset.document_count)),
@@ -533,6 +758,28 @@ fn build_retrieval_tab(app: &App) -> Element<'_, Message> {
             ]
             .spacing(10)
             .align_y(Alignment::Center),
+            row![
+                checkbox(app.knowledge.retrieve_score_threshold_enabled)
+                    .label("Score 阈值")
+                    .on_toggle(|value| {
+                        Message::Knowledge(
+                            KnowledgeToolMessage::RetrieveScoreThresholdEnabledChanged(value),
+                        )
+                    })
+                    .style(settings_checkbox_style),
+                text_input("0.15", &app.knowledge.retrieve_score_threshold_input)
+                    .on_input(|value| {
+                        Message::Knowledge(KnowledgeToolMessage::RetrieveScoreThresholdChanged(
+                            value,
+                        ))
+                    })
+                    .padding([9, 10])
+                    .size(13)
+                    .style(settings_text_input_style)
+                    .width(Length::Fixed(110.0)),
+            ]
+            .spacing(12)
+            .align_y(Alignment::Center),
             container(results).height(Length::Fill).width(Length::Fill),
         ]
         .spacing(12)
@@ -559,9 +806,14 @@ fn build_settings_tab<'a>(app: &'a App, dataset: &'a KnowledgeDatasetDto) -> Ele
     settings_panel(
         column![
             kv_row("知识库 ID", &dataset.id),
+            kv_row("分段模式", chunking_label(&dataset.chunking_mode)),
             kv_row("索引模式", indexing_label(&dataset.indexing_mode)),
             kv_row("检索模式", retrieval_label(&dataset.retrieval_mode)),
-            kv_row("Embedding", dataset.embedding_model.as_deref().unwrap_or("使用全局配置")),
+            kv_row("关键词数量", dataset.keyword_count.to_string()),
+            kv_row("Top K", dataset.top_k.to_string()),
+            kv_row("Score 阈值", score_threshold_label(dataset)),
+            kv_row("Rerank 开关", enabled_label(dataset.rerank_enabled)),
+            kv_row("Embedding", dataset_embedding_model_label(app, dataset)),
             kv_row("Rerank", dataset.rerank_model.as_deref().unwrap_or("未启用")),
             container(status_items).padding([8, 0]),
         ]
@@ -590,10 +842,10 @@ fn chunk_card(chunk: &KnowledgeChunkDto) -> Element<'_, Message> {
     .into()
 }
 
-fn kv_row<'a>(label: &'a str, value: &'a str) -> Element<'a, Message> {
+fn kv_row<'a>(label: &'a str, value: impl ToString + 'a) -> Element<'a, Message> {
     row![
         text(label).size(13).style(settings_muted_text_style).width(Length::Fixed(120.0)),
-        text(value).size(13).width(Length::Fill),
+        text(value.to_string()).size(13).width(Length::Fill),
     ]
     .spacing(12)
     .align_y(Alignment::Center)
@@ -657,6 +909,30 @@ fn item_style(theme: &Theme, selected: bool) -> iced::widget::container::Style {
             width: 1.0,
             color: if selected { theme.palette().primary } else { palette.background.strong.color },
         },
+        ..Default::default()
+    }
+}
+
+fn option_card_style(theme: &Theme, active: bool, enabled: bool) -> iced::widget::container::Style {
+    let palette = theme.extended_palette();
+    let background = if active {
+        theme.palette().primary.scale_alpha(0.10)
+    } else {
+        palette.background.weak.color.scale_alpha(if enabled { 0.42 } else { 0.22 })
+    };
+    let border_color = if active {
+        theme.palette().primary
+    } else {
+        palette.background.strong.color.scale_alpha(if enabled { 0.80 } else { 0.42 })
+    };
+    iced::widget::container::Style {
+        background: Some(background.into()),
+        border: Border {
+            radius: 8.0.into(),
+            width: if active { 2.0 } else { 1.0 },
+            color: border_color,
+        },
+        text_color: (!enabled).then_some(theme.palette().text.scale_alpha(0.52)),
         ..Default::default()
     }
 }
@@ -763,6 +1039,14 @@ fn indexing_label(mode: &KnowledgeIndexingMode) -> &'static str {
     }
 }
 
+fn chunking_label(mode: &KnowledgeChunkingMode) -> &'static str {
+    match mode {
+        KnowledgeChunkingMode::General => "General",
+        KnowledgeChunkingMode::ParentChild => "Parent-Child",
+        KnowledgeChunkingMode::Qa => "Q&A",
+    }
+}
+
 fn retrieval_label(mode: &KnowledgeRetrievalMode) -> &'static str {
     match mode {
         KnowledgeRetrievalMode::FullText => "全文检索",
@@ -773,6 +1057,116 @@ fn retrieval_label(mode: &KnowledgeRetrievalMode) -> &'static str {
 
 fn support_label(value: bool) -> &'static str {
     if value { "可用" } else { "不可用" }
+}
+
+fn enabled_label(value: bool) -> &'static str {
+    if value { "启用" } else { "关闭" }
+}
+
+fn knowledge_embedding_model_options(app: &App) -> Vec<KnowledgeEmbeddingModelOption> {
+    let shared = shared_embedding_model_option(
+        &app.memory_settings.embedding_provider,
+        &app.memory_settings.embedding_model,
+        app.memory_settings.embedding_dimensions,
+        &app.embedding_routes_settings.routes,
+    );
+    let mut options = vec![shared.clone()];
+    let current = app.knowledge.dataset_embedding_model_input.trim();
+    if !current.is_empty() && current != shared.value {
+        options.push(KnowledgeEmbeddingModelOption {
+            value: current.to_string(),
+            label: format!("当前输入：{current}"),
+        });
+    }
+    options
+}
+
+fn knowledge_embedding_model_selected(app: &App) -> KnowledgeEmbeddingModelOption {
+    let shared = shared_embedding_model_option(
+        &app.memory_settings.embedding_provider,
+        &app.memory_settings.embedding_model,
+        app.memory_settings.embedding_dimensions,
+        &app.embedding_routes_settings.routes,
+    );
+    let current = app.knowledge.dataset_embedding_model_input.trim();
+    if current.is_empty() || current == shared.value {
+        return shared;
+    }
+    KnowledgeEmbeddingModelOption {
+        value: current.to_string(),
+        label: format!("当前输入：{current}"),
+    }
+}
+
+fn shared_embedding_model_option(
+    provider: &str,
+    model: &str,
+    dimensions: u32,
+    routes: &[EmbeddingRouteDraft],
+) -> KnowledgeEmbeddingModelOption {
+    let summary = shared_embedding_model_summary(provider, model, dimensions, routes);
+    KnowledgeEmbeddingModelOption {
+        value: String::new(), label: format!("记忆配置：{summary}")
+    }
+}
+
+fn shared_embedding_model_summary(
+    provider: &str,
+    model: &str,
+    dimensions: u32,
+    routes: &[EmbeddingRouteDraft],
+) -> String {
+    let provider = provider.trim();
+    let model = model.trim();
+    if model.is_empty() {
+        return "未配置向量化".to_string();
+    }
+    if let Some(hint) = model.strip_prefix("hint:").map(str::trim).filter(|value| !value.is_empty())
+    {
+        if let Some(route) = routes.iter().find(|route| route.pattern.trim() == hint) {
+            let route_model = route.model.trim();
+            let route_provider = route.provider.trim();
+            let route_dimensions =
+                route.dimensions.trim().parse::<u32>().ok().unwrap_or(dimensions);
+            if !route_provider.is_empty() && !route_model.is_empty() && route_dimensions > 0 {
+                return format!("{hint} -> {route_model} / {route_dimensions}维");
+            }
+        }
+        if provider.is_empty() || provider == "none" {
+            return "未配置向量化".to_string();
+        }
+        return format!("{model} / {}维", dimensions);
+    }
+    if provider.is_empty() || provider == "none" {
+        return "未配置向量化".to_string();
+    }
+    format!("{model} / {}维", dimensions)
+}
+
+fn dataset_embedding_model_label(app: &App, dataset: &KnowledgeDatasetDto) -> String {
+    dataset
+        .embedding_model
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| {
+            shared_embedding_model_option(
+                &app.memory_settings.embedding_provider,
+                &app.memory_settings.embedding_model,
+                app.memory_settings.embedding_dimensions,
+                &app.embedding_routes_settings.routes,
+            )
+            .label
+        })
+}
+
+fn score_threshold_label(dataset: &KnowledgeDatasetDto) -> String {
+    if dataset.score_threshold_enabled {
+        format!("{:.2}", dataset.score_threshold)
+    } else {
+        "关闭".to_string()
+    }
 }
 
 fn format_time(ms: u64) -> String {

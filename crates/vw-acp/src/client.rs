@@ -88,14 +88,68 @@ mod state;
 mod timeout_messages;
 
 #[cfg(test)]
+#[path = "client/active_prompt_tests.rs"]
+mod active_prompt_tests;
+#[cfg(test)]
+#[path = "client/actor_handle_tests.rs"]
+mod actor_handle_tests;
+#[cfg(test)]
+#[path = "client/auth_env_tests.rs"]
+mod auth_env_tests;
+#[cfg(test)]
+#[path = "client/auth_tests.rs"]
+mod auth_tests;
+#[cfg(test)]
+#[path = "client/builder_tests.rs"]
+mod builder_tests;
+#[cfg(test)]
+#[path = "client/client_error_tests.rs"]
+mod client_error_tests;
+#[cfg(test)]
+#[path = "client/commands_tests.rs"]
+mod commands_tests;
+#[cfg(test)]
+#[path = "client/error_context_tests.rs"]
+mod error_context_tests;
+#[cfg(test)]
 #[path = "client/event_client_tests.rs"]
 mod event_client_tests;
 #[cfg(test)]
 #[path = "client/helpers_tests.rs"]
 mod helpers_tests;
 #[cfg(test)]
+#[path = "client/lifecycle_tests.rs"]
+mod lifecycle_tests;
+#[cfg(test)]
 #[path = "client/message_io_tests.rs"]
 mod message_io_tests;
+#[cfg(test)]
+#[path = "client/process_signals_tests.rs"]
+mod process_signals_tests;
+#[cfg(test)]
+#[path = "client/process_tests.rs"]
+mod process_tests;
+#[cfg(test)]
+#[path = "client/prompt_loop_tests.rs"]
+mod prompt_loop_tests;
+#[cfg(test)]
+#[path = "client/prompt_mapping_tests.rs"]
+mod prompt_mapping_tests;
+#[cfg(test)]
+#[path = "client/protocol_tests.rs"]
+mod protocol_tests;
+#[cfg(test)]
+#[path = "client/runtime_tests.rs"]
+mod runtime_tests;
+#[cfg(test)]
+#[path = "client/session_control_tests.rs"]
+mod session_control_tests;
+#[cfg(test)]
+#[path = "client/session_meta_tests.rs"]
+mod session_meta_tests;
+#[cfg(test)]
+#[path = "client/timeout_messages_tests.rs"]
+mod timeout_messages_tests;
 
 use self::helpers::*;
 use self::state::*;

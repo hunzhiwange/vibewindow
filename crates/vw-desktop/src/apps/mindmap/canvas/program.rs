@@ -7,6 +7,9 @@ mod ui;
 mod update;
 
 #[cfg(test)]
+#[path = "program/hit_test_tests.rs"]
+mod hit_test_tests;
+#[cfg(test)]
 mod interaction_tests;
 #[cfg(test)]
 mod ui_tests;

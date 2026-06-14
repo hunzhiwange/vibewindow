@@ -478,3 +478,7 @@ pub fn format_bytes(bytes: u64) -> String {
         format!("{value:.1} {}", UNITS[unit_index])
     }
 }
+
+#[cfg(test)]
+#[path = "large_file_tool_tests.rs"]
+mod large_file_tool_tests;

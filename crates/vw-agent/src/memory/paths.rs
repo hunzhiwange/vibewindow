@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 ///
 /// Runtime memory data must never be written into project repositories. The
 /// workspace path is only used as a stable identity source for the project
-/// directory under `~/.vibewindow/worktree/projects`.
+/// directory under the active home config directory's `worktree/projects`.
 pub(crate) fn project_data_dir(workspace_dir: &Path) -> Result<PathBuf> {
     Ok(user_worktree_root()?.join("projects").join(project_state_id(workspace_dir)))
 }
@@ -14,7 +14,7 @@ pub(crate) fn project_data_dir(workspace_dir: &Path) -> Result<PathBuf> {
 pub(crate) fn project_data_dir_best_effort(workspace_dir: &Path) -> PathBuf {
     project_data_dir(workspace_dir).unwrap_or_else(|_| {
         std::env::temp_dir()
-            .join("vibewindow")
+            .join(vw_config_types::paths::APP_DIR_NAME)
             .join("worktree")
             .join("projects")
             .join(project_state_id(workspace_dir))
@@ -31,12 +31,12 @@ fn user_worktree_root() -> Result<PathBuf> {
     let home = directories::UserDirs::new()
         .map(|u| u.home_dir().to_path_buf())
         .context("Could not find home directory for memory data")?;
-    Ok(home.join(".vibewindow").join("worktree"))
+    Ok(vw_config_types::paths::home_config_dir(home).join("worktree"))
 }
 
 #[cfg(target_arch = "wasm32")]
 fn user_worktree_root() -> Result<PathBuf> {
-    Ok(PathBuf::from("/.vibewindow/worktree"))
+    Ok(vw_config_types::paths::root_config_dir().join("worktree"))
 }
 
 fn project_state_id(workspace_dir: &Path) -> String {
@@ -95,29 +95,5 @@ fn safe_name(value: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    #[test]
-    fn project_data_dir_is_user_scoped() {
-        let workspace = TempDir::new().unwrap();
-        let path = project_data_dir(workspace.path()).unwrap();
-        let home = directories::UserDirs::new().unwrap().home_dir().to_path_buf();
-
-        assert!(path.starts_with(home.join(".vibewindow").join("worktree")));
-        assert!(!path.starts_with(workspace.path()));
-    }
-
-    #[test]
-    fn project_and_workspace_data_dirs_use_different_scopes() {
-        let workspace = TempDir::new().unwrap();
-
-        let project = project_data_dir(workspace.path()).unwrap();
-        let worktree = workspace_data_dir(workspace.path()).unwrap();
-
-        assert!(project.components().any(|component| component.as_os_str() == "projects"));
-        assert!(worktree.components().any(|component| component.as_os_str() == "workspaces"));
-        assert_ne!(project, worktree);
-    }
-}
+#[path = "paths_tests.rs"]
+mod paths_tests;

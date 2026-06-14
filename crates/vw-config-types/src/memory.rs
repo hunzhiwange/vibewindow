@@ -123,10 +123,10 @@ pub struct MemoryConfig {
     /// 对 sqlite 后端，超过该天数的会话记录行会被裁剪。
     #[serde(default = "default_conversation_retention_days")]
     pub conversation_retention_days: u32,
-    /// Embedding 提供方：`none`、`openai` 或 `custom:URL`。
+    /// Embedding 提供方：`none`、`openai`、`alibaba`、`alibaba-cn` 或 `custom:URL`。
     #[serde(default = "default_embedding_provider")]
     pub embedding_provider: String,
-    /// Embedding 模型名称，例如 `text-embedding-3-small`。
+    /// Embedding 模型名称，例如 `text-embedding-v4` 或 `text-embedding-3-small`。
     #[serde(default = "default_embedding_model")]
     pub embedding_model: String,
     /// Embedding 向量维度。

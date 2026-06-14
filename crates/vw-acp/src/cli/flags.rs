@@ -1,6 +1,6 @@
 //! CLI 标志位的解析、校验与归一化。
 
-use std::path::PathBuf;
+use std::path::{Component, PathBuf};
 
 use crate::agent_registry::{
     DEFAULT_AGENT_NAME, resolve_agent_command, resolve_agent_spec_with_overrides,
@@ -312,15 +312,43 @@ pub struct ResolvedAgentInvocation {
 }
 
 fn resolve_absolute_path(path: &str) -> String {
-    let cwd = PathBuf::from(path);
-    if cwd.is_absolute() {
-        return cwd.to_string_lossy().into_owned();
+    let cwd = strip_current_dir_components(PathBuf::from(path));
+    let absolute = if cwd.is_absolute() {
+        cwd
+    } else {
+        std::env::current_dir().map_or_else(|_| cwd.clone(), |base| base.join(&cwd))
+    };
+
+    normalize_absolute_components(absolute).to_string_lossy().into_owned()
+}
+
+fn strip_current_dir_components(path: PathBuf) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        push_path_component(&mut normalized, component, false);
     }
-    std::env::current_dir()
-        .map(|base| base.join(cwd))
-        .unwrap_or_else(|_| PathBuf::from(path))
-        .to_string_lossy()
-        .into_owned()
+    normalized
+}
+
+fn normalize_absolute_components(path: PathBuf) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        push_path_component(&mut normalized, component, true);
+    }
+    normalized
+}
+
+fn push_path_component(normalized: &mut PathBuf, component: Component<'_>, collapse_parent: bool) {
+    match component {
+        Component::CurDir => {}
+        Component::ParentDir if collapse_parent => {
+            normalized.pop();
+        }
+        Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+            normalized.push(component.as_os_str());
+        }
+        Component::Normal(part) => normalized.push(part),
+    }
 }
 
 pub fn resolve_agent_invocation(

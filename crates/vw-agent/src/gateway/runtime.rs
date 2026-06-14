@@ -3,6 +3,7 @@
 //! 本模块负责根据启动选项构造路由、绑定监听地址，并把 Axum 服务放入 Tokio
 //! 任务中运行。端口为 `0` 时会优先尝试桌面端约定端口，再回退到系统分配端口。
 
+use std::future::Future;
 use std::net::SocketAddr;
 
 use crate::app::agent::gateway::error::ApiError;
@@ -23,7 +24,14 @@ use crate::app::agent::gateway::router::build_router;
 ///
 /// 绑定失败、服务任务 panic 或 Axum 服务运行失败都会转换为 `ApiError`。
 pub async fn serve(opts: ServeOptions) -> Result<SocketAddr, ApiError> {
-    let (addr, handle) = start(opts).await?;
+    serve_until(opts, shutdown_signal()).await
+}
+
+async fn serve_until<F>(opts: ServeOptions, shutdown: F) -> Result<SocketAddr, ApiError>
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    let (addr, handle) = start_until(opts, shutdown).await?;
     let res = handle.await.map_err(|e| ApiError::internal(e.to_string()))?;
     res?;
     Ok(addr)
@@ -45,13 +53,23 @@ pub async fn serve(opts: ServeOptions) -> Result<SocketAddr, ApiError> {
 pub async fn start(
     opts: ServeOptions,
 ) -> Result<(SocketAddr, tokio::task::JoinHandle<Result<(), ApiError>>), ApiError> {
+    start_until(opts, shutdown_signal()).await
+}
+
+async fn start_until<F>(
+    opts: ServeOptions,
+    shutdown: F,
+) -> Result<(SocketAddr, tokio::task::JoinHandle<Result<(), ApiError>>), ApiError>
+where
+    F: Future<Output = ()> + Send + 'static,
+{
     let router = build_router(opts.cors);
     let listener = bind_prefer(&opts.hostname, opts.port).await?;
     let addr = listener.local_addr().map_err(|e| ApiError::internal(e.to_string()))?;
     let handle = tokio::spawn(async move {
         // Ctrl-C 时优雅停机，让已接收的请求有机会完成响应。
         axum::serve(listener, router)
-            .with_graceful_shutdown(shutdown_signal())
+            .with_graceful_shutdown(shutdown)
             .await
             .map_err(|e| ApiError::internal(e.to_string()))
     });

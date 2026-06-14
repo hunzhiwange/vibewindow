@@ -7,7 +7,9 @@ use serde_json::json;
 /// 重新导出 use super::{parse_config_input, parse_config_result_from_output, summary_from_input, summary_from_result}，让上层模块通过稳定路径访问。
 use super::{
     parse_config_input, parse_config_result_from_output, summary_from_input, summary_from_result,
+    tool_config_view,
 };
+use crate::app::App;
 
 /// 解析 config result from output reads get shape 的输入文本，返回后续视图可以直接消费的结构化结果。
 ///
@@ -32,6 +34,12 @@ fn parse_config_result_from_output_reads_get_shape() {
     assert_eq!(result.setting.as_deref(), Some("browser.enabled"));
     assert_eq!(result.value, Some(json!(true)));
     assert_eq!(summary_from_result(&result), "browser.enabled = true");
+}
+
+#[test]
+fn parse_config_result_from_output_rejects_non_json_text() {
+    assert!(parse_config_result_from_output("plain text").is_none());
+    assert!(parse_config_result_from_output("{not-json").is_none());
 }
 
 /// 解析 config result from output reads set shape 的输入文本，返回后续视图可以直接消费的结构化结果。
@@ -59,6 +67,20 @@ fn parse_config_result_from_output_reads_set_shape() {
     assert_eq!(summary_from_result(&result), "appUi.terminalTheme -> monokai");
 }
 
+#[test]
+fn summary_from_result_handles_failures_and_overview_gets() {
+    let failed = parse_config_result_from_output(
+        r#"{"success":false,"operation":"set","error":"permission denied"}"#,
+    )
+    .expect("config failure payload should parse");
+    assert_eq!(summary_from_result(&failed), "permission denied");
+
+    let overview =
+        parse_config_result_from_output(r#"{"success":true,"operation":"get","value":{"proxy":{},"model_routing":{},"runtime":{}}}"#)
+            .expect("config overview should parse");
+    assert_eq!(summary_from_result(&overview), "当前配置概览");
+}
+
 /// 解析 config input reads pending write request 的输入文本，返回后续视图可以直接消费的结构化结果。
 ///
 /// # 参数
@@ -80,4 +102,74 @@ fn parse_config_input_reads_pending_write_request() {
     assert_eq!(input.setting.as_deref(), Some("appUi.terminalTheme"));
     assert_eq!(input.value, Some(json!("monokai")));
     assert_eq!(summary_from_input(&input), "设置 appUi.terminalTheme = monokai");
+}
+
+#[test]
+fn summary_from_input_handles_reads_and_sections() {
+    let read = parse_config_input(r#"{"setting":"browser.enabled"}"#)
+        .expect("config read input should parse");
+    assert_eq!(summary_from_input(&read), "读取 browser.enabled");
+
+    let proxy =
+        parse_config_input(r#"{"section":"proxy"}"#).expect("config section input should parse");
+    assert_eq!(summary_from_input(&proxy), "读取 proxy 高级配置");
+
+    let overview = parse_config_input(r#"{}"#).expect("empty config input should parse");
+    assert_eq!(summary_from_input(&overview), "读取配置概览");
+    assert!(parse_config_input("not-json").is_none());
+}
+
+#[test]
+fn config_view_rejects_bad_tool_and_empty_completed_result() {
+    let app = App::new().0;
+
+    assert!(tool_config_view(&app, 0, 0, "tool bash\n{}").is_none());
+    assert!(tool_config_view(&app, 0, 0, "tool config\nnot-json").is_none());
+    assert!(
+        tool_config_view(
+            &app,
+            0,
+            0,
+            r#"tool config
+{"status":"success","output":"plain text"}"#
+        )
+        .is_none()
+    );
+}
+
+#[test]
+fn config_view_renders_running_success_and_error_states() {
+    let mut app = App::new().0;
+    app.chat_tool_hovered_idx = Some((1_u64 << 32) | 2);
+
+    assert!(
+        tool_config_view(
+            &app,
+            1,
+            2,
+            r#"tool config
+{"status":"running","input":"{\"setting\":\"browser.enabled\"}"}"#
+        )
+        .is_some()
+    );
+    assert!(
+        tool_config_view(
+            &app,
+            1,
+            2,
+            r#"tool config
+{"result":{"data":{"success":true,"operation":"set","setting":"browser.enabled","previousValue":false,"newValue":true}}}"#
+        )
+        .is_some()
+    );
+    assert!(
+        tool_config_view(
+            &app,
+            1,
+            2,
+            r#"tool config
+{"status":"error","error":"bad config","result":{"data":{"success":false,"error":"bad config"}}}"#
+        )
+        .is_some()
+    );
 }

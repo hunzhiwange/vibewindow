@@ -1,5 +1,565 @@
+use super::*;
+use crate::app::agent::provider::provider;
+use crate::app::agent::session::message;
+use serde_json::Map;
+use std::collections::HashMap;
+
+fn capability_io(text: bool) -> provider::CapabilityIO {
+    provider::CapabilityIO { text, audio: false, image: false, video: false, pdf: false }
+}
+
+fn model_with_limits(context: u64, input: Option<u64>, output: u64) -> provider::Model {
+    provider::Model {
+        id: "model-fixture".to_string(),
+        provider_id: "provider-fixture".to_string(),
+        api: provider::ApiInfo {
+            id: "api-fixture".to_string(),
+            url: "https://example.test/v1".to_string(),
+            adapter: provider::default_adapter(),
+        },
+        name: "Fixture Model".to_string(),
+        family: None,
+        capabilities: provider::Capabilities {
+            temperature: true,
+            reasoning: false,
+            attachment: false,
+            toolcall: true,
+            input: capability_io(true),
+            output: capability_io(true),
+            interleaved: provider::InterleavedCapability::Bool(false),
+        },
+        cost: provider::ModelCost {
+            input: 0.0,
+            output: 0.0,
+            cache: provider::ModelCostCache { read: 0.0, write: 0.0 },
+            experimental_over_200k: None,
+        },
+        limit: provider::ModelLimit { context, input, output },
+        status: "stable".to_string(),
+        options: HashMap::new(),
+        headers: HashMap::new(),
+        release_date: "2026-01-01".to_string(),
+        variants: HashMap::new(),
+    }
+}
+
+fn model_ref() -> message::ModelRef {
+    message::ModelRef {
+        provider_id: "provider-fixture".to_string(),
+        model_id: "model-fixture".to_string(),
+    }
+}
+
+fn part_base(session_id: &str, message_id: &str, part_id: &str) -> message::PartBase {
+    message::PartBase {
+        id: part_id.to_string(),
+        session_id: session_id.to_string(),
+        message_id: message_id.to_string(),
+    }
+}
+
+fn text_part(session_id: &str, message_id: &str, part_id: &str, text: &str) -> message::Part {
+    message::Part::Text(message::TextPart {
+        base: part_base(session_id, message_id, part_id),
+        text: text.to_string(),
+        synthetic: None,
+        ignored: None,
+        time: None,
+        metadata: None,
+    })
+}
+
+fn user_message(session_id: &str, id: &str, text: &str) -> message::WithParts {
+    let parts = if text.is_empty() {
+        Vec::new()
+    } else {
+        vec![text_part(session_id, id, &format!("{id}_text"), text)]
+    };
+
+    message::WithParts {
+        info: message::Info::User(Box::new(message::UserInfo {
+            id: id.to_string(),
+            session_id: session_id.to_string(),
+            time: message::UserTime { created: 1 },
+            summary: None,
+            agent: "agent-fixture".to_string(),
+            model: model_ref(),
+            system: None,
+            tools: None,
+            variant: Some("variant-a".to_string()),
+        })),
+        parts,
+    }
+}
+
+fn assistant_message(
+    session_id: &str,
+    id: &str,
+    parent_id: &str,
+    text: &str,
+    summary: Option<bool>,
+) -> message::WithParts {
+    let parts = if text.is_empty() {
+        Vec::new()
+    } else {
+        vec![text_part(session_id, id, &format!("{id}_text"), text)]
+    };
+
+    message::WithParts {
+        info: message::Info::Assistant(Box::new(message::AssistantInfo {
+            id: id.to_string(),
+            session_id: session_id.to_string(),
+            time: message::AssistantTime { created: 1, completed: None },
+            error: None,
+            parent_id: parent_id.to_string(),
+            model_id: "model-fixture".to_string(),
+            provider_id: "provider-fixture".to_string(),
+            mode: "chat".to_string(),
+            agent: "agent-fixture".to_string(),
+            path: message::PathInfo { cwd: String::new(), root: String::new() },
+            summary,
+            cost: 0.0,
+            tokens: message::TokenInfo {
+                total: None,
+                input: 0,
+                output: 0,
+                reasoning: 0,
+                cache: message::TokenCacheInfo { read: 0, write: 0 },
+            },
+            variant: Some("variant-a".to_string()),
+            finish: None,
+        })),
+        parts,
+    }
+}
+
+fn completed_tool(
+    session_id: &str,
+    message_id: &str,
+    part_id: &str,
+    tool: &str,
+    output: String,
+    compacted: Option<u64>,
+) -> message::Part {
+    message::Part::Tool(message::ToolPart {
+        base: part_base(session_id, message_id, part_id),
+        call_id: format!("call-{part_id}"),
+        tool: tool.to_string(),
+        state: message::ToolState::Completed(message::ToolStateCompleted {
+            input: Map::new(),
+            output,
+            title: "tool title".to_string(),
+            metadata: Map::new(),
+            time: message::ToolStateCompletedTime { start: 1, end: 2, compacted },
+            attachments: None,
+        }),
+        metadata: None,
+    })
+}
+
+fn token_info(
+    total: Option<i64>,
+    input: i64,
+    output: i64,
+    read: i64,
+    write: i64,
+) -> message::TokenInfo {
+    message::TokenInfo {
+        total,
+        input,
+        output,
+        reasoning: 0,
+        cache: message::TokenCacheInfo { read, write },
+    }
+}
+
+fn unique_session(prefix: &str) -> String {
+    format!("{prefix}-{}-{}", std::process::id(), now_ms())
+}
+
+async fn write_message_with_parts(message: &message::WithParts) {
+    let message_id = message.info.id().to_string();
+    let session_id = match &message.info {
+        message::Info::User(info) => info.session_id.as_str(),
+        message::Info::Assistant(info) => info.session_id.as_str(),
+    };
+    if let Ok(existing_parts) = message::parts(session_id, &message_id).await {
+        for part in existing_parts {
+            let _ = crate::app::agent::storage::remove(&["part", &message_id, part.id()]).await;
+        }
+    }
+    message::update_message(&message.info).await.expect("message write");
+    for part in &message.parts {
+        message::update_part(part).await.expect("part write");
+    }
+}
+
+async fn cleanup_session(session_id: &str) {
+    if let Ok(messages) = message::messages(session_id, None).await {
+        for msg in messages {
+            let message_id = msg.info.id().to_string();
+            if let Ok(parts) = message::parts(session_id, &message_id).await {
+                for part in parts {
+                    let _ =
+                        crate::app::agent::storage::remove(&["part", &message_id, part.id()]).await;
+                    let _ = crate::app::agent::storage::remove(&[
+                        "part",
+                        session_id,
+                        &message_id,
+                        part.id(),
+                    ])
+                    .await;
+                }
+            }
+            let _ = crate::app::agent::storage::remove(&["message", session_id, &message_id]).await;
+        }
+    }
+}
+
+#[tokio::test]
+async fn overflow_is_false_for_unlimited_or_unusable_context() {
+    let tokens = token_info(Some(1_000_000), 0, 0, 0, 0);
+
+    assert!(!is_overflow(&tokens, &model_with_limits(0, None, 0)).await);
+    assert!(!is_overflow(&tokens, &model_with_limits(10_000, Some(10), 50_000)).await);
+}
+
+#[tokio::test]
+async fn overflow_uses_total_when_present_and_rounds_threshold() {
+    let model = model_with_limits(100_000, None, 10_000);
+
+    assert!(!is_overflow(&token_info(Some(62_999), 99_999, 0, 0, 0), &model).await);
+    assert!(is_overflow(&token_info(Some(63_000), 1, 1, 1, 1), &model).await);
+}
+
+#[tokio::test]
+async fn overflow_falls_back_to_component_sum_and_input_limit() {
+    let model = model_with_limits(200_000, Some(100_000), 20_000);
+
+    assert!(!is_overflow(&token_info(None, 45_000, 10_000, 900, 99), &model).await);
+    assert!(is_overflow(&token_info(None, 45_000, 10_000, 900, 100), &model).await);
+}
+
+#[tokio::test]
+async fn overflow_treats_negative_counts_as_zero() {
+    let model = model_with_limits(100_000, None, 10_000);
+
+    assert!(!is_overflow(&token_info(Some(-1), 100_000, 100_000, 0, 0), &model).await);
+    assert!(!is_overflow(&token_info(None, -10, -20, -30, -40), &model).await);
+}
+
 #[test]
-fn compaction_tests_module_is_wired() {
-    let marker = String::from("compaction_tests");
-    assert_eq!(marker.as_str(), "compaction_tests");
+fn find_user_message_matches_user_messages_only() {
+    let session_id = "find-user-session";
+    let messages = vec![
+        assistant_message(session_id, "same-id", "parent", "assistant", None),
+        user_message(session_id, "same-id", "user content"),
+    ];
+
+    let found = find_user_message(&messages, "same-id").expect("user message");
+    assert_eq!(found.agent, "agent-fixture");
+    assert_eq!(found.variant.as_deref(), Some("variant-a"));
+    assert!(find_user_message(&messages, "missing").is_none());
+}
+
+#[test]
+fn extract_recent_text_formats_roles_trims_and_skips_empty_text() {
+    let session_id = "extract-session";
+    let messages = vec![
+        user_message(session_id, "msg_1", "  hello  "),
+        assistant_message(session_id, "msg_2", "msg_1", "\nanswer\n", None),
+        user_message(session_id, "msg_3", "   "),
+    ];
+
+    assert_eq!(extract_recent_text(&messages, 100), "user: hello\nassistant: answer");
+}
+
+#[test]
+fn extract_recent_text_uses_recent_twenty_messages_and_truncates() {
+    let session_id = "recent-session";
+    let messages = (0..21)
+        .map(|idx| user_message(session_id, &format!("msg_{idx:02}"), &format!("text-{idx:02}")))
+        .collect::<Vec<_>>();
+
+    let full = extract_recent_text(&messages, 1_000);
+    assert!(!full.contains("text-00"));
+    assert!(full.starts_with("user: text-01"));
+    assert!(full.ends_with("user: text-20"));
+
+    let truncated = extract_recent_text(&messages, 12);
+    assert_eq!(truncated.len(), 12);
+    assert_eq!(truncated, "user: text-0");
+}
+
+#[tokio::test]
+async fn process_returns_stop_when_parent_user_message_is_missing() {
+    let result = process(
+        ProcessInput {
+            parent_id: "missing".to_string(),
+            messages: vec![assistant_message("process-stop", "msg_1", "parent", "text", None)],
+            session_id: "process-stop".to_string(),
+            auto: true,
+        },
+        &model_with_limits(100_000, None, 10_000),
+    )
+    .await
+    .expect("process should not fail for missing parent");
+
+    assert_eq!(result, "stop");
+}
+
+#[tokio::test]
+async fn process_auto_creates_summary_and_continue_messages() {
+    let session_id = unique_session("compaction-process-auto");
+    let parent_id = "msg_parent".to_string();
+    let input_messages = vec![
+        user_message(&session_id, &parent_id, "initial question"),
+        assistant_message(&session_id, "msg_answer", &parent_id, "initial answer", None),
+    ];
+
+    let result = process(
+        ProcessInput {
+            parent_id: parent_id.clone(),
+            messages: input_messages,
+            session_id: session_id.clone(),
+            auto: true,
+        },
+        &model_with_limits(100_000, None, 10_000),
+    )
+    .await
+    .expect("process should write compaction messages");
+
+    assert_eq!(result, "continue");
+    let stored = message::messages(&session_id, None).await.expect("stored messages");
+    assert_eq!(stored.len(), 2);
+
+    let summary = stored
+        .iter()
+        .find_map(|msg| match &msg.info {
+            message::Info::Assistant(info) if info.summary == Some(true) => Some(info),
+            _ => None,
+        })
+        .expect("summary assistant");
+    assert_eq!(summary.parent_id, parent_id);
+    assert_eq!(summary.model_id, "model-fixture");
+    assert_eq!(summary.provider_id, "provider-fixture");
+    assert_eq!(summary.mode, "compaction");
+    assert_eq!(summary.agent, "compaction");
+    assert_eq!(summary.variant.as_deref(), Some("variant-a"));
+
+    let summary_parts = message::parts(&session_id, &summary.id).await.expect("summary parts");
+    let message::Part::Text(summary_text) = &summary_parts[0] else {
+        panic!("summary part should be text");
+    };
+    assert_eq!(summary_text.synthetic, Some(true));
+    assert!(summary_text.text.contains("Provide a detailed prompt"));
+    assert!(summary_text.text.contains("user: initial question"));
+    assert!(summary_text.text.contains("assistant: initial answer"));
+
+    let continue_msg = stored
+        .iter()
+        .find_map(|msg| match &msg.info {
+            message::Info::User(info) => Some(info),
+            _ => None,
+        })
+        .expect("continue user message");
+    assert_eq!(continue_msg.agent, "agent-fixture");
+    assert_eq!(continue_msg.model.provider_id, "provider-fixture");
+    assert_eq!(continue_msg.variant.as_deref(), Some("variant-a"));
+
+    let continue_parts =
+        message::parts(&session_id, &continue_msg.id).await.expect("continue parts");
+    let message::Part::Text(continue_text) = &continue_parts[0] else {
+        panic!("continue part should be text");
+    };
+    assert_eq!(continue_text.synthetic, Some(true));
+    assert!(continue_text.text.starts_with("Continue if you have next steps"));
+
+    cleanup_session(&session_id).await;
+}
+
+#[tokio::test]
+async fn process_manual_uses_default_summary_text_when_no_text_context_exists() {
+    let session_id = unique_session("compaction-process-manual");
+    let parent_id = "msg_parent".to_string();
+
+    let result = process(
+        ProcessInput {
+            parent_id: parent_id.clone(),
+            messages: vec![user_message(&session_id, &parent_id, "")],
+            session_id: session_id.clone(),
+            auto: false,
+        },
+        &model_with_limits(100_000, None, 10_000),
+    )
+    .await
+    .expect("manual process should write summary");
+
+    assert_eq!(result, "continue");
+    let stored = message::messages(&session_id, None).await.expect("stored messages");
+    assert_eq!(stored.len(), 1);
+    let summary_id = stored[0].info.id().to_string();
+    let parts = message::parts(&session_id, &summary_id).await.expect("summary parts");
+    let message::Part::Text(summary_text) = &parts[0] else {
+        panic!("summary part should be text");
+    };
+    assert_eq!(summary_text.text, "No prior text context available.");
+
+    cleanup_session(&session_id).await;
+}
+
+#[tokio::test]
+async fn create_writes_user_message_with_compaction_part() {
+    let session_id = unique_session("compaction-create");
+
+    create(CreateInput {
+        session_id: session_id.clone(),
+        agent: "agent-fixture".to_string(),
+        model: model_ref(),
+        auto: true,
+    })
+    .await
+    .expect("create should write message and part");
+
+    let stored = message::messages(&session_id, None).await.expect("stored messages");
+    assert_eq!(stored.len(), 1);
+    let message::Info::User(info) = &stored[0].info else {
+        panic!("compaction create should write user message");
+    };
+    assert_eq!(info.agent, "agent-fixture");
+    assert_eq!(info.model.model_id, "model-fixture");
+
+    let parts = message::parts(&session_id, &info.id).await.expect("parts");
+    assert_eq!(parts.len(), 1);
+    let message::Part::Compaction(part) = &parts[0] else {
+        panic!("part should be compaction");
+    };
+    assert!(part.auto);
+    assert_eq!(part.base.session_id, session_id);
+    assert_eq!(part.base.message_id, info.id);
+
+    cleanup_session(&session_id).await;
+}
+
+#[tokio::test]
+async fn prune_marks_only_old_unprotected_outputs_after_thresholds() {
+    let session_id = unique_session("compaction-prune");
+    let mut old_assistant = assistant_message(&session_id, "msg_002", "msg_001", "", None);
+    old_assistant.parts = vec![
+        completed_tool(
+            &session_id,
+            "msg_002",
+            "part_old_pruned",
+            "shell",
+            "x".repeat(100_004),
+            None,
+        ),
+        completed_tool(
+            &session_id,
+            "msg_002",
+            "part_old_protected_budget",
+            "shell",
+            "y".repeat(100_004),
+            None,
+        ),
+        completed_tool(&session_id, "msg_002", "part_skill", "skill", "z".repeat(200_000), None),
+    ];
+    let mut recent_assistant = assistant_message(&session_id, "msg_004", "msg_003", "", None);
+    recent_assistant.parts = vec![completed_tool(
+        &session_id,
+        "msg_004",
+        "part_recent",
+        "shell",
+        "r".repeat(200_000),
+        None,
+    )];
+
+    for msg in [
+        user_message(&session_id, "msg_001", "first"),
+        old_assistant,
+        user_message(&session_id, "msg_003", "second"),
+        recent_assistant,
+        user_message(&session_id, "msg_005", "third"),
+    ] {
+        write_message_with_parts(&msg).await;
+    }
+
+    prune(&session_id).await.expect("prune should complete");
+
+    let old_parts = message::parts(&session_id, "msg_002").await.expect("old parts");
+    let compacted = old_parts
+        .iter()
+        .filter_map(|part| match part {
+            message::Part::Tool(tp) => match &tp.state {
+                message::ToolState::Completed(state) => {
+                    Some((tp.base.id.as_str(), state.time.compacted.is_some()))
+                }
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect::<HashMap<_, _>>();
+    assert_eq!(compacted.get("part_old_pruned"), Some(&false));
+    assert_eq!(compacted.get("part_old_protected_budget"), Some(&true));
+    assert_eq!(compacted.get("part_skill"), Some(&false));
+
+    let recent_parts = message::parts(&session_id, "msg_004").await.expect("recent parts");
+    let message::Part::Tool(recent_tool) = &recent_parts[0] else {
+        panic!("recent part should be tool");
+    };
+    let message::ToolState::Completed(recent_state) = &recent_tool.state else {
+        panic!("recent tool should be completed");
+    };
+    assert!(recent_state.time.compacted.is_none());
+
+    cleanup_session(&session_id).await;
+}
+
+#[tokio::test]
+async fn prune_stops_at_summary_messages() {
+    let session_id = unique_session("compaction-prune-summary");
+    let mut old_assistant = assistant_message(&session_id, "msg_002", "msg_001", "", None);
+    old_assistant.parts = vec![
+        completed_tool(
+            &session_id,
+            "msg_002",
+            "part_before_summary_a",
+            "shell",
+            "a".repeat(100_004),
+            None,
+        ),
+        completed_tool(
+            &session_id,
+            "msg_002",
+            "part_before_summary_b",
+            "shell",
+            "b".repeat(100_004),
+            None,
+        ),
+    ];
+
+    for msg in [
+        user_message(&session_id, "msg_001", "first"),
+        old_assistant,
+        assistant_message(&session_id, "msg_003", "msg_001", "summary", Some(true)),
+        user_message(&session_id, "msg_004", "second"),
+        user_message(&session_id, "msg_005", "third"),
+    ] {
+        write_message_with_parts(&msg).await;
+    }
+
+    prune(&session_id).await.expect("prune should stop at summary");
+
+    let parts = message::parts(&session_id, "msg_002").await.expect("old parts");
+    for part in parts {
+        let message::Part::Tool(tool) = part else {
+            continue;
+        };
+        let message::ToolState::Completed(state) = tool.state else {
+            continue;
+        };
+        assert!(state.time.compacted.is_none());
+    }
+
+    cleanup_session(&session_id).await;
 }

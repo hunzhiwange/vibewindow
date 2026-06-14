@@ -29,15 +29,35 @@ impl PostgresMemory {
     pub(super) fn row_to_entry(row: &Row) -> Result<MemoryEntry> {
         let timestamp: DateTime<Utc> = row.get(4);
 
-        Ok(MemoryEntry {
-            id: row.get(0),
-            key: row.get(1),
-            content: row.get(2),
-            category: Self::parse_category(&row.get::<_, String>(3)),
+        Ok(Self::entry_from_values(
+            row.get(0),
+            row.get(1),
+            row.get(2),
+            row.get::<_, String>(3),
+            timestamp,
+            row.get(5),
+            row.try_get(6).ok(),
+        ))
+    }
+
+    fn entry_from_values(
+        id: String,
+        key: String,
+        content: String,
+        category: String,
+        timestamp: DateTime<Utc>,
+        session_id: Option<String>,
+        score: Option<f64>,
+    ) -> MemoryEntry {
+        MemoryEntry {
+            id,
+            key,
+            content,
+            category: Self::parse_category(&category),
             timestamp: timestamp.to_rfc3339(),
-            session_id: row.get(5),
-            score: row.try_get(6).ok(),
-        })
+            session_id,
+            score,
+        }
     }
 }
 

@@ -95,7 +95,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let db_path_row = field_row(
         "数据库路径",
         "多个进程需指向同一 SQLite 文件。",
-        text_input("~/.vibewindow/agents.db", &s.db_path_input)
+        text_input(vw_config_types::paths::AGENTS_IPC_DB_PATH, &s.db_path_input)
             .on_input(|v| Message::Settings(message::SettingsMessage::AgentsIpcDbPathChanged(v)))
             .padding([10, 12])
             .size(13)
@@ -145,6 +145,34 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         return dialog;
     }
 
+    #[cfg(debug_assertions)]
+    let help_text = r#"代理通信配置说明
+
+一、作用
+- agents_ipc 用于同一主机上多个 VibeWindow 进程间的发现与消息交换。
+- 启用后会注册 agents_list / agents_send / agents_inbox 等工具。
+
+二、字段含义
+1) enabled
+- 是否启用进程间通信。
+
+2) db_path
+- 共享 SQLite 文件路径。多个进程需指向同一个文件。
+
+3) staleness_secs
+- 最近心跳超过该秒数的 Agent 会被视为离线。
+
+三、示例
+{
+    "agents_ipc": {
+        "enabled": true,
+        "db_path": "~/.vibewindowdev/agents.db",
+        "staleness_secs": 300
+    }
+}
+"#;
+
+    #[cfg(not(debug_assertions))]
     let help_text = r#"代理通信配置说明
 
 一、作用
@@ -179,3 +207,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         Message::Settings(message::SettingsMessage::AgentsIpcHelpClose),
     )
 }
+#[cfg(test)]
+#[path = "system_settings_agents_ipc_tests.rs"]
+mod system_settings_agents_ipc_tests;

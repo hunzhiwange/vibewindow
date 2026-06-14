@@ -68,3 +68,7 @@ fn prefer_boundary(chars: &[char], start: usize, end: usize) -> usize {
     }
     end
 }
+
+#[cfg(test)]
+#[path = "chunker_tests.rs"]
+mod chunker_tests;

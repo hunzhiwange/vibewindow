@@ -38,8 +38,10 @@ pub(super) fn icon_image_handle(icon: &str) -> Option<iced::widget::image::Handl
         return None;
     }
 
-    let path = raw.strip_prefix("file:///").or_else(|| raw.strip_prefix("file://")).unwrap_or(raw);
-    let path = std::path::Path::new(path);
+    let path = raw.strip_prefix("file://").unwrap_or(raw);
+    let path =
+        path.strip_prefix("//").map(|rest| format!("/{rest}")).unwrap_or_else(|| path.to_string());
+    let path = std::path::Path::new(&path);
     if path.exists() { Some(iced::widget::image::Handle::from_path(path)) } else { None }
 }
 

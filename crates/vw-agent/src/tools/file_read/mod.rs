@@ -39,6 +39,54 @@ struct Args {
     limit: Option<usize>,
 }
 
+fn parse_args(input: Value) -> anyhow::Result<Args> {
+    let object = input
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("Missing or invalid parameters: expected object"))?;
+
+    let mut path: Option<String> = None;
+    for key in ["path", "filePath", "file_path"] {
+        let Some(value) = object.get(key) else {
+            continue;
+        };
+        let value = value.as_str().ok_or_else(|| {
+            anyhow::anyhow!("Missing or invalid parameters: `{key}` must be a string")
+        })?;
+        if let Some(existing) = &path {
+            if existing != value {
+                anyhow::bail!(
+                    "Missing or invalid parameters: conflicting path aliases `{existing}` and `{value}`"
+                );
+            }
+        } else {
+            path = Some(value.to_string());
+        }
+    }
+
+    let path = path.ok_or_else(|| {
+        anyhow::anyhow!("Missing or invalid parameters: missing required field `path`")
+    })?;
+    let offset = parse_optional_usize(object, "offset")?;
+    let limit = parse_optional_usize(object, "limit")?;
+
+    Ok(Args { path, offset, limit })
+}
+
+fn parse_optional_usize(
+    object: &serde_json::Map<String, Value>,
+    key: &str,
+) -> anyhow::Result<Option<usize>> {
+    let Some(value) = object.get(key) else {
+        return Ok(None);
+    };
+    let Some(raw) = value.as_u64() else {
+        anyhow::bail!("Missing or invalid parameters: `{key}` must be a non-negative integer");
+    };
+    let parsed = usize::try_from(raw)
+        .map_err(|_| anyhow::anyhow!("Missing or invalid parameters: `{key}` is too large"))?;
+    Ok(Some(parsed))
+}
+
 #[derive(Debug, Clone, Serialize)]
 struct FileDescriptor {
     path: String,
@@ -1227,8 +1275,7 @@ impl Tool for FileReadTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let args: Args = serde_json::from_value(args)
-            .map_err(|e| anyhow::anyhow!("Missing or invalid parameters: {e}"))?;
+        let args = parse_args(args)?;
         match self.execute_internal(args).await? {
             Ok(response) => {
                 Ok(ToolResult { success: true, output: response.model_text, error: None })
@@ -1238,8 +1285,7 @@ impl Tool for FileReadTool {
     }
 
     async fn call(&self, input: Value) -> anyhow::Result<ToolCallResult> {
-        let args: Args = serde_json::from_value(input)
-            .map_err(|error| anyhow::anyhow!("Missing or invalid parameters: {error}"))?;
+        let args = parse_args(input)?;
 
         match self.execute_internal(args).await? {
             Ok(response) => Ok(response.into_tool_call_result()),

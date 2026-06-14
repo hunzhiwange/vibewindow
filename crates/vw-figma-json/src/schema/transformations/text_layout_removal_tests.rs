@@ -230,3 +230,39 @@ fn test_empty_derived_text_data() {
     let derived_text_data = tree.get("derivedTextData").unwrap();
     assert_eq!(derived_text_data.as_object().unwrap().len(), 0);
 }
+
+#[test]
+fn test_non_object_derived_text_data_is_preserved() {
+    let mut tree = json!({
+        "children": [
+            {
+                "name": "ArrayValue",
+                "derivedTextData": [
+                    {
+                        "baselines": [{"lineY": 10.0}],
+                        "layoutSize": {"x": 100.0, "y": 50.0}
+                    }
+                ]
+            },
+            {
+                "name": "NullValue",
+                "derivedTextData": null
+            },
+            {
+                "name": "ObjectValue",
+                "derivedTextData": {
+                    "baselines": [{"lineY": 20.0}],
+                    "layoutSize": {"x": 200.0, "y": 60.0}
+                }
+            }
+        ]
+    });
+
+    remove_text_layout_fields(&mut tree).unwrap();
+
+    assert!(tree["children"][0]["derivedTextData"].is_array());
+    assert!(tree["children"][0]["derivedTextData"][0].get("baselines").is_some());
+    assert!(tree["children"][1]["derivedTextData"].is_null());
+    assert!(tree["children"][2]["derivedTextData"].get("baselines").is_none());
+    assert!(tree["children"][2]["derivedTextData"].get("layoutSize").is_some());
+}

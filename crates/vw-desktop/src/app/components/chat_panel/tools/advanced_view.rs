@@ -414,7 +414,7 @@ pub fn tool_advanced_view<'a>(
         .unwrap_or_else(|| if body_text.is_empty() { summary.clone() } else { body_text.clone() });
 
     let detail_btn = button(
-        icon_svg(Icon::Eye)
+        icon_svg(Icon::ChevronRight)
             .width(Length::Fixed(10.0))
             .height(Length::Fixed(10.0))
             .style(eye_icon_svg_style),

@@ -337,3 +337,20 @@ fn test_real_world_example() {
     assert!(overrides[4].get("overrideLevel").is_some());
     assert!(overrides[4].get("textData").is_some());
 }
+
+#[test]
+fn test_overridden_symbol_id_non_object_value_is_preserved() {
+    let mut tree = json!({
+        "symbolOverrides": [
+            {
+                "overriddenSymbolID": "swapped-component"
+            }
+        ]
+    });
+
+    remove_overridden_symbol_id(&mut tree).unwrap();
+
+    let overrides = tree.get("symbolOverrides").unwrap().as_array().unwrap();
+    assert_eq!(overrides.len(), 1);
+    assert_eq!(overrides[0].get("overriddenSymbolID").unwrap().as_str(), Some("swapped-component"));
+}

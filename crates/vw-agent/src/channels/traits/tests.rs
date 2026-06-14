@@ -9,6 +9,7 @@ use super::*;
 #[allow(dead_code)]
 mod tests {
     use super::*;
+    use std::sync::{Arc, Mutex};
 
     /// 最小通道实现，用于隔离测试 `Channel` trait 的默认方法。
     ///
@@ -47,6 +48,31 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Default)]
+    struct RecordingChannel {
+        sent: Arc<Mutex<Vec<SendMessage>>>,
+    }
+
+    #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+    #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+    impl Channel for RecordingChannel {
+        fn name(&self) -> &str {
+            "recording"
+        }
+
+        async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
+            self.sent.lock().unwrap().push(message.clone());
+            Ok(())
+        }
+
+        async fn listen(
+            &self,
+            _tx: tokio::sync::mpsc::Sender<ChannelMessage>,
+        ) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
+
     #[test]
     fn channel_message_clone_preserves_fields() {
         // `ChannelMessage` 会跨任务和队列传递，克隆必须保持路由与回复字段完整。
@@ -67,6 +93,24 @@ mod tests {
         assert_eq!(cloned.content, "ping");
         assert_eq!(cloned.channel, "dummy");
         assert_eq!(cloned.timestamp, 999);
+    }
+
+    #[test]
+    fn send_message_builders_preserve_optional_fields() {
+        let plain = SendMessage::new("hello", "alice");
+        assert_eq!(plain.content, "hello");
+        assert_eq!(plain.recipient, "alice");
+        assert!(plain.subject.is_none());
+        assert!(plain.thread_ts.is_none());
+
+        let subject = SendMessage::with_subject("body", "bob", "subject");
+        assert_eq!(subject.content, "body");
+        assert_eq!(subject.recipient, "bob");
+        assert_eq!(subject.subject.as_deref(), Some("subject"));
+        assert!(subject.thread_ts.is_none());
+
+        let threaded = subject.in_thread(Some("thread-1".to_string()));
+        assert_eq!(threaded.thread_ts.as_deref(), Some("thread-1"));
     }
 
     #[tokio::test]
@@ -101,6 +145,44 @@ mod tests {
         assert!(channel.update_draft("bob", "msg_1", "text").await.is_ok());
         assert!(channel.finalize_draft("bob", "msg_1", "final text").await.is_ok());
         assert!(channel.cancel_draft("bob", "msg_1").await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn default_approval_prompt_sends_text_fallback_in_thread() {
+        let channel = RecordingChannel::default();
+        let args = serde_json::json!({"path": "/tmp/file.txt", "content": "hello"});
+
+        channel
+            .send_approval_prompt(
+                "alice",
+                "req-1",
+                "write_file",
+                &args,
+                Some("thread-9".to_string()),
+            )
+            .await
+            .unwrap();
+
+        let sent = channel.sent.lock().unwrap();
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].recipient, "alice");
+        assert_eq!(sent[0].thread_ts.as_deref(), Some("thread-9"));
+        assert!(sent[0].content.contains("Approval required for tool `write_file`"));
+        assert!(sent[0].content.contains("Request ID: `req-1`"));
+        assert!(sent[0].content.contains("/approve-allow req-1"));
+        assert!(sent[0].content.contains("/approve-deny req-1"));
+    }
+
+    #[tokio::test]
+    async fn default_approval_prompt_truncates_long_argument_preview() {
+        let channel = RecordingChannel::default();
+        let args = serde_json::json!({"value": "x".repeat(260)});
+
+        channel.send_approval_prompt("alice", "req-long", "tool", &args, None).await.unwrap();
+
+        let sent = channel.sent.lock().unwrap();
+        assert!(sent[0].content.contains("..."));
+        assert!(sent[0].content.len() < args.to_string().len() + 120);
     }
 
     #[tokio::test]

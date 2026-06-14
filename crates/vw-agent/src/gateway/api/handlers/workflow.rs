@@ -3,18 +3,25 @@
 use axum::{
     Json, Router,
     extract::{Path, State},
-    response::{IntoResponse, Response, Sse, sse::Event},
+    http::StatusCode,
+    response::{
+        IntoResponse, Response, Sse,
+        sse::{Event, KeepAlive},
+    },
     routing::{get, post},
 };
-use futures_util::stream;
+use futures_util::{StreamExt, stream};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, HashMap},
+    convert::Infallible,
     path::PathBuf,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use vw_api_types::workflow::{
     WorkflowNodeRunDto, WorkflowNodeRunStatus, WorkflowRecord, WorkflowRecordDeleteResponse,
     WorkflowRecordSummary, WorkflowRecordUpsertBody, WorkflowResumeRequest, WorkflowRunRequest,
@@ -23,7 +30,18 @@ use vw_api_types::workflow::{
 
 use crate::app::agent::gateway::ApiError;
 use crate::app::agent::gateway::state::AppState;
-use crate::workflow::{WorkflowRuntime, resume_workflow, run_workflow};
+use crate::app::agent::tools::{
+    ToolCallError, ToolRuntimeContext, ToolUseContext, execute_tool_call,
+};
+use crate::workflow::{
+    WorkflowNodeDeltaEvent, WorkflowNodeStartedEvent, WorkflowRunEvent, WorkflowRuntime,
+    WorkflowToolProvider, WorkflowToolRequest, WorkflowToolResult, resume_workflow, run_workflow,
+    run_workflow_with_events,
+};
+
+const WORKFLOW_SSE_NODE_OUTPUT_MAX_CHARS: usize = 12_000;
+const WORKFLOW_INPUT_FULL_ACCESS: &str = "__vw_full_access";
+const WORKFLOW_INPUT_ROOT: &str = "__vw_root";
 
 pub(crate) fn router() -> Router<AppState> {
     Router::new()
@@ -153,6 +171,12 @@ struct VibeWindowNodeFinishedData {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct VibeWindowTextChunkData {
+    text: String,
+    from_variable_selector: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct VibeWindowWorkflowFinishedData {
     id: String,
     workflow_id: String,
@@ -183,6 +207,11 @@ enum VibeWindowSseEvent {
         task_id: String,
         workflow_run_id: String,
         data: VibeWindowNodeFinishedData,
+    },
+    TextChunk {
+        task_id: String,
+        workflow_run_id: String,
+        data: VibeWindowTextChunkData,
     },
     Message {
         id: String,
@@ -233,17 +262,18 @@ async fn chat_messages_inner(
     let response_mode = body.response_mode.clone();
     let conversation_id = body.conversation_id.clone();
     let mut request = chat_request_to_workflow_request(body)?;
-    hydrate_workflow_yaml_from_uuid(&mut request).await?;
-    let response =
-        run_workflow(workflow_runtime(&state), request).await.map_err(ApiError::bad_request)?;
 
     match response_mode {
         VibeWindowResponseMode::Blocking => {
+            hydrate_workflow_yaml_from_uuid(&mut request).await?;
+            let runtime = workflow_runtime(&state, &request);
+            strip_workflow_runtime_inputs(&mut request);
+            let response = run_workflow(runtime, request).await.map_err(ApiError::bad_request)?;
             let chat_response = workflow_response_to_chat_response(&response, conversation_id);
             Ok(Json(chat_response).into_response())
         }
         VibeWindowResponseMode::Streaming => {
-            Ok(workflow_response_to_sse_response(response, conversation_id))
+            Ok(workflow_streaming_response(state, request, conversation_id))
         }
     }
 }
@@ -261,7 +291,7 @@ async fn workflow_resume(
     State(state): State<AppState>,
     Json(body): Json<WorkflowResumeRequest>,
 ) -> Result<Json<WorkflowRunResponse>, ApiError> {
-    let runtime = workflow_runtime(&state);
+    let runtime = workflow_runtime(&state, &WorkflowRunRequest::default());
     let response = resume_workflow(runtime, body).await.map_err(ApiError::bad_request)?;
     Ok(Json(response))
 }
@@ -366,17 +396,82 @@ fn workflow_db_path() -> PathBuf {
     crate::global::paths().data.join("workflow").join("workflows.sqlite")
 }
 
-fn workflow_runtime(state: &AppState) -> WorkflowRuntime {
+fn workflow_runtime(state: &AppState, request: &WorkflowRunRequest) -> WorkflowRuntime {
     WorkflowRuntime {
         provider: state.provider.clone(),
         knowledge_provider: Some(Arc::new(super::knowledge::knowledge_store(state))),
         document_extractor: None,
-        tool_provider: None,
+        tool_provider: Some(Arc::new(GatewayWorkflowToolProvider {
+            ctx: workflow_tool_runtime_context(request),
+        })),
         agent_provider: None,
         pause_store: None,
         model: state.model.clone(),
         temperature: state.temperature,
     }
+}
+
+struct GatewayWorkflowToolProvider {
+    ctx: ToolRuntimeContext,
+}
+
+#[async_trait::async_trait]
+impl WorkflowToolProvider for GatewayWorkflowToolProvider {
+    async fn call(&self, request: WorkflowToolRequest) -> Result<WorkflowToolResult, String> {
+        let input = Value::Object(request.inputs.into_iter().collect());
+        let input_text = serde_json::to_string(&input)
+            .map_err(|error| format!("workflow tool 输入序列化失败: {error}"))?;
+        let result = execute_tool_call(request.tool_name.as_str(), &input_text, &self.ctx)
+            .map_err(workflow_tool_call_error_text)?;
+        let model_result = result.default_model_result();
+        let model_text = result.model_text();
+        let json = (!result.data.is_null()).then_some(result.data.clone());
+
+        Ok(WorkflowToolResult {
+            result: if result.data.is_null() { model_result } else { result.data },
+            text: (!model_text.trim().is_empty()).then_some(model_text),
+            json,
+            files: Vec::new(),
+        })
+    }
+}
+
+fn workflow_tool_call_error_text(error: ToolCallError) -> String {
+    match error {
+        ToolCallError::Denied { message, .. } | ToolCallError::Failed(message) => message,
+    }
+}
+
+fn workflow_tool_runtime_context(request: &WorkflowRunRequest) -> ToolRuntimeContext {
+    let root = workflow_request_root(request);
+    let full_access = workflow_request_full_access(request);
+    let mut tool_use_context = ToolUseContext::new("workflow", root.clone())
+        .with_full_access_enabled(full_access)
+        .with_channel("workflow");
+    if full_access {
+        tool_use_context = tool_use_context.with_bypass_non_cli_approval_for_turn(true);
+    }
+
+    ToolRuntimeContext::new("workflow", root).with_tool_use_context(tool_use_context)
+}
+
+fn workflow_request_full_access(request: &WorkflowRunRequest) -> bool {
+    request.inputs.get(WORKFLOW_INPUT_FULL_ACCESS).and_then(Value::as_bool).unwrap_or(false)
+}
+
+fn workflow_request_root(request: &WorkflowRunRequest) -> Option<String> {
+    request
+        .inputs
+        .get(WORKFLOW_INPUT_ROOT)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn strip_workflow_runtime_inputs(request: &mut WorkflowRunRequest) {
+    request.inputs.remove(WORKFLOW_INPUT_FULL_ACCESS);
+    request.inputs.remove(WORKFLOW_INPUT_ROOT);
 }
 
 fn chat_request_to_workflow_request(
@@ -423,12 +518,189 @@ fn normalized_optional_string(value: Option<String>) -> Option<String> {
     value.map(|value| value.trim().to_string()).filter(|value| !value.is_empty())
 }
 
+fn workflow_streaming_response(
+    state: AppState,
+    mut request: WorkflowRunRequest,
+    conversation_id: Option<String>,
+) -> Response {
+    let (tx, rx) = mpsc::unbounded_channel::<Event>();
+    tokio::spawn(async move {
+        let mut context = WorkflowSseContext::new(conversation_id);
+        if let Err(error) = hydrate_workflow_yaml_from_uuid(&mut request).await {
+            context.send_error(
+                &tx,
+                error.status.as_u16().into(),
+                "workflow_request_error",
+                error.to_string(),
+            );
+            return;
+        }
+
+        let runtime = workflow_runtime(&state, &request);
+        strip_workflow_runtime_inputs(&mut request);
+        let result =
+            run_workflow_with_events(runtime, request, |event| context.send_event(&tx, event))
+                .await;
+        if let Err(message) = result {
+            context.send_error(
+                &tx,
+                u32::from(StatusCode::BAD_REQUEST.as_u16()),
+                "workflow_run_error",
+                message,
+            );
+        }
+    });
+
+    let sse_stream = UnboundedReceiverStream::new(rx).map(|event| Ok::<Event, Infallible>(event));
+    Sse::new(sse_stream).keep_alive(KeepAlive::new()).into_response()
+}
+
+struct WorkflowSseContext {
+    conversation_id: String,
+    run_id: Option<String>,
+    created_at: u64,
+    streamed_text: bool,
+}
+
+impl WorkflowSseContext {
+    fn new(conversation_id: Option<String>) -> Self {
+        Self {
+            conversation_id: conversation_id.unwrap_or_default(),
+            run_id: None,
+            created_at: now_unix_u64(),
+            streamed_text: false,
+        }
+    }
+
+    fn send_event(&mut self, tx: &mpsc::UnboundedSender<Event>, event: WorkflowRunEvent) {
+        match event {
+            WorkflowRunEvent::WorkflowStarted { run_id } => {
+                self.run_id = Some(run_id.clone());
+                send_sse_payload(
+                    tx,
+                    VibeWindowSseEvent::WorkflowStarted {
+                        task_id: run_id.clone(),
+                        workflow_run_id: run_id.clone(),
+                        data: workflow_started_data(&run_id, self.created_at),
+                    },
+                );
+            }
+            WorkflowRunEvent::NodeStarted(event) => {
+                let Some(run_id) = self.run_id.clone() else {
+                    return;
+                };
+                send_sse_payload(
+                    tx,
+                    VibeWindowSseEvent::NodeStarted {
+                        task_id: run_id.clone(),
+                        workflow_run_id: run_id,
+                        data: node_started_data_from_event(&event, self.created_at),
+                    },
+                );
+            }
+            WorkflowRunEvent::NodeFinished(event) => {
+                let Some(run_id) = self.run_id.clone() else {
+                    return;
+                };
+                send_sse_payload(
+                    tx,
+                    VibeWindowSseEvent::NodeFinished {
+                        task_id: run_id.clone(),
+                        workflow_run_id: run_id,
+                        data: node_finished_data(&event.node, event.index, self.created_at),
+                    },
+                );
+            }
+            WorkflowRunEvent::NodeDelta(event) => {
+                let Some(run_id) = self.run_id.clone() else {
+                    return;
+                };
+                if !workflow_delta_should_stream_text(&event, self.streamed_text) {
+                    return;
+                }
+                self.streamed_text = true;
+                send_sse_payload(
+                    tx,
+                    VibeWindowSseEvent::TextChunk {
+                        task_id: run_id.clone(),
+                        workflow_run_id: run_id,
+                        data: text_chunk_data(&event),
+                    },
+                );
+            }
+            WorkflowRunEvent::WorkflowFinished(response) => self.send_finished(tx, response),
+        }
+    }
+
+    fn send_finished(&mut self, tx: &mpsc::UnboundedSender<Event>, response: WorkflowRunResponse) {
+        let task_id = response.run_id.clone();
+        self.run_id = Some(task_id.clone());
+        let message_id = response.run_id.clone();
+        let answer = truncate_sse_node_output(&workflow_answer(&response)).0;
+        if !self.streamed_text && !answer.is_empty() {
+            send_sse_payload(
+                tx,
+                VibeWindowSseEvent::Message {
+                    id: message_id.clone(),
+                    task_id: task_id.clone(),
+                    message_id: message_id.clone(),
+                    conversation_id: self.conversation_id.clone(),
+                    answer,
+                    created_at: i64::try_from(self.created_at).unwrap_or(i64::MAX),
+                },
+            );
+        }
+
+        send_sse_payload(
+            tx,
+            VibeWindowSseEvent::WorkflowFinished {
+                task_id: task_id.clone(),
+                workflow_run_id: task_id.clone(),
+                data: workflow_finished_data(&response, self.created_at),
+            },
+        );
+        send_sse_payload(
+            tx,
+            VibeWindowSseEvent::MessageEnd {
+                id: message_id.clone(),
+                task_id,
+                message_id,
+                conversation_id: self.conversation_id.clone(),
+                metadata: HashMap::new(),
+            },
+        );
+    }
+
+    fn send_error(
+        &self,
+        tx: &mpsc::UnboundedSender<Event>,
+        status: u32,
+        code: impl Into<String>,
+        message: impl Into<String>,
+    ) {
+        send_sse_payload(
+            tx,
+            VibeWindowSseEvent::Error {
+                task_id: self.run_id.clone().unwrap_or_else(|| "workflow".to_string()),
+                status,
+                code: code.into(),
+                message: message.into(),
+            },
+        );
+    }
+}
+
+fn send_sse_payload(tx: &mpsc::UnboundedSender<Event>, event: VibeWindowSseEvent) {
+    let data = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_string());
+    let _ = tx.send(Event::default().data(data));
+}
+
 fn workflow_response_to_chat_response(
     response: &WorkflowRunResponse,
     conversation_id: Option<String>,
 ) -> VibeWindowChatResponse {
     let created_at = now_unix_i64();
-    let answer = workflow_answer(response);
+    let answer = truncate_sse_node_output(&workflow_answer(response)).0;
     VibeWindowChatResponse {
         event: "message".to_string(),
         task_id: response.run_id.clone(),
@@ -466,13 +738,7 @@ fn workflow_response_to_sse_events(
     let mut events = vec![VibeWindowSseEvent::WorkflowStarted {
         task_id: task_id.clone(),
         workflow_run_id: workflow_run_id.clone(),
-        data: VibeWindowWorkflowStartedData {
-            id: workflow_run_id.clone(),
-            workflow_id: "vibewindow-workflow".to_string(),
-            sequence_number: Some(1),
-            inputs: Value::Object(Default::default()),
-            created_at,
-        },
+        data: workflow_started_data(&workflow_run_id, created_at),
     }];
 
     for (index, node) in response.nodes.iter().enumerate() {
@@ -489,7 +755,7 @@ fn workflow_response_to_sse_events(
         });
     }
 
-    let answer = workflow_answer(&response);
+    let answer = truncate_sse_node_output(&workflow_answer(&response)).0;
     if !answer.is_empty() {
         events.push(VibeWindowSseEvent::Message {
             id: message_id.clone(),
@@ -515,6 +781,41 @@ fn workflow_response_to_sse_events(
     });
 
     events
+}
+
+fn workflow_started_data(run_id: &str, created_at: u64) -> VibeWindowWorkflowStartedData {
+    VibeWindowWorkflowStartedData {
+        id: run_id.to_string(),
+        workflow_id: "vibewindow-workflow".to_string(),
+        sequence_number: Some(1),
+        inputs: Value::Object(Default::default()),
+        created_at,
+    }
+}
+
+fn node_started_data_from_event(
+    event: &WorkflowNodeStartedEvent,
+    created_at: u64,
+) -> VibeWindowNodeStartedData {
+    VibeWindowNodeStartedData {
+        id: format!("{}-started", event.node_id),
+        node_id: event.node_id.clone(),
+        node_type: event.node_type.clone(),
+        title: event.title.clone(),
+        index: event.index,
+        predecessor_node_id: None,
+        inputs: None,
+        created_at,
+        extras: HashMap::new(),
+        parallel_id: None,
+        parallel_start_node_id: None,
+        parent_parallel_id: None,
+        parent_parallel_start_node_id: None,
+        iteration_id: None,
+        loop_id: None,
+        parallel_run_id: None,
+        agent_strategy: None,
+    }
 }
 
 fn node_started_data(
@@ -555,11 +856,73 @@ fn node_finished_data(
         predecessor_node_id: None,
         inputs: Some(json!(node.inputs)),
         process_data: None,
-        outputs: Some(json!(node.outputs)),
+        outputs: Some(compact_sse_node_outputs(&node.outputs)),
         status: node_status(&node.status).to_string(),
         error: node.error.clone(),
         elapsed_time: Some(node.elapsed_ms as f64 / 1000.0),
         created_at,
+    }
+}
+
+fn compact_sse_node_outputs(outputs: &BTreeMap<String, Value>) -> Value {
+    let preview_source = workflow_sse_output_preview(outputs);
+    let (preview, truncated) = truncate_sse_node_output(&preview_source);
+    let mut value = json!({
+        "text": preview.clone(),
+        "answer": preview.clone(),
+        "result": preview,
+        "truncated": truncated,
+    });
+    if let Some(usage) = outputs.get("usage") {
+        value["usage"] = usage.clone();
+    }
+    value
+}
+
+fn workflow_sse_output_preview(outputs: &BTreeMap<String, Value>) -> String {
+    for key in ["answer", "text", "result", "output", "data"] {
+        if let Some(text) = outputs
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            return text.to_string();
+        }
+    }
+
+    serde_json::to_string_pretty(outputs)
+        .or_else(|_| serde_json::to_string(outputs))
+        .unwrap_or_else(|_| "节点执行完成".to_string())
+}
+
+fn truncate_sse_node_output(text: &str) -> (String, bool) {
+    let char_count = text.chars().count();
+    if char_count <= WORKFLOW_SSE_NODE_OUTPUT_MAX_CHARS {
+        return (text.to_string(), false);
+    }
+
+    let head_len = WORKFLOW_SSE_NODE_OUTPUT_MAX_CHARS * 2 / 3;
+    let tail_len = WORKFLOW_SSE_NODE_OUTPUT_MAX_CHARS.saturating_sub(head_len);
+    let head = text.chars().take(head_len).collect::<String>();
+    let tail =
+        text.chars().rev().take(tail_len).collect::<String>().chars().rev().collect::<String>();
+    let omitted = char_count.saturating_sub(head_len + tail_len);
+    (format!("{head}\n\n... 已截断 {omitted} 字符，仅保留节点输出预览 ...\n\n{tail}"), true)
+}
+
+fn text_chunk_data(event: &WorkflowNodeDeltaEvent) -> VibeWindowTextChunkData {
+    VibeWindowTextChunkData {
+        text: event.text.clone(),
+        from_variable_selector: vec![event.node_id.clone(), "text".to_string()],
+    }
+}
+
+fn workflow_delta_should_stream_text(event: &WorkflowNodeDeltaEvent, streamed_text: bool) -> bool {
+    match event.node_type.as_str() {
+        "llm" => event.node_id == "final_response" && !event.replace,
+        "answer" | "output" | "end" => !streamed_text,
+        _ => false,
     }
 }
 
@@ -571,7 +934,7 @@ fn workflow_finished_data(
         id: response.run_id.clone(),
         workflow_id: "vibewindow-workflow".to_string(),
         status: workflow_status(&response.status).to_string(),
-        outputs: Some(json!(response.outputs)),
+        outputs: Some(compact_sse_node_outputs(&response.outputs)),
         error: response.error.clone(),
         elapsed_time: None,
         total_tokens: None,

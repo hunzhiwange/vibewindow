@@ -559,3 +559,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         Message::Settings(message::SettingsMessage::AutonomyHelpClose),
     )
 }
+#[cfg(test)]
+#[path = "system_settings_autonomy_tests.rs"]
+mod system_settings_autonomy_tests;

@@ -10,6 +10,31 @@ use crate::app::agent::config::schema::CONFIG_JSON_FILENAME;
 use crate::app::agent::config::schema::config_io::{read_config_root_json, upsert_config_payload};
 use crate::app::agent::config::schema::config_secrets::encrypt_config_secrets;
 use crate::app::agent::config::schema::workspace::sync_directory;
+use crate::app::agent::security::pairing::{hash_skey, masked_skey_name};
+
+fn normalize_gateway_skeys(config: &mut Config) {
+    for entry in &mut config.gateway.skeys {
+        if let Some(raw) = entry.skey.take() {
+            let raw = raw.trim();
+            if !raw.is_empty() {
+                entry.skey_hash = hash_skey(raw);
+                if entry.name.trim().is_empty() {
+                    entry.name = masked_skey_name(raw);
+                }
+            }
+        }
+        entry.skey_hash = entry.skey_hash.trim().to_ascii_lowercase();
+        entry.name = entry.name.trim().to_string();
+        entry.expires_at = entry
+            .expires_at
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToString::to_string);
+    }
+
+    config.gateway.skeys.retain(|entry| !entry.skey_hash.trim().is_empty());
+}
 
 pub async fn save_config(config: &Config) -> Result<()> {
     #[cfg(target_arch = "wasm32")]
@@ -21,6 +46,7 @@ pub async fn save_config(config: &Config) -> Result<()> {
     {
         // Encrypt secrets before serialization
         let mut config_to_save = config.clone();
+        normalize_gateway_skeys(&mut config_to_save);
         encrypt_config_secrets(&mut config_to_save)?;
 
         let mut root = read_config_root_json(&config.config_path).await?;

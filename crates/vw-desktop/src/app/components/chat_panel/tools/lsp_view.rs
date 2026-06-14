@@ -219,7 +219,7 @@ pub fn tool_lsp_view<'a>(
     };
 
     let detail_btn: Element<'a, Message> = button(
-        icon_svg(Icon::Eye)
+        icon_svg(Icon::ChevronRight)
             .width(Length::Fixed(10.0))
             .height(Length::Fixed(10.0))
             .style(eye_icon_svg_style),

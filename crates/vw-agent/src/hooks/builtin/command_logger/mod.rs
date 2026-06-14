@@ -176,3 +176,7 @@ impl HookHandler for CommandLoggerHook {
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

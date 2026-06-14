@@ -284,7 +284,9 @@ fn display_text_from_content_block(block: &ContentBlock) -> String {
         Some("resource_link") => record
             .get("title")
             .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
             .or_else(|| record.get("name").and_then(Value::as_str))
+            .filter(|value| !value.trim().is_empty())
             .or_else(|| record.get("uri").and_then(Value::as_str))
             .unwrap_or_default()
             .to_string(),
@@ -295,6 +297,7 @@ fn display_text_from_content_block(block: &ContentBlock) -> String {
                 resource
                     .get("text")
                     .and_then(Value::as_str)
+                    .filter(|value| !value.trim().is_empty())
                     .or_else(|| resource.get("uri").and_then(Value::as_str))
             })
             .unwrap_or_default()

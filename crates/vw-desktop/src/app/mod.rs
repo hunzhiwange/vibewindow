@@ -52,7 +52,12 @@ pub(crate) mod wasm_ime;
 /// 参数由调用方提供，函数在当前模块的状态边界内完成处理。
 /// 返回值表达处理结果；失败时保留错误信息给上层界面或调度逻辑。
 pub(crate) fn project_dirs() -> Option<directories::ProjectDirs> {
-    directories::ProjectDirs::from("dev", "VibeWindow", "vibe-window")
+    #[cfg(debug_assertions)]
+    const APP_NAME: &str = "vibe-window-dev";
+    #[cfg(not(debug_assertions))]
+    const APP_NAME: &str = "vibe-window";
+
+    directories::ProjectDirs::from("dev", "VibeWindow", APP_NAME)
 }
 
 /// 对外暴露当前模块需要复用的能力。

@@ -1,7 +1,8 @@
 //! 验证最新用户问题按钮行为。
 //! 测试确保按钮只在合适状态出现并指向正确消息。
 
-use super::{is_chat_message_idx_visible, user_question_indices};
+use super::{is_chat_message_idx_visible, live_message_meta_fallback, user_question_indices};
+use crate::app::models::ChatRole;
 
 #[test]
 fn chat_message_idx_visible_returns_true_inside_window() {
@@ -40,4 +41,21 @@ fn user_question_indices_preserve_question_order() {
     ];
 
     assert_eq!(user_question_indices(&chat), vec![0, 2]);
+}
+
+#[test]
+fn live_message_meta_fallback_applies_to_chat_roles() {
+    assert_eq!(
+        live_message_meta_fallback(ChatRole::Assistant, true, true, "model-b"),
+        Some("model-b · 刚刚".to_string())
+    );
+    assert_eq!(
+        live_message_meta_fallback(ChatRole::Assistant, true, false, "model-b"),
+        Some("model-b · 刚刚".to_string())
+    );
+    assert_eq!(
+        live_message_meta_fallback(ChatRole::User, true, true, "model-b"),
+        Some("model-b · 刚刚".to_string())
+    );
+    assert_eq!(live_message_meta_fallback(ChatRole::System, true, true, "model-b"), None);
 }

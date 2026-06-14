@@ -15,3 +15,16 @@ fn script_uses_null_depth_when_unbounded() {
     assert!(script.contains("const compact = true;"));
     assert!(script.contains("const maxDepth = null;"));
 }
+
+#[test]
+fn script_contains_dom_collection_contract() {
+    let script = snapshot_script(true, true, Some(2));
+
+    assert!(script.starts_with("(() => {"));
+    assert!(script.contains("const nodes = [];"));
+    assert!(script.contains("data-zc-ref"));
+    assert!(script.contains("nodes.length >= 400"));
+    assert!(script.contains("title: document.title"));
+    assert!(script.contains("url: window.location.href"));
+    assert!(script.ends_with(")();"));
+}

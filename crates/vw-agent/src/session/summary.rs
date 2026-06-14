@@ -495,9 +495,82 @@ fn compute_diff_inner(
     // 若找到了有效的快照对，计算完整差异
     if let (Some(from), Some(to)) = (from, to) {
         let worktree = worktree_path();
-        return snapshot::diff_full(&worktree, &from, &to);
+        let diffs = snapshot::diff_full(&worktree, &from, &to)?;
+        if !diffs.is_empty() {
+            return Ok(diffs);
+        }
     }
-    Ok(Vec::new())
+    Ok(file_diffs_from_message_summaries(messages))
+}
+
+fn file_diffs_from_patch_parts(messages: &[super::message::WithParts]) -> Vec<snapshot::FileDiff> {
+    let mut files = Vec::<String>::new();
+    for item in messages {
+        for part in &item.parts {
+            let super::message::Part::Patch(patch) = part else {
+                continue;
+            };
+            for file in &patch.files {
+                if !files.iter().any(|existing| existing == file) {
+                    files.push(file.clone());
+                }
+            }
+        }
+    }
+    files
+        .into_iter()
+        .map(|file| snapshot::FileDiff {
+            file,
+            before: String::new(),
+            after: String::new(),
+            additions: 0,
+            deletions: 0,
+            status: Some(snapshot::DiffStatus::Modified),
+        })
+        .collect()
+}
+
+fn file_diffs_from_message_summaries(
+    messages: &[super::message::WithParts],
+) -> Vec<snapshot::FileDiff> {
+    let mut diffs = Vec::<snapshot::FileDiff>::new();
+    for item in messages {
+        let super::message::Info::User(user) = &item.info else {
+            continue;
+        };
+        let Some(summary) = &user.summary else {
+            continue;
+        };
+        for diff in &summary.diffs {
+            merge_file_diff(&mut diffs, diff);
+        }
+    }
+
+    for diff in file_diffs_from_patch_parts(messages) {
+        if !diffs.iter().any(|existing| existing.file == diff.file) {
+            diffs.push(diff);
+        }
+    }
+
+    diffs
+}
+
+fn merge_file_diff(diffs: &mut Vec<snapshot::FileDiff>, diff: &snapshot::FileDiff) {
+    if let Some(existing) = diffs.iter_mut().find(|existing| existing.file == diff.file) {
+        existing.additions += diff.additions;
+        existing.deletions += diff.deletions;
+        if existing.before.is_empty() && !diff.before.is_empty() {
+            existing.before = diff.before.clone();
+        }
+        if !diff.after.is_empty() {
+            existing.after = diff.after.clone();
+        }
+        if existing.status.is_none() {
+            existing.status = diff.status.clone();
+        }
+        return;
+    }
+    diffs.push(diff.clone());
 }
 
 /// 解码 Git 路径中的转义序列

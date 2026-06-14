@@ -8,6 +8,7 @@
 //!
 //! - [`EmbeddingProvider`]: 嵌入提供者的核心 trait，定义了所有嵌入服务必须实现的接口
 //! - [`OpenAiEmbedding`]: OpenAI 兼容的嵌入服务实现
+//! - [`AlibabaEmbedding`]: 阿里 DashScope OpenAI 兼容嵌入服务实现
 //! - [`NoopEmbedding`]: 空操作的嵌入实现，用于禁用嵌入功能
 //! - [`create_embedding_provider`]: 工厂函数，根据配置创建对应的嵌入提供者
 //!
@@ -18,6 +19,13 @@
 //! - WebAssembly 平台：放宽了 `Send` 约束以适应单线程环境
 
 use async_trait::async_trait;
+
+mod alibaba;
+
+pub use alibaba::AlibabaEmbedding;
+
+const ALIBABA_EMBEDDING_BASE_URL: &str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+const ALIBABA_CN_EMBEDDING_BASE_URL: &str = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 
 /// 嵌入提供者的平台相关约束 trait
 ///
@@ -464,6 +472,8 @@ impl EmbeddingProvider for OpenAiEmbedding {
 /// - `provider`: 提供者类型标识符，支持以下值：
 ///   - `"openai"`: OpenAI 官方 API
 ///   - `"openrouter"`: OpenRouter 代理服务
+///   - `"alibaba"`: 阿里 DashScope 国际站 OpenAI 兼容接口
+///   - `"alibaba-cn"`: 阿里 DashScope 中国区 OpenAI 兼容接口
 ///   - `"custom:<url>"`: 自定义兼容服务（替换 <url> 为实际地址）
 ///   - 其他: 返回 NoopEmbedding（空操作）
 /// - `api_key`: API 认证密钥（可选，未提供时使用空字符串）
@@ -517,7 +527,9 @@ pub fn create_embedding_provider(
     model: &str,
     dims: usize,
 ) -> Box<dyn EmbeddingProvider> {
-    match provider {
+    let provider = provider.trim();
+    let normalized_provider = provider.to_ascii_lowercase();
+    match normalized_provider.as_str() {
         "openai" => {
             let key = api_key.unwrap_or("");
             Box::new(OpenAiEmbedding::new("https://api.openai.com", key, model, dims))
@@ -526,8 +538,22 @@ pub fn create_embedding_provider(
             let key = api_key.unwrap_or("");
             Box::new(OpenAiEmbedding::new("https://openrouter.ai/api/v1", key, model, dims))
         }
-        name if name.starts_with("custom:") => {
-            let base_url = name.strip_prefix("custom:").unwrap_or("");
+        "alibaba" => {
+            let key = api_key.unwrap_or("");
+            Box::new(AlibabaEmbedding::new("alibaba", ALIBABA_EMBEDDING_BASE_URL, key, model, dims))
+        }
+        "alibaba-cn" => {
+            let key = api_key.unwrap_or("");
+            Box::new(AlibabaEmbedding::new(
+                "alibaba-cn",
+                ALIBABA_CN_EMBEDDING_BASE_URL,
+                key,
+                model,
+                dims,
+            ))
+        }
+        _ if provider.starts_with("custom:") => {
+            let base_url = provider.strip_prefix("custom:").unwrap_or("");
             let key = api_key.unwrap_or("");
             Box::new(OpenAiEmbedding::new(base_url, key, model, dims))
         }

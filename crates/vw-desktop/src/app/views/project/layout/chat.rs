@@ -65,9 +65,9 @@ pub fn chat_area(
         chat_view,
         container(input_panel::view(app)).width(Length::Fill).padding(iced::Padding {
             top: 0.0,
-            right: 8.0,
+            right: 16.0,
             bottom: 8.0,
-            left: 8.0
+            left: 16.0
         })
     ]
     .width(Length::Fill)
@@ -77,38 +77,40 @@ pub fn chat_area(
     container(chat_area)
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(move |theme: &Theme| {
-            let palette = theme.extended_palette();
-            let is_dark = theme.palette().background.r
-                + theme.palette().background.g
-                + theme.palette().background.b
-                < 1.5;
-            container::Style {
-                background: Some(Background::Color(if is_dark {
-                    Color::from_rgba8(17, 18, 22, 0.985)
-                } else {
-                    Color::from_rgba8(255, 255, 255, 0.985)
-                })),
-                border: Border {
-                    width: 1.0,
-                    color: if is_dark {
-                        palette.background.strong.color.scale_alpha(0.74)
-                    } else {
-                        Color::from_rgba8(224, 228, 236, 0.98)
-                    },
-                    radius: iced::border::Radius {
-                        top_left: radius,
-                        top_right: radius,
-                        bottom_right: radius,
-                        bottom_left: radius,
-                    },
-                },
-                shadow: iced::Shadow::default(),
-                ..Default::default()
-            }
-        })
+        .style(move |theme: &Theme| chat_area_style(theme, radius))
         .into()
 }
+
+fn chat_area_style(theme: &Theme, radius: f32) -> container::Style {
+    let palette = theme.extended_palette();
+    let is_dark =
+        theme.palette().background.r + theme.palette().background.g + theme.palette().background.b
+            < 1.5;
+    container::Style {
+        background: Some(Background::Color(if is_dark {
+            Color::from_rgba8(17, 18, 22, 0.985)
+        } else {
+            Color::from_rgba8(255, 255, 255, 0.985)
+        })),
+        border: Border {
+            width: 1.0,
+            color: if is_dark {
+                palette.background.strong.color.scale_alpha(0.74)
+            } else {
+                Color::from_rgba8(224, 228, 236, 0.98)
+            },
+            radius: iced::border::Radius {
+                top_left: radius,
+                top_right: radius,
+                bottom_right: radius,
+                bottom_left: radius,
+            },
+        },
+        shadow: iced::Shadow::default(),
+        ..Default::default()
+    }
+}
+
 #[cfg(test)]
 #[path = "chat_tests.rs"]
 mod chat_tests;

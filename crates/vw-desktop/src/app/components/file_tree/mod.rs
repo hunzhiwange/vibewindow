@@ -52,6 +52,9 @@ mod icons_tests;
 #[path = "menu_tests.rs"]
 mod menu_tests;
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "model_tests.rs"]
 mod model_tests;
 #[cfg(test)]

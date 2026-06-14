@@ -138,7 +138,7 @@ pub fn raw_svg_handle<'a>(handle: svg::Handle, size: f32) -> svg::Svg<'a> {
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn is_dark_mode(theme: &Theme) -> bool {
+pub(super) fn is_dark_mode(theme: &Theme) -> bool {
     theme.palette().background.r + theme.palette().background.g + theme.palette().background.b < 1.5
 }
 
@@ -155,7 +155,7 @@ fn is_dark_mode(theme: &Theme) -> bool {
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn default_acp_icon<'a>(size: f32) -> Element<'a, Message> {
+pub(super) fn default_acp_icon<'a>(size: f32) -> Element<'a, Message> {
     // svg 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
     svg::Svg::<'a, iced::Theme>::new(assets::get_icon(Icon::GearWideConnected))
         .width(Length::Fixed(size))
@@ -181,7 +181,7 @@ fn default_acp_icon<'a>(size: f32) -> Element<'a, Message> {
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
 #[allow(dead_code)]
-fn svg_icon<'a>(icon: Icon, size: f32) -> Element<'a, Message> {
+pub(super) fn svg_icon<'a>(icon: Icon, size: f32) -> Element<'a, Message> {
     icon_svg(icon, size).into()
 }
 
@@ -199,7 +199,7 @@ fn svg_icon<'a>(icon: Icon, size: f32) -> Element<'a, Message> {
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
 #[allow(dead_code)]
-fn image_icon<'a>(icon: Icon, size: f32) -> Element<'a, Message> {
+pub(super) fn image_icon<'a>(icon: Icon, size: f32) -> Element<'a, Message> {
     image(assets::get_image(icon)).width(Length::Fixed(size)).height(Length::Fixed(size)).into()
 }
 
@@ -252,7 +252,7 @@ pub fn acp_agent_icon<'a>(agent: &str, size: f32) -> Element<'a, Message> {
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn normalize_acp_agent_icon_name(agent: &str) -> &str {
+pub(super) fn normalize_acp_agent_icon_name(agent: &str) -> &str {
     match agent.trim().to_ascii_lowercase().as_str() {
         "agentclientprotocol-claude" | "claude" | "claude code" | "claude-code" | "claudecode" => {
             "claude"

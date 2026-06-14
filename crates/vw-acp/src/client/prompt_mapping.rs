@@ -5,7 +5,6 @@ use super::*;
 /// 将 ACP 结束原因映射为 VibeWindow 内部提示词结束原因。
 pub(super) fn acp_finish_reason(reason: acp::StopReason) -> String {
     match reason {
-        acp::StopReason::EndTurn => "stop".to_string(),
         acp::StopReason::MaxTokens => "length".to_string(),
         acp::StopReason::MaxTurnRequests => "max_turn_requests".to_string(),
         acp::StopReason::Refusal => "refusal".to_string(),

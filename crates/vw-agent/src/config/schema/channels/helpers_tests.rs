@@ -28,3 +28,26 @@ fn disabled_secret_store_leaves_values_plaintext() {
     assert_eq!(required, "secret");
     assert_eq!(optional.as_deref(), Some("optional"));
 }
+
+#[test]
+fn enabled_secret_store_encrypts_only_plain_values_and_round_trips() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = SecretStore::new(tmp.path(), true);
+    let mut required = "secret".to_string();
+    let mut optional = Some("optional".to_string());
+
+    encrypt_secret(&store, &mut required, "required").unwrap();
+    encrypt_optional_secret(&store, &mut optional, "optional").unwrap();
+
+    assert!(SecretStore::is_encrypted(&required));
+    assert!(SecretStore::is_encrypted(optional.as_deref().unwrap()));
+    let encrypted_required = required.clone();
+    encrypt_secret(&store, &mut required, "required").unwrap();
+    assert_eq!(required, encrypted_required);
+
+    decrypt_secret(&store, &mut required, "required").unwrap();
+    decrypt_optional_secret(&store, &mut optional, "optional").unwrap();
+
+    assert_eq!(required, "secret");
+    assert_eq!(optional.as_deref(), Some("optional"));
+}

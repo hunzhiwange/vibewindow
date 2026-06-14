@@ -35,3 +35,82 @@ fn build_text_message_body_trims_and_adds_passive_reply_fields() {
     assert_eq!(body["msg_seq"], 7);
     assert!(build_text_message_body("   ", None, 0).is_none());
 }
+
+#[test]
+fn compose_message_content_uses_filename_when_content_type_is_missing() {
+    let payload = serde_json::json!({
+        "content": "  ",
+        "attachments": [
+            {"filename": "photo.WEBP", "url": " https://example.com/p.webp "},
+            {"filename": "notes.txt", "url": "https://example.com/notes.txt"},
+            {"content_type": "image/svg+xml", "url": ""}
+        ]
+    });
+
+    assert_eq!(
+        compose_message_content(&payload),
+        Some("[IMAGE:https://example.com/p.webp]".to_string())
+    );
+}
+
+#[test]
+fn compose_message_content_returns_none_for_empty_payload() {
+    assert_eq!(compose_message_content(&serde_json::json!({})), None);
+    assert_eq!(
+        compose_message_content(&serde_json::json!({
+            "content": " ",
+            "attachments": [{"content_type": "application/pdf", "url": "https://e.test/a.pdf"}]
+        })),
+        None
+    );
+}
+
+#[test]
+fn parse_outgoing_content_trims_result_and_preserves_malformed_markers() {
+    let (text, images) =
+        parse_outgoing_content("  \n[IMAGE:]\n[IMAGE:https://example.com/a.png]\n tail  ");
+
+    assert_eq!(text, "[IMAGE:]\n tail");
+    assert_eq!(images, vec!["https://example.com/a.png".to_string()]);
+}
+
+#[test]
+fn build_text_message_body_omits_passive_fields_when_no_message_id() {
+    let body = build_text_message_body("hello", None, 99).expect("text body");
+
+    assert_eq!(body, serde_json::json!({"content": "hello", "msg_type": 0}));
+}
+
+#[test]
+fn build_media_message_body_omits_passive_fields_when_no_message_id() {
+    let body = build_media_message_body("file-info", None, 99);
+
+    assert_eq!(
+        body,
+        serde_json::json!({
+            "content": " ",
+            "msg_type": 7,
+            "media": {"file_info": "file-info"}
+        })
+    );
+}
+
+#[test]
+fn build_channel_message_sets_reply_metadata_and_thread_conditionally() {
+    let with_thread = build_channel_message(
+        "sender-1",
+        "user:sender-1".to_string(),
+        "hello".to_string(),
+        "msg-1",
+    );
+    assert_eq!(with_thread.sender, "sender-1");
+    assert_eq!(with_thread.reply_target, "user:sender-1");
+    assert_eq!(with_thread.content, "hello");
+    assert_eq!(with_thread.channel, "qq");
+    assert_eq!(with_thread.thread_ts.as_deref(), Some("msg-1"));
+    assert!(!with_thread.id.is_empty());
+
+    let without_thread =
+        build_channel_message("sender-2", "group:g".to_string(), "hi".to_string(), "");
+    assert_eq!(without_thread.thread_ts, None);
+}

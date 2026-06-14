@@ -36,7 +36,7 @@
 //! - **ACP 配置 (Acp)**：ACP 智能体目录、初始化说明与启用状态
 //! - **自治配置 (Autonomy)**：代理自治能力设置
 //! - **安全配置 (Security)**：安全策略配置
-//! - **网关配置 (Gateway)**：HTTP 网关、配对与 node-control 配置
+//! - **网关配置 (Gateway)**：HTTP 网关、Auth 鉴权与 node-control 配置
 //! - **可观测性配置 (Observability)**：日志与监控配置
 //! - **存储配置 (Storage)**：持久化存储 provider 与连接参数
 //! - **代理配置 (Proxy)**：网络代理设置
@@ -202,7 +202,7 @@ impl SystemTab {
     ///     println!("{}", tab);
     /// }
     /// ```
-    fn all() -> [SystemTab; 39] {
+    pub(super) fn all() -> [SystemTab; 39] {
         [
             SystemTab::General,
             SystemTab::DialogueFlow,
@@ -326,7 +326,7 @@ fn system_tab_search_text(tab: SystemTab) -> &'static str {
             "模型 models llm ai provider 搜索模型 模型详情 提供商 模型 id 上下文窗口 最大输出 温度"
         }
         SystemTab::EmbeddingRoutes => {
-            "嵌入路由 embedding routes vector model 模型 添加路由 匹配模式 提供商/模型 前往记忆配置"
+            "嵌入路由 embedding routes vector model 模型 添加路由 匹配模式 提供商/模型 API Key 密钥 DashScope 阿里 前往记忆配置"
         }
         SystemTab::ModelRoutes => {
             "模型路由 model routes routing 模型 新增路由 匹配模式 pattern provider model priority 优先级"
@@ -380,10 +380,10 @@ fn system_tab_search_text(tab: SystemTab) -> &'static str {
             "安全配置 security policy permission 沙箱 后端说明 资源限制 内存 CPU 子进程 审计日志 OTP 紧急停止 E-Stop 系统调用异常检测 Canary Token 语义注入防护"
         }
         SystemTab::GatewayClient => {
-            "客户端网关 gateway client connection 用户名 密码 网关地址 配对 token 连接 heartbeat"
+            "客户端网关 gateway client connection 用户名 密码 网关地址 skey Auth 连接 heartbeat"
         }
         SystemTab::Gateway => {
-            "服务端网关 gateway server api 监听地址 端口 配对令牌 bearer token require_pairing 公网绑定 反向代理 webhook 幂等性 node-control"
+            "服务端网关 gateway server api 监听地址 端口 skey auth_enabled Auth 公网绑定 反向代理 webhook 幂等性 node-control"
         }
         SystemTab::Observability => {
             "可观测性配置 observability log monitor 观测后端 OTel 端点 运行时追踪 trace 模式 文件路径 rolling 保留量"
@@ -438,7 +438,7 @@ pub(super) fn system_tab_matches_query(tab: SystemTab, query: &str) -> bool {
         || system_tab_search_text(tab).to_lowercase().contains(&needle)
 }
 
-fn active_tab_help_modal_open(app: &App, active_tab: SystemTab) -> bool {
+pub(super) fn active_tab_help_modal_open(app: &App, active_tab: SystemTab) -> bool {
     crate::app::components::system_settings_help::help_open_for_tab(
         app.system_settings_help_tab,
         active_tab,

@@ -148,4 +148,22 @@ mod tests {
             Ok(_) => panic!("empty runtime should error"),
         }
     }
+
+    #[test]
+    fn factory_whitespace_kind_errors_as_empty() {
+        let cfg = RuntimeConfig { kind: " \t\n ".into(), ..RuntimeConfig::default() };
+        let err = create_runtime(&cfg).err().expect("whitespace runtime kind should error");
+        assert!(err.to_string().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn factory_returns_downcastable_runtime_types() {
+        let docker = RuntimeConfig { kind: "docker".into(), ..RuntimeConfig::default() };
+        let docker_rt = create_runtime(&docker).unwrap();
+        assert!(docker_rt.as_any().downcast_ref::<DockerRuntime>().is_some());
+
+        let wasm = RuntimeConfig { kind: "wasm".into(), ..RuntimeConfig::default() };
+        let wasm_rt = create_runtime(&wasm).unwrap();
+        assert!(wasm_rt.as_any().downcast_ref::<WasmRuntime>().is_some());
+    }
 }

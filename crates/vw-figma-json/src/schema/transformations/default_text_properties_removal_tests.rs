@@ -151,6 +151,91 @@ fn test_deeply_nested() {
 }
 
 #[test]
+fn test_root_array_is_transformed() {
+    let mut tree = json!([
+        {
+            "name": "Text1",
+            "letterSpacing": {"units": "PERCENT", "value": 0.0}
+        },
+        {
+            "name": "Text2",
+            "lineHeight": {"units": "PERCENT", "value": 100.0}
+        },
+        {
+            "name": "Text3",
+            "letterSpacing": {"units": "PERCENT", "value": 2.0},
+            "lineHeight": {"units": "PERCENT", "value": 101.0}
+        }
+    ]);
+
+    remove_default_text_properties(&mut tree).unwrap();
+
+    assert!(tree[0].get("letterSpacing").is_none());
+    assert!(tree[1].get("lineHeight").is_none());
+    assert_eq!(tree[2]["letterSpacing"]["value"].as_f64(), Some(2.0));
+    assert_eq!(tree[2]["lineHeight"]["value"].as_f64(), Some(101.0));
+}
+
+#[test]
+fn test_primitive_roots_are_accepted_without_changes() {
+    let mut string_tree = json!("letterSpacing");
+    let mut number_tree = json!(100.0);
+    let mut bool_tree = json!(true);
+    let mut null_tree = json!(null);
+
+    remove_default_text_properties(&mut string_tree).unwrap();
+    remove_default_text_properties(&mut number_tree).unwrap();
+    remove_default_text_properties(&mut bool_tree).unwrap();
+    remove_default_text_properties(&mut null_tree).unwrap();
+
+    assert_eq!(string_tree, json!("letterSpacing"));
+    assert_eq!(number_tree, json!(100.0));
+    assert_eq!(bool_tree, json!(true));
+    assert_eq!(null_tree, json!(null));
+}
+
+#[test]
+fn test_preserve_malformed_text_property_values() {
+    let mut tree = json!({
+        "letterSpacing": {"units": "PERCENT"},
+        "lineHeight": {"value": 100.0},
+        "children": [
+            {"letterSpacing": {"units": "PERCENT", "value": "0"}},
+            {"lineHeight": {"units": "PERCENT", "value": "100"}},
+            {"letterSpacing": "0 PERCENT"},
+            {"lineHeight": 100.0}
+        ]
+    });
+
+    let original = tree.clone();
+
+    remove_default_text_properties(&mut tree).unwrap();
+
+    assert_eq!(tree, original);
+}
+
+#[test]
+fn test_default_detection_tolerates_tiny_float_drift() {
+    let mut tree = json!({
+        "letterSpacing": {"units": "PERCENT", "value": 0.000000000009},
+        "lineHeight": {"units": "PERCENT", "value": 100.000000000009},
+        "children": [
+            {
+                "letterSpacing": {"units": "PERCENT", "value": 0.0000000002},
+                "lineHeight": {"units": "PERCENT", "value": 100.0000000002}
+            }
+        ]
+    });
+
+    remove_default_text_properties(&mut tree).unwrap();
+
+    assert!(tree.get("letterSpacing").is_none());
+    assert!(tree.get("lineHeight").is_none());
+    assert_eq!(tree["children"][0]["letterSpacing"]["value"].as_f64(), Some(0.0000000002));
+    assert_eq!(tree["children"][0]["lineHeight"]["value"].as_f64(), Some(100.0000000002));
+}
+
+#[test]
 fn test_is_default_letter_spacing() {
     assert!(is_default_letter_spacing(&json!({
         "units": "PERCENT",
@@ -165,6 +250,19 @@ fn test_is_default_letter_spacing() {
     assert!(!is_default_letter_spacing(&json!({
         "units": "PIXELS",
         "value": 0.0
+    })));
+
+    assert!(!is_default_letter_spacing(&json!({
+        "units": "PERCENT"
+    })));
+
+    assert!(!is_default_letter_spacing(&json!({
+        "value": 0.0
+    })));
+
+    assert!(!is_default_letter_spacing(&json!({
+        "units": "PERCENT",
+        "value": "0"
     })));
 
     assert!(!is_default_letter_spacing(&json!(0.0)));
@@ -185,6 +283,19 @@ fn test_is_default_line_height() {
     assert!(!is_default_line_height(&json!({
         "units": "PIXELS",
         "value": 100.0
+    })));
+
+    assert!(!is_default_line_height(&json!({
+        "units": "PERCENT"
+    })));
+
+    assert!(!is_default_line_height(&json!({
+        "value": 100.0
+    })));
+
+    assert!(!is_default_line_height(&json!({
+        "units": "PERCENT",
+        "value": "100"
     })));
 
     assert!(!is_default_line_height(&json!(100.0)));

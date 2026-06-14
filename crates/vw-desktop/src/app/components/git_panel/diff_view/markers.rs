@@ -64,7 +64,7 @@ fn is_dark_theme(theme: &iced::Theme) -> bool {
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn mix_color(a: Color, b: Color, t: f32) -> Color {
+pub(super) fn mix_color(a: Color, b: Color, t: f32) -> Color {
     let t = t.clamp(0.0, 1.0);
     Color::from_rgba(
         a.r * (1.0 - t) + b.r * t,
@@ -87,7 +87,11 @@ fn mix_color(a: Color, b: Color, t: f32) -> Color {
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn emphasized_marker_alpha(kind: LineMarkerKind, emphasized: bool, is_dark: bool) -> f32 {
+pub(super) fn emphasized_marker_alpha(
+    kind: LineMarkerKind,
+    emphasized: bool,
+    is_dark: bool,
+) -> f32 {
     match kind {
         // LineMarkerKind 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
         LineMarkerKind::None if emphasized => {
@@ -295,7 +299,7 @@ fn line_number_divider<'a>(tone: LineNumberTone) -> Element<'a, Message> {
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn line_number_right_padding(tone: LineNumberTone) -> f32 {
+pub(super) fn line_number_right_padding(tone: LineNumberTone) -> f32 {
     match tone {
         // LineNumberTone 保存该结构在渲染、解析或测试断言中需要直接访问的数据。
         LineNumberTone::Neutral => 6.0,

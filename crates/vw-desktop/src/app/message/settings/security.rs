@@ -312,7 +312,7 @@ fn persist_security_settings(app: &mut App) -> Task<Message> {
         security.estop.enabled = estop_enabled;
         // 如果状态文件路径为空，使用默认值
         security.estop.state_file = if estop_state_file.is_empty() {
-            "~/.vibewindow/estop-state.json".to_string()
+            vw_config_types::paths::estop_state_file_path()
         } else {
             estop_state_file
         };

@@ -95,18 +95,87 @@ mod tests {
         assert_eq!(MinimalHook.priority(), 0);
     }
 
+    fn expect_continue<T>(result: HookResult<T>) -> T {
+        match result {
+            HookResult::Continue(value) => value,
+            HookResult::Cancel(reason) => panic!("unexpected cancel: {reason}"),
+        }
+    }
+
+    fn channel_message(content: &str) -> ChannelMessage {
+        ChannelMessage {
+            id: "msg-1".to_string(),
+            sender: "sender".to_string(),
+            reply_target: "reply".to_string(),
+            content: content.to_string(),
+            channel: "cli".to_string(),
+            timestamp: 7,
+            thread_ts: None,
+        }
+    }
+
+    /// 测试默认空钩子是 no-op。
+    ///
+    /// 所有 void hook 默认实现都应可被安全调用，不产生 panic 或额外约束。
+    #[tokio::test]
+    async fn default_void_hooks_are_noops() {
+        let hook = TestHook::new("test", 0);
+        let messages = vec![ChatMessage::user("hello")];
+        let response = ChatResponse {
+            text: Some("ok".to_string()),
+            tool_calls: Vec::new(),
+            usage: None,
+            reasoning_content: None,
+        };
+        let result = ToolResult { success: true, output: "done".to_string(), error: None };
+
+        hook.on_gateway_start("localhost", 3000).await;
+        hook.on_gateway_stop().await;
+        hook.on_session_start("session", "telegram").await;
+        hook.on_session_end("session", "telegram").await;
+        hook.on_llm_input(&messages, "model").await;
+        hook.on_llm_output(&response).await;
+        hook.on_after_tool_call("shell", &result, std::time::Duration::from_millis(3)).await;
+        hook.on_message_sent("cli", "user", "hello").await;
+        hook.on_heartbeat_tick().await;
+
+        assert_eq!(hook.name(), "test");
+    }
+
     /// 测试默认修改钩子透传行为
     ///
-    /// 验证：当 `HookHandler` 未覆盖 `before_tool_call` 方法时，
-    /// 默认实现应透传工具名称和参数（不修改、不取消）。
+    /// 验证：当 `HookHandler` 未覆盖修改型钩子方法时，
+    /// 默认实现应透传输入（不修改、不取消）。
     #[tokio::test]
-    async fn default_modifying_hooks_pass_through() {
+    async fn default_modifying_hooks_pass_through_all_inputs() {
         let hook = TestHook::new("test", 0);
 
-        // 调用 before_tool_call，期望透传 "shell" 工具及其参数
-        match hook.before_tool_call("shell".into(), serde_json::json!({"cmd": "ls"})).await {
-            HookResult::Continue((name, _args)) => assert_eq!(name, "shell"),
-            HookResult::Cancel(_) => panic!("should not cancel"),
-        }
+        assert_eq!(
+            expect_continue(hook.before_model_resolve("openai".into(), "gpt".into()).await),
+            ("openai".to_string(), "gpt".to_string())
+        );
+        assert_eq!(expect_continue(hook.before_prompt_build("prompt".into()).await), "prompt");
+
+        let (messages, model) =
+            expect_continue(hook.before_llm_call(vec![ChatMessage::user("hi")], "m".into()).await);
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].content, "hi");
+        assert_eq!(model, "m");
+
+        let (name, args) = expect_continue(
+            hook.before_tool_call("shell".into(), serde_json::json!({"cmd": "ls"})).await,
+        );
+        assert_eq!(name, "shell");
+        assert_eq!(args["cmd"], "ls");
+
+        let received = expect_continue(hook.on_message_received(channel_message("body")).await);
+        assert_eq!(received.content, "body");
+
+        assert_eq!(
+            expect_continue(
+                hook.on_message_sending("cli".into(), "user".into(), "hello".into()).await
+            ),
+            ("cli".to_string(), "user".to_string(), "hello".to_string())
+        );
     }
 }

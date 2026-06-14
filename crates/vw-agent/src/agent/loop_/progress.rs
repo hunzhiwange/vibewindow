@@ -342,3 +342,7 @@ pub(crate) fn tool_progress_label(tool_name: &str, args: &serde_json::Value) -> 
         if hint.is_empty() { tool_name.to_string() } else { format!("{tool_name}: {hint}") }
     }
 }
+
+#[cfg(test)]
+#[path = "progress_tests.rs"]
+mod progress_tests;

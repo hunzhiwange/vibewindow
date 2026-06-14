@@ -60,10 +60,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub fn home_dir_from_env() -> Option<PathBuf> {
     // 首先尝试 HOME 环境变量（Unix/Linux 标准）
     env::var_os("HOME")
-        // 如果 HOME 不存在，尝试 USERPROFILE（Windows 标准）
-        .or_else(|| env::var_os("USERPROFILE"))
-        // 过滤掉空值，确保返回的路径非空
+        // 过滤掉空值，确保 USERPROFILE 仍可作为回退路径
         .filter(|value| !value.is_empty())
+        // 如果 HOME 不存在，尝试 USERPROFILE（Windows 标准）
+        .or_else(|| env::var_os("USERPROFILE").filter(|value| !value.is_empty()))
         // 将 OsString 转换为 PathBuf
         .map(PathBuf::from)
 }

@@ -25,7 +25,7 @@ impl ChatHeightWindow {
 }
 
 /// CHAT_MESSAGE_GAP 是该模块对外使用的常量值。
-pub(crate) const CHAT_MESSAGE_GAP: f32 = 12.0;
+pub(crate) const CHAT_MESSAGE_GAP: f32 = 18.0;
 const CHAT_LIST_VERTICAL_PADDING: f32 = 20.0;
 /// CHAT_VIRTUALIZATION_OVERSCAN_PX 是该模块对外使用的常量值。
 pub(crate) const CHAT_VIRTUALIZATION_OVERSCAN_PX: f32 = 900.0;

@@ -182,3 +182,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     list.into()
 }
+#[cfg(test)]
+#[path = "system_settings_query_classification_tests.rs"]
+mod system_settings_query_classification_tests;

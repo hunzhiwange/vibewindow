@@ -387,7 +387,7 @@ pub fn merged_agent_configs(
 }
 
 fn default_agents_ipc_db_path() -> String {
-    "~/.vibewindow/agents.db".into()
+    crate::paths::agents_ipc_db_path()
 }
 
 fn default_agents_ipc_staleness_secs() -> u64 {

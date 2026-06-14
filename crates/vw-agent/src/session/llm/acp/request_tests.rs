@@ -1,11 +1,43 @@
 use std::collections::HashMap;
+use std::sync::{Mutex, MutexGuard};
 
 use serde_json::json;
+use tokio::sync::watch;
 
 use crate::app::agent::provider::provider;
+use crate::app::agent::session::{llm::StreamEvent, message};
 use crate::app::agent::{auth, config};
 
-use super::with_copilot_auth_environment;
+use super::{
+    copilot_auth_token, do_stream_request_acp, is_copilot_acp_agent, is_github_copilot_provider,
+    is_usable_copilot_token, with_copilot_auth_environment,
+};
+
+static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+struct EnvGuard {
+    _lock: MutexGuard<'static, ()>,
+    key: &'static str,
+    saved: Option<String>,
+}
+
+impl EnvGuard {
+    fn set(key: &'static str, value: &str) -> Self {
+        let lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let saved = std::env::var(key).ok();
+        unsafe { std::env::set_var(key, value) };
+        Self { _lock: lock, key, saved }
+    }
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        match &self.saved {
+            Some(value) => unsafe { std::env::set_var(self.key, value) },
+            None => unsafe { std::env::remove_var(self.key) },
+        }
+    }
+}
 
 fn test_model(provider_id: &str) -> provider::Model {
     serde_json::from_value(json!({
@@ -83,6 +115,39 @@ fn copilot_config() -> config::schema::AcpAgentConfig {
 }
 
 #[test]
+fn copilot_provider_detection_is_case_and_space_tolerant() {
+    assert!(is_github_copilot_provider(" GitHub-Copilot "));
+    assert!(is_github_copilot_provider("github-copilot-chat"));
+    assert!(!is_github_copilot_provider("openai"));
+}
+
+#[test]
+fn copilot_agent_detection_checks_name_command_and_args() {
+    let plain = config::schema::AcpAgentConfig {
+        command: "node".to_string(),
+        args: vec!["agent.js".to_string()],
+        env: HashMap::new(),
+    };
+    assert!(!is_copilot_acp_agent("custom", &plain));
+    assert!(is_copilot_acp_agent(" GitHub Copilot ", &plain));
+
+    let mut by_command = plain.clone();
+    by_command.command = "copilot-agent".to_string();
+    assert!(is_copilot_acp_agent("custom", &by_command));
+
+    let mut by_arg = plain;
+    by_arg.args.push("--use-copilot".to_string());
+    assert!(is_copilot_acp_agent("custom", &by_arg));
+}
+
+#[test]
+fn usable_copilot_token_rejects_empty_and_oauth_dummy_values() {
+    assert!(is_usable_copilot_token("token"));
+    assert!(!is_usable_copilot_token(""));
+    assert!(!is_usable_copilot_token(auth::OAUTH_DUMMY_KEY));
+}
+
+#[test]
 fn copilot_auth_environment_uses_provider_key() {
     let cfg = with_copilot_auth_environment(
         &test_model("github-copilot"),
@@ -114,6 +179,20 @@ fn copilot_auth_environment_preserves_explicit_agent_env() {
 }
 
 #[test]
+fn copilot_auth_token_uses_provider_env_before_auth_fallback() {
+    let _guard = EnvGuard::set("VW_AGENT_COPILOT_TEST_TOKEN", " env-token ");
+    let mut provider = test_provider(None);
+    provider.env = vec!["VW_AGENT_COPILOT_TEST_TOKEN".to_string()];
+
+    let token = copilot_auth_token(
+        &provider,
+        Some(&auth::Info::Api(auth::ApiInfo { key: "auth-token".to_string() })),
+    );
+
+    assert_eq!(token.as_deref(), Some("env-token"));
+}
+
+#[test]
 fn copilot_auth_environment_uses_api_auth_fallback() {
     let cfg = with_copilot_auth_environment(
         &test_model("github-copilot"),
@@ -140,6 +219,23 @@ fn copilot_auth_environment_ignores_oauth_dummy_key() {
 }
 
 #[test]
+fn copilot_auth_environment_ignores_non_copilot_agent() {
+    let cfg = with_copilot_auth_environment(
+        &test_model("github-copilot"),
+        &test_provider(Some("provider-token")),
+        None,
+        "custom",
+        config::schema::AcpAgentConfig {
+            command: "agent".to_string(),
+            args: vec!["--stdio".to_string()],
+            env: HashMap::new(),
+        },
+    );
+
+    assert!(cfg.env.is_empty());
+}
+
+#[test]
 fn copilot_auth_environment_ignores_non_copilot_provider() {
     let cfg = with_copilot_auth_environment(
         &test_model("openai"),
@@ -150,4 +246,31 @@ fn copilot_auth_environment_ignores_non_copilot_provider() {
     );
 
     assert!(cfg.env.is_empty());
+}
+
+#[tokio::test]
+async fn stream_request_reports_abort_before_config_lookup() {
+    let (_tx, rx) = watch::channel(true);
+    let mut events = Vec::new();
+
+    let result = do_stream_request_acp(
+        &test_model("github-copilot"),
+        &test_provider(None),
+        None,
+        &json!({}),
+        &json!([{"role": "user", "content": "hello"}]),
+        "session-1",
+        Some(&rx),
+        &mut |event| events.push(event),
+    )
+    .await;
+
+    assert!(matches!(result, Err(crate::app::agent::session::llm::Error::Aborted)));
+    assert_eq!(events.len(), 1);
+    match &events[0] {
+        StreamEvent::Error(message::AssistantError::MessageAbortedError { message }) => {
+            assert_eq!(message, "aborted");
+        }
+        other => panic!("expected abort stream event, got {other:?}"),
+    }
 }

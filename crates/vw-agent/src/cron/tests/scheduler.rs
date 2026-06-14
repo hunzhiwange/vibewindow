@@ -14,7 +14,8 @@ use crate::app::agent::config::Config;
 use crate::app::agent::cron;
 use crate::app::agent::cron::scheduler::{
     cron_agent_prompt, cron_full_access_config, deliver_announcement, deliver_if_configured,
-    execute_job_with_retry, notify_schedule_changed, persist_job_result, process_due_jobs,
+    effective_job_config, effective_job_type, execute_and_persist_job, execute_job_with_retry,
+    invalid_job_payload, notify_schedule_changed, persist_job_result, process_due_jobs,
     run_agent_job, run_job_command, run_job_command_with_timeout, wait_for_schedule_scan,
 };
 use crate::app::agent::cron::{CronJob, DeliveryConfig, JobType, Schedule, SessionTarget};
@@ -887,4 +888,119 @@ async fn deliver_if_configured_handles_none_and_invalid_channel() {
     };
     let err = deliver_if_configured(&config, &job, "x").await.unwrap_err();
     assert!(err.to_string().contains("unsupported delivery channel"));
+}
+
+#[test]
+fn effective_job_config_uses_project_path_when_present() {
+    let tmp = TempDir::new().unwrap();
+    let config = Config {
+        workspace_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("vibewindow.json"),
+        ..Config::default()
+    };
+    let mut job = test_job("echo project");
+    let project_dir = tmp.path().join("project-a");
+    job.project_path = Some(project_dir.to_string_lossy().to_string());
+
+    let run_config = effective_job_config(&config, &job);
+    assert_eq!(run_config.workspace_dir, project_dir);
+
+    job.project_path = Some("   ".into());
+    let fallback = effective_job_config(&config, &job);
+    assert_eq!(fallback.workspace_dir, config.workspace_dir);
+}
+
+#[test]
+fn effective_job_type_promotes_prompt_only_shell_jobs_to_agent() {
+    let mut job = test_job("");
+    job.prompt = Some("  summarize the day  ".into());
+    assert_eq!(effective_job_type(&job), JobType::Agent);
+
+    job.prompt = Some("   ".into());
+    assert_eq!(effective_job_type(&job), JobType::Shell);
+
+    job.command = "echo shell".into();
+    job.prompt = Some("summarize".into());
+    assert_eq!(effective_job_type(&job), JobType::Shell);
+}
+
+#[test]
+fn invalid_job_payload_reports_empty_shell_and_agent_jobs() {
+    let mut shell = test_job("   ");
+    let shell_error = invalid_job_payload(&shell).unwrap();
+    assert!(shell_error.contains("shell command is empty"));
+
+    shell.job_type = JobType::Agent;
+    shell.prompt = Some("  ".into());
+    let agent_error = invalid_job_payload(&shell).unwrap();
+    assert!(agent_error.contains("agent prompt is empty"));
+}
+
+#[tokio::test]
+async fn execute_and_persist_job_disables_invalid_shell_job() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp).await;
+    let job = cron::add_job(&config, "*/5 * * * *", "echo initial").unwrap();
+    let job = cron::update_job(
+        &config,
+        &job.id,
+        cron::CronJobPatch { command: Some("   ".into()), ..cron::CronJobPatch::default() },
+    )
+    .unwrap();
+    let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
+
+    let (job_id, success, output) =
+        execute_and_persist_job(&config, &security, &job, "scheduler-invalid").await;
+
+    assert_eq!(job_id, job.id);
+    assert!(!success);
+    assert!(output.contains("shell command is empty"));
+
+    let stored = cron::get_job(&config, &job.id).unwrap();
+    assert!(!stored.enabled);
+    assert_eq!(stored.last_status.as_deref(), Some("error"));
+
+    let runs = cron::list_runs(&config, &job.id, 10).unwrap();
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0].status, "error");
+}
+
+#[tokio::test]
+async fn deliver_if_configured_requires_channel_and_target_for_announce() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp).await;
+    let mut job = test_job("echo ok");
+
+    job.delivery = DeliveryConfig {
+        mode: "announce".into(),
+        channel: None,
+        to: Some("target".into()),
+        best_effort: true,
+    };
+    let missing_channel = deliver_if_configured(&config, &job, "output").await.unwrap_err();
+    assert!(missing_channel.to_string().contains("delivery.channel is required"));
+
+    job.delivery = DeliveryConfig {
+        mode: "announce".into(),
+        channel: Some("telegram".into()),
+        to: None,
+        best_effort: true,
+    };
+    let missing_target = deliver_if_configured(&config, &job, "output").await.unwrap_err();
+    assert!(missing_target.to_string().contains("delivery.to is required"));
+}
+
+#[tokio::test]
+async fn run_agent_job_rejects_missing_delegate_agent_before_provider_call() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp).await;
+    let mut job = test_job("");
+    job.job_type = JobType::Agent;
+    job.prompt = Some("Say hello".into());
+    job.agent = Some("unknown-agent".into());
+    let security = SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir);
+
+    let (success, output) = run_agent_job(&config, &security, &job).await;
+    assert!(!success);
+    assert!(output.contains("delegate agent 'unknown-agent' not found"));
 }

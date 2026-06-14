@@ -71,12 +71,6 @@ pub mod runner;
 /// 通用工具函数
 pub mod utils;
 
-#[cfg(test)]
-mod progress_tests;
-#[cfg(test)]
-mod query_engine_tests;
-#[cfg(test)]
-mod runner_tests;
 /// 单元测试和集成测试
 #[cfg(test)]
 mod tests;

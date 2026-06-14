@@ -1,29 +1,31 @@
-// Tests for plan6 task 835.
-const SOURCE: &str = include_str!("drag.rs");
+use iced::Length;
 
-fn source_declares_symbol(name: &str) -> bool {
-    let needles = [
-        format!("fn {name}"),
-        format!("pub fn {name}"),
-        format!("struct {name}"),
-        format!("pub struct {name}"),
-        format!("enum {name}"),
-        format!("pub enum {name}"),
-        format!("type {name}"),
-        format!("pub type {name}"),
-        format!("const {name}"),
-        format!("pub const {name}"),
-        format!("static {name}"),
-        format!("pub static {name}"),
-        format!("impl {name}"),
-    ];
+use super::drag::{drag_spacer, traffic_light_spacer};
 
-    needles.iter().any(|needle| SOURCE.contains(needle))
+#[cfg(target_os = "macos")]
+#[test]
+fn traffic_light_spacer_reserves_macos_window_controls_width() {
+    let element = traffic_light_spacer();
+    let size = element.as_widget().size();
+
+    assert_eq!(size.width, Length::Fixed(75.0));
+    assert_eq!(size.height, Length::Fill);
+}
+
+#[cfg(not(target_os = "macos"))]
+#[test]
+fn traffic_light_spacer_collapses_without_macos_window_controls() {
+    let element = traffic_light_spacer();
+    let size = element.as_widget().size();
+
+    assert_eq!(size.width, Length::Fixed(0.0));
 }
 
 #[test]
-fn drag_tests_keeps_planned_coverage_targets() {
-    for name in ["traffic_light_spacer", "drag_spacer"] {
-        assert!(source_declares_symbol(name), "expected source to declare coverage target {name}");
-    }
+fn drag_spacer_fills_available_top_bar_space() {
+    let element = drag_spacer();
+    let size = element.as_widget().size();
+
+    assert_eq!(size.width, Length::Fill);
+    assert_eq!(size.height, Length::Fill);
 }

@@ -161,3 +161,43 @@ fn test_integer_one_vs_float_one() {
     // 整数 1 也应该被删除(它与 1.0 相同)
     assert!(tree.get("uniformScaleFactor").is_none());
 }
+
+#[test]
+fn test_preserve_non_numeric_scale_factor() {
+    let mut tree = json!({
+        "name": "Shape",
+        "uniformScaleFactor": "1.0"
+    });
+
+    remove_default_uniform_scale_factor(&mut tree).unwrap();
+
+    assert_eq!(tree["uniformScaleFactor"].as_str(), Some("1.0"));
+    assert_eq!(tree["name"].as_str(), Some("Shape"));
+}
+
+#[test]
+fn test_root_array_and_non_object_elements() {
+    let mut tree = json!([
+        {"name": "Default", "uniformScaleFactor": 1.0},
+        "plain-value",
+        {"name": "Scaled", "uniformScaleFactor": 1.25},
+        3
+    ]);
+
+    remove_default_uniform_scale_factor(&mut tree).unwrap();
+
+    assert!(tree[0].get("uniformScaleFactor").is_none());
+    assert_eq!(tree[0]["name"].as_str(), Some("Default"));
+    assert_eq!(tree[1].as_str(), Some("plain-value"));
+    assert_eq!(tree[2]["uniformScaleFactor"].as_f64(), Some(1.25));
+    assert_eq!(tree[3].as_i64(), Some(3));
+}
+
+#[test]
+fn test_root_primitive_is_unchanged() {
+    let mut tree = json!(1.0);
+
+    remove_default_uniform_scale_factor(&mut tree).unwrap();
+
+    assert_eq!(tree.as_f64(), Some(1.0));
+}

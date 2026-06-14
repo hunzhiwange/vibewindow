@@ -26,7 +26,7 @@ use crate::app::{App, Message, message};
 /// # 错误处理
 ///
 /// 本函数不吞掉底层错误；没有显式错误通道时，会用空集合、`None` 或现有 UI 状态表达不可用结果。
-fn diff_selection_menu<'a>() -> Element<'a, Message> {
+pub(super) fn diff_selection_menu<'a>() -> Element<'a, Message> {
     let menu_button_style =
         |theme: &iced::Theme, status: iced::widget::button::Status| {
             let ext = theme.extended_palette();

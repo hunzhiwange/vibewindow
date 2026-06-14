@@ -350,3 +350,6 @@ pub fn view_overlays<'a>(app: &'a App, dialog: Element<'a, Message>) -> Element<
         Message::Settings(SettingsMessage::WebSearch(WebSearchMessage::HelpClose)),
     )
 }
+#[cfg(test)]
+#[path = "system_settings_web_search_tests.rs"]
+mod system_settings_web_search_tests;

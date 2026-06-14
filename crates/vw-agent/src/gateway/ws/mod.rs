@@ -201,7 +201,7 @@ fn parse_tool_completion_payload(raw: &str) -> Option<(String, Option<u64>)> {
     let (name_part, duration_part) = trimmed.rsplit_once(" (")?;
     let duration_part = duration_part.strip_suffix(')')?;
     // 解析秒数
-    let secs = duration_part.strip_suffix('s')?.parse::<u64>().ok();
+    let secs = duration_part.strip_suffix('s').and_then(|value| value.parse::<u64>().ok());
     Some((name_part.trim().to_string(), secs))
 }
 
@@ -243,7 +243,7 @@ fn parse_ws_delta_event(delta: &str) -> Option<WsDeltaEvent> {
             if rest.is_empty() {
                 return None;
             }
-            let (name, hint) = match rest.split_once(": ") {
+            let (name, hint) = match rest.split_once(':') {
                 Some((name, hint)) => {
                     let hint = hint.trim();
                     (
@@ -348,8 +348,8 @@ async fn emit_ws_delta_event(socket: &mut WebSocket, event: WsDeltaEvent) {
 /// # 身份验证
 ///
 /// 支持两种身份验证方式：
-/// - `Authorization: Bearer <token>` HTTP 头
-/// - `Sec-WebSocket-Protocol: vibewindow.v1, bearer.<token>` WebSocket 协议头
+/// - `Authorization: Bearer <skey>` HTTP 头
+/// - `Sec-WebSocket-Protocol: vibewindow.v1, bearer.<skey>` WebSocket 协议头
 ///
 /// # 参数
 ///
@@ -367,7 +367,7 @@ async fn emit_ws_delta_event(socket: &mut WebSocket, event: WsDeltaEvent) {
 /// // 客户端连接示例
 /// const ws = new WebSocket('ws://localhost:8080/ws/chat', [
 ///     'vibewindow.v1',
-///     'bearer.your-token-here'
+///     'bearer.your-skey-here'
 /// ]);
 /// ```
 pub async fn handle_ws_chat(
@@ -375,13 +375,13 @@ pub async fn handle_ws_chat(
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    // 通过 Authorization 头或 WebSocket 协议令牌进行身份验证
-    if state.pairing.require_pairing() {
-        let token = extract_ws_bearer_token(&headers).unwrap_or_default();
-        if !state.pairing.is_authenticated(&token) {
+    // 通过 Authorization Bearer 或 WebSocket 协议 skey 进行身份验证
+    if state.pairing.auth_enabled() {
+        let skey = extract_ws_auth_skey(&headers).unwrap_or_default();
+        if !state.pairing.is_authenticated(&skey) {
             return (
                 axum::http::StatusCode::UNAUTHORIZED,
-                "Unauthorized — provide Authorization: Bearer <token> or Sec-WebSocket-Protocol: vibewindow.v1, bearer.<token>",
+                "Unauthorized — provide Authorization: Bearer <skey> or Sec-WebSocket-Protocol: vibewindow.v1, bearer.<skey>",
             )
                 .into_response();
         }
@@ -589,11 +589,11 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
     }
 }
 
-/// 从 HTTP 头中提取 WebSocket 令牌。
+/// 从 HTTP 头中提取 WebSocket skey。
 ///
-/// 支持两种令牌提取方式：
-/// 1. `Authorization: Bearer <token>` HTTP 头
-/// 2. `Sec-WebSocket-Protocol: bearer.<token>` WebSocket 协议头
+/// 支持两种 skey 提取方式：
+/// 1. `Authorization: Bearer <skey>` HTTP 头
+/// 2. `Sec-WebSocket-Protocol: bearer.<skey>` WebSocket 协议头
 ///
 /// # 参数
 ///
@@ -601,34 +601,27 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
 ///
 /// # 返回值
 ///
-/// 如果找到有效令牌，返回 `Some(token)`；否则返回 `None`。
+/// 如果找到有效 skey，返回 `Some(skey)`；否则返回 `None`。
 ///
 /// # 示例
 ///
 /// ```
 /// // 方式1：使用 Authorization 头
-/// // Authorization: Bearer my-secret-token
+/// // Authorization: Bearer my-skey
 ///
 /// // 方式2：使用 WebSocket 协议头
-/// // Sec-WebSocket-Protocol: vibewindow.v1, bearer.my-secret-token
+/// // Sec-WebSocket-Protocol: vibewindow.v1, bearer.my-skey
 /// ```
-fn extract_ws_bearer_token(headers: &HeaderMap) -> Option<String> {
-    // 尝试从 Authorization 头提取
-    if let Some(auth_header) =
-        headers.get(header::AUTHORIZATION).and_then(|value| value.to_str().ok()).map(str::trim)
-    {
-        if let Some(token) = auth_header.strip_prefix("Bearer ") {
-            if !token.trim().is_empty() {
-                return Some(token.trim().to_string());
-            }
-        }
+fn extract_ws_auth_skey(headers: &HeaderMap) -> Option<String> {
+    if let Some(skey) = super::api::auth::extract_auth_skey(headers) {
+        return Some(skey.to_string());
     }
 
     // 尝试从 Sec-WebSocket-Protocol 头提取
     let offered =
         headers.get(header::SEC_WEBSOCKET_PROTOCOL).and_then(|value| value.to_str().ok())?;
 
-    // 遍历所有协议，查找 bearer.<token> 格式
+    // 遍历所有协议，查找 bearer.<skey> 格式
     for protocol in offered.split(',').map(str::trim).filter(|s| !s.is_empty()) {
         if let Some(token) = protocol.strip_prefix("bearer.") {
             if !token.trim().is_empty() {
@@ -639,6 +632,15 @@ fn extract_ws_bearer_token(headers: &HeaderMap) -> Option<String> {
 
     None
 }
+
+#[cfg(test)]
+fn extract_ws_bearer_token(headers: &HeaderMap) -> Option<String> {
+    extract_ws_auth_skey(headers)
+}
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
 
 #[cfg(test)]
 #[path = "tests.rs"]

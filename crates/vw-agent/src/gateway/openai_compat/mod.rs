@@ -118,7 +118,8 @@ fn chunk_bytes(
         model,
         choices: vec![ChunkChoice { index: 0, delta: ChunkDelta { role, content }, finish_reason }],
     };
-    let json = serde_json::to_string(&chunk).unwrap_or_else(|_| "{}".to_string());
+    let json = serde_json::to_string(&chunk)
+        .expect("chat completions chunk serialization should not fail");
     if done {
         axum::body::Bytes::from(format!("data: {json}\n\ndata: [DONE]\n\n"))
     } else {
@@ -166,15 +167,14 @@ pub async fn handle_v1_chat_completions(
         return (StatusCode::TOO_MANY_REQUESTS, Json(err)).into_response();
     }
 
-    // ── Bearer token auth (pairing) ──
-    if state.pairing.require_pairing() {
-        let auth = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()).unwrap_or("");
-        let token = auth.strip_prefix("Bearer ").unwrap_or("");
-        if !state.pairing.is_authenticated(token) {
-            tracing::warn!("/v1/chat/completions: rejected — not paired / invalid bearer token");
+    // ── Gateway skey auth ──
+    if state.pairing.auth_enabled() {
+        let skey = super::api::auth::extract_auth_skey(&headers).unwrap_or("");
+        if !state.pairing.is_authenticated(skey) {
+            tracing::warn!("/v1/chat/completions: rejected — invalid gateway skey");
             let err = serde_json::json!({
                 "error": {
-                    "message": "Invalid API key. Pair first via POST /pair, then use Authorization: Bearer <token>",
+                    "message": "Invalid API key. Send a valid skey as Authorization: Bearer <skey>.",
                     "type": "invalid_request_error",
                     "code": "invalid_api_key"
                 }
@@ -458,14 +458,13 @@ pub async fn handle_v1_models(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> impl IntoResponse {
-    // ── Bearer token auth (pairing) ──
-    if state.pairing.require_pairing() {
-        let auth = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()).unwrap_or("");
-        let token = auth.strip_prefix("Bearer ").unwrap_or("");
-        if !state.pairing.is_authenticated(token) {
+    // ── Gateway skey auth ──
+    if state.pairing.auth_enabled() {
+        let skey = super::api::auth::extract_auth_skey(&headers).unwrap_or("");
+        if !state.pairing.is_authenticated(skey) {
             let err = serde_json::json!({
                 "error": {
-                    "message": "Invalid API key",
+                    "message": "Invalid API key. Send a valid skey as Authorization: Bearer <skey>.",
                     "type": "invalid_request_error",
                     "code": "invalid_api_key"
                 }
@@ -551,3 +550,7 @@ fn record_failure(
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

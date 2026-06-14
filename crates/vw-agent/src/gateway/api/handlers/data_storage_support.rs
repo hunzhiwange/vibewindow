@@ -91,3 +91,7 @@ pub(super) fn now_ms() -> u64 {
         .try_into()
         .unwrap_or(u64::MAX)
 }
+
+#[cfg(test)]
+#[path = "data_storage_support_tests.rs"]
+mod data_storage_support_tests;

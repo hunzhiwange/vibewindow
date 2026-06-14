@@ -202,3 +202,19 @@ fn test_remove_guid_path_primitives() {
 
     assert_eq!(tree.as_i64(), Some(42));
 }
+
+#[test]
+fn test_remove_guid_path_mixed_array_primitives() {
+    let mut tree = json!([
+        {"guidPath": {"guids": []}, "name": "Override"},
+        true,
+        "plain"
+    ]);
+
+    remove_guid_paths(&mut tree).unwrap();
+
+    assert!(tree[0].get("guidPath").is_none());
+    assert_eq!(tree[0]["name"].as_str(), Some("Override"));
+    assert_eq!(tree[1].as_bool(), Some(true));
+    assert_eq!(tree[2].as_str(), Some("plain"));
+}

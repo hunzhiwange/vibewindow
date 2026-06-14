@@ -29,6 +29,7 @@ use crate::app::agent::gateway::instance::with_instance;
 use crate::app::agent::project::instance;
 use crate::app::agent::provider::provider;
 use crate::app::agent::session as agent_session;
+use crate::app::agent::snapshot;
 use crate::id;
 use crate::session::ui_types as ui_models;
 
@@ -55,6 +56,163 @@ impl StreamTurnMessageIds {
     pub(super) fn new(assistant_id: impl Into<String>, user_id: impl Into<String>) -> Self {
         Self { assistant_id: assistant_id.into(), user_id: user_id.into() }
     }
+}
+
+#[derive(Debug)]
+struct StreamStepSnapshot {
+    step_index: u32,
+    snapshot: Option<String>,
+}
+
+#[derive(Debug, Default)]
+struct StreamPatchRecorder {
+    active_step: Option<StreamStepSnapshot>,
+    parts: Vec<agent_session::message::Part>,
+}
+
+impl StreamPatchRecorder {
+    fn begin_step(&mut self, session_id: &str, assistant_id: &str, root: &str, step_index: u32) {
+        let snapshot = snapshot::track(root).ok().flatten();
+        self.active_step = Some(StreamStepSnapshot { step_index, snapshot: snapshot.clone() });
+
+        let Some(part) = new_stream_step_start_part(session_id, assistant_id, snapshot) else {
+            return;
+        };
+        self.parts.push(part);
+    }
+
+    fn finish_tool_round(
+        &mut self,
+        session_id: &str,
+        assistant_id: &str,
+        root: &str,
+        step_index: u32,
+    ) {
+        let Some(active_step) = self.active_step.take() else {
+            return;
+        };
+        if active_step.step_index != step_index {
+            return;
+        }
+        let Some(start_snapshot) = active_step.snapshot else {
+            return;
+        };
+        let Ok(patch) = snapshot::patch(root, &start_snapshot) else {
+            return;
+        };
+        if patch.files.is_empty() {
+            return;
+        }
+
+        if let Ok(snapshot_after) = snapshot::track(root)
+            && let Some(snapshot_after) = snapshot_after
+            && let Some(part) =
+                new_stream_step_finish_part(session_id, assistant_id, snapshot_after)
+        {
+            self.parts.push(part);
+        }
+
+        let Some(part) = new_stream_patch_part(session_id, assistant_id, patch.hash, patch.files)
+        else {
+            return;
+        };
+        self.parts.push(part);
+    }
+
+    fn take_parts(&mut self) -> Vec<agent_session::message::Part> {
+        std::mem::take(&mut self.parts)
+    }
+}
+
+fn stream_empty_token_info() -> agent_session::message::TokenInfo {
+    agent_session::message::TokenInfo {
+        total: Some(0),
+        input: 0,
+        output: 0,
+        reasoning: 0,
+        cache: agent_session::message::TokenCacheInfo { read: 0, write: 0 },
+    }
+}
+
+fn stream_part_base(
+    session_id: &str,
+    assistant_id: &str,
+    part_id: String,
+) -> agent_session::message::PartBase {
+    agent_session::message::PartBase {
+        id: part_id,
+        session_id: session_id.to_string(),
+        message_id: assistant_id.to_string(),
+    }
+}
+
+fn build_stream_step_start_part(
+    session_id: &str,
+    assistant_id: &str,
+    part_id: String,
+    snapshot: Option<String>,
+) -> agent_session::message::Part {
+    agent_session::message::Part::StepStart(agent_session::message::StepStartPart {
+        base: stream_part_base(session_id, assistant_id, part_id),
+        snapshot,
+    })
+}
+
+fn new_stream_step_start_part(
+    session_id: &str,
+    assistant_id: &str,
+    snapshot: Option<String>,
+) -> Option<agent_session::message::Part> {
+    let part_id = id::ascending(id::Prefix::Part, None).ok()?;
+    Some(build_stream_step_start_part(session_id, assistant_id, part_id, snapshot))
+}
+
+fn build_stream_step_finish_part(
+    session_id: &str,
+    assistant_id: &str,
+    part_id: String,
+    snapshot: String,
+) -> agent_session::message::Part {
+    agent_session::message::Part::StepFinish(agent_session::message::StepFinishPart {
+        base: stream_part_base(session_id, assistant_id, part_id),
+        reason: "tool_round".to_string(),
+        snapshot: Some(snapshot),
+        cost: 0.0,
+        tokens: stream_empty_token_info(),
+    })
+}
+
+fn new_stream_step_finish_part(
+    session_id: &str,
+    assistant_id: &str,
+    snapshot: String,
+) -> Option<agent_session::message::Part> {
+    let part_id = id::ascending(id::Prefix::Part, None).ok()?;
+    Some(build_stream_step_finish_part(session_id, assistant_id, part_id, snapshot))
+}
+
+fn build_stream_patch_part(
+    session_id: &str,
+    assistant_id: &str,
+    part_id: String,
+    hash: String,
+    files: Vec<String>,
+) -> agent_session::message::Part {
+    agent_session::message::Part::Patch(agent_session::message::PatchPart {
+        base: stream_part_base(session_id, assistant_id, part_id),
+        hash,
+        files,
+    })
+}
+
+fn new_stream_patch_part(
+    session_id: &str,
+    assistant_id: &str,
+    hash: String,
+    files: Vec<String>,
+) -> Option<agent_session::message::Part> {
+    let part_id = id::ascending(id::Prefix::Part, None).ok()?;
+    Some(build_stream_patch_part(session_id, assistant_id, part_id, hash, files))
 }
 
 fn tool_content_to_session_text(content: &str) -> String {
@@ -263,6 +421,7 @@ async fn start_gateway_chat_stream(
     } else {
         preallocate_stream_turn_message_ids().ok()
     };
+    let runtime_handle = tokio::runtime::Handle::current();
 
     std::thread::spawn(move || {
         let total_messages = history_messages.len();
@@ -271,6 +430,7 @@ async fn start_gateway_chat_stream(
         let mut assistant_text = String::new();
         let mut assistant_finish_reason: Option<String> = None;
         let mut assistant_model = model.clone();
+        let mut patch_recorder = StreamPatchRecorder::default();
 
         for (idx, message) in history_messages.into_iter().enumerate() {
             let role = message.get("role").and_then(Value::as_str).unwrap_or("user");
@@ -320,7 +480,7 @@ async fn start_gateway_chat_stream(
                 stream: 0,
                 session: stream_session_id.clone(),
                 query: query.clone(),
-                root: Some(root_dir),
+                root: Some(root_dir.clone()),
                 model: model.clone(),
                 options: options.clone(),
                 approval: Some(approval_manager.clone()),
@@ -347,6 +507,16 @@ async fn start_gateway_chat_stream(
                         created_ms,
                         model,
                     } => {
+                        if let Some(assistant_id) =
+                            stream_message_ids.as_ref().map(|ids| ids.assistant_id.as_str())
+                        {
+                            patch_recorder.begin_step(
+                                &stream_session_id,
+                                assistant_id,
+                                &root_dir,
+                                step_index,
+                            );
+                        }
                         serde_json::json!({
                             "type": "chat.step_start",
                             "step_index": step_index,
@@ -377,6 +547,16 @@ async fn start_gateway_chat_stream(
                         })
                     }
                     agent_session::processor::StreamEvent::PostToolRound { step_index } => {
+                        if let Some(assistant_id) =
+                            stream_message_ids.as_ref().map(|ids| ids.assistant_id.as_str())
+                        {
+                            patch_recorder.finish_tool_round(
+                                &stream_session_id,
+                                assistant_id,
+                                &root_dir,
+                                step_index,
+                            );
+                        }
                         serde_json::json!({
                             "type": "chat.post_tool_round",
                             "step_index": step_index
@@ -386,26 +566,20 @@ async fn start_gateway_chat_stream(
                         let (message_id, parent_message_id) = if !stream_session_id.is_empty()
                             && !(resume_history_only && query.trim().is_empty())
                         {
-                            if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                                let stream_message_ids = stream_message_ids.clone();
-                                match tokio::task::block_in_place(|| {
-                                    handle.block_on(persist_stream_chat_turn(
-                                        &stream_session_id,
-                                        &query,
-                                        &assistant_text,
-                                        assistant_model.as_deref(),
-                                        &usage,
-                                        assistant_finish_reason.as_deref(),
-                                        stream_message_ids.as_ref(),
-                                    ))
-                                }) {
-                                    Ok((assistant_id, user_id)) => {
-                                        (Some(assistant_id), Some(user_id))
-                                    }
-                                    Err(_) => (None, None),
-                                }
-                            } else {
-                                (None, None)
+                            let stream_message_ids = stream_message_ids.clone();
+                            let patch_parts = patch_recorder.take_parts();
+                            match runtime_handle.block_on(persist_stream_chat_turn(
+                                &stream_session_id,
+                                &query,
+                                &assistant_text,
+                                assistant_model.as_deref(),
+                                &usage,
+                                assistant_finish_reason.as_deref(),
+                                stream_message_ids.as_ref(),
+                                &patch_parts,
+                            )) {
+                                Ok((assistant_id, user_id)) => (Some(assistant_id), Some(user_id)),
+                                Err(_) => (None, None),
                             }
                         } else {
                             (None, None)
@@ -566,6 +740,7 @@ fn token_info_from_usage(usage: &ui_models::TokenUsage) -> agent_session::messag
 /// * `usage` - token 使用量。
 /// * `finish_reason` - 可选完成原因。
 /// * `preallocated_ids` - 可选预分配消息 id。
+/// * `extra_assistant_parts` - 本轮附加到 assistant 消息的回滚追踪片段。
 ///
 /// # 返回值
 ///
@@ -582,6 +757,7 @@ pub(super) async fn persist_stream_chat_turn(
     usage: &ui_models::TokenUsage,
     finish_reason: Option<&str>,
     preallocated_ids: Option<&StreamTurnMessageIds>,
+    extra_assistant_parts: &[agent_session::message::Part],
 ) -> Result<(String, String), ApiError> {
     let model_ref = split_stream_model_ref(model);
     let now = agent_session::session::now_ms();
@@ -671,6 +847,14 @@ pub(super) async fn persist_stream_chat_turn(
     agent_session::message::update_part(&assistant_part)
         .await
         .map_err(|err| ApiError::internal(err.to_string()))?;
+    for part in extra_assistant_parts {
+        agent_session::message::update_part(part)
+            .await
+            .map_err(|err| ApiError::internal(err.to_string()))?;
+    }
+    if !extra_assistant_parts.is_empty() {
+        let _ = agent_session::summary::refresh_session_diff_summary(session_id).await;
+    }
 
     Ok((assistant_id, user_id))
 }

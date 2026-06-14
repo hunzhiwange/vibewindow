@@ -15,7 +15,7 @@ use iced::widget::{button, column, row, text};
 use iced::{Alignment, Background, Border, Color, Element, Length, Theme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ToolGroup {
+pub(super) enum ToolGroup {
     Files,
     Search,
     Execute,
@@ -27,27 +27,27 @@ enum ToolGroup {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct ToolMeta {
-    name: &'static str,
-    description: &'static str,
-    group: ToolGroup,
+pub(super) struct ToolMeta {
+    pub(super) name: &'static str,
+    pub(super) description: &'static str,
+    pub(super) group: ToolGroup,
 }
 
 #[derive(Debug, Clone, Copy)]
-struct ToolGroupMeta {
-    group: ToolGroup,
-    label: &'static str,
-    description: &'static str,
+pub(super) struct ToolGroupMeta {
+    pub(super) group: ToolGroup,
+    pub(super) label: &'static str,
+    pub(super) description: &'static str,
 }
 
 #[derive(Debug, Clone, Copy)]
-struct ToolPresetMeta {
-    key: &'static str,
-    label: &'static str,
-    description: &'static str,
+pub(super) struct ToolPresetMeta {
+    pub(super) key: &'static str,
+    pub(super) label: &'static str,
+    pub(super) description: &'static str,
 }
 
-fn tool_card_button_style(
+pub(super) fn tool_card_button_style(
     theme: &Theme,
     status: iced::widget::button::Status,
     is_selected: bool,
@@ -91,11 +91,11 @@ fn tool_card_button_style(
     }
 }
 
-fn tool_matches_any(tool_id: &str, candidates: &[&str]) -> bool {
+pub(super) fn tool_matches_any(tool_id: &str, candidates: &[&str]) -> bool {
     candidates.iter().any(|candidate| tool_id == *candidate)
 }
 
-fn tool_group_meta(group: ToolGroup) -> ToolGroupMeta {
+pub(super) fn tool_group_meta(group: ToolGroup) -> ToolGroupMeta {
     match group {
         ToolGroup::Files => {
             ToolGroupMeta {
@@ -140,7 +140,7 @@ fn tool_group_meta(group: ToolGroup) -> ToolGroupMeta {
     }
 }
 
-fn tool_group_order() -> [ToolGroup; 8] {
+pub(super) fn tool_group_order() -> [ToolGroup; 8] {
     [
         ToolGroup::Files,
         ToolGroup::Search,
@@ -153,7 +153,7 @@ fn tool_group_order() -> [ToolGroup; 8] {
     ]
 }
 
-fn tool_preset_meta() -> [ToolPresetMeta; 5] {
+pub(super) fn tool_preset_meta() -> [ToolPresetMeta; 5] {
     [
         ToolPresetMeta {
             key: "minimal", label: "最小", description: "只保留只读分析能力。"
@@ -245,11 +245,11 @@ pub(super) fn tool_in_preset(tool_id: &str, preset_key: &str) -> bool {
     }
 }
 
-fn preset_tool_count(available_tools: &[String], preset_key: &str) -> usize {
+pub(super) fn preset_tool_count(available_tools: &[String], preset_key: &str) -> usize {
     available_tools.iter().filter(|tool_id| tool_in_preset(tool_id, preset_key)).count()
 }
 
-fn tool_meta(tool_id: &str) -> ToolMeta {
+pub(super) fn tool_meta(tool_id: &str) -> ToolMeta {
     match tool_id {
         "read" | "file_read" => ToolMeta {
             name: "读取文件",
@@ -539,7 +539,7 @@ fn tool_meta(tool_id: &str) -> ToolMeta {
     }
 }
 
-fn tool_english_name(tool_id: &str) -> String {
+pub(super) fn tool_english_name(tool_id: &str) -> String {
     tool_id
         .split(['_', '-'])
         .filter(|segment| !segment.is_empty())

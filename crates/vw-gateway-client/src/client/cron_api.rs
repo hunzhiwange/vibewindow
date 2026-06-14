@@ -261,3 +261,7 @@ impl GatewayClient {
         self.delete_empty(&format!("/v1/cron/{job_id}"), &[]).await
     }
 }
+
+#[cfg(test)]
+#[path = "cron_api_tests.rs"]
+mod cron_api_tests;

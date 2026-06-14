@@ -7,7 +7,7 @@
 //!
 //! - **SSE 事件流端点**：提供 `GET /api/events` 端点，客户端可通过该端点建立长连接，
 //!   实时接收代理运行时产生的各类事件
-//! - **认证保护**：支持配对认证机制，未认证的客户端将被拒绝访问
+//! - **认证保护**：支持可选 skey Bearer 鉴权，未认证的客户端将被拒绝访问
 //! - **事件广播观察器**：`BroadcastObserver` 实现了 `Observer` trait，将观测事件
 //!   转发到广播通道，供所有已连接的 SSE 客户端消费
 //!
@@ -21,7 +21,7 @@
 //! ```text
 //! 客户端请求：
 //!   GET /api/events
-//!   Authorization: Bearer <token>
+//!   Authorization: Bearer <skey>
 //!
 //! 服务器响应：
 //!   Content-Type: text/event-stream
@@ -33,7 +33,7 @@
 use super::AppState;
 use axum::{
     extract::State,
-    http::{HeaderMap, StatusCode, header},
+    http::{HeaderMap, StatusCode},
     response::{
         IntoResponse,
         sse::{Event, KeepAlive, Sse},
@@ -50,15 +50,15 @@ use tokio_stream::wrappers::BroadcastStream;
 ///
 /// # 认证机制
 ///
-/// 如果系统启用了配对认证（pairing），客户端必须在请求头中提供有效的
-/// `Authorization: Bearer <token>` 令牌。未认证的请求将返回 401 未授权错误。
+/// 如果系统启用了 skey 鉴权，客户端必须在请求头中提供有效的
+/// `Authorization: Bearer <skey>`。未认证的请求将返回 401 未授权错误。
 ///
 /// # 参数
 ///
 /// - `State(state)`: Axum 状态提取器，包含应用程序共享状态 `AppState`
-///   - `state.pairing`: 配对认证管理器，用于验证客户端身份
+///   - `state.pairing`: skey 鉴权管理器，用于验证客户端身份
 ///   - `state.event_tx`: 广播通道发送端，用于订阅事件流
-/// - `headers`: HTTP 请求头，用于提取认证令牌
+/// - `headers`: HTTP 请求头，用于提取 skey
 ///
 /// # 返回值
 ///
@@ -77,7 +77,7 @@ use tokio_stream::wrappers::BroadcastStream;
 /// // 客户端请求
 /// GET /api/events HTTP/1.1
 /// Host: localhost:3000
-/// Authorization: Bearer abc123token
+/// Authorization: Bearer abc123skey
 ///
 /// // 服务器响应（SSE 格式）
 /// HTTP/1.1 200 OK
@@ -91,23 +91,12 @@ pub async fn handle_sse_events(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> impl IntoResponse {
-    // 检查配对认证：如果系统要求配对，验证客户端提供的 Bearer 令牌
-    if state.pairing.require_pairing() {
-        // 从 Authorization 头中提取 Bearer 令牌
-        let token = headers
-            .get(header::AUTHORIZATION)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|auth| auth.strip_prefix("Bearer "))
-            .unwrap_or("");
-
-        // 验证令牌有效性，无效则拒绝访问
-        if !state.pairing.is_authenticated(token) {
-            return (
-                StatusCode::UNAUTHORIZED,
-                "Unauthorized — provide Authorization: Bearer <token>",
-            )
-                .into_response();
-        }
+    if state.pairing.auth_enabled()
+        && super::api::auth::extract_auth_skey(&headers)
+            .is_none_or(|skey| !state.pairing.is_authenticated(skey))
+    {
+        return (StatusCode::UNAUTHORIZED, "Unauthorized — provide Authorization: Bearer <skey>")
+            .into_response();
     }
 
     // 订阅广播通道，获取事件接收端

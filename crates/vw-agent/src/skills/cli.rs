@@ -90,9 +90,13 @@ pub fn handle_command(
             if skills.is_empty() {
                 println!("No skills installed.");
                 println!();
-                println!("  Create one: mkdir -p ~/.vibewindow/workspace/skills/my-skill");
                 println!(
-                    "              echo '# My Skill' > ~/.vibewindow/workspace/skills/my-skill/SKILL.md"
+                    "  Create one: mkdir -p {}",
+                    workspace_dir.join("skills").join("my-skill").display()
+                );
+                println!(
+                    "              echo '# My Skill' > {}",
+                    workspace_dir.join("skills").join("my-skill").join("SKILL.md").display()
                 );
                 println!();
                 println!("  Or install: vibewindow skills install <source>");

@@ -22,6 +22,7 @@ fn classify_known_backends() {
     assert_eq!(classify_memory_backend("postgres"), MemoryBackendKind::Postgres);
     assert_eq!(classify_memory_backend("mariadb"), MemoryBackendKind::Mariadb);
     assert_eq!(classify_memory_backend("mysql"), MemoryBackendKind::Mariadb);
+    assert_eq!(classify_memory_backend("qdrant"), MemoryBackendKind::Qdrant);
     assert_eq!(classify_memory_backend("markdown"), MemoryBackendKind::Markdown);
     assert_eq!(classify_memory_backend("none"), MemoryBackendKind::None);
 }
@@ -34,6 +35,20 @@ fn classify_known_backends() {
 #[test]
 fn classify_unknown_backend() {
     assert_eq!(classify_memory_backend("redis"), MemoryBackendKind::Unknown);
+    assert_eq!(classify_memory_backend(" SQLITE "), MemoryBackendKind::Unknown);
+    assert_eq!(classify_memory_backend("MYSQL"), MemoryBackendKind::Unknown);
+}
+
+#[test]
+fn default_backend_key_is_sqlite() {
+    assert_eq!(default_memory_backend_key(), "sqlite");
+}
+
+#[test]
+fn selectable_backends_are_stable_user_facing_choices() {
+    let keys: Vec<_> = selectable_memory_backends().iter().map(|profile| profile.key).collect();
+
+    assert_eq!(keys, vec!["sqlite", "lucid", "markdown", "none"]);
 }
 
 /// 测试 Lucid 后端的配置属性
@@ -64,4 +79,38 @@ fn unknown_profile_preserves_extensibility_defaults() {
     assert_eq!(profile.key, "custom");
     assert!(profile.auto_save_default);
     assert!(!profile.uses_sqlite_hygiene);
+}
+
+#[test]
+fn profiles_cover_all_classified_backends() {
+    let cases = [
+        ("sqlite", "sqlite", true, true, true, false),
+        ("lucid", "lucid", true, true, true, true),
+        ("postgres", "postgres", true, false, false, true),
+        ("mariadb", "mariadb", true, false, false, true),
+        ("mysql", "mariadb", true, false, false, true),
+        ("qdrant", "qdrant", true, false, false, false),
+        ("markdown", "markdown", true, false, false, false),
+        ("none", "none", false, false, false, false),
+        ("custom-backend", "custom", true, false, false, false),
+    ];
+
+    for (
+        input,
+        expected_key,
+        auto_save_default,
+        uses_sqlite_hygiene,
+        sqlite_based,
+        optional_dependency,
+    ) in cases
+    {
+        let profile = memory_backend_profile(input);
+
+        assert_eq!(profile.key, expected_key, "input={input}");
+        assert_eq!(profile.auto_save_default, auto_save_default, "input={input}");
+        assert_eq!(profile.uses_sqlite_hygiene, uses_sqlite_hygiene, "input={input}");
+        assert_eq!(profile.sqlite_based, sqlite_based, "input={input}");
+        assert_eq!(profile.optional_dependency, optional_dependency, "input={input}");
+        assert!(!profile.label.trim().is_empty(), "input={input}");
+    }
 }

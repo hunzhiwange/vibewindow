@@ -60,11 +60,8 @@ fn transform_recursive(value: &mut JsonValue) -> Result<()> {
             }
 
             // 递归到所有值
-            let keys: Vec<String> = map.keys().cloned().collect();
-            for key in keys {
-                if let Some(val) = map.get_mut(&key) {
-                    transform_recursive(val)?;
-                }
+            for val in map.values_mut() {
+                transform_recursive(val)?;
             }
         }
         JsonValue::Array(arr) => {

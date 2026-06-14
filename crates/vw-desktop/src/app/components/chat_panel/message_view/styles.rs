@@ -10,14 +10,14 @@ use crate::app::Message;
 use crate::app::components::animated_text::neutral_sweep_text_color;
 use crate::app::components::status_animation::spinner_frame;
 
-use super::super::utils::{chat_secondary_subtle_text_color, chat_secondary_text_color};
+use super::super::utils::chat_secondary_text_color;
 
 pub(super) const MESSAGE_TEXT_SIZE: f32 = 15.0;
 pub(super) const MESSAGE_META_TEXT_SIZE: f32 = 13.0;
 pub(super) const THINK_STATUS_TEXT_SIZE: f32 = 13.0;
 pub(super) const THINK_META_TEXT_SIZE: f32 = 12.0;
-pub(super) const COMPACT_ACTION_BUTTON_SIZE: f32 = 13.0;
-pub(super) const COMPACT_ACTION_BUTTON_RADIUS: f32 = 6.0;
+pub(super) const COMPACT_ACTION_BUTTON_SIZE: f32 = 15.0;
+pub(super) const COMPACT_ACTION_BUTTON_RADIUS: f32 = 5.0;
 
 pub(super) fn is_dark_theme(theme: &Theme) -> bool {
     theme.palette().background.r + theme.palette().background.g + theme.palette().background.b < 1.5
@@ -29,15 +29,15 @@ pub(super) fn think_block_text_color(theme: &Theme) -> Color {
 
 pub(super) fn subtle_card_shadow(theme: &Theme) -> iced::Shadow {
     iced::Shadow {
-        color: Color::BLACK.scale_alpha(if is_dark_theme(theme) { 0.14 } else { 0.04 }),
-        offset: iced::Vector::new(0.0, 8.0),
-        blur_radius: 22.0,
+        color: Color::BLACK.scale_alpha(if is_dark_theme(theme) { 0.10 } else { 0.03 }),
+        offset: iced::Vector::new(0.0, 6.0),
+        blur_radius: 18.0,
     }
 }
 
 pub(super) fn neutral_card_surface(theme: &Theme) -> (Color, Color) {
     if is_dark_theme(theme) {
-        (Color::from_rgba8(20, 21, 24, 0.94), Color::from_rgba8(44, 47, 53, 0.92))
+        (Color::from_rgba8(24, 25, 28, 0.78), Color::from_rgba8(50, 53, 59, 0.70))
     } else {
         (Color::from_rgba8(252, 252, 253, 1.0), Color::from_rgba8(226, 231, 237, 1.0))
     }
@@ -45,9 +45,9 @@ pub(super) fn neutral_card_surface(theme: &Theme) -> (Color, Color) {
 
 pub(super) fn user_bubble_surface(theme: &Theme) -> (Color, Color) {
     if is_dark_theme(theme) {
-        (Color::from_rgba8(28, 30, 34, 0.96), Color::from_rgba8(45, 48, 54, 0.94))
+        (Color::from_rgba8(36, 37, 40, 0.92), Color::from_rgba8(54, 56, 61, 0.78))
     } else {
-        (Color::from_rgba8(245, 246, 248, 1.0), Color::from_rgba8(228, 232, 238, 1.0))
+        (Color::from_rgba8(243, 244, 246, 1.0), Color::from_rgba8(231, 234, 239, 0.88))
     }
 }
 
@@ -82,25 +82,25 @@ pub(super) fn thinking_status_text<'a>(
 }
 
 pub(super) fn message_text_line_height() -> iced::widget::text::LineHeight {
-    iced::widget::text::LineHeight::Relative(1.68)
+    iced::widget::text::LineHeight::Relative(1.62)
 }
 
 pub(super) fn message_body_text_color(theme: &Theme, is_user: bool) -> Color {
     if is_user {
-        theme.palette().text.scale_alpha(if is_dark_theme(theme) { 0.96 } else { 0.94 })
+        theme.palette().text.scale_alpha(if is_dark_theme(theme) { 0.96 } else { 0.90 })
     } else {
-        chat_secondary_text_color(theme)
+        theme.palette().text.scale_alpha(if is_dark_theme(theme) { 0.91 } else { 0.88 })
     }
 }
 
 pub(super) fn message_meta_text_color(theme: &Theme, is_user: bool) -> Color {
     if is_user {
         if is_dark_theme(theme) {
-            theme.palette().text.scale_alpha(0.52)
+            theme.palette().text.scale_alpha(0.50)
         } else {
             theme.extended_palette().secondary.base.text.scale_alpha(0.72)
         }
     } else {
-        chat_secondary_subtle_text_color(theme)
+        theme.palette().text.scale_alpha(if is_dark_theme(theme) { 0.46 } else { 0.48 })
     }
 }

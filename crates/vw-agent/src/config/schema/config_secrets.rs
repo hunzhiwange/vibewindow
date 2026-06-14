@@ -123,6 +123,9 @@ pub(crate) fn decrypt_config_secrets(config: &mut Config, vibewindow_dir: &Path)
         "config.reliability.fallback_api_keys",
     )?;
     decrypt_vec_secrets(&store, &mut config.gateway.paired_tokens, "config.gateway.paired_tokens")?;
+    for route in &mut config.embedding_routes {
+        decrypt_optional_secret(&store, &mut route.api_key, "config.embedding_routes.*.api_key")?;
+    }
     for agent in config.agents.values_mut() {
         decrypt_optional_secret(&store, &mut agent.api_key, "config.agents.*.api_key")?;
     }
@@ -192,6 +195,10 @@ pub(crate) fn encrypt_config_secrets(config_to_save: &mut Config) -> Result<()> 
         &mut config_to_save.gateway.paired_tokens,
         "config.gateway.paired_tokens",
     )?;
+
+    for route in &mut config_to_save.embedding_routes {
+        encrypt_optional_secret(&store, &mut route.api_key, "config.embedding_routes.*.api_key")?;
+    }
 
     for agent in config_to_save.agents.values_mut() {
         encrypt_optional_secret(&store, &mut agent.api_key, "config.agents.*.api_key")?;

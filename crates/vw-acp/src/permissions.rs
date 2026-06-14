@@ -131,6 +131,20 @@ fn prompt_for_tool_permission(params: &RequestPermissionRequest) -> Result<bool,
     })
 }
 
+fn response_for_prompt_decision(
+    approved: bool,
+    allow_option: Option<&PermissionOption>,
+    reject_option: Option<&PermissionOption>,
+) -> RequestPermissionResponse {
+    if approved && let Some(option) = allow_option {
+        return selected(option.option_id.to_string());
+    }
+    if !approved && let Some(option) = reject_option {
+        return selected(option.option_id.to_string());
+    }
+    cancelled()
+}
+
 pub fn permission_mode_satisfies(actual: PermissionMode, required: PermissionMode) -> bool {
     permission_mode_rank(actual) >= permission_mode_rank(required)
 }
@@ -187,14 +201,11 @@ pub fn resolve_permission_request(
             .unwrap_or_else(cancelled));
     }
 
-    let approved = prompt_for_tool_permission(params).unwrap_or(false);
-    if approved && let Some(option) = allow_option {
-        return Ok(selected(option.option_id.to_string()));
-    }
-    if !approved && let Some(option) = reject_option {
-        return Ok(selected(option.option_id.to_string()));
-    }
-    Ok(cancelled())
+    Ok(response_for_prompt_decision(
+        prompt_for_tool_permission(params).unwrap_or(false),
+        allow_option,
+        reject_option,
+    ))
 }
 
 pub fn classify_permission_decision(

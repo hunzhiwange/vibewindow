@@ -205,3 +205,7 @@ fn now_ms() -> u64 {
 fn sql_error(error: rusqlite::Error) -> ApiError {
     ApiError::internal(format!("workflow sqlite error: {error}"))
 }
+
+#[cfg(test)]
+#[path = "workflow_store_tests.rs"]
+mod workflow_store_tests;

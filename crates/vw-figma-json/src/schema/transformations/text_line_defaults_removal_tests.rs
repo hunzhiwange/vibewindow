@@ -365,3 +365,102 @@ fn test_multiple_all_default_lines() {
     // 所有行均为默认行，因此应删除整个行数组
     assert!(tree["textData"].get("lines").is_none());
 }
+
+#[test]
+fn test_non_array_lines_field_is_preserved() {
+    let mut tree = json!({
+        "textData": {
+            "characters": "Hello",
+            "lines": "not-an-array"
+        }
+    });
+
+    remove_default_text_line_properties(&mut tree).unwrap();
+
+    assert_eq!(tree["textData"]["lines"].as_str(), Some("not-an-array"));
+    assert_eq!(tree["textData"]["characters"].as_str(), Some("Hello"));
+}
+
+#[test]
+fn test_non_object_line_entries_keep_lines_array() {
+    let mut tree = json!({
+        "textData": {
+            "characters": "Mixed",
+            "lines": [
+                "not-an-object",
+                {
+                    "indentationLevel": 0,
+                    "isFirstLineOfList": false,
+                    "lineType": "PLAIN",
+                    "listStartOffset": 0,
+                    "sourceDirectionality": "AUTO",
+                    "styleId": 0
+                }
+            ]
+        }
+    });
+
+    remove_default_text_line_properties(&mut tree).unwrap();
+
+    let lines = tree["textData"]["lines"].as_array().unwrap();
+    assert_eq!(lines[0].as_str(), Some("not-an-object"));
+    assert!(lines[1].as_object().unwrap().is_empty());
+}
+
+#[test]
+fn test_preserve_non_default_source_directionality() {
+    let mut tree = json!({
+        "textData": {
+            "characters": "RTL",
+            "lines": [
+                {
+                    "indentationLevel": 0,
+                    "isFirstLineOfList": false,
+                    "lineType": "PLAIN",
+                    "listStartOffset": 0,
+                    "sourceDirectionality": "RTL",
+                    "styleId": 0
+                }
+            ]
+        }
+    });
+
+    remove_default_text_line_properties(&mut tree).unwrap();
+
+    let lines = tree["textData"]["lines"].as_array().unwrap();
+    assert_eq!(lines[0]["sourceDirectionality"].as_str(), Some("RTL"));
+    assert!(lines[0].get("indentationLevel").is_none());
+    assert!(lines[0].get("isFirstLineOfList").is_none());
+    assert!(lines[0].get("lineType").is_none());
+    assert!(lines[0].get("listStartOffset").is_none());
+    assert!(lines[0].get("styleId").is_none());
+}
+
+#[test]
+fn test_preserve_default_named_fields_with_unexpected_types() {
+    let mut tree = json!({
+        "textData": {
+            "characters": "Typed",
+            "lines": [
+                {
+                    "indentationLevel": "0",
+                    "isFirstLineOfList": "false",
+                    "lineType": 0,
+                    "listStartOffset": "0",
+                    "sourceDirectionality": false,
+                    "styleId": "0"
+                }
+            ]
+        }
+    });
+
+    remove_default_text_line_properties(&mut tree).unwrap();
+
+    let line = &tree["textData"]["lines"][0];
+    assert_eq!(line["indentationLevel"].as_str(), Some("0"));
+    assert_eq!(line["isFirstLineOfList"].as_str(), Some("false"));
+    assert_eq!(line["lineType"].as_i64(), Some(0));
+    assert_eq!(line["listStartOffset"].as_str(), Some("0"));
+    assert_eq!(line["sourceDirectionality"].as_bool(), Some(false));
+    assert_eq!(line["styleId"].as_str(), Some("0"));
+}

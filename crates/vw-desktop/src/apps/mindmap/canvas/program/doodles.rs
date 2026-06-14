@@ -26,7 +26,7 @@ pub(super) fn draw_committed_doodles(frame: &mut Frame, canvas: &MindMapCanvas<'
 
         let stroke = Stroke {
             style: rgba_u32_to_color(stroke_data.rgba).into(),
-            width: stroke_data.width_px.clamp(1.0, 18.0),
+            width: doodle_stroke_width(stroke_data.width_px),
             line_cap: LineCap::Round,
             ..Stroke::default()
         };
@@ -56,7 +56,7 @@ pub(super) fn draw_active_doodle(
 
     let stroke = Stroke {
         style: rgba_u32_to_color(canvas.doodle_rgba).into(),
-        width: canvas.doodle_width_px.clamp(1.0, 18.0),
+        width: doodle_stroke_width(canvas.doodle_width_px),
         line_cap: LineCap::Round,
         ..Stroke::default()
     };
@@ -73,4 +73,8 @@ pub(super) fn draw_eraser(frame: &mut Frame, cursor_pos: iced::Point, radius: f3
         &circle,
         Stroke::default().with_color(Color::from_rgba8(17, 24, 39, 0.35)).with_width(1.0),
     );
+}
+
+pub(super) fn doodle_stroke_width(width_px: f32) -> f32 {
+    width_px.clamp(1.0, 18.0)
 }

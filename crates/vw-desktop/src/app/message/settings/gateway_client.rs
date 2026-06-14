@@ -38,9 +38,6 @@ fn sync_selected_server_from_inputs(app: &mut App) {
         name: normalize_name(&settings.name_input, index),
         host: normalize_host(&settings.host_input),
         port: settings.port.clamp(1, u16::MAX),
-        bearer_token: settings.bearer_token_input.trim().to_string(),
-        username: settings.username_input.trim().to_string(),
-        password: settings.password_input.trim().to_string(),
         skey: settings.skey_input.trim().to_string(),
     };
     app.gateway_client_settings.servers[index] = draft;
@@ -54,9 +51,6 @@ fn load_selected_server_into_inputs(app: &mut App) {
     app.gateway_client_settings.name_input = draft.name;
     app.gateway_client_settings.host_input = normalize_host(&draft.host);
     app.gateway_client_settings.port = draft.port.clamp(1, u16::MAX);
-    app.gateway_client_settings.bearer_token_input = draft.bearer_token;
-    app.gateway_client_settings.username_input = draft.username;
-    app.gateway_client_settings.password_input = draft.password;
     app.gateway_client_settings.skey_input = draft.skey;
 }
 
@@ -135,9 +129,6 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
                 name: format!("网关 {}", index + 1),
                 host: "127.0.0.1".to_string(),
                 port: 42617,
-                bearer_token: String::new(),
-                username: String::new(),
-                password: String::new(),
                 skey: String::new(),
             };
             app.gateway_client_settings.servers.push(draft);
@@ -188,15 +179,6 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         }
         GatewayClientMessage::PortChanged(value) => {
             app.gateway_client_settings.port = value.clamp(1, u16::MAX);
-        }
-        GatewayClientMessage::BearerTokenChanged(value) => {
-            app.gateway_client_settings.bearer_token_input = value
-        }
-        GatewayClientMessage::UsernameChanged(value) => {
-            app.gateway_client_settings.username_input = value
-        }
-        GatewayClientMessage::PasswordChanged(value) => {
-            app.gateway_client_settings.password_input = value
         }
         GatewayClientMessage::SkeyChanged(value) => app.gateway_client_settings.skey_input = value,
         GatewayClientMessage::HelpOpen => {

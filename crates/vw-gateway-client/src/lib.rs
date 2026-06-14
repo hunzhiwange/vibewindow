@@ -92,7 +92,7 @@ pub use vw_api_types::cleaner::{
     CleanerScanGroup, CleanerScanItem, CleanerScanReport, CleanerStatusResponse,
 };
 pub use vw_api_types::knowledge::{
-    KnowledgeChunkDto, KnowledgeDatasetCreateRequest, KnowledgeDatasetDto,
+    KnowledgeChunkDto, KnowledgeChunkingMode, KnowledgeDatasetCreateRequest, KnowledgeDatasetDto,
     KnowledgeDocumentCreateRequest, KnowledgeDocumentDto, KnowledgeIndexingMode,
     KnowledgeRetrievalMode, KnowledgeRetrieveRequest, KnowledgeRetrieveResponse,
     KnowledgeRuntimeStatus,

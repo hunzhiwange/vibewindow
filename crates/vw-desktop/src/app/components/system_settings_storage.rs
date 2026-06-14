@@ -185,3 +185,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     content.into()
 }
+#[cfg(test)]
+#[path = "system_settings_storage_tests.rs"]
+mod system_settings_storage_tests;

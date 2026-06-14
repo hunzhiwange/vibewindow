@@ -166,6 +166,10 @@ pub(crate) use routing::*;
 pub(crate) use runtime_command::*;
 pub(crate) use session::*;
 
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+
 use crate::app::agent::agent::loop_::{
     build_shell_policy_instructions, build_tool_instructions_from_specs, scrub_credentials,
 };

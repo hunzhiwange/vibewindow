@@ -34,3 +34,15 @@ fn usage_data_counts_tool_messages_separately() {
     assert_eq!(usage.system_msgs, 1);
     assert_eq!(usage.tool_msgs, 1);
 }
+
+#[test]
+fn usage_view_constructs_from_app_state() {
+    let (mut app, _task) = App::new();
+    app.chat = vec![ChatMessage {
+        role: ChatRole::User,
+        content: "统计一下".to_string(),
+        think_timing: Vec::new(),
+    }];
+
+    let _element = super::view(&app);
+}

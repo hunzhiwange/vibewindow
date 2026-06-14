@@ -215,3 +215,7 @@ async fn summarize_result(
         .await
         .map_err(|e| ApiError::bad_request(format!("AI 总结失败: {e}")))
 }
+
+#[cfg(test)]
+#[path = "data_ai_support_tests.rs"]
+mod data_ai_support_tests;

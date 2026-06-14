@@ -3,10 +3,10 @@ use crate::app::assets::Icon;
 
 #[test]
 fn file_icon_for_uses_extension_mapping() {
-    assert_ne!(
-        format!("{:?}", file_icon_for("main.rs")),
-        format!("{:?}", file_icon_for("README.md"))
-    );
+    assert_eq!(file_icon_for("main.rs"), Icon::Rust);
+    assert_eq!(file_icon_for("README.MD"), Icon::Markdown);
+    assert_eq!(file_icon_for("config.yml"), Icon::Yaml);
+    assert_eq!(file_icon_for("unknown.bin"), Icon::Document);
 }
 
 #[test]

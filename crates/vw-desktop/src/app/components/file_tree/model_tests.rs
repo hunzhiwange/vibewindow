@@ -157,3 +157,17 @@ fn empty_model_reports_no_entries() {
     let tree = FileTreeNode::default();
     assert!(!tree.has_entries());
 }
+
+#[test]
+fn build_file_tree_model_normalizes_dots_and_backslashes() {
+    let files = vec![
+        ".\\src\\main.rs".to_string(),
+        "./src/lib.rs".to_string(),
+        "/tmp/demo/./README.md".to_string(),
+    ];
+
+    let tree = build_file_tree_model("/tmp/demo", &files);
+
+    assert!(tree.files.contains(&"README.md".to_string()));
+    assert!(tree.children.contains_key("src"));
+}

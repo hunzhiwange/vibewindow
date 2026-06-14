@@ -58,3 +58,5 @@ target/
 **/MEMORY_SNAPSHOT.md
 
 /local-temp/
+
+.codegraph

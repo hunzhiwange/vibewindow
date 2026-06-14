@@ -18,8 +18,10 @@ fn auth_filepath() -> std::path::PathBuf {
         .unwrap_or_else(|| std::path::PathBuf::from("."));
     let data = base
         .as_ref()
-        .map(|b| std::path::PathBuf::from(b.data_dir()).join("vibewindow"))
-        .unwrap_or_else(|| home.join(".local").join("share").join("vibewindow"));
+        .map(|b| std::path::PathBuf::from(b.data_dir()).join(vw_config_types::paths::APP_DIR_NAME))
+        .unwrap_or_else(|| {
+            home.join(".local").join("share").join(vw_config_types::paths::APP_DIR_NAME)
+        });
     shared_auth::store::resolve_filepath(&home, &data)
 }
 

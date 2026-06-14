@@ -30,6 +30,9 @@ mod deletes_tests;
 #[path = "inserts_tests.rs"]
 mod inserts_tests;
 #[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;
+#[cfg(test)]
 #[path = "replaces_tests.rs"]
 mod replaces_tests;
 #[cfg(test)]

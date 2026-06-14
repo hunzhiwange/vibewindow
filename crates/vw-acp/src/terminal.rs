@@ -706,7 +706,12 @@ fn string_array(record: &Map<String, Value>, key: &str) -> Vec<String> {
 
 fn terminal_id_from_request<T: Serialize>(params: &T) -> Result<String, ErrorSource> {
     let record = request_record(params)?;
-    required_string(&record, "terminalId")
+    let terminal_id = required_string(&record, "terminalId")?;
+    let terminal_id = terminal_id.trim();
+    if terminal_id.is_empty() {
+        return Err("Missing required field: terminalId".into());
+    }
+    Ok(terminal_id.to_string())
 }
 
 fn terminal_id_from_response(response: &CreateTerminalResponse) -> Result<String, ErrorSource> {

@@ -125,13 +125,16 @@ pub struct GatewayClientServerConfig {
     pub host: String,
     #[serde(default = "default_gateway_client_port")]
     pub port: u16,
-    #[serde(default)]
+    /// 旧版 `bearer_token` 字段，仅用于读取旧配置并迁移到 skey。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub bearer_token: String,
-    #[serde(default)]
+    /// 旧版用户名字段，仅用于读取旧配置。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub username: String,
-    #[serde(default)]
+    /// 旧版密码字段，仅用于读取旧配置。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub password: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub skey: String,
 }
 
@@ -141,13 +144,16 @@ pub struct GatewayClientSystemSettingsConfig {
     pub host: String,
     #[serde(default = "default_gateway_client_port")]
     pub port: u16,
-    #[serde(default)]
+    /// 旧版 `bearer_token` 字段，仅用于读取旧配置并迁移到 skey。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub bearer_token: String,
-    #[serde(default)]
+    /// 旧版用户名字段，仅用于读取旧配置。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub username: String,
-    #[serde(default)]
+    /// 旧版密码字段，仅用于读取旧配置。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub password: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub skey: String,
     #[serde(default)]
     pub active_server_id: String,

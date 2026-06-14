@@ -135,6 +135,15 @@ fn test_handles_empty_object() {
 }
 
 #[test]
+fn test_handles_primitive_value() {
+    let mut tree = json!("STRETCH");
+
+    remove_stack_child_properties(&mut tree).unwrap();
+
+    assert_eq!(tree.as_str(), Some("STRETCH"));
+}
+
+#[test]
 fn test_preserves_other_fields() {
     let mut tree = json!({
         "name": "Button",

@@ -53,7 +53,7 @@ fn persist_embedding_routes_settings(app: &mut App) -> Option<Task<Message>> {
             provider,
             model,
             dimensions,
-            api_key: None,
+            api_key: trim_to_option(&draft.api_key_input),
         });
     }
 
@@ -116,6 +116,13 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
                     app.embedding_routes_settings.save_error = None;
                     app.embedding_routes_settings.save_success = false;
                 }
+                EmbeddingRoutesMessage::ApiKeyChanged(index, value) => {
+                    if let Some(route) = app.embedding_routes_settings.routes.get_mut(index) {
+                        route.api_key_input = value;
+                    }
+                    app.embedding_routes_settings.save_error = None;
+                    app.embedding_routes_settings.save_success = false;
+                }
                 EmbeddingRoutesMessage::Save => {
                     return persist_embedding_routes_settings(app).unwrap_or_else(Task::none);
                 }
@@ -125,4 +132,9 @@ pub fn update(app: &mut App, message: SettingsMessage) -> Task<Message> {
         }
         _ => Task::none(),
     }
+}
+
+fn trim_to_option(value: &str) -> Option<String> {
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_string())
 }

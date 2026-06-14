@@ -794,3 +794,7 @@ impl Memory for LucidMemory {
 #[cfg(all(test, unix))]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

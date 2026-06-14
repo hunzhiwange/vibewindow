@@ -74,7 +74,7 @@ fn task_pet_title(query: &str) -> String {
 fn task_pet_detail(value: &str) -> String {
     let compact = task_pet_compact_detail(value);
     if compact.trim().is_empty() {
-        "执行中...".to_string()
+        "思考中...".to_string()
     } else {
         truncate_for_pet(compact.trim(), 58)
     }

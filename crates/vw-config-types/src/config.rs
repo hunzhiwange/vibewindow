@@ -326,7 +326,7 @@ impl Default for Config {
         let home =
             UserDirs::new().map_or_else(|| PathBuf::from("."), |u| u.home_dir().to_path_buf());
 
-        let vibewindow_dir = home.join(".vibewindow");
+        let vibewindow_dir = crate::paths::home_config_dir(home);
 
         Self {
             workspace_dir: vibewindow_dir.join("workspace"),

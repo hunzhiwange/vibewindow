@@ -94,3 +94,29 @@ fn parse_changes_files_ignores_closing_tag_text_before_changes_block() {
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].path, "src/main.rs");
 }
+
+#[test]
+fn parse_changes_files_returns_empty_for_missing_or_invalid_blocks() {
+    assert!(parse_changes_files("no changes").is_empty());
+    assert!(parse_changes_files("<changes>\nnot-json\n</changes>").is_empty());
+    assert!(parse_changes_files("<changes>\n{\"files\":{}}\n</changes>").is_empty());
+    assert!(
+        parse_changes_files("<changes>\n{\"files\":[{\"additions\":1}]}\n</changes>").is_empty()
+    );
+}
+
+#[test]
+fn parse_changes_file_summaries_classifies_added_deleted_and_modified() {
+    let output = concat!(
+        "<changes>\n",
+        "{\"files\":[",
+        "{\"path\":\"src/new.rs\",\"additions\":2,\"deletions\":0,\"before\":\"\",\"after\":\"new\"},",
+        "{\"path\":\"src/old.rs\",\"additions\":0,\"deletions\":2,\"before\":\"old\",\"after\":\"\"},",
+        "{\"path\":\"src/mod.rs\",\"additions\":1,\"deletions\":1,\"before\":\"old\",\"after\":\"new\"}",
+        "]}\n",
+        "</changes>"
+    );
+
+    let summaries = parse_changes_file_summaries(output);
+    assert_eq!(summaries.iter().map(|item| item.kind).collect::<Vec<_>>(), vec!['A', 'D', 'M']);
+}

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 /// 文件变更状态枚举
 ///
 /// 表示文件在版本控制系统中的状态变化。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Added,

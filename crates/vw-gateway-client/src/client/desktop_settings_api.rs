@@ -48,6 +48,12 @@ pub struct ExternalAppsStateDto {
     pub apps: Vec<(String, bool)>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DesktopServiceCommandResponseDto {
+    pub command: String,
+    pub output: String,
+}
+
 impl GatewayClient {
     /// 读取 Skills 目录页可展示的技能列表。
     pub async fn skills_get(
@@ -246,6 +252,19 @@ impl GatewayClient {
             )
             .await?;
         Ok(())
+    }
+
+    /// 通过 gateway 调用本机 CLI service 生命周期命令。
+    pub async fn desktop_service_command(
+        &self,
+        command: &str,
+    ) -> Result<DesktopServiceCommandResponseDto, String> {
+        self.post_json(
+            &format!("/v1/desktop/service/{}", command.trim().to_ascii_lowercase()),
+            &[],
+            &serde_json::json!({}),
+        )
+        .await
     }
 
     /// 从全局配置中读取桌面系统设置并反序列化。

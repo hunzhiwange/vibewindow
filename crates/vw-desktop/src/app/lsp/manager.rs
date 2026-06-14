@@ -523,7 +523,9 @@ impl TextModel {
     }
 
     fn to_utf16_position(&self, position: LspPosition) -> LspPosition {
-        let line = self.lines.get(position.line as usize).map_or("", String::as_str);
+        let Some(line) = self.lines.get(position.line as usize).map(String::as_str) else {
+            return position;
+        };
         let utf16_col =
             line.chars().take(position.character as usize).map(|ch| ch.len_utf16() as u32).sum();
         LspPosition { line: position.line, character: utf16_col }

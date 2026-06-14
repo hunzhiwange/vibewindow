@@ -3,13 +3,48 @@
 //! 这些测试固定相邻解析器、视图辅助函数或状态计算的行为，防止后续 UI 重排时破坏边界契约。
 
 use super::{
-    available_space_below, compute_overlay_position, layout_with_backdrop,
+    BelowOverlay, available_space_above, available_space_below, compute_overlay_position,
+    layout_with_backdrop,
     should_place_overlay_above,
 };
 /// 重新导出 use iced::advanced::layout，让上层模块通过稳定路径访问。
 use iced::advanced::layout;
+use iced::widget::text;
 /// 重新导出 use iced::{Point, Rectangle, Size}，让上层模块通过稳定路径访问。
-use iced::{Point, Rectangle, Size};
+use iced::{Element, Point, Rectangle, Size};
+
+#[derive(Debug, Clone, PartialEq)]
+enum TestMessage {
+    Close,
+}
+
+fn label(value: &'static str) -> Element<'static, TestMessage> {
+    text(value).into()
+}
+
+#[test]
+fn below_overlay_new_sets_hidden_defaults() {
+    let overlay = BelowOverlay::new(label("content"), label("overlay"));
+
+    assert!(!overlay.show);
+    assert_eq!(overlay.gap, 0.0);
+    assert!(overlay.snap_within_viewport);
+    assert!(overlay.on_close.is_none());
+}
+
+#[test]
+fn below_overlay_builder_updates_all_flags() {
+    let overlay = BelowOverlay::new(label("content"), label("overlay"))
+        .show(true)
+        .gap(9.0)
+        .snap_within_viewport(false)
+        .on_close(TestMessage::Close);
+
+    assert!(overlay.show);
+    assert_eq!(overlay.gap, 9.0);
+    assert!(!overlay.snap_within_viewport);
+    assert_eq!(overlay.on_close, Some(TestMessage::Close));
+}
 
 /// 构建或定位 compute overlay position snaps within viewport，用于把浮层稳定附着到目标控件。
 ///
@@ -61,6 +96,33 @@ fn below_overlay_can_shrink_to_stay_attached_below_target() {
         compute_overlay_position(target_bounds, viewport, shrunk_overlay, 4.0, true, false);
 
     assert_eq!(position, Point::new(180.0, 52.0));
+}
+
+#[test]
+fn should_place_overlay_above_when_below_space_is_worse() {
+    let target_bounds = Rectangle { x: 40.0, y: 160.0, width: 60.0, height: 24.0 };
+    let viewport = Rectangle::with_size(Size::new(300.0, 220.0));
+
+    assert_eq!(available_space_above(target_bounds, viewport, 4.0), 156.0);
+    assert_eq!(available_space_below(target_bounds, viewport, 4.0), 32.0);
+    assert!(should_place_overlay_above(target_bounds, viewport, 80.0, 4.0));
+}
+
+#[test]
+fn compute_overlay_position_can_skip_viewport_snap() {
+    let target_bounds = Rectangle { x: 280.0, y: 190.0, width: 32.0, height: 24.0 };
+    let viewport = Rectangle::with_size(Size::new(300.0, 200.0));
+
+    let position = compute_overlay_position(
+        target_bounds,
+        viewport,
+        Size::new(120.0, 60.0),
+        4.0,
+        false,
+        false,
+    );
+
+    assert_eq!(position, Point::new(280.0, 218.0));
 }
 
 /// 验证 layout with backdrop expands to full viewport 这一行为，确保对应解析或视图契约稳定。

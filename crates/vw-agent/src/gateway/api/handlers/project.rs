@@ -254,7 +254,13 @@ async fn project_list_v1(
         .map(|info| map_project(&info))
         .collect::<Vec<_>>();
     items.sort_by(|left, right| {
-        right.updated_at_ms.0.cmp(&left.updated_at_ms.0).then(left.id.0.cmp(&right.id.0))
+        right
+            .updated_at_ms
+            .0
+            .cmp(&left.updated_at_ms.0)
+            .then_with(|| left.name.cmp(&right.name))
+            .then_with(|| left.directory.cmp(&right.directory))
+            .then_with(|| left.id.0.cmp(&right.id.0))
     });
 
     if let Some(search) = query

@@ -14,6 +14,7 @@
 use iced::widget::tooltip::{Position as TooltipPosition, Tooltip};
 use iced::widget::{Space, button, column, container, mouse_area, row, scrollable, text};
 use iced::{Alignment, Background, Border, Element, Length, Theme};
+use serde_json::Value;
 use std::hash::{Hash, Hasher};
 
 use crate::app::assets::Icon;
@@ -36,7 +37,7 @@ use crate::app::components::chat_panel::utils::{
     simplified_code_block_style, truncate_chars, truncate_lines_middle,
 };
 
-fn copy_content_hash(text: &str) -> u64 {
+pub(super) fn copy_content_hash(text: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     text.hash(&mut hasher);
     hasher.finish()
@@ -58,6 +59,42 @@ fn error_copy_button<'a>(app: &'a App, text: &str) -> Element<'a, Message> {
     .on_press(Message::CopyCode(text.trim().to_string()));
 
     Tooltip::new(button, copy_tooltip_content(label), TooltipPosition::Top).gap(6).into()
+}
+
+pub(super) fn workflow_preview_message(tool_name: &str, value: &Value) -> Option<Message> {
+    if canonical_tool_name(tool_name) != "workflow_node" {
+        return None;
+    }
+    let metadata = value.get("metadata")?.as_object()?;
+    let workflow_yaml = metadata.get("workflow_yaml")?.as_str()?.trim().to_string();
+    if workflow_yaml.is_empty() {
+        return None;
+    }
+    let focus_node_id = metadata
+        .get("node_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+
+    Some(Message::WorkflowTool(crate::apps::workflow::WorkflowMessage::OpenInlineYaml {
+        workflow_yaml,
+        focus_node_id,
+    }))
+}
+
+fn workflow_preview_button<'a>(message: Message) -> Element<'a, Message> {
+    let button = button(
+        icon_svg(Icon::Grid1x2)
+            .width(Length::Fixed(11.0))
+            .height(Length::Fixed(11.0))
+            .style(eye_icon_svg_style),
+    )
+    .padding([2, 4])
+    .style(|theme: &Theme, status| eye_icon_button_style(theme, status))
+    .on_press(message);
+
+    Tooltip::new(button, copy_tooltip_content("预览工作流"), TooltipPosition::Top).gap(6).into()
 }
 
 /// 创建工具文本视图组件
@@ -122,6 +159,9 @@ pub fn tool_text_view<'a>(
 ) -> Option<Element<'a, Message>> {
     let (first, rest) = visible.split_once('\n')?;
     let tool_name = canonical_tool_name(first.trim().strip_prefix("tool ")?.trim());
+    let v = serde_json::from_str::<serde_json::Value>(rest.trim()).ok()?;
+    let status = tool_status(&v);
+    let is_error = matches!(status, "error" | "denied");
     if tool_name.is_empty()
         || matches!(
             tool_name,
@@ -136,12 +176,11 @@ pub fn tool_text_view<'a>(
                 | "pdf_read"
         )
     {
-        return None;
+        if !is_error {
+            return None;
+        }
     }
 
-    let v = serde_json::from_str::<serde_json::Value>(rest.trim()).ok()?;
-    let status = tool_status(&v);
-    let is_error = matches!(status, "error" | "denied");
     let input = tool_input(&v).trim();
     let output_text = tool_output_text(&v).unwrap_or_default();
     let output = output_text.trim();
@@ -186,7 +225,7 @@ pub fn tool_text_view<'a>(
         label
     };
     let detail_btn = button(
-        icon_svg(Icon::Eye)
+        icon_svg(Icon::ChevronRight)
             .width(Length::Fixed(10.0))
             .height(Length::Fixed(10.0))
             .style(eye_icon_svg_style),
@@ -198,8 +237,17 @@ pub fn tool_text_view<'a>(
         tool_idx,
         visible.to_string(),
     )));
-    let detail_slot: Element<'a, Message> =
+    let detail_button: Element<'a, Message> =
         if is_hovered { detail_btn.into() } else { Space::new().width(Length::Fixed(22.0)).into() };
+    let detail_slot: Element<'a, Message> =
+        if let Some(message) = workflow_preview_message(tool_name, &v) {
+            row![workflow_preview_button(message), detail_button]
+                .spacing(4)
+                .align_y(Alignment::Center)
+                .into()
+        } else {
+            detail_button
+        };
 
     let head_row: Element<'a, Message> = row![
         row![

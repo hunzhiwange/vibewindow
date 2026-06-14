@@ -97,3 +97,7 @@ pub(crate) fn compute_layout_for_diagram(
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

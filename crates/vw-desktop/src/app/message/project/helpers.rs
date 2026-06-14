@@ -43,8 +43,9 @@ pub(crate) fn is_supported_image_attachment(path: &Path) -> bool {
 const CHAT_IMAGE_ATTACHMENT_DIR: &str = "chat_image_attachments";
 
 fn chat_image_attachment_dir() -> Option<PathBuf> {
-    directories::UserDirs::new()
-        .map(|dirs| dirs.home_dir().join(".vibewindow").join(CHAT_IMAGE_ATTACHMENT_DIR))
+    directories::UserDirs::new().map(|dirs| {
+        vw_config_types::paths::home_config_dir(dirs.home_dir()).join(CHAT_IMAGE_ATTACHMENT_DIR)
+    })
 }
 
 fn path_within_dir(path: &Path, dir: &Path) -> bool {
@@ -544,7 +545,15 @@ pub(crate) async fn load_gateway_recent_projects()
         })
         .await?
         .items;
-    projects.sort_by(|left, right| right.updated_at_ms.0.cmp(&left.updated_at_ms.0));
+    projects.sort_by(|left, right| {
+        right
+            .updated_at_ms
+            .0
+            .cmp(&left.updated_at_ms.0)
+            .then_with(|| left.name.cmp(&right.name))
+            .then_with(|| left.directory.cmp(&right.directory))
+            .then_with(|| left.id.0.cmp(&right.id.0))
+    });
 
     Ok(projects
         .into_iter()

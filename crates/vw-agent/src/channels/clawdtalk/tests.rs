@@ -139,4 +139,49 @@ mod tests {
         assert_eq!(event.data.payload.call_control_id, Some("call-123".to_string()));
         assert_eq!(event.data.payload.from, Some("+15551112222".to_string()));
     }
+
+    #[test]
+    fn channel_copies_config_and_supports_prefix_destination_match() {
+        let mut config = test_config();
+        config.allowed_destinations = vec!["+15551234567".to_string()];
+        config.webhook_secret = Some("webhook-secret".to_string());
+        let channel = ClawdTalkChannel::new(config);
+
+        assert_eq!(channel.api_key, "test-key");
+        assert_eq!(channel.connection_id, "test-connection");
+        assert_eq!(channel.from_number, "+15551234567");
+        assert_eq!(channel.webhook_secret.as_deref(), Some("webhook-secret"));
+        assert!(channel.is_destination_allowed("+15551234567"));
+        assert!(channel.is_destination_allowed("+155512345670"));
+        assert!(!channel.is_destination_allowed("+15559876543"));
+    }
+
+    #[tokio::test]
+    async fn initiate_call_rejects_disallowed_destination_before_network() {
+        let channel = ClawdTalkChannel::new(test_config());
+        let error =
+            channel.initiate_call("+14445550123", Some("hello")).await.unwrap_err().to_string();
+
+        assert!(error.contains("not in allowed list"));
+        assert!(error.contains("+14445550123"));
+    }
+
+    #[tokio::test]
+    async fn channel_send_propagates_destination_policy_errors() {
+        let channel = ClawdTalkChannel::new(test_config());
+        let error = Channel::send(
+            &channel,
+            &SendMessage {
+                content: "hello".to_string(),
+                recipient: "+14445550123".to_string(),
+                subject: None,
+                thread_ts: None,
+            },
+        )
+        .await
+        .unwrap_err()
+        .to_string();
+
+        assert!(error.contains("not in allowed list"));
+    }
 }
